@@ -17,6 +17,7 @@ public class World {
     private static final Logger LOG = LoggerFactory.getLogger(World.class);
     
     private final TileMap tileMap;
+    private final Pathfinding pathfinding;
     private final Map<Integer, Player> players = new HashMap<>();
     private final Map<Integer, NPC> npcs = new HashMap<>();
     private int nextEntityId = 1;
@@ -24,6 +25,7 @@ public class World {
     public World() throws Exception {
         this.tileMap = new TileMap();
         tileMap.load("assets/data/map.yaml");
+        this.pathfinding = new Pathfinding(tileMap);
         LOG.info("World initialized: {} x {} tiles", tileMap.getWidth(), tileMap.getHeight());
     }
     
@@ -49,6 +51,14 @@ public class World {
     
     public boolean canWalkTo(int x, int y) {
         return tileMap.isWalkable(x, y);
+    }
+    
+    public java.util.List<Pathfinding.Tile> findPath(int startX, int startY, int targetX, int targetY) {
+        return pathfinding.findPath(startX, startY, targetX, targetY);
+    }
+    
+    public boolean canReach(int startX, int startY, int targetX, int targetY) {
+        return pathfinding.canReach(startX, startY, targetX, targetY);
     }
     
     public Map<Integer, Player> getPlayers() {

@@ -9,12 +9,19 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.osrs.client.network.NettyClient;
 import com.osrs.client.renderer.IsometricRenderer;
+import com.osrs.client.ui.ContextMenu;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  * Main game screen (LibGDX ApplicationAdapter).
- * Handles rendering, input, and networking.
+ * 
+ * INPUT: Right-click for context menu (OSRS-style)
+ * MOVEMENT: Click "Walk here" option → pathfind to tile
+ * COMBAT: Right-click NPC → select "Attack"
  */
 public class GameScreen extends ApplicationAdapter {
     
@@ -25,6 +32,7 @@ public class GameScreen extends ApplicationAdapter {
     private OrthographicCamera camera;
     private IsometricRenderer renderer;
     private NettyClient nettyClient;
+    private ContextMenu contextMenu;
     
     private int playerX = 50;
     private int playerY = 50;
@@ -34,7 +42,6 @@ public class GameScreen extends ApplicationAdapter {
     public void create() {
         LOG.info("Game screen created");
         LOG.info("Display: {} x {}", Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
-        LOG.info("Graphics: {}", Gdx.graphics.getGLVersion().getRendererString());
         
         // Initialize graphics
         batch = new SpriteBatch();
@@ -45,6 +52,9 @@ public class GameScreen extends ApplicationAdapter {
         
         // Initialize renderer
         renderer = new IsometricRenderer(camera, batch, shapeRenderer);
+        
+        // Initialize context menu
+        contextMenu = new ContextMenu();
         
         // Initialize network
         try {
@@ -83,26 +93,123 @@ public class GameScreen extends ApplicationAdapter {
         // Placeholder: render a few NPCs
         renderer.renderNPC(52, 48, 1);
         renderer.renderNPC(55, 45, 2);
+        
+        // Render context menu if visible
+        if (contextMenu.isVisible()) {
+            renderContextMenu();
+        }
     }
     
     private void handleInput() {
-        // Arrow keys to move player
-        if (Gdx.input.isKeyPressed(Input.Keys.UP)) {
-            playerY++;
-            nettyClient.sendPlayerMovement(playerX, playerY, 0);
+        // RIGHT-CLICK opens context menu
+        if (Gdx.input.isButtonJustPressed(Input.Buttons.RIGHT)) {
+            int mouseX = Gdx.input.getX();
+            int mouseY = Gdx.input.getY();
+            
+            // Get clicked tile
+            int clickedTileX = screenToWorldX(mouseX, mouseY);
+            int clickedTileY = screenToWorldY(mouseX, mouseY);
+            
+            // Generate context menu for this tile
+            List<ContextMenu.MenuItem> options = generateContextMenu(clickedTileX, clickedTileY);
+            
+            if (!options.isEmpty()) {
+                contextMenu.open(mouseX, Gdx.graphics.getHeight() - mouseY, options);
+                LOG.debug("Context menu opened at ({}, {}) for tile ({}, {})", 
+                    mouseX, mouseY, clickedTileX, clickedTileY);
+            }
         }
-        if (Gdx.input.isKeyPressed(Input.Keys.DOWN)) {
-            playerY--;
-            nettyClient.sendPlayerMovement(playerX, playerY, 4);
+        
+        // LEFT-CLICK selects menu option (or closes menu)
+        if (Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)) {
+            int mouseX = Gdx.input.getX();
+            int mouseY = Gdx.input.getY();
+            
+            if (contextMenu.isVisible()) {
+                ContextMenu.MenuItem clicked = contextMenu.getClickedItem(mouseX, Gdx.graphics.getHeight() - mouseY);
+                if (clicked != null) {
+                    handleContextMenuAction(clicked);
+                }
+                contextMenu.close();
+            }
         }
-        if (Gdx.input.isKeyPressed(Input.Keys.LEFT)) {
-            playerX--;
-            nettyClient.sendPlayerMovement(playerX, playerY, 6);
+        
+        // ESC closes context menu
+        if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
+            contextMenu.close();
         }
-        if (Gdx.input.isKeyPressed(Input.Keys.RIGHT)) {
-            playerX++;
-            nettyClient.sendPlayerMovement(playerX, playerY, 2);
+    }
+    
+    private int screenToWorldX(int screenX, int screenY) {
+        // TODO: Implement proper screen-to-world conversion for isometric
+        // For now, approximate
+        return (int) ((screenX / 32.0f) + (screenY / 16.0f) / 2);
+    }
+    
+    private int screenToWorldY(int screenX, int screenY) {
+        // TODO: Implement proper screen-to-world conversion for isometric
+        // For now, approximate
+        return (int) ((screenY / 16.0f) - (screenX / 32.0f) / 2);
+    }
+    
+    private List<ContextMenu.MenuItem> generateContextMenu(int tileX, int tileY) {
+        List<ContextMenu.MenuItem> options = new ArrayList<>();
+        
+        // "Walk here" is always available
+        options.add(new ContextMenu.MenuItem(
+            "Walk here", 
+            "walk", 
+            new int[]{tileX, tileY}
+        ));
+        
+        // Check if there's an NPC at this tile
+        // TODO: Query world for entities at this tile
+        // For demo, hardcode NPCs
+        if ((tileX == 52 && tileY == 48) || (tileX == 55 && tileY == 45)) {
+            options.add(new ContextMenu.MenuItem("Talk", "talk", null));
+            options.add(new ContextMenu.MenuItem("Attack", "attack", null));
         }
+        
+        return options;
+    }
+    
+    private void handleContextMenuAction(ContextMenu.MenuItem item) {
+        LOG.info("Menu action selected: {}", item.label);
+        
+        if ("walk".equals(item.action)) {
+            int[] target = (int[]) item.target;
+            int targetX = target[0];
+            int targetY = target[1];
+            
+            // TODO: Calculate path using BFS
+            // For now, just move directly
+            if (canWalkTo(targetX, targetY)) {
+                playerX = targetX;
+                playerY = targetY;
+                nettyClient.sendPlayerMovement(playerX, playerY, 0);
+                LOG.info("Player moved to ({}, {})", targetX, targetY);
+            } else {
+                LOG.warn("Cannot walk to ({}, {}): blocked or out of bounds", targetX, targetY);
+            }
+        } else if ("talk".equals(item.action)) {
+            LOG.info("Talk action triggered");
+            // TODO: Open dialogue UI
+        } else if ("attack".equals(item.action)) {
+            LOG.info("Attack action triggered");
+            // TODO: Initiate combat
+        }
+    }
+    
+    private boolean canWalkTo(int x, int y) {
+        // TODO: Query server for walkability
+        // For now, allow anywhere on map
+        return x >= 0 && x < 104 && y >= 0 && y < 104;
+    }
+    
+    private void renderContextMenu() {
+        // TODO: Render context menu as text list
+        // For now, just log that it would render
+        LOG.debug("Would render context menu with {} options", contextMenu.getItems().size());
     }
     
     @Override
