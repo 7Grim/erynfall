@@ -2,6 +2,7 @@ package com.osrs.client;
 
 import com.badlogic.gdx.backends.lwjgl3.Lwjgl3Application;
 import com.badlogic.gdx.backends.lwjgl3.Lwjgl3ApplicationConfiguration;
+import org.lwjgl.system.Configuration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -15,6 +16,9 @@ public class Client {
     
     public static void main(String[] args) {
         LOG.info("OSRS MMORP Client starting...");
+        
+        // Disable GLFW thread check (allows running from Maven on non-macOS)
+        Configuration.GLFW_CHECK_THREAD0.set(false);
         
         Lwjgl3ApplicationConfiguration config = new Lwjgl3ApplicationConfiguration();
         config.setTitle("OSRS MMORP");
