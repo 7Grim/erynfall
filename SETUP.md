@@ -36,11 +36,17 @@ java -version
 # Output should show "openjdk version 21"
 ```
 
-### Install Maven
+### Install Maven (Option 1: Recommended for Windows)
 
-**Windows (choco):**
-```bash
+**Windows (using Chocolatey):**
+```powershell
 choco install maven
+```
+
+Then **restart PowerShell/CMD** and verify:
+```powershell
+mvn -v
+# Output should show "Apache Maven 3.8+"
 ```
 
 **macOS:**
@@ -53,11 +59,21 @@ brew install maven
 sudo apt install maven
 ```
 
-**Verify:**
-```bash
-mvn -v
-# Output should show "Apache Maven 3.8+"
+### Alternative: Use Maven Wrapper (No Installation Needed)
+
+If you don't want to install Maven, use the wrapper included in the repo:
+
+**Windows (PowerShell):**
+```powershell
+./mvnw.cmd clean install
 ```
+
+**macOS/Linux:**
+```bash
+./mvnw clean install
+```
+
+The wrapper will auto-download Maven on first run (~100 MB).
 
 ### Install Git
 
