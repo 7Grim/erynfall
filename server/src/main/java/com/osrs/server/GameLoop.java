@@ -93,12 +93,12 @@ public class GameLoop {
     }
     
     private void processTick() {
-        // TODO: Implement tick processing
-        // 1. Dequeue client input packets
-        // 2. Update entity positions
-        // 3. Calculate combat
-        // 4. Build delta updates
-        // 5. Broadcast to clients
+        // Tick processing stages (framework for future sprints):
+        // 1. Dequeue client input packets (S1-005)
+        // 2. Update entity positions (S1-009)
+        // 3. Validate collisions / pathfinding (S1-009)
+        // 4. Execute combat calculations (S2-011)
+        // 5. Build delta updates + broadcast (S1-005)
     }
     
     public long getTickCount() {
