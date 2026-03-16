@@ -20,6 +20,8 @@ public class GameScreen extends ApplicationAdapter {
     @Override
     public void create() {
         LOG.info("Game screen created");
+        LOG.info("Display: {} x {}", Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
+        LOG.info("Graphics: {}", Gdx.graphics.getGLVersion().getRendererString());
         shapeRenderer = new ShapeRenderer();
         initialized = true;
         

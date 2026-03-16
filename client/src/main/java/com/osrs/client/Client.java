@@ -16,9 +16,12 @@ public class Client {
     
     public static void main(String[] args) {
         LOG.info("OSRS MMORP Client starting...");
+        LOG.info("OS: {}", System.getProperty("os.name"));
+        LOG.info("Arch: {}", System.getProperty("os.arch"));
         
         // Disable GLFW thread check (allows running from Maven on non-macOS)
         Configuration.GLFW_CHECK_THREAD0.set(false);
+        LOG.info("GLFW thread check disabled");
         
         Lwjgl3ApplicationConfiguration config = new Lwjgl3ApplicationConfiguration();
         config.setTitle("OSRS MMORP");
@@ -27,7 +30,13 @@ public class Client {
         config.setForegroundFPS(60);
         config.setIdleFPS(60);
         
-        LOG.info("Creating LibGDX application");
-        new Lwjgl3Application(new GameScreen(), config);
+        LOG.info("Creating LibGDX application...");
+        try {
+            new Lwjgl3Application(new GameScreen(), config);
+            LOG.info("LibGDX application created successfully");
+        } catch (Exception e) {
+            LOG.error("Failed to create LibGDX application", e);
+            throw e;
+        }
     }
 }
