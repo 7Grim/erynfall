@@ -48,6 +48,10 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             handlePlayerMovement(ctx, (NetworkProto.PlayerMovement) msg);
         } else if (msg instanceof NetworkProto.WalkTo) {
             handleWalkTo(ctx, (NetworkProto.WalkTo) msg);
+        } else if (msg instanceof NetworkProto.Attack) {
+            handleAttack(ctx, (NetworkProto.Attack) msg);
+        } else if (msg instanceof NetworkProto.DialogueResponse) {
+            handleDialogueResponse(ctx, (NetworkProto.DialogueResponse) msg);
         } else if (msg instanceof NetworkProto.Handshake) {
             handleHandshake(ctx, (NetworkProto.Handshake) msg);
         }
@@ -107,6 +111,35 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             .build();
         
         ctx.writeAndFlush(response);
+    }
+    
+    private void handleAttack(ChannelHandlerContext ctx, NetworkProto.Attack attack) {
+        if (session.getPlayer() == null) {
+            return;
+        }
+        
+        Player player = session.getPlayer();
+        int targetId = attack.getTargetId();
+        
+        // Find target (could be NPC or another player)
+        // For now, assume NPC
+        LOG.info("Player {} initiating attack on entity {}", 
+            session.getSessionId(), targetId);
+        
+        player.setCombatTarget(targetId);
+    }
+    
+    private void handleDialogueResponse(ChannelHandlerContext ctx, NetworkProto.DialogueResponse response) {
+        if (session.getPlayer() == null) {
+            return;
+        }
+        
+        Player player = session.getPlayer();
+        LOG.debug("Player {} selected dialogue option: {}", 
+            session.getSessionId(), response.getOptionId());
+        
+        // TODO: Progress dialogue via DialogueEngine
+        // This would be handled by the game content system
     }
     
     private void sendWorldState(ChannelHandlerContext ctx) {

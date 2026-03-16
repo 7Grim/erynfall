@@ -108,6 +108,26 @@ public class NettyClient {
         LOG.debug("Sent WalkTo: ({}, {})", targetX, targetY);
     }
     
+    public void sendAttack(int targetId) {
+        NetworkProto.Attack attack = NetworkProto.Attack.newBuilder()
+            .setTargetId(targetId)
+            .setSequence(System.currentTimeMillis())
+            .build();
+        
+        channel.writeAndFlush(attack);
+        LOG.debug("Sent Attack on entity {}", targetId);
+    }
+    
+    public void sendDialogueResponse(int optionId) {
+        NetworkProto.DialogueResponse response = NetworkProto.DialogueResponse.newBuilder()
+            .setOptionId(optionId)
+            .setSequence(System.currentTimeMillis())
+            .build();
+        
+        channel.writeAndFlush(response);
+        LOG.debug("Sent dialogue response: option {}", optionId);
+    }
+    
     public boolean isConnected() {
         return channel != null && channel.isActive();
     }

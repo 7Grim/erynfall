@@ -172,10 +172,13 @@ public class GameScreen extends ApplicationAdapter {
         
         // Check if there's an NPC at this tile
         // TODO: Query world for entities at this tile
-        // For demo, hardcode NPCs
-        if ((tileX == 52 && tileY == 48) || (tileX == 55 && tileY == 45)) {
-            options.add(new ContextMenu.MenuItem("Talk", "talk", null));
-            options.add(new ContextMenu.MenuItem("Attack", "attack", null));
+        // For demo, hardcode NPCs with their IDs
+        if (tileX == 52 && tileY == 48) {  // Tutorial Guide
+            options.add(new ContextMenu.MenuItem("Talk", "talk", 1));
+            options.add(new ContextMenu.MenuItem("Attack", "attack", 1));
+        } else if (tileX == 55 && tileY == 45) {  // Combat Instructor
+            options.add(new ContextMenu.MenuItem("Talk", "talk", 2));
+            options.add(new ContextMenu.MenuItem("Attack", "attack", 2));
         }
         
         return options;
@@ -200,11 +203,18 @@ public class GameScreen extends ApplicationAdapter {
             playerY = targetY;
             
         } else if ("talk".equals(item.action)) {
-            LOG.info("Talk action triggered");
-            // TODO: Open dialogue UI
+            int npcId = (Integer) item.target;
+            LOG.info("Talk action triggered on NPC {}", npcId);
+            // Server will initiate dialogue
+            // For now, just log it
+            // TODO: Show dialogue UI when server sends DialogueMessage
+            
         } else if ("attack".equals(item.action)) {
-            LOG.info("Attack action triggered");
-            // TODO: Initiate combat
+            int targetId = (Integer) item.target;
+            LOG.info("Attack action triggered on entity {}", targetId);
+            
+            // Send attack command to server
+            nettyClient.sendAttack(targetId);
         }
     }
     
