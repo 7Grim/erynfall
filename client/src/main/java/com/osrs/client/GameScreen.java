@@ -10,7 +10,10 @@ import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.osrs.client.network.NettyClient;
 import com.osrs.client.renderer.CoordinateConverter;
 import com.osrs.client.renderer.IsometricRenderer;
+import com.osrs.client.ui.CombatUI;
 import com.osrs.client.ui.ContextMenu;
+import com.osrs.client.ui.DialogueUI;
+import com.osrs.client.ui.InventoryUI;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -34,12 +37,20 @@ public class GameScreen extends ApplicationAdapter {
     private IsometricRenderer renderer;
     private NettyClient nettyClient;
     private ContextMenu contextMenu;
+    private CombatUI combatUI;
+    private DialogueUI dialogueUI;
+    private InventoryUI inventoryUI;
     
     private int playerX = 50;
     private int playerY = 50;
     private List<Integer> walkPath = new ArrayList<>(); // Current movement path
     private int pathIndex = 0;
     private boolean initialized = false;
+    
+    // HUD stats display
+    private int playerHealth = 10;
+    private int playerMaxHealth = 10;
+    private int playerAttackLevel = 1;
     
     @Override
     public void create() {
@@ -56,8 +67,11 @@ public class GameScreen extends ApplicationAdapter {
         // Initialize renderer
         renderer = new IsometricRenderer(camera, batch, shapeRenderer);
         
-        // Initialize context menu
+        // Initialize UI systems
         contextMenu = new ContextMenu();
+        combatUI = new CombatUI();
+        dialogueUI = new DialogueUI();
+        inventoryUI = new InventoryUI();
         
         // Initialize network
         try {
