@@ -66,6 +66,18 @@
     <build>
         <plugins>
             <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>3.6.3</version>
+                <configuration>
+                    <mainClass>com.osrs.client.Client</mainClass>
+                    <arguments></arguments>
+                    <jvmArguments>
+                        <jvmArgument>-XstartOnFirstThread</jvmArgument>
+                    </jvmArguments>
+                </configuration>
+            </plugin>
+            <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
                 <version>3.5.0</version>
