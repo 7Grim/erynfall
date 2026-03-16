@@ -18,6 +18,7 @@ public class Server {
     private GameLoop gameLoop;
     private NettyServer nettyServer;
     private World world;
+    private GameContent gameContent;
     
     public Server() {
         LOG.info("OSRS MMORP Server starting...");
@@ -30,6 +31,11 @@ public class Server {
         world = new World();
         LOG.info("World loaded");
         
+        // Initialize game content (quests, dialogues)
+        gameContent = new GameContent();
+        gameContent.initializeTutorialIsland();
+        LOG.info("Game content loaded");
+        
         // Spawn NPCs (S1-010)
         spawnNPCs();
         
@@ -37,8 +43,8 @@ public class Server {
         nettyServer = new NettyServer();
         nettyServer.start();
         
-        // Start game loop
-        gameLoop = new GameLoop(TICK_INTERVAL_NS);
+        // Start game loop (with reference to world + netty for S2 systems)
+        gameLoop = new GameLoop(TICK_INTERVAL_NS, world, nettyServer);
         gameLoop.start();
         
         // Keep server running

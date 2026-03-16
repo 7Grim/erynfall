@@ -9,7 +9,7 @@ import java.util.Map;
  */
 public class Player extends Entity {
     
-    // Equipment (8 slots)
+    // Equipment (8 slots: head, body, legs, feet, hands, weapon, shield, ring)
     private int[] equipment = new int[8];
     
     // Inventory (20 slots)
@@ -19,6 +19,18 @@ public class Player extends Entity {
     // Combat state
     private int combatTarget = -1; // Entity ID of current combat target
     private long lastAttackTick = 0;
+    
+    // Skills (stored server-side in Stats, cached here for quick access)
+    private int attackLevel = 1;
+    private int strengthLevel = 1;
+    private int defenceLevel = 1;
+    private int rangedLevel = 1;
+    private int magicLevel = 1;
+    
+    // Experience (stored server-side in Stats)
+    private long attackXp = 0;
+    private long strengthXp = 0;
+    private long defenceXp = 0;
     
     public Player(int id, String name, int x, int y) {
         super(id, name, x, y);
@@ -70,4 +82,33 @@ public class Player extends Entity {
     public int getInventoryQuantity(int slot) {
         return (slot >= 0 && slot < 20) ? inventoryQuantities[slot] : 0;
     }
+    
+    // Skill getters/setters
+    public int getAttackLevel() { return attackLevel; }
+    public void setAttackLevel(int level) { this.attackLevel = level; }
+    
+    public int getStrengthLevel() { return strengthLevel; }
+    public void setStrengthLevel(int level) { this.strengthLevel = level; }
+    
+    public int getDefenceLevel() { return defenceLevel; }
+    public void setDefenceLevel(int level) { this.defenceLevel = level; }
+    
+    public int getRangedLevel() { return rangedLevel; }
+    public void setRangedLevel(int level) { this.rangedLevel = level; }
+    
+    public int getMagicLevel() { return magicLevel; }
+    public void setMagicLevel(int level) { this.magicLevel = level; }
+    
+    // Experience getters/setters
+    public long getAttackXp() { return attackXp; }
+    public void setAttackXp(long xp) { this.attackXp = xp; }
+    public void addAttackXp(long xp) { this.attackXp += xp; }
+    
+    public long getStrengthXp() { return strengthXp; }
+    public void setStrengthXp(long xp) { this.strengthXp = xp; }
+    public void addStrengthXp(long xp) { this.strengthXp += xp; }
+    
+    public long getDefenceXp() { return defenceXp; }
+    public void setDefenceXp(long xp) { this.defenceXp = xp; }
+    public void addDefenceXp(long xp) { this.defenceXp += xp; }
 }

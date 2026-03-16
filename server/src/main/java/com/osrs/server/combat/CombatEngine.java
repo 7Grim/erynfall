@@ -59,8 +59,18 @@ public class CombatEngine {
         int maxDamage = getMaxDamage(attacker);
         int damage = seed % (maxDamage + 1);
         
-        // Award XP
+        // Award XP: attacker gets Strength XP, defender gets Defence XP
         int xpAwarded = calculateXP(attacker, target, damage);
+        
+        // Apply XP to player
+        if (attacker instanceof Player) {
+            Player p = (Player) attacker;
+            p.addStrengthXp(xpAwarded);
+        }
+        if (target instanceof Player) {
+            Player p = (Player) target;
+            p.addDefenceXp(xpAwarded / 2); // Defender gets half XP
+        }
         
         return new HitResult(true, damage, xpAwarded);
     }

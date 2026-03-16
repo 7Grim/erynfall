@@ -1,5 +1,10 @@
 package com.osrs.server;
 
+import com.osrs.server.combat.CombatEngine;
+import com.osrs.server.network.NettyServer;
+import com.osrs.server.world.World;
+import com.osrs.shared.NPC;
+import com.osrs.shared.Player;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -7,10 +12,11 @@ import org.slf4j.LoggerFactory;
  * 256-tick game loop running on a dedicated thread.
  * 
  * Each tick (3.9ms) processes:
- * 1. Player input
- * 2. Entity updates
+ * 1. Player input (movement, combat commands)
+ * 2. Entity updates (positions, animations)
  * 3. Combat calculations
- * 4. Delta synchronization
+ * 4. Skill progression
+ * 5. Delta synchronization
  */
 public class GameLoop {
     
@@ -21,8 +27,15 @@ public class GameLoop {
     private Thread loopThread;
     private long tickCount = 0;
     
-    public GameLoop(long tickIntervalNs) {
+    private final World world;
+    private final NettyServer nettyServer;
+    private final CombatEngine combatEngine;
+    
+    public GameLoop(long tickIntervalNs, World world, NettyServer nettyServer) {
         this.tickIntervalNs = tickIntervalNs;
+        this.world = world;
+        this.nettyServer = nettyServer;
+        this.combatEngine = new CombatEngine();
     }
     
     public void start() {
@@ -93,12 +106,93 @@ public class GameLoop {
     }
     
     private void processTick() {
-        // Tick processing stages (framework for future sprints):
-        // 1. Dequeue client input packets (S1-005)
-        // 2. Update entity positions (S1-009)
-        // 3. Validate collisions / pathfinding (S1-009)
-        // 4. Execute combat calculations (S2-011)
-        // 5. Build delta updates + broadcast (S1-005)
+        // Tick processing stages (all happen every tick):
+        // 1. Process player input (movement, combat commands)
+        processPlayerInput();
+        
+        // 2. Update entity positions
+        updateEntityPositions();
+        
+        // 3. Process combat
+        processCombat();
+        
+        // 4. Update skills/experience
+        updateSkills();
+        
+        // 5. Send delta updates to clients (S1-005 TODO)
+        // broadcastWorldState();
+    }
+    
+    /**
+     * Process queued player input commands.
+     * TODO: Dequeue from player sessions.
+     */
+    private void processPlayerInput() {
+        // Placeholder: input is currently processed by ServerPacketHandler
+        // In a full implementation, we'd dequeue command packets here
+    }
+    
+    /**
+     * Update entity positions (movement animation interpolation).
+     * TODO: Smooth movement between waypoints.
+     */
+    private void updateEntityPositions() {
+        // Placeholder: positions are updated immediately in ServerPacketHandler
+        // In a full implementation, we'd animate movement here
+    }
+    
+    /**
+     * Process all active combats.
+     * Each player in combat rolls hit/miss/damage every attack speed ticks.
+     */
+    private void processCombat() {
+        for (Player player : world.getPlayers().values()) {
+            if (!player.isInCombat()) {
+                continue;
+            }
+            
+            NPC target = world.getNPC(player.getCombatTarget());
+            if (target == null || target.getHealth() <= 0) {
+                // Target is dead or doesn't exist
+                player.setCombatTarget(-1);
+                LOG.debug("Player {} combat ended (target dead/gone)", player.getId());
+                continue;
+            }
+            
+            // Attack every 4 ticks (default weapon speed)
+            // TODO: Check weapon for actual attack speed
+            int attackSpeed = 4;
+            if (tickCount - player.getLastAttackTick() >= attackSpeed) {
+                // Roll hit/miss/damage
+                CombatEngine.HitResult result = combatEngine.calculateHit(player, target, tickCount);
+                
+                // Apply damage
+                if (result.hit) {
+                    target.setHealth(target.getHealth() - result.damage);
+                    LOG.debug("Player {} hit {} for {}", 
+                        player.getId(), target.getId(), result.damage);
+                } else {
+                    LOG.debug("Player {} missed {}", player.getId(), target.getId());
+                }
+                
+                // Award XP (TODO: to actual stats)
+                // player.getStats().addExperience(Skill.STRENGTH, result.xpAwarded);
+                
+                // Update last attack tick
+                player.setLastAttackTick(tickCount);
+                
+                // TODO: Broadcast CombatHit packet to clients
+            }
+        }
+    }
+    
+    /**
+     * Update skill experience and levels.
+     * TODO: Process XP awards and level-up events.
+     */
+    private void updateSkills() {
+        // Placeholder: XP tracking is in Stats class
+        // In a full implementation, we'd process level-up events here
     }
     
     public long getTickCount() {
