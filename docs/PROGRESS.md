@@ -1,10 +1,38 @@
 # PROGRESS.md - Sprint Tracking
 
-**Last Updated:** 2026-02-26 (Project Kickoff)
+**Last Updated:** 2026-03-16 (Setup Verified on Windows)
 
 **Current Sprint:** S1 (Foundation: Tick Loop & Networking)
 
+**Current Task:** S1-002 (Server Tick Loop Implementation)
+
 **Team:** victorystyle (lead dev), game artist (TBD)
+
+---
+
+## 🚀 Your Next Move (Right Now)
+
+```bash
+# 1. Pull latest from main
+git pull origin main
+
+# 2. Create feature branch for S1-002
+git checkout -b feature/s1-002-tick-loop
+
+# 3. Edit GameLoop.java (see S1-002 section below for details)
+# - Improve timing precision
+# - Implement processTick() stub
+# - Add better logging
+
+# 4. Test: Run Server.java, watch for tick output for 30+ seconds
+# Should see: Tick 256 (uptime: 1 sec), Tick 512 (uptime: 2 sec), etc.
+
+# 5. If working: Commit + push + create PR (see docs/CONTRIBUTING.md)
+```
+
+**Estimated time:** 2-4 hours
+
+---
 
 ---
 
@@ -32,25 +60,104 @@ This document tracks:
 ### S1-001: Maven Project Setup ✅
 - ✅ **Complete** — All modules created, dependencies resolved
 - **Deliverable:** Multi-module pom.xml, clean build
-- **Time:** ~1 hour
-- **Merged:** Main branch ready
+- **Time:** 1 hour
+- **Merged:** Main branch (commit 42ebe00)
+- **Verified:** Windows 11 + IntelliJ (server + client both run)
+- **Notes:** Maven wrapper added for Windows support; LibGDX GUI works on Windows, headless mode for M2 Mac
 
-### S1-002: Server Tick Loop 🟡
-- 🟡 **In progress**
-- **Task:** Implement 256 ticks/sec loop in `com.osrs.server.Server`
-- **What to build:**
-  - `Server` class with main method
-  - `GameLoop` class (runs on separate thread)
-  - Tick counter + nanosecond timing
-  - Graceful shutdown on SIGTERM
-  - Log tick count every 256 ticks (1 sec)
-- **Acceptance Criteria:**
-  - Server runs for 10 seconds, prints "Tick N" once per second
-  - No timing drift (nanosecond precision)
-  - Shutdown exits cleanly
-- **Estimated:** 4-6 hours
-- **Blocker:** None
-- **PR:** (pending)
+### S1-002: Server Tick Loop (Proper Implementation) 🔲
+- 🔲 **Not started**
+- **Branch:** `feature/s1-002-tick-loop`
+- **Task:** Enhance tick loop with proper implementation (stub exists, needs completion)
+
+#### What Needs Implementation
+
+**In `GameLoop.java`:**
+
+1. **Tick Processing Method**
+   ```java
+   private void processTick() {
+       // Called once per tick (3.9ms interval)
+       // TODO: Implement stages:
+       // 1. Process input (placeholder for now)
+       // 2. Update entities (placeholder for now)
+       // 3. Calculate collisions (placeholder for now)
+       // 4. Send deltas to clients (placeholder for now)
+   }
+   ```
+
+2. **Timing Precision**
+   - Use `System.nanoTime()` (not `System.currentTimeMillis()`)
+   - Calculate sleep time: `long sleepNs = TICK_INTERVAL_NS - (now - lastTickNs)`
+   - Handle tick overruns gracefully (log warning, don't skip)
+
+3. **Logging**
+   - Log tick count every 256 ticks (once per second)
+   - Format: `"Tick {} (uptime: {} sec)"`
+   - Log any tick overruns >10% (>4.3ms)
+
+#### Acceptance Criteria
+
+- [ ] Server runs continuously for ≥30 seconds without stopping
+- [ ] Prints tick count every 1 second: `Tick 256 (uptime: 1 sec)` → `Tick 512 (uptime: 2 sec)` etc.
+- [ ] No timing drift: Last tick at 30 sec ≈ 7680 ticks (≤1% variance)
+- [ ] Shutdown on Ctrl+C exits cleanly within 2 seconds
+- [ ] No exceptions in logs (only INFO + WARN)
+- [ ] processTick() method exists (can be stubbed, will fill in later)
+
+#### Testing Steps
+
+```bash
+git checkout -b feature/s1-002-tick-loop
+
+# Edit GameLoop.java:
+# 1. Implement processTick() method (can be empty or just comment)
+# 2. Improve timing precision if needed
+
+# Run server
+# Open Server.java → click green play button
+
+# Watch output for 30+ seconds:
+# [INFO] Tick 256 (uptime: 1 sec)
+# [INFO] Tick 512 (uptime: 2 sec)
+# ... (should be consistent)
+
+# Press Ctrl+C to stop
+# Should see: [INFO] Game loop exited at tick XXXX
+```
+
+#### Success Indicators
+
+✅ Ticks increment smoothly  
+✅ One log line per second (no gaps, no doubles)  
+✅ Shutdown is clean (no hanging)  
+✅ No exceptions or errors in console  
+
+#### Implementation Notes
+
+- The stub `GameLoop.java` already exists (commit eac91f2)
+- `processTick()` is a placeholder — you just need to ensure the loop runs correctly
+- Focus on **timing precision** — this is the foundation
+- No entity logic needed yet (that's S1-010)
+
+#### Time Estimate: 2-4 hours
+- 30 min: Understand current code
+- 1 hour: Improve timing precision + logging
+- 30 min: Testing + debugging
+- 30 min: Clean up + document + commit
+
+#### Blocker: None
+
+#### Related Files
+- `server/src/main/java/com/osrs/server/GameLoop.java` (main work)
+- `server/src/main/java/com/osrs/server/Server.java` (initialization)
+
+#### PR Checklist
+- [ ] Branch name: `feature/s1-002-tick-loop`
+- [ ] 3-5 commits (one per logical step)
+- [ ] Tested for 30+ seconds (tick count verified)
+- [ ] PROGRESS.md updated (mark S1-002 complete)
+- [ ] PR description includes test results
 
 ### S1-003: Netty Server TCP Listener
 - 🔲 **Not started**
