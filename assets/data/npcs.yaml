@@ -1,0 +1,49 @@
+# Tutorial Island NPC Configuration
+
+npcs:
+  - id: 1
+    name: "Tutorial Guide"
+    definition_id: 1
+    spawn_x: 50
+    spawn_y: 50
+    sprite_id: 1000
+    health: 100
+    max_health: 100
+    dialogue:
+      initial: "dialogue_tutorial_intro"
+      responses:
+        - "dialogue_combat_intro"
+        - "dialogue_skills_intro"
+    walk_speed: 2
+    walk_path: []  # Idle at spawn point
+
+  - id: 2
+    name: "Combat Instructor"
+    definition_id: 2
+    spawn_x: 55
+    spawn_y: 45
+    sprite_id: 1001
+    health: 100
+    max_health: 100
+    dialogue:
+      initial: "dialogue_combat_instructor"
+      responses: []
+    walk_speed: 2
+    walk_path: []
+
+  - id: 3
+    name: "Rat"
+    definition_id: 3
+    spawn_x: 45
+    spawn_y: 50
+    sprite_id: 1002
+    health: 15
+    max_health: 15
+    attack_level: 5
+    defence_level: 5
+    aggressive: false
+    walk_speed: 3
+    walk_path: []
+
+  # Additional NPCs (9 more for Tutorial Island)
+  # TODO: Add remaining 12 NPCs as per Tutorial Island design

@@ -1,0 +1,80 @@
+# Tutorial Island Dialogue Trees
+
+dialogues:
+  dialogue_tutorial_intro:
+    npc_id: 1
+    npc_name: "Tutorial Guide"
+    npc_says: "Welcome to Tutorial Island, adventurer! I am here to teach you the basics of RuneScape."
+    options:
+      - option_id: 1
+        text: "Tell me about combat"
+        next_dialogue: "dialogue_combat_intro"
+      - option_id: 2
+        text: "How do I gain experience?"
+        next_dialogue: "dialogue_xp_intro"
+      - option_id: 3
+        text: "I'll explore on my own"
+        next_dialogue: null
+
+  dialogue_combat_intro:
+    npc_id: 1
+    npc_name: "Tutorial Guide"
+    npc_says: "Combat is essential for survival. You'll need to develop your Attack, Strength, and Defence skills."
+    options:
+      - option_id: 1
+        text: "Where can I practice?"
+        next_dialogue: "dialogue_combat_location"
+      - option_id: 2
+        text: "How does combat work?"
+        next_dialogue: "dialogue_combat_mechanics"
+      - option_id: 3
+        text: "[Back]"
+        next_dialogue: "dialogue_tutorial_intro"
+
+  dialogue_xp_intro:
+    npc_id: 1
+    npc_name: "Tutorial Guide"
+    npc_says: "Experience points are gained by performing actions related to each skill. Combat enemies for Attack XP, deal damage for Strength XP, and so on."
+    options:
+      - option_id: 1
+        text: "That makes sense"
+        next_dialogue: "dialogue_tutorial_intro"
+
+  dialogue_combat_location:
+    npc_id: 1
+    npc_name: "Tutorial Guide"
+    npc_says: "Head to the east side of Tutorial Island. There you'll find some rats you can practice on."
+    options:
+      - option_id: 1
+        text: "[Back]"
+        next_dialogue: "dialogue_combat_intro"
+
+  dialogue_combat_mechanics:
+    npc_id: 1
+    npc_name: "Tutorial Guide"
+    npc_says: "In combat, your Attack level determines hit chance, Strength increases damage, and Defence reduces incoming damage."
+    options:
+      - option_id: 1
+        text: "[Back]"
+        next_dialogue: "dialogue_combat_intro"
+
+  dialogue_combat_instructor:
+    npc_id: 2
+    npc_name: "Combat Instructor"
+    npc_says: "Ready to learn how to fight properly?"
+    options:
+      - option_id: 1
+        text: "Yes, teach me"
+        next_dialogue: "dialogue_combat_lesson"
+      - option_id: 2
+        text: "Not now"
+        next_dialogue: null
+
+  dialogue_combat_lesson:
+    npc_id: 2
+    npc_name: "Combat Instructor"
+    npc_says: "Good! Now go defeat 5 rats and return to me. This will build your combat experience."
+    options:
+      - option_id: 1
+        text: "I'll do it"
+        next_dialogue: null

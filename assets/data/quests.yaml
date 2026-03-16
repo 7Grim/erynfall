@@ -1,0 +1,52 @@
+# Tutorial Island Quest Configuration
+
+quests:
+  - id: 1
+    name: "Tutorial Island"
+    description: "Complete the Tutorial Island training"
+    free_to_play: true
+    tasks:
+      - id: "speak_guide"
+        type: "dialogue"
+        npc_id: 1
+        dialogue_id: "dialogue_tutorial_intro"
+        reward_xp: 10
+        
+      - id: "learn_combat"
+        type: "dialogue"
+        npc_id: 2
+        dialogue_id: "dialogue_combat_instructor"
+        reward_xp: 25
+        
+      - id: "kill_rats"
+        type: "kill"
+        npc_id: 3
+        count: 5
+        reward_xp: 150
+        
+      - id: "collect_logs"
+        type: "collect"
+        item_id: 101
+        count: 10
+        reward_xp: 100
+        
+      - id: "cook_food"
+        type: "action"
+        action: "cook_logs"
+        count: 5
+        reward_xp: 100
+        
+      - id: "equip_armor"
+        type: "equip"
+        item_id: 201
+        reward_xp: 50
+
+    # Quest completion reward
+    total_reward_xp: 435
+    total_reward_gold: 0
+    
+    # Skill requirements (none for tutorial)
+    requirements: []
+    
+    # Next quest after completion
+    next_quest_id: null
