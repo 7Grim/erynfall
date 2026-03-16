@@ -9,10 +9,6 @@ import java.util.Map;
  */
 public class Player extends Entity {
     
-    // Stats (experience values)
-    private final Map<String, Long> experience = new HashMap<>();
-    private final Map<String, Integer> levels = new HashMap<>();
-    
     // Equipment (8 slots)
     private int[] equipment = new int[8];
     
@@ -20,41 +16,34 @@ public class Player extends Entity {
     private int[] inventoryItemIds = new int[20];
     private int[] inventoryQuantities = new int[20];
     
+    // Combat state
+    private int combatTarget = -1; // Entity ID of current combat target
+    private long lastAttackTick = 0;
+    
     public Player(int id, String name, int x, int y) {
         super(id, name, x, y);
-        initializeStats();
+        this.health = 10; // Initial hitpoints
+        this.maxHealth = 10;
     }
     
-    private void initializeStats() {
-        String[] skills = {"attack", "strength", "defence", "hitpoints"};
-        for (String skill : skills) {
-            experience.put(skill, 0L);
-            levels.put(skill, 1);
-        }
+    public int getCombatTarget() {
+        return combatTarget;
     }
     
-    public long getExperience(String skill) {
-        return experience.getOrDefault(skill, 0L);
+    public void setCombatTarget(int entityId) {
+        this.combatTarget = entityId;
     }
     
-    public void addExperience(String skill, long amount) {
-        experience.put(skill, experience.getOrDefault(skill, 0L) + amount);
-        updateLevel(skill);
+    public boolean isInCombat() {
+        return combatTarget >= 0;
     }
     
-    public int getLevel(String skill) {
-        return levels.getOrDefault(skill, 1);
+    public long getLastAttackTick() {
+        return lastAttackTick;
     }
     
-    private void updateLevel(String skill) {
-        long xp = experience.get(skill);
-        int level = calculateLevel(xp);
-        levels.put(skill, level);
-    }
-    
-    private int calculateLevel(long xp) {
-        // Simplified: 1 XP per level, max level 99
-        return Math.min(99, 1 + (int) (xp / 1000L));
+    public void setLastAttackTick(long tick) {
+        this.lastAttackTick = tick;
     }
     
     public void setEquipment(int slot, int itemId) {
