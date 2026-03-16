@@ -8,6 +8,7 @@ import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.osrs.client.network.NettyClient;
+import com.osrs.client.renderer.CoordinateConverter;
 import com.osrs.client.renderer.IsometricRenderer;
 import com.osrs.client.ui.ContextMenu;
 import org.slf4j.Logger;
@@ -20,7 +21,7 @@ import java.util.List;
  * Main game screen (LibGDX ApplicationAdapter).
  * 
  * INPUT: Right-click for context menu (OSRS-style)
- * MOVEMENT: Click "Walk here" option → pathfind to tile
+ * MOVEMENT: Click "Walk here" option → send pathfind request to server
  * COMBAT: Right-click NPC → select "Attack"
  */
 public class GameScreen extends ApplicationAdapter {
@@ -36,6 +37,8 @@ public class GameScreen extends ApplicationAdapter {
     
     private int playerX = 50;
     private int playerY = 50;
+    private List<Integer> walkPath = new ArrayList<>(); // Current movement path
+    private int pathIndex = 0;
     private boolean initialized = false;
     
     @Override
@@ -81,6 +84,9 @@ public class GameScreen extends ApplicationAdapter {
         // Handle input
         handleInput();
         
+        // Update player position (follow path if walking)
+        updateMovement();
+        
         // Update camera
         camera.update();
         
@@ -98,35 +104,39 @@ public class GameScreen extends ApplicationAdapter {
         if (contextMenu.isVisible()) {
             renderContextMenu();
         }
+        
+        // Render debug info
+        renderDebugInfo();
     }
     
     private void handleInput() {
         // RIGHT-CLICK opens context menu
         if (Gdx.input.isButtonJustPressed(Input.Buttons.RIGHT)) {
-            int mouseX = Gdx.input.getX();
-            int mouseY = Gdx.input.getY();
+            int screenX = Gdx.input.getX();
+            int screenY = Gdx.input.getY();
             
-            // Get clicked tile
-            int clickedTileX = screenToWorldX(mouseX, mouseY);
-            int clickedTileY = screenToWorldY(mouseX, mouseY);
+            // Convert screen coords to world tile coords
+            int clickedTileX = CoordinateConverter.screenToWorldX(screenX, Gdx.graphics.getHeight() - screenY);
+            int clickedTileY = CoordinateConverter.screenToWorldY(screenX, Gdx.graphics.getHeight() - screenY);
+            
+            LOG.debug("Right-clicked at screen ({}, {}) → world tile ({}, {})", 
+                screenX, screenY, clickedTileX, clickedTileY);
             
             // Generate context menu for this tile
             List<ContextMenu.MenuItem> options = generateContextMenu(clickedTileX, clickedTileY);
             
             if (!options.isEmpty()) {
-                contextMenu.open(mouseX, Gdx.graphics.getHeight() - mouseY, options);
-                LOG.debug("Context menu opened at ({}, {}) for tile ({}, {})", 
-                    mouseX, mouseY, clickedTileX, clickedTileY);
+                contextMenu.open(screenX, Gdx.graphics.getHeight() - screenY, options);
             }
         }
         
         // LEFT-CLICK selects menu option (or closes menu)
         if (Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)) {
-            int mouseX = Gdx.input.getX();
-            int mouseY = Gdx.input.getY();
+            int screenX = Gdx.input.getX();
+            int screenY = Gdx.input.getY();
             
             if (contextMenu.isVisible()) {
-                ContextMenu.MenuItem clicked = contextMenu.getClickedItem(mouseX, Gdx.graphics.getHeight() - mouseY);
+                ContextMenu.MenuItem clicked = contextMenu.getClickedItem(screenX, Gdx.graphics.getHeight() - screenY);
                 if (clicked != null) {
                     handleContextMenuAction(clicked);
                 }
@@ -140,22 +150,20 @@ public class GameScreen extends ApplicationAdapter {
         }
     }
     
-    private int screenToWorldX(int screenX, int screenY) {
-        // TODO: Implement proper screen-to-world conversion for isometric
-        // For now, approximate
-        return (int) ((screenX / 32.0f) + (screenY / 16.0f) / 2);
-    }
-    
-    private int screenToWorldY(int screenX, int screenY) {
-        // TODO: Implement proper screen-to-world conversion for isometric
-        // For now, approximate
-        return (int) ((screenY / 16.0f) - (screenX / 32.0f) / 2);
+    private void updateMovement() {
+        // TODO: Implement smooth pathfinding movement
+        // For now, just move directly to target
     }
     
     private List<ContextMenu.MenuItem> generateContextMenu(int tileX, int tileY) {
         List<ContextMenu.MenuItem> options = new ArrayList<>();
         
-        // "Walk here" is always available
+        // Validate tile is in bounds
+        if (!CoordinateConverter.isValidTile(tileX, tileY)) {
+            return options;
+        }
+        
+        // "Walk here" is always available (placeholder: assume all tiles walkable)
         options.add(new ContextMenu.MenuItem(
             "Walk here", 
             "walk", 
@@ -181,16 +189,16 @@ public class GameScreen extends ApplicationAdapter {
             int targetX = target[0];
             int targetY = target[1];
             
-            // TODO: Calculate path using BFS
-            // For now, just move directly
-            if (canWalkTo(targetX, targetY)) {
-                playerX = targetX;
-                playerY = targetY;
-                nettyClient.sendPlayerMovement(playerX, playerY, 0);
-                LOG.info("Player moved to ({}, {})", targetX, targetY);
-            } else {
-                LOG.warn("Cannot walk to ({}, {}): blocked or out of bounds", targetX, targetY);
-            }
+            LOG.info("Walk action: player at ({}, {}) → target ({}, {})", 
+                playerX, playerY, targetX, targetY);
+            
+            // Send walk-to request to server (which will calculate pathfinding)
+            nettyClient.sendWalkTo(targetX, targetY);
+            
+            // For now, move directly (server will validate + send back corrected path)
+            playerX = targetX;
+            playerY = targetY;
+            
         } else if ("talk".equals(item.action)) {
             LOG.info("Talk action triggered");
             // TODO: Open dialogue UI
@@ -200,16 +208,14 @@ public class GameScreen extends ApplicationAdapter {
         }
     }
     
-    private boolean canWalkTo(int x, int y) {
-        // TODO: Query server for walkability
-        // For now, allow anywhere on map
-        return x >= 0 && x < 104 && y >= 0 && y < 104;
-    }
-    
     private void renderContextMenu() {
         // TODO: Render context menu as text list
-        // For now, just log that it would render
-        LOG.debug("Would render context menu with {} options", contextMenu.getItems().size());
+        // For now, just log
+    }
+    
+    private void renderDebugInfo() {
+        // TODO: Render player position + debug info at top of screen
+        // LOG.debug("Player: ({}, {}), Tiles: {}", playerX, playerY, contextMenu.getItems().size());
     }
     
     @Override

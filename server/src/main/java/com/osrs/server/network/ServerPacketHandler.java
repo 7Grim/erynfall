@@ -46,6 +46,8 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
         // Handle incoming packets
         if (msg instanceof NetworkProto.PlayerMovement) {
             handlePlayerMovement(ctx, (NetworkProto.PlayerMovement) msg);
+        } else if (msg instanceof NetworkProto.WalkTo) {
+            handleWalkTo(ctx, (NetworkProto.WalkTo) msg);
         } else if (msg instanceof NetworkProto.Handshake) {
             handleHandshake(ctx, (NetworkProto.Handshake) msg);
         }
@@ -78,6 +80,23 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
         
         LOG.debug("Player {} moved to ({}, {})", 
             session.getSessionId(), movement.getX(), movement.getY());
+    }
+    
+    private void handleWalkTo(ChannelHandlerContext ctx, NetworkProto.WalkTo walkTo) {
+        if (session.getPlayer() == null) {
+            return;
+        }
+        
+        Player player = session.getPlayer();
+        int targetX = walkTo.getTargetX();
+        int targetY = walkTo.getTargetY();
+        
+        // TODO: Calculate pathfinding via World.findPath()
+        // For now, just validate and move directly
+        player.setPosition(targetX, targetY);
+        
+        LOG.debug("Player {} walk-to request: ({}, {})", 
+            session.getSessionId(), targetX, targetY);
     }
     
     private void sendHandshakeResponse(ChannelHandlerContext ctx, boolean success, String message, int playerId) {

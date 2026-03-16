@@ -26,6 +26,13 @@ message PlayerMovement {
     int64 sequence = 4;       // Packet sequence number
 }
 
+// WalkTo: Client → Server (request to pathfind to destination)
+message WalkTo {
+    int32 target_x = 1;       // Target tile X
+    int32 target_y = 2;       // Target tile Y
+    int64 sequence = 3;       // Packet sequence number
+}
+
 // Entity: Server → Client (represents any entity)
 message Entity {
     int32 id = 1;

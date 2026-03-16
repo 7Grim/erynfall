@@ -97,6 +97,17 @@ public class NettyClient {
         channel.writeAndFlush(movement);
     }
     
+    public void sendWalkTo(int targetX, int targetY) {
+        NetworkProto.WalkTo walkTo = NetworkProto.WalkTo.newBuilder()
+            .setTargetX(targetX)
+            .setTargetY(targetY)
+            .setSequence(System.currentTimeMillis())
+            .build();
+        
+        channel.writeAndFlush(walkTo);
+        LOG.debug("Sent WalkTo: ({}, {})", targetX, targetY);
+    }
+    
     public boolean isConnected() {
         return channel != null && channel.isActive();
     }
