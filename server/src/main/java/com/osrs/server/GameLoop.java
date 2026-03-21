@@ -105,22 +105,38 @@ public class GameLoop {
         LOG.info("Game loop exited at tick {}", tickCount);
     }
     
+    /**
+     * 6-stage tick processing (EXACT ORDER MATTERS for determinism)
+     * See EXHAUSTIVE_DEVELOPMENT_ROADMAP.md for stage definitions
+     */
     private void processTick() {
-        // Tick processing stages (all happen every tick):
-        // 1. Process player input (movement, combat commands)
-        processPlayerInput();
-        
-        // 2. Update entity positions
-        updateEntityPositions();
-        
-        // 3. Process combat
-        processCombat();
-        
-        // 4. Update skills/experience
-        updateSkills();
-        
-        // 5. Send delta updates to clients (S1-005 TODO)
-        // broadcastWorldState();
+        try {
+            // Stage 1: Input dequeue (dequeue packets from Netty)
+            // Currently handled by ServerPacketHandler directly
+            // TODO: Create InputTicker to centralize this
+            
+            // Stage 2: Movement update (update player positions via pathfinding)
+            // TODO: Create MovementTicker
+            updateEntityPositions();
+            
+            // Stage 3: Combat calculation (CombatEngine integration)
+            // TODO: Create CombatTicker with proper stage 3 semantics
+            processCombat();
+            
+            // Stage 4: Skill progression (XP awards, level-ups)
+            // TODO: Create SkillTicker
+            updateSkills();
+            
+            // Stage 5: Loot generation (drop items, remove dead entities)
+            // TODO: Create LootTicker
+            
+            // Stage 6: Broadcast to clients (send delta packets)
+            // TODO: Create BroadcastTicker
+            // broadcastWorldState();
+            
+        } catch (Exception e) {
+            LOG.error("Error in tick {}", tickCount, e);
+        }
     }
     
     /**
