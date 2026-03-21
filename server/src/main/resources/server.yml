@@ -1,0 +1,32 @@
+# OSRS-MMORP Server Configuration
+# This file is loaded on startup via ServerConfig.load()
+
+server:
+  port: 43594
+  tick_rate_hz: 256
+  tick_interval_ns: 3906250  # 1_000_000_000 / 256
+  max_players_local: 1  # MVP is solo
+  max_players_future: 1000  # Document future goal
+
+database:
+  url: "jdbc:postgresql://localhost:5432/osrs_mmorp"
+  user: "postgres"
+  password: "password"  # TODO: Move to environment variable
+  max_connections: 10
+
+network:
+  boss_threads: 1
+  worker_threads: 4
+  read_timeout_ms: 30000
+  write_timeout_ms: 30000
+
+logging:
+  level: "INFO"
+  file: "logs/server.log"
+  max_file_size_mb: 100
+
+game:
+  combat_range: 2
+  npc_respawn_ticks: 600  # 600 ticks = ~2.3 seconds
+  item_despawn_hours: 1
+  idle_disconnect_minutes: 30

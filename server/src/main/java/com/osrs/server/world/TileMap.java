@@ -59,6 +59,32 @@ public class TileMap {
         return tileId == 0;
     }
     
+    /**
+     * Initialize a default walkable map (all tiles walkable)
+     * Used when no YAML map file is loaded
+     */
+    public void initializeDefaultMap(int width, int height) {
+        this.width = width;
+        this.height = height;
+        this.layout = new int[height][width];
+        
+        // Initialize all tiles as walkable (grass)
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                layout[y][x] = 0;  // 0 = grass (walkable)
+            }
+        }
+        
+        LOG.info("Initialized default map: {} x {} tiles", width, height);
+    }
+    
+    /**
+     * Get total number of tiles
+     */
+    public int getTotalTiles() {
+        return width * height;
+    }
+    
     public int getWidth() {
         return width;
     }

@@ -1,0 +1,193 @@
+# OSRS-MMORP World Configuration
+# Defines maps, NPCs, spawns, and world state
+
+world:
+  spawn_x: 3222
+  spawn_y: 3218
+  spawn_location: "lumbridge"
+
+maps:
+  lumbridge:
+    name: "Lumbridge"
+    min_x: 3200
+    min_y: 3190
+    max_x: 3250
+    max_y: 3240
+    description: "Starting area with chickens, goblins, and basic training"
+  
+  tutorial_island:
+    name: "Tutorial Island"
+    min_x: 3040
+    min_y: 3090
+    max_x: 3140
+    max_y: 3140
+    description: "Tutorial training area"
+
+npcs:
+  # Tutorial Island
+  - id: 1
+    name: "Tutorial Guide"
+    combat_level: 0
+    location: "tutorial_island"
+    x: 3080
+    y: 3100
+    is_aggressive: false
+  
+  - id: 2
+    name: "Combat Instructor"
+    combat_level: 0
+    location: "tutorial_island"
+    x: 3100
+    y: 3100
+    is_aggressive: false
+  
+  # Training Rats (Tutorial Island)
+  - id: 3
+    name: "Rat"
+    combat_level: 3
+    location: "tutorial_island"
+    x: 3050
+    y: 3110
+    is_aggressive: false
+    loot_table: "rat_basic"
+  
+  - id: 4
+    name: "Rat"
+    combat_level: 3
+    location: "tutorial_island"
+    x: 3055
+    y: 3110
+    is_aggressive: false
+    loot_table: "rat_basic"
+  
+  - id: 5
+    name: "Rat"
+    combat_level: 3
+    location: "tutorial_island"
+    x: 3060
+    y: 3110
+    is_aggressive: false
+    loot_table: "rat_basic"
+  
+  # Lumbridge - Chickens
+  - id: 6
+    name: "Chicken"
+    combat_level: 1
+    location: "lumbridge"
+    x: 3230
+    y: 3205
+    is_aggressive: false
+    loot_table: "chicken_basic"
+  
+  - id: 7
+    name: "Chicken"
+    combat_level: 1
+    location: "lumbridge"
+    x: 3235
+    y: 3205
+    is_aggressive: false
+    loot_table: "chicken_basic"
+  
+  - id: 8
+    name: "Chicken"
+    combat_level: 1
+    location: "lumbridge"
+    x: 3240
+    y: 3205
+    is_aggressive: false
+    loot_table: "chicken_basic"
+  
+  # Lumbridge - Cows
+  - id: 9
+    name: "Cow"
+    combat_level: 5
+    location: "lumbridge"
+    x: 3210
+    y: 3220
+    is_aggressive: false
+    loot_table: "cow_basic"
+  
+  - id: 10
+    name: "Cow"
+    combat_level: 5
+    location: "lumbridge"
+    x: 3215
+    y: 3220
+    is_aggressive: false
+    loot_table: "cow_basic"
+  
+  # Lumbridge - Goblins
+  - id: 11
+    name: "Goblin"
+    combat_level: 5
+    location: "lumbridge"
+    x: 3210
+    y: 3210
+    is_aggressive: false
+    loot_table: "goblin_basic"
+
+spawns:
+  # Respawn definitions (for later NPC respawning)
+  chicken_spawn:
+    npc_ids: [6, 7, 8]
+    respawn_ticks: 600  # ~2.3 seconds
+    max_alive: 3
+  
+  cow_spawn:
+    npc_ids: [9, 10]
+    respawn_ticks: 1200  # ~4.6 seconds
+    max_alive: 2
+  
+  goblin_spawn:
+    npc_ids: [11]
+    respawn_ticks: 900  # ~3.5 seconds
+    max_alive: 1
+
+loot_tables:
+  rat_basic:
+    always:
+      - item_id: 526  # Bones
+        quantity: 1
+    common:
+      - item_id: 1000  # Cheese (placeholder)
+        quantity: 1
+        chance: 100
+  
+  chicken_basic:
+    always:
+      - item_id: 526  # Bones
+        quantity: 1
+      - item_id: 2138  # Raw chicken
+        quantity: 1
+      - item_id: 314  # Feathers
+        quantity: 5
+        max_quantity: 15  # 5-15
+    rare:
+      - item_id: 995  # Coins
+        quantity: 5
+        max_quantity: 25  # 5-25
+        chance: 30
+  
+  cow_basic:
+    always:
+      - item_id: 526  # Bones
+        quantity: 1
+      - item_id: 2142  # Raw beef
+        quantity: 1
+      - item_id: 1739  # Cowhide
+        quantity: 1
+    rare:
+      - item_id: 995  # Coins
+        quantity: 10
+        max_quantity: 50
+        chance: 50
+  
+  goblin_basic:
+    always:
+      - item_id: 526  # Bones
+        quantity: 1
+    common:
+      - item_id: 995  # Coins
+        quantity: 5
+        max_quantity: 25  # 5-25
+        chance: 70
