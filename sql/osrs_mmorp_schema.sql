@@ -353,7 +353,7 @@ GO
 CREATE TABLE osrs.trade_history (
   id INT IDENTITY(1,1) PRIMARY KEY,
   initiator_id INT NOT NULL REFERENCES osrs.players(id) ON DELETE CASCADE,
-  recipient_id INT NOT NULL REFERENCES osrs.players(id) ON DELETE CASCADE,
+  recipient_id INT NOT NULL REFERENCES osrs.players(id) ON DELETE NO ACTION,
   item_id INT NOT NULL REFERENCES osrs.items(id),
   quantity INT NOT NULL,
   completed_at DATETIME2 DEFAULT GETDATE()
