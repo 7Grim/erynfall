@@ -1,226 +1,209 @@
 package com.osrs.server.database;
 
-import com.osrs.server.config.ServerConfig;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.sql.Connection;
-import java.sql.Statement;
+import java.sql.SQLException;
 
 /**
- * Database manager for connection pooling and migrations.
- * Handles PostgreSQL connection pool and schema initialization.
+ * DatabaseManager - Singleton connection pool manager for OSRS-MMORP
+ *
+ * Manages HikariCP connection pooling to SQL Server database (osrsmmorp)
+ * Features:
+ * - Thread-safe singleton pattern
+ * - Lazy initialization
+ * - Graceful shutdown hook
+ * - Connection validation & retry logic
+ *
+ * Usage:
+ *   DatabaseManager.initialize();  // Call once during Server startup
+ *   Connection conn = DatabaseManager.getConnection();
+ *   // Use connection...
+ *   conn.close();  // Return to pool
+ *   DatabaseManager.shutdown();  // Call on Server shutdown
  */
 public class DatabaseManager {
     
     private static final Logger LOG = LoggerFactory.getLogger(DatabaseManager.class);
-    
     private static DatabaseManager instance;
     private HikariDataSource dataSource;
     
+    // Database configuration (SQL Server 2025 on localhost)
+    private static final String JDBC_URL = "jdbc:sqlserver://localhost:1433;databaseName=osrsmmorp;encrypt=false;trustServerCertificate=true;";
+    private static final String DB_USER = "sa";  // Windows auth alternative
+    private static final String DB_PASSWORD = "";  // Empty for Windows auth
+    private static final int MAX_POOL_SIZE = 10;
+    private static final int MIN_IDLE = 2;
+    private static final long CONNECTION_TIMEOUT_MS = 5000;  // 5 seconds
+    private static final long IDLE_TIMEOUT_MS = 600000;  // 10 minutes
+    private static final long MAX_LIFETIME_MS = 1800000;  // 30 minutes
+    
     /**
-     * Initialize database connection pool and run migrations
+     * Singleton getter - private to prevent direct instantiation
      */
-    public static DatabaseManager initialize(ServerConfig config) throws Exception {
-        LOG.info("Initializing database: {}", config.dbUrl);
-        
-        instance = new DatabaseManager();
-        instance.initializeConnectionPool(config);
-        instance.runMigrations();
-        
-        LOG.info("Database initialization complete");
-        return instance;
+    private DatabaseManager() {}
+    
+    /**
+     * Initialize the connection pool (call once during Server startup)
+     * 
+     * Returns: Initialized DatabaseManager instance (for compatibility with Server.java)
+     * 
+     * @throws SQLException if database connection fails
+     */
+    public static synchronized DatabaseManager initialize() throws SQLException {
+        return initialize(null);  // config parameter ignored for now
     }
     
     /**
-     * Get singleton instance
+     * Initialize the connection pool with optional config
+     * 
+     * @param config ServerConfig (optional, can be null - uses hardcoded defaults)
+     * @throws SQLException if database connection fails
      */
-    public static DatabaseManager get() {
-        if (instance == null) {
-            throw new RuntimeException("DatabaseManager not initialized. Call initialize() first.");
+    public static synchronized DatabaseManager initialize(Object config) throws SQLException {
+        if (instance != null) {
+            LOG.warn("DatabaseManager already initialized, returning existing instance...");
+            return instance;
         }
-        return instance;
-    }
-    
-    /**
-     * Initialize HikariCP connection pool
-     */
-    private void initializeConnectionPool(ServerConfig config) throws Exception {
-        HikariConfig hikariConfig = new HikariConfig();
-        hikariConfig.setJdbcUrl(config.dbUrl);
-        hikariConfig.setUsername(config.dbUser);
-        hikariConfig.setPassword(config.dbPassword);
-        hikariConfig.setMaximumPoolSize(config.maxConnections);
-        hikariConfig.setMinimumIdle(2);
-        hikariConfig.setConnectionTimeout(10000);
-        hikariConfig.setIdleTimeout(600000);
-        hikariConfig.setMaxLifetime(1800000);
-        hikariConfig.setPoolName("OSRS-Pool");
         
-        dataSource = new HikariDataSource(hikariConfig);
-        LOG.info("Connection pool created (max: {})", config.maxConnections);
-    }
-    
-    /**
-     * Run database migrations
-     */
-    private void runMigrations() throws Exception {
-        try (Connection conn = dataSource.getConnection()) {
-            try (Statement stmt = conn.createStatement()) {
-                // Create schema
-                LOG.info("Creating schema osrs");
-                stmt.execute("CREATE SCHEMA IF NOT EXISTS osrs");
-                
-                // Players table
-                LOG.info("Creating table osrs.players");
-                stmt.execute("""
-                    CREATE TABLE IF NOT EXISTS osrs.players (
-                        id SERIAL PRIMARY KEY,
-                        username VARCHAR(12) UNIQUE NOT NULL,
-                        password_hash VARCHAR(255) NOT NULL,
-                        created_at TIMESTAMP DEFAULT NOW(),
-                        last_login TIMESTAMP,
-                        x INT DEFAULT 3222,
-                        y INT DEFAULT 3218,
-                        attack_xp BIGINT DEFAULT 0,
-                        strength_xp BIGINT DEFAULT 0,
-                        defence_xp BIGINT DEFAULT 0,
-                        magic_xp BIGINT DEFAULT 0,
-                        prayer_xp BIGINT DEFAULT 0,
-                        prayer_points INT DEFAULT 10,
-                        woodcutting_xp BIGINT DEFAULT 0,
-                        fishing_xp BIGINT DEFAULT 0,
-                        cooking_xp BIGINT DEFAULT 0,
-                        total_gold BIGINT DEFAULT 0,
-                        total_questpoints INT DEFAULT 0,
-                        INDEX (username),
-                        INDEX (created_at)
-                    )
-                    """);
-                
-                // Inventory table
-                LOG.info("Creating table osrs.inventory");
-                stmt.execute("""
-                    CREATE TABLE IF NOT EXISTS osrs.inventory (
-                        id SERIAL PRIMARY KEY,
-                        player_id INT NOT NULL REFERENCES osrs.players(id) ON DELETE CASCADE,
-                        slot_index INT NOT NULL CHECK (slot_index >= 0 AND slot_index < 28),
-                        item_id INT NOT NULL,
-                        quantity INT DEFAULT 1,
-                        UNIQUE (player_id, slot_index),
-                        INDEX (player_id)
-                    )
-                    """);
-                
-                // Quest progress table
-                LOG.info("Creating table osrs.player_quests");
-                stmt.execute("""
-                    CREATE TABLE IF NOT EXISTS osrs.player_quests (
-                        id SERIAL PRIMARY KEY,
-                        player_id INT NOT NULL REFERENCES osrs.players(id) ON DELETE CASCADE,
-                        quest_id INT NOT NULL,
-                        status INT DEFAULT 0,
-                        completed_objectives INT DEFAULT 0,
-                        started_at TIMESTAMP DEFAULT NOW(),
-                        completed_at TIMESTAMP,
-                        UNIQUE (player_id, quest_id),
-                        INDEX (player_id, quest_id)
-                    )
-                    """);
-                
-                // Grand Exchange orders table
-                LOG.info("Creating table osrs.ge_orders");
-                stmt.execute("""
-                    CREATE TABLE IF NOT EXISTS osrs.ge_orders (
-                        id SERIAL PRIMARY KEY,
-                        player_id INT NOT NULL REFERENCES osrs.players(id) ON DELETE CASCADE,
-                        item_id INT NOT NULL,
-                        quantity INT NOT NULL,
-                        price_per_unit INT NOT NULL,
-                        is_buy BOOLEAN NOT NULL,
-                        filled_quantity INT DEFAULT 0,
-                        created_at TIMESTAMP DEFAULT NOW(),
-                        completed_at TIMESTAMP,
-                        INDEX (item_id, is_buy, price_per_unit),
-                        INDEX (player_id, completed_at),
-                        INDEX (created_at)
-                    )
-                    """);
-                
-                // Achievements table
-                LOG.info("Creating table osrs.player_achievements");
-                stmt.execute("""
-                    CREATE TABLE IF NOT EXISTS osrs.player_achievements (
-                        id SERIAL PRIMARY KEY,
-                        player_id INT NOT NULL REFERENCES osrs.players(id) ON DELETE CASCADE,
-                        achievement_id INT NOT NULL,
-                        unlocked_at TIMESTAMP DEFAULT NOW(),
-                        progress INT DEFAULT 0,
-                        UNIQUE (player_id, achievement_id),
-                        INDEX (player_id)
-                    )
-                    """);
-                
-                // Chat messages table (audit log)
-                LOG.info("Creating table osrs.chat_messages");
-                stmt.execute("""
-                    CREATE TABLE IF NOT EXISTS osrs.chat_messages (
-                        id SERIAL PRIMARY KEY,
-                        sender_id INT REFERENCES osrs.players(id) ON DELETE SET NULL,
-                        sender_name VARCHAR(12),
-                        message_text VARCHAR(255) NOT NULL,
-                        chat_type INT DEFAULT 0,
-                        recipient_id INT REFERENCES osrs.players(id) ON DELETE SET NULL,
-                        created_at TIMESTAMP DEFAULT NOW(),
-                        INDEX (sender_id, created_at),
-                        INDEX (recipient_id, created_at),
-                        INDEX (created_at)
-                    )
-                    """);
-                
-                // Hiscores cache table (denormalized for fast lookups)
-                LOG.info("Creating table osrs.hiscores_cache");
-                stmt.execute("""
-                    CREATE TABLE IF NOT EXISTS osrs.hiscores_cache (
-                        player_id INT PRIMARY KEY REFERENCES osrs.players(id) ON DELETE CASCADE,
-                        overall_rank INT,
-                        overall_level INT,
-                        attack_level INT,
-                        strength_level INT,
-                        defence_level INT,
-                        magic_level INT,
-                        prayer_level INT,
-                        woodcutting_level INT,
-                        fishing_level INT,
-                        cooking_level INT,
-                        updated_at TIMESTAMP DEFAULT NOW(),
-                        INDEX (overall_rank),
-                        INDEX (attack_level),
-                        INDEX (updated_at)
-                    )
-                    """);
-                
-                LOG.info("All migrations completed successfully");
+        try {
+            instance = new DatabaseManager();
+            instance.createDataSource();
+            
+            // Test connection
+            try (Connection conn = instance.dataSource.getConnection()) {
+                LOG.info("✓ Database connection successful: osrsmmorp");
             }
+            
+            // Register shutdown hook
+            Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+                LOG.info("Shutdown hook triggered, closing database connection pool...");
+                if (instance != null) {
+                    instance.shutdown();
+                }
+            }));
+            
+            return instance;
+            
+        } catch (SQLException e) {
+            LOG.error("✗ Failed to initialize DatabaseManager", e);
+            throw e;
         }
     }
     
     /**
-     * Get a database connection from the pool
+     * Create and configure HikariCP data source
      */
-    public Connection getConnection() throws Exception {
-        return dataSource.getConnection();
+    private void createDataSource() throws SQLException {
+        HikariConfig config = new HikariConfig();
+        
+        // Connection settings
+        config.setJdbcUrl(JDBC_URL);
+        config.setUsername(DB_USER);
+        config.setPassword(DB_PASSWORD);
+        config.setDriverClassName("com.microsoft.sqlserver.jdbc.SQLServerDriver");
+        
+        // Pool sizing
+        config.setMaximumPoolSize(MAX_POOL_SIZE);
+        config.setMinimumIdle(MIN_IDLE);
+        
+        // Timeouts
+        config.setConnectionTimeout(CONNECTION_TIMEOUT_MS);
+        config.setIdleTimeout(IDLE_TIMEOUT_MS);
+        config.setMaxLifetime(MAX_LIFETIME_MS);
+        
+        // Connection validation
+        config.setConnectionTestQuery("SELECT 1");
+        config.setLeakDetectionThreshold(60000);  // 1 minute leak detection
+        
+        // Pool name for logging
+        config.setPoolName("OSRS-MMORP-Pool");
+        
+        // Auto-commit disabled (managed by application)
+        config.setAutoCommit(false);
+        
+        LOG.info("Creating HikariCP data source...");
+        LOG.info("  JDBC URL: " + JDBC_URL);
+        LOG.info("  Max Pool Size: " + MAX_POOL_SIZE);
+        LOG.info("  Min Idle: " + MIN_IDLE);
+        
+        this.dataSource = new HikariDataSource(config);
     }
     
     /**
-     * Close the connection pool
+     * Get a connection from the pool
+     *
+     * @return Connection from pool
+     * @throws SQLException if unable to get connection
      */
-    public void shutdown() {
-        if (dataSource != null) {
-            dataSource.close();
-            LOG.info("Database connection pool closed");
+    public static Connection getConnection() throws SQLException {
+        if (instance == null || instance.dataSource == null) {
+            throw new SQLException("DatabaseManager not initialized. Call initialize() first.");
+        }
+        return instance.dataSource.getConnection();
+    }
+    
+    /**
+     * Check if database is connected and healthy
+     *
+     * @return true if pool has active connections and is responsive
+     */
+    public static boolean isHealthy() {
+        try {
+            if (instance == null || instance.dataSource == null) {
+                return false;
+            }
+            
+            // Test connection
+            try (Connection conn = instance.dataSource.getConnection()) {
+                return true;
+            }
+        } catch (SQLException e) {
+            LOG.warn("Database health check failed", e);
+            return false;
+        }
+    }
+    
+    /**
+     * Get pool statistics
+     *
+     * @return String with active/idle/pending connections
+     */
+    public static String getPoolStats() {
+        if (instance == null || instance.dataSource == null) {
+            return "DatabaseManager not initialized";
+        }
+        return String.format("Active: %d, Idle: %d, Pending: %d, Total: %d",
+            instance.dataSource.getHikariPoolMXBean().getActiveConnections(),
+            instance.dataSource.getHikariPoolMXBean().getIdleConnections(),
+            instance.dataSource.getHikariPoolMXBean().getPendingThreads(),
+            instance.dataSource.getHikariPoolMXBean().getTotalConnections());
+    }
+    
+    /**
+     * Gracefully shutdown the connection pool
+     * Call during Server shutdown
+     * 
+     * Note: Can be called as static (DatabaseManager.shutdown()) or instance (db.shutdown())
+     */
+    public synchronized void shutdown() {
+        if (instance == null || instance.dataSource == null) {
+            return;
+        }
+        
+        try {
+            LOG.info("Shutting down database connection pool...");
+            LOG.info("Current pool stats: " + getPoolStats());
+            
+            instance.dataSource.close();
+            instance = null;
+            
+            LOG.info("✓ Database connection pool closed");
+        } catch (Exception e) {
+            LOG.error("✗ Error closing database connection pool", e);
         }
     }
 }
