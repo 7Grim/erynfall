@@ -391,11 +391,11 @@ GO
 
 CREATE TABLE osrs.chat_messages (
   id INT IDENTITY(1,1) PRIMARY KEY,
-  sender_id INT REFERENCES osrs.players(id) ON DELETE SET NULL,
+  sender_id INT REFERENCES osrs.players(id) ON DELETE CASCADE,
   sender_name VARCHAR(12),
   message_text VARCHAR(255) NOT NULL,
   chat_type INT DEFAULT 0,
-  recipient_id INT REFERENCES osrs.players(id) ON DELETE SET NULL,
+  recipient_id INT REFERENCES osrs.players(id) ON DELETE NO ACTION,
   created_at DATETIME2 DEFAULT GETDATE()
 );
 GO
