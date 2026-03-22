@@ -1,352 +1,410 @@
-# OSRS MMORP Architecture
+# ARCHITECTURE.md - System Design (Server-First)
 
-## System Overview
+**Decision Date:** 2026-03-17  
+**Approach:** Authority-Server from Day One (Option B)  
+**Rationale:** See ULTRATHINK analysis in session notes
 
-```
-┌─────────────────────────────────────────────────────┐
-│                   Client (LibGDX)                   │
-│  ┌──────────────────────────────────────────────┐  │
-│  │ Renderer (Isometric tiles, entities, UI)     │  │
-│  │ Input Handler (keyboard, mouse)              │  │
-│  │ Predictive State (player, inventory)         │  │
-│  └──────────────────────────────────────────────┘  │
-│  ▲                                                  │
-│  │ Netty (TCP)                                      │
-│  │ [Protocol Buffers serialization]                │
-│  ▼                                                  │
-│  ┌──────────────────────────────────────────────┐  │
-│  │ Netty Handlers                               │  │
-│  │ PacketDecoder → Game Logic → PacketEncoder   │  │
-│  └──────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────┘
-                          │
-                    (TCP Port 43594)
-                          │
-┌─────────────────────────────────────────────────────┐
-│               Server (256-tick loop)                │
-│  ┌──────────────────────────────────────────────┐  │
-│  │ Tick Loop (runs 256x per second = 3.9ms)    │  │
-│  │                                              │  │
-│  │ Input Processing                            │  │
-│  │  └─ Dequeue client packets                  │  │
-│  │  └─ Validate moves, combat actions          │  │
-│  │                                              │  │
-│  │ Entity Updates                              │  │
-│  │  └─ Update positions, animations            │  │
-│  │  └─ NPC AI, pathfinding                     │  │
-│  │  └─ Combat calculations                    │  │
-│  │                                              │  │
-│  │ State Synchronization                       │  │
-│  │  └─ Delta updates to clients (only changed) │  │
-│  │  └─ Queue outbound packets                  │  │
-│  │                                              │  │
-│  │ Memory & Database                           │  │
-│  │  └─ Player state (HashMap, in-memory)       │  │
-│  │  └─ World state (tiles, NPCs, items)        │  │
-│  └──────────────────────────────────────────────┘  │
-│  ▲                                                  │
-│  │ Netty (TCP)                                      │
-│  │ [Protocol Buffers serialization]                │
-│  ▼                                                  │
-│  ┌──────────────────────────────────────────────┐  │
-│  │ Netty Handlers                               │  │
-│  │ PacketDecoder → PlayerSession → PacketEncoder│  │
-│  └──────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────┘
-```
+---
 
-## Tick Loop (Server-Side)
+## Core Philosophy
 
-The server runs a deterministic tick-based loop at **256 ticks per second** (3.9ms per tick). This is non-negotiable — it matches OSRS and ensures consistent RNG seeding, combat calculations, and animation timing.
+**OSRS is fundamentally a server-authoritative game.**
+
+Every action goes through the server:
+1. **Client:** Player clicks tile / attacks enemy / interacts with NPC
+2. **Server:** Validates action, calculates results (hit/miss/damage/XP/loot)
+3. **Server:** Broadcasts results to all clients
+4. **Client:** Renders the result
+
+**No client-side logic for:**
+- Damage calculation
+- XP awards
+- Loot generation
+- Item tracking
+- Economy transactions
+- Skill progression
+
+---
+
+## Architecture Layers
+
+### Layer 1: Server (Authority & Game Logic)
+
+**Component:** `server/src/main/java/com/osrs/server/`
 
 ```
-TICK 0: ─────────────────────────────────────────
-  1. Dequeue all client input packets
-  2. Validate player actions (move, attack, interact)
-  3. Queue movement/action intents
-  
-TICK 1: ─────────────────────────────────────────
-  1. Execute movement intents (update positions)
-  2. Process NPC AI (pathfinding, idle actions)
-  3. Update animations (frame counter)
-  
-TICK 2: ─────────────────────────────────────────
-  1. Combat calculations (hit rolls, damage, XP)
-  2. Skill progression (update XP totals)
-  3. Apply environmental effects (projectiles, etc.)
-  
-TICK 3: ─────────────────────────────────────────
-  1. Build delta updates (what changed since last broadcast)
-  2. Serialize packets
-  3. Send to all clients in viewport range
-  4. Sleep remainder of 3.9ms
-  
-[repeat]
+Server.java
+  ↓
+NettyServer.java (port 43594)
+  ↓
+ServerPacketHandler.java
+  ↓
+GameLoop.java (256 Hz tick rate)
+  ↓
+Game Systems:
+  - CombatEngine.java (hit/miss/damage)
+  - World.java (entities, tile map, state)
+  - Pathfinding.java (BFS movement)
+  - GameContent.java (quests, NPCs, bosses)
+  - economy/TradeManager.java (GE, drops)
+  - skills/SkillManager.java (XP, leveling)
+  - quest/QuestManager.java (quest state)
+  - combat/CombatEngine.java (combat logic)
 ```
 
-### Key Properties
-- **Deterministic:** Same inputs → same outputs, every time
-- **RNG seeded by tick:** Combat rolls use `tick % 256` as seed
-- **No floating-point math:** All movement in tiles, not meters
-- **Authority-server:** Client never trusts predicted damage or position without server validation
+**Responsibilities:**
+- ✅ Authority: Source of truth for all game state
+- ✅ Validation: All actions server-side validated
+- ✅ Tick processing: 256 Hz game loop
+- ✅ State management: World, players, entities, loot
+- ✅ Network: Netty packet handling + broadcasting
 
-## Network Protocol
+**What runs here:**
+- Combat calculations (deterministic, server-seeded RNG)
+- XP awards (4 per damage melee, 2 per damage magic)
+- Loot generation (rarity tables, drop rates)
+- Skill progression (XP thresholds, level-ups)
+- Quest state (objectives, completion, rewards)
+- Economy (trades, price discovery, GE)
+- Pathfinding (BFS to destination)
+- Collision detection
 
-**Transport:** TCP over Netty (reliable, ordered delivery)
+---
 
-**Serialization:** Protocol Buffers 3 (compact, versioned, auto-generated)
+### Layer 2: Client (Rendering & Input)
 
-### Packet Types
-
-#### Client → Server
-- `PlayerMovement` — Player position + direction (10 bytes)
-- `PlayerAction` — Attack NPC, cast spell, pick up item, etc. (8 bytes)
-- `DialogueResponse` — Player chose dialogue option (4 bytes)
-- `InventoryAction` — Drop item, equip, etc. (12 bytes)
-
-#### Server → Client
-- `WorldState` — Delta update: entities added/removed/moved (variable)
-- `EntityUpdate` — Single entity (position, animation, health) (16 bytes)
-- `CombatHit` — Damage + XP feedback (12 bytes)
-- `DialoguePrompt` — NPC dialogue + response options (variable)
-- `InventoryUpdate` — Item added/removed (8 bytes)
-
-**Typical update rate:** 10 packets/sec per client (once per 25 ticks)
-
-## Entity Model (Server)
-
-All entities inherit from `Entity`:
+**Component:** `client/src/main/java/com/osrs/client/`
 
 ```
-Entity
-├── id (unique)
-├── position (x, y, z)
-├── facing (direction 0-7)
-├── animation (current frame, total frames)
-├── flags (visible, collidable, etc.)
-└── ticksAlive (age in ticks)
-
-Player extends Entity
-├── stats (attack, strength, defence, hp, etc.)
-├── inventory (20 slots, each holds item + quantity)
-├── equipment (8 slots: head, body, legs, feet, hands, weapon, shield, ring)
-├── quest state (map of quest ID → completion %)
-├── experience (map of skill ID → total XP)
-├── lastInput (tick N when last movement received)
-└── sessionId (network connection ID)
-
-NPC extends Entity
-├── definition (template: sprites, dialogue, drops, behavior)
-├── pathTarget (where NPC is walking to, if any)
-├── currentDialogue (active dialogue state)
-├── combatTarget (if in combat, who they're fighting)
-└── respawnTick (when to respawn, if dead)
+Client.java (LibGDX)
+  ↓
+GameScreen.java
+  ↓
+NettyClient.java (connects to localhost:43594 or remote IP)
+  ↓
+UI Systems:
+  - InventoryUI.java (display inventory)
+  - CombatUI.java (damage numbers, log)
+  - DialougeUI.java (quest/NPC dialogue)
+  - StatsUI.java (stats panel)
+  ↓
+Rendering:
+  - IsometricRenderer.java (tiles + entities)
+  - CoordinateConverter.java (screen ↔ world)
+  ↓
+Input:
+  - Right-click handling (context menu)
+  - Left-click handling (default action)
 ```
 
-## Rendering Pipeline (Client)
+**Responsibilities:**
+- ✅ Rendering: Display server state
+- ✅ Input handling: Capture right-click/left-click
+- ✅ UI: Inventory, stats, chat, combat log
+- ✅ Network: Send packets to server (WalkTo, Attack, etc.)
+- ✅ Prediction: Optional client-side movement prediction (for smoothness, but server validates)
 
-### Isometric Projection
+**What runs here:**
+- Rendering (tiles, entities, UI elements)
+- Input capture (mouse clicks)
+- UI state (which panel is open, inventory slots)
+- **Optional:** Smooth movement prediction (client guesses destination while waiting for server pathfind result)
 
-Each tile at world position `(x, y)` is rendered at screen position:
-```
-screenX = (x - y) * TILE_WIDTH / 2
-screenY = (x + y) * TILE_HEIGHT / 2
-```
+**What DOES NOT run here:**
+- Combat calculations
+- XP awards
+- Loot generation
+- Skill progression
+- Inventory validation
+- Trade validation
+- Quest state changes
 
-Where `TILE_WIDTH = 32` and `TILE_HEIGHT = 16` pixels (standard isometric).
+---
 
-### Render Order (painter's algorithm)
-1. Draw tiles (background-to-foreground, by Y then X)
-2. Draw shadows
-3. Draw entities (sorted by Y position for correct depth)
-4. Draw UI overlays (dialogue, inventory, HUD)
+### Layer 3: Shared (Serialization & Data Models)
 
-### Camera
-Fixed isometric view centered on player. No smooth camera tracking (too slow for sync issues).
-
-## Data-Driven Systems
-
-### World Map (`assets/data/map.yaml`)
-```yaml
-width: 104
-height: 104
-tiles:
-  - id: 0
-    name: Grass
-    walkable: true
-    spriteIndex: 42
-  - id: 1
-    name: Water
-    walkable: false
-    spriteIndex: 0
-mapLayout: |
-  0 0 0 1 1 0 0 0
-  0 2 2 1 0 0 0 0
-  ...
-```
-
-### NPC Definitions (`assets/data/npcs.yaml`)
-```yaml
-npcs:
-  - id: 1
-    name: Tutorial Guide
-    spriteIndex: 512
-    walkable: true
-    dialogue:
-      initial: "dialogue_tutorial_intro"
-      responses:
-        - "dialogue_tutorial_q1"
-        - "dialogue_tutorial_q2"
-    walkPath: [[50, 50], [52, 50], [54, 50]]
-    walkSpeed: 2 tiles per tick
-```
-
-### Dialogue Trees (`assets/data/dialogue.yaml`)
-```yaml
-dialogues:
-  dialogue_tutorial_intro:
-    npcSays: "Hello adventurer! Welcome to Tutorial Island."
-    options:
-      - text: "Tell me about combat"
-        next: "dialogue_combat_intro"
-      - text: "How do I gain experience?"
-        next: "dialogue_xp_intro"
-  dialogue_combat_intro:
-    npcSays: "In combat, you'll gain Attack, Strength, and Defence experience..."
-    options:
-      - text: "[Back]"
-        next: "dialogue_tutorial_intro"
-```
-
-### Quests (`assets/data/quests.yaml`)
-```yaml
-quests:
-  - id: 1
-    name: Tutorial Quest
-    tasks:
-      - id: "speak_guide"
-        type: "dialogue"
-        npcId: 1
-        dialogueId: "dialogue_tutorial_intro"
-        reward: 10 exp
-      - id: "kill_rat"
-        type: "kill"
-        npcId: 3
-        count: 5
-        reward: 50 exp
-      - id: "collect_logs"
-        type: "collect"
-        itemId: 7
-        count: 10
-        reward: 100 exp
-```
-
-## Authority & Validation
-
-**Golden Rule:** Server is always right. Client can predict for smoothness, but server has final say.
-
-### Movement Validation
-- Client sends intended position
-- Server checks if path is walkable + not blocked by entities
-- If invalid, server sends corrected position (client rewinds)
-- If valid, server broadcasts to other players
-
-### Combat Validation
-- Client sends "attack NPC" intent
-- Server verifies NPC is in range + attack target is valid
-- Server rolls hit/miss using deterministic RNG (seeded by tick)
-- Server calculates damage, updates XP
-- Server broadcasts result to client
-
-### Inventory Validation
-- Client sends "drop item from slot 3"
-- Server verifies item exists at slot 3
-- Server creates dropped item in world
-- Server sends acknowledgement (client UI updates)
-
-## Performance Targets
-
-### Server
-- **CPU:** <5% on modern hardware (single-threaded)
-- **Memory:** ~500 MB (player state + world state in-memory)
-- **Network:** ~50 KB/sec outbound (256 ticks × ~200 bytes per packet)
-
-### Client
-- **Rendering:** 60 FPS (decoupled from server tick)
-- **Memory:** ~200 MB (textures, UI, entity cache)
-- **Network:** ~10 KB/sec inbound (delta updates + gameplay feedback)
-
-## Scaling Path (Post-MVP)
-
-| Phase | Bottleneck | Solution |
-|-------|-----------|----------|
-| **MVP** | Single world, all in-memory | Works fine for Tutorial Island |
-| **v1.0** | Persistence | PostgreSQL, Redis cache for player state |
-| **v1.5** | Concurrent players | World sharding (multiple servers, player routing) |
-| **v2.0** | Instanced content | Separate server per instance (dungeon copies) |
-| **v2.5** | GC pauses | ZGC (low-latency GC), off-heap data structures |
-
-## Code Organization (Java Packages)
+**Component:** `shared/src/main/java/com/osrs/`
 
 ```
-com.osrs.shared
-├── protocol (generated from .proto files)
-│   ├── PlayerMovement
-│   ├── WorldState
-│   └── ...
-└── data
-    ├── Entity
-    ├── Player
-    ├── NPC
-    └── Item
-
-com.osrs.server
-├── Server (main + tick loop)
-├── network
-│   ├── NettyServer
-│   ├── PacketHandler
-│   └── PlayerSession
-├── world
-│   ├── World
-│   ├── TileMap
-│   └── EntityManager
-├── player
-│   ├── PlayerManager
-│   ├── Stats
-│   └── Inventory
-├── npc
-│   ├── NPCDefinition
-│   ├── NPCManager
-│   └── Pathfinding
-├── quest
-│   ├── Quest
-│   ├── QuestManager
-│   └── DialogueEngine
-└── combat
-    ├── CombatEngine
-    ├── HitCalculator
-    └── XPCalculator
-
-com.osrs.client
-├── Client (main + LibGDX)
-├── network
-│   ├── NettyClient
-│   └── PacketHandler
-├── renderer
-│   ├── IsometricRenderer
-│   ├── TextureAtlas
-│   └── AnimationFrame
-├── ui
-│   ├── HUD
-│   ├── DialogueUI
-│   ├── InventoryUI
-│   └── ChatBox
-└── state
-    ├── LocalPlayerState
-    ├── WorldCache
-    └── CameraController
+protocol/network.proto (Protocol Buffers)
+  ↓ (auto-generates NetworkProto.java)
+  ↓
+Packet types:
+  - Handshake / HandshakeResponse
+  - PlayerMovement
+  - WalkTo
+  - Attack
+  - CombatHit
+  - HealthUpdate
+  - SkillXP
+  - QuestUpdate
+  - DialogueMessage / DialogueResponse
+  - InventoryUpdate
+  - TradeOffer
+  - ... (more as features added)
+  ↓
+Data Models:
+  - Entity.java (base entity)
+  - Player.java (extends Entity)
+  - NPC.java (extends Entity)
+  - Item.java (item definition)
+  - Stats.java (skill levels + XP)
+  - Inventory.java (item slots)
 ```
 
 ---
 
-**See also:** PROGRESS.md for sprint planning and task breakdown.
+## Data Flow Diagram
+
+### Example: Combat Attack Flow
+
+```
+Client (LibGDX)                    Server (Netty + GameLoop)
+     ↓                                       ↓
+Player right-clicks NPC                     ↓
+     ↓                                       ↓
+ContextMenu shows "Attack"                  ↓
+     ↓                                       ↓
+Player clicks "Attack"                      ↓
+     ↓                                       ↓
+Client sends Attack(targetId) packet →→→→→ Server receives in tick N
+     ↓                                       ↓
+                                      GameLoop.processTick(N):
+                                        1. Dequeue Attack packet
+                                        2. Validate: attacker in range?
+                                        3. CombatEngine.calculateHit()
+                                           - RNG seeded by (tick + attacker + target)
+                                           - Deterministic result
+                                        4. Award XP if hit
+                                        5. Award loot if kill
+                                        6. Create CombatHit packet
+     ↓                                       ↓
+Client receives CombatHit packet ←←←← Server broadcasts CombatHit packet
+     ↓                                       ↓
+CombatUI displays damage number             ↓
+     ↓                                       ↓
+Player sees "-47" floating above NPC        ↓
+     ↓                                       ↓
+```
+
+**Key principle:** Server does all calculations. Client just displays results.
+
+---
+
+## Network Protocol Design
+
+### Message Flow (Request-Response Pattern)
+
+**Type 1: Client → Server (Request)**
+```protobuf
+WalkTo { target_x, target_y }
+Attack { target_id }
+DialogueResponse { npc_id, option_id }
+```
+
+**Type 2: Server → Client (Broadcast)**
+```protobuf
+CombatHit { attacker_id, target_id, damage, hit }
+HealthUpdate { entity_id, health, max_health }
+SkillXP { skill_id, xp_awarded, new_level? }
+EntityUpdate { entity_id, x, y, animation_frame, health }
+DialogueMessage { npc_id, npc_text, options[] }
+```
+
+**Type 3: Bi-Directional (State Sync)**
+```protobuf
+WorldState { entities[], updates[] }
+InventoryUpdate { slot, item_id, quantity }
+```
+
+---
+
+## Solo vs Multiplayer Transition
+
+### Current State (Solo Development)
+```
+Player's Machine:
+  ├─ Server.java (Netty, localhost:43594)
+  │  └─ GameLoop (256 Hz)
+  │  └─ CombatEngine, World, etc.
+  └─ Client.java (LibGDX)
+     └─ Connects to localhost:43594
+     └─ Tests all game systems
+```
+
+### Multiplayer State (No Changes to Code)
+```
+Cloud Server (AWS/Digital Ocean):
+  └─ Server.java (Netty, public IP)
+     └─ GameLoop (256 Hz)
+     └─ CombatEngine, World, etc.
+
+Player 1's Machine:
+  └─ Client.java
+     └─ Connects to cloud IP
+
+Player 2's Machine:
+  └─ Client.java
+     └─ Connects to cloud IP
+```
+
+**What changes?**
+- Server IP/port config (from localhost to public IP)
+- Database connection (SQLite → PostgreSQL, eventually)
+- Load balancing (if 1000+ players, use multiple servers)
+
+**What stays the same?**
+- All game logic (CombatEngine, World, etc.)
+- All protocol messages
+- All client rendering
+- All validation
+
+---
+
+## Tick-Based Authority Pattern
+
+### Why 256 Hz?
+
+1. **OSRS uses 600ms ticks = ~1.67 Hz.** We use 256 Hz for finer granularity.
+2. **More ticks = smoother feel, better lag compensation.**
+3. **Matches modern MMO standards** (typical: 60-256 Hz).
+
+### Tick Loop Structure
+
+```java
+while (running) {
+  long startTime = System.nanoTime();
+  
+  // Stage 1: Dequeue input packets (from clients)
+  dequeueAndProcessPackets();
+  
+  // Stage 2: Update entity positions (pathfinding)
+  updateMovement();
+  
+  // Stage 3: Combat calculations
+  processCombat();
+  
+  // Stage 4: Skill progression (XP awards)
+  processSkills();
+  
+  // Stage 5: Loot generation (drop items)
+  processLoot();
+  
+  // Stage 6: Broadcast state to all clients
+  broadcastWorldState();
+  
+  // Sleep until next tick (3.9ms)
+  long elapsed = System.nanoTime() - startTime;
+  sleep(TICK_INTERVAL_NS - elapsed);
+}
+```
+
+**Every calculation happens once per tick, deterministically.**
+
+---
+
+## Authority Validation Checklist
+
+**For every action, server must validate:**
+
+- ✅ Is attacker in range of target? (prevent attacking across map)
+- ✅ Is target alive? (prevent double-killing)
+- ✅ Does attacker have required Attack level? (prevent low-level using high-level weapons)
+- ✅ Does attacker have the weapon equipped? (prevent naked attacks)
+- ✅ Is target a valid entity? (prevent attacking objects)
+- ✅ Did the attack land? (RNG check, server-side)
+- ✅ How much damage? (Strength + equipment + RNG)
+- ✅ Grant XP? (4 per damage, skill-based)
+- ✅ Did target die? (health ≤ 0)
+- ✅ Drop loot? (rarity table check)
+- ✅ Award bones for Prayer? (higher-level enemies = better bones)
+
+**If ANY check fails, request is rejected. Server is source of truth.**
+
+---
+
+## Scalability Path
+
+### Phase 1: Solo (Current)
+- 1 server, 1 client
+- Game logic complete
+- Runs on single machine
+
+### Phase 2: Friends (Post-MVP)
+- 1 server, 4-8 clients
+- Deploy to LAN or cloud VPS
+- Single database (PostgreSQL)
+- No changes to code
+
+### Phase 3: Community (1000+ players)
+- Multiple servers (shards)
+- Each server: 100-500 players
+- Shared database or per-server DB
+- Server selection UI (pick which server to join)
+- Minimal changes to code
+
+### Phase 4: Enterprise (Official OSRS-Scale)
+- Load balancers
+- Replication
+- Caching layer (Redis)
+- CDN for assets
+- Trading between servers (if desired)
+
+**The key: Phase 1 architecture supports all future phases without major refactors.**
+
+---
+
+## File Structure (Multi-Module Maven)
+
+```
+osrs-mmorp/
+├── pom.xml (parent)
+├── server/
+│   ├── pom.xml
+│   └── src/main/java/com/osrs/server/
+│       ├── Server.java
+│       ├── GameLoop.java
+│       ├── World.java
+│       ├── combat/CombatEngine.java
+│       ├── skills/SkillManager.java
+│       ├── quest/QuestManager.java
+│       ├── network/ServerPacketHandler.java
+│       └── ... (game systems)
+├── client/
+│   ├── pom.xml
+│   └── src/main/java/com/osrs/client/
+│       ├── Client.java
+│       ├── GameScreen.java
+│       ├── ui/InventoryUI.java
+│       ├── renderer/IsometricRenderer.java
+│       ├── network/NettyClient.java
+│       └── ... (rendering systems)
+├── shared/
+│   ├── pom.xml
+│   ├── src/main/proto/network.proto
+│   └── src/main/java/com/osrs/
+│       ├── Entity.java
+│       ├── Player.java
+│       ├── NPC.java
+│       └── ... (shared models)
+└── docs/
+    ├── ARCHITECTURE.md (this file)
+    ├── S2-COMBAT-IMPLEMENTATION.md
+    ├── PROGRESS.md
+    └── CONTRIBUTING.md
+```
+
+---
+
+## Next Steps
+
+1. ✅ Verify Server + Client can run together (localhost connection)
+2. ✅ Finalize all MVP systems (combat, skills, economy)
+3. ✅ Continue discovery questions (Q2.3, Q2.4, Q2.5)
+4. ✅ Create detailed tech stack & database schema
+5. ✅ Start implementation with server-first mindset
+
+---
+
+**Status:** LOCKED IN - Server-First Architecture, Authority-Validated, Scalable to MMO
+
