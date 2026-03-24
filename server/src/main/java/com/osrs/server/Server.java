@@ -40,10 +40,15 @@ public class Server {
             config.tickRateHz, 1_000_000_000.0 / config.tickRateHz / 1_000_000.0);
         LOG.info("  Database: {}", config.dbUrl);
         
-        // Stage 2: Initialize database
-        LOG.info("Stage 2: Initializing database");
-        database = DatabaseManager.initialize(config);
-        LOG.info("✓ Database initialized");
+        // Stage 2: Initialize database (optional — world state is in-memory; DB used for persistence in S6+)
+        LOG.info("Stage 2: Initializing database (optional)");
+        try {
+            database = DatabaseManager.initialize(config);
+            LOG.info("✓ Database initialized");
+        } catch (Exception e) {
+            LOG.warn("⚠ Database unavailable ({}). Continuing without persistence — world state is in-memory only.",
+                e.getMessage().split("\\.")[0]);
+        }
         
         // Stage 3: Load world
         LOG.info("Stage 3: Loading world");
