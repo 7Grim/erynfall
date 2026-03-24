@@ -3,6 +3,7 @@ package com.osrs.server.network;
 import com.osrs.protocol.NetworkProto;
 import com.osrs.server.world.GroundItem;
 import com.osrs.server.world.World;
+import com.osrs.shared.CombatStyle;
 import com.osrs.shared.EquipmentSlot;
 import com.osrs.shared.ItemDefinition;
 import com.osrs.shared.NPC;
@@ -76,6 +77,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             case DROP_ITEM -> handleDropItem(ctx, packet.getDropItem());
             case USE_ITEM -> handleUseItem(ctx, packet.getUseItem());
             case SWAP_INVENTORY_SLOTS -> handleSwapInventorySlots(ctx, packet.getSwapInventorySlots());
+            case SET_COMBAT_STYLE    -> handleSetCombatStyle(packet.getSetCombatStyle());
             default -> LOG.warn("Unhandled payload case: {}", packet.getPayloadCase());
         }
     }
@@ -427,6 +429,13 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
         sendInventorySlot(ctx, player, from);
         sendInventorySlot(ctx, player, to);
         LOG.debug("Player {} swapped inventory slots {} ↔ {}", player.getId(), from, to);
+    }
+
+    private void handleSetCombatStyle(NetworkProto.SetCombatStyle req) {
+        if (session.getPlayer() == null) return;
+        CombatStyle style = CombatStyle.fromIndex(req.getStyle());
+        session.getPlayer().setCombatStyle(style);
+        LOG.info("Player {} set combat style to {}", session.getPlayer().getId(), style.displayName);
     }
 
     /**

@@ -5,6 +5,7 @@ import com.osrs.server.combat.CombatEngine;
 import com.osrs.server.network.NettyServer;
 import com.osrs.server.world.GroundItem;
 import com.osrs.server.world.World;
+import com.osrs.shared.CombatStyle;
 import com.osrs.shared.NPC;
 import com.osrs.shared.Player;
 import org.slf4j.Logger;
@@ -361,15 +362,19 @@ public class GameLoop {
             if (result.hit) {
                 newTargetHealth = Math.max(0, target.getHealth() - result.damage);
                 target.setHealth(newTargetHealth);
-                player.addStrengthXp(result.xpAwarded);
                 LOG.debug("Player {} hit NPC {} for {} (HP now {})",
                     player.getId(), target.getId(), result.damage, newTargetHealth);
 
-                // Aggro NPC only when a hit actually lands for > 0 damage
-                if (result.damage > 0 && !target.isInCombat()) {
-                    target.setCombatTarget(player.getId());
-                    LOG.info("NPC {} aggroed by player {} (took {} damage)",
-                        target.getId(), player.getId(), result.damage);
+                // Award XP per OSRS combat style (only on actual damage)
+                if (result.damage > 0) {
+                    awardCombatXp(player, result.damage);
+
+                    // Aggro NPC on first damaging hit
+                    if (!target.isInCombat()) {
+                        target.setCombatTarget(player.getId());
+                        LOG.info("NPC {} aggroed by player {} (took {} damage)",
+                            target.getId(), player.getId(), result.damage);
+                    }
                 }
             } else {
                 LOG.debug("Player {} missed NPC {}", player.getId(), target.getId());
@@ -384,7 +389,7 @@ public class GameLoop {
                     .setTargetId(target.getId())
                     .setDamage(result.damage)
                     .setHit(result.hit)
-                    .setXpAwarded(result.xpAwarded)
+                    .setXpAwarded(0) // XP sent separately via SkillUpdate
                     .setAttackerHealth(player.getHealth())
                     .setTargetHealth(newTargetHealth)
                     .setTargetX(target.getX())
@@ -576,12 +581,72 @@ public class GameLoop {
     }
 
     /**
-     * Update skill experience and levels.
-     * TODO: Process XP awards and level-up events.
+     * Awards combat XP based on the player's current attack style.
+     *
+     * OSRS formula (per damage point dealt):
+     *   Accurate   → 4 Attack XP  + 1.33 Hitpoints XP
+     *   Aggressive → 4 Strength XP + 1.33 Hitpoints XP
+     *   Defensive  → 4 Defence XP  + 1.33 Hitpoints XP
+     *   Controlled → 1.33 Attack + 1.33 Strength + 1.33 Defence + 1.33 Hitpoints XP
+     *
+     * XP uses integer arithmetic: main skill = damage * 4,
+     * HP / controlled split = round(damage * 1.33).
+     *
+     * Source: https://oldschool.runescape.wiki/w/Combat_Options
      */
+    private void awardCombatXp(Player player, int damage) {
+        long mainXp = damage * 4L;
+        long hpXp   = Math.round(damage * 1.33);
+
+        CombatStyle style = player.getCombatStyle();
+        switch (style) {
+            case ACCURATE   -> {
+                sendSkillUpdate(player, Player.SKILL_ATTACK,    mainXp);
+                sendSkillUpdate(player, Player.SKILL_HITPOINTS, hpXp);
+            }
+            case AGGRESSIVE -> {
+                sendSkillUpdate(player, Player.SKILL_STRENGTH,  mainXp);
+                sendSkillUpdate(player, Player.SKILL_HITPOINTS, hpXp);
+            }
+            case DEFENSIVE  -> {
+                sendSkillUpdate(player, Player.SKILL_DEFENCE,   mainXp);
+                sendSkillUpdate(player, Player.SKILL_HITPOINTS, hpXp);
+            }
+            case CONTROLLED -> {
+                long splitXp = Math.round(damage * 1.33);
+                sendSkillUpdate(player, Player.SKILL_ATTACK,    splitXp);
+                sendSkillUpdate(player, Player.SKILL_STRENGTH,  splitXp);
+                sendSkillUpdate(player, Player.SKILL_DEFENCE,   splitXp);
+                sendSkillUpdate(player, Player.SKILL_HITPOINTS, hpXp);
+            }
+        }
+    }
+
+    /**
+     * Adds XP to a player's skill, recomputes level, and sends a SkillUpdate
+     * packet to that player only.  If a level-up occurred the packet carries
+     * leveled_up=true so the client can display the congratulation overlay.
+     */
+    private void sendSkillUpdate(Player player, int skillIdx, long xpAmount) {
+        boolean leveledUp = player.addSkillXp(skillIdx, xpAmount);
+        int newLevel = player.getSkillLevel(skillIdx);
+        long totalXp = player.getSkillXp(skillIdx);
+
+        if (leveledUp) {
+            LOG.info("Player {} leveled up skill {} → {}", player.getId(), skillIdx, newLevel);
+        }
+
+        nettyServer.sendToSession(player.getId(), NetworkProto.ServerMessage.newBuilder()
+            .setSkillUpdate(NetworkProto.SkillUpdate.newBuilder()
+                .setSkillIndex(skillIdx)
+                .setNewLevel(newLevel)
+                .setTotalXp(totalXp)
+                .setLeveledUp(leveledUp))
+            .build());
+    }
+
     private void updateSkills() {
-        // Placeholder: XP tracking is in Stats class
-        // In a full implementation, we'd process level-up events here
+        // XP awards are now handled immediately in awardCombatXp()
     }
 
     public long getTickCount() {

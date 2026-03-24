@@ -213,6 +213,12 @@ message SwapInventorySlots {
     int64 sequence = 3;
 }
 
+// SetCombatStyle: Client → Server (player changed attack style)
+message SetCombatStyle {
+    int32 style = 1;   // 0=Accurate 1=Aggressive 2=Defensive 3=Controlled
+    int64 sequence = 2;
+}
+
 // Heartbeat: Server → Client (keep-alive)
 message Heartbeat {
     int64 server_time = 1;
@@ -239,6 +245,7 @@ message ClientMessage {
         DropItem drop_item = 8;
         UseItem use_item = 9;
         SwapInventorySlots swap_inventory_slots = 10;
+        SetCombatStyle set_combat_style = 11;
     }
 }
 

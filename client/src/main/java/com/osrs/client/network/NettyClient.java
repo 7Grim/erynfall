@@ -158,6 +158,15 @@ public class NettyClient {
         LOG.debug("Sent UseItem: slot={} action={}", inventorySlot, action);
     }
 
+    public void sendSetCombatStyle(int styleIndex) {
+        NetworkProto.ClientMessage msg = NetworkProto.ClientMessage.newBuilder()
+            .setSetCombatStyle(NetworkProto.SetCombatStyle.newBuilder()
+                .setStyle(styleIndex).setSequence(System.currentTimeMillis()))
+            .build();
+        channel.writeAndFlush(msg);
+        LOG.debug("Sent SetCombatStyle: {}", styleIndex);
+    }
+
     public void sendSwapInventorySlots(int fromSlot, int toSlot) {
         NetworkProto.ClientMessage msg = NetworkProto.ClientMessage.newBuilder()
             .setSwapInventorySlots(NetworkProto.SwapInventorySlots.newBuilder()

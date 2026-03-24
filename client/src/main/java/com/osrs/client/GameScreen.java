@@ -16,6 +16,7 @@ import com.osrs.client.network.NettyClient;
 import com.osrs.client.renderer.CoordinateConverter;
 import com.osrs.client.renderer.IsometricRenderer;
 import com.osrs.client.world.TutorialIslandMap;
+import com.osrs.client.ui.CombatStyleUI;
 import com.osrs.client.ui.CombatUI;
 import com.osrs.client.ui.ContextMenu;
 import com.osrs.client.ui.DialogueUI;
@@ -64,11 +65,12 @@ public class GameScreen extends ApplicationAdapter {
     // -----------------------------------------------------------------------
     // Game objects
     // -----------------------------------------------------------------------
-    private NettyClient  nettyClient;
-    private ContextMenu  contextMenu;
-    private CombatUI     combatUI;
-    private DialogueUI   dialogueUI;
-    private InventoryUI  inventoryUI;
+    private NettyClient    nettyClient;
+    private ContextMenu    contextMenu;
+    private CombatUI       combatUI;
+    private CombatStyleUI  combatStyleUI;
+    private DialogueUI     dialogueUI;
+    private InventoryUI    inventoryUI;
     private int[][]      tileMap;
 
     // -----------------------------------------------------------------------
@@ -144,12 +146,13 @@ public class GameScreen extends ApplicationAdapter {
         screenProjection = new Matrix4().setToOrtho2D(
             0, 0, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
 
-        renderer    = new IsometricRenderer(camera, batch, shapeRenderer);
-        tileMap     = TutorialIslandMap.generate();
-        contextMenu = new ContextMenu();
-        combatUI    = new CombatUI();
-        dialogueUI  = new DialogueUI();
-        inventoryUI = new InventoryUI();
+        renderer      = new IsometricRenderer(camera, batch, shapeRenderer);
+        tileMap       = TutorialIslandMap.generate();
+        contextMenu   = new ContextMenu();
+        combatUI      = new CombatUI();
+        combatStyleUI = new CombatStyleUI();
+        dialogueUI    = new DialogueUI();
+        inventoryUI   = new InventoryUI();
 
         try {
             nettyClient = new NettyClient();
@@ -231,6 +234,7 @@ public class GameScreen extends ApplicationAdapter {
         int w = Gdx.graphics.getWidth(), h = Gdx.graphics.getHeight();
         renderHUD();
         if (combatTargetId >= 0) renderOpponentInfo();
+        combatStyleUI.render(shapeRenderer, screenBatch, font, w, h, screenProjection);
         combatUI.renderMessages(screenBatch, font, h);
         inventoryUI.update(delta);
         inventoryUI.render(shapeRenderer, batch, font, w, h);
@@ -307,11 +311,18 @@ public class GameScreen extends ApplicationAdapter {
             }
         }
 
+        // XP drop events — show per-skill XP gain
+        String[] skillNames = {"Attack", "Strength", "Defence", "Hitpoints", "Ranged", "Magic"};
+        for (ClientPacketHandler.XpDropEvent xp : h.drainXpDrops()) {
+            if (xp.skillIndex >= 0 && xp.skillIndex < skillNames.length) {
+                combatUI.addMessage("+" + xp.xpGained + " " + skillNames[xp.skillIndex] + " XP");
+            }
+        }
+
         if (h.consumeLevelUp()) {
-            String[] skills = {"Attack", "Strength", "Defence", "Hitpoints", "Ranged", "Magic"};
             int idx = h.getLeveledUpSkill();
-            if (idx >= 0 && idx < skills.length)
-                combatUI.addMessage("LEVEL UP! " + skills[idx] + " → " + h.getSkillLevel(idx));
+            if (idx >= 0 && idx < skillNames.length)
+                combatUI.addMessage("LEVEL UP! " + skillNames[idx] + " → " + h.getSkillLevel(idx));
         }
     }
 
@@ -379,8 +390,10 @@ public class GameScreen extends ApplicationAdapter {
 
         int mx = Gdx.input.getX();
         int my = Gdx.input.getY();
+        int w = Gdx.graphics.getWidth();
+        int h = Gdx.graphics.getHeight();
         // LibGDX y-flip: screen-space has Y=0 at bottom
-        int screenMy = Gdx.graphics.getHeight() - my;
+        int screenMy = h - my;
 
         // Update drag position continuously
         inventoryUI.updateDrag(mx, screenMy);
@@ -406,6 +419,12 @@ public class GameScreen extends ApplicationAdapter {
                 ContextMenu.MenuItem clicked = contextMenu.getClickedItem(mx, screenMy);
                 if (clicked != null) handleContextMenuAction(clicked);
                 contextMenu.close();
+            } else if (combatStyleUI.isOverPanel(mx, screenMy, w, h)) {
+                int style = combatStyleUI.handleClick(mx, screenMy, w, h);
+                if (style >= 0 && nettyClient != null) {
+                    nettyClient.sendSetCombatStyle(style);
+                    LOG.info("Combat style changed to {}", style);
+                }
             } else if (inventoryUI.isOverPanel(mx, screenMy)) {
                 inventoryUI.handleMouseDown(mx, screenMy, 0);
             } else {

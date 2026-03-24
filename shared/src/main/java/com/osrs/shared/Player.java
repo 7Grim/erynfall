@@ -1,8 +1,5 @@
 package com.osrs.shared;
 
-import java.util.HashMap;
-import java.util.Map;
-
 /**
  * Represents a player character.
  * Extends Entity with player-specific properties like stats, inventory, quests.
@@ -17,28 +14,50 @@ public class Player extends Entity {
     private int[] inventoryQuantities = new int[28];
     
     // Combat state
-    private int combatTarget = -1; // Entity ID of current combat target
+    private int combatTarget = -1;
     private long lastAttackTick = 0;
+    private CombatStyle combatStyle = CombatStyle.AGGRESSIVE;
 
     // Dialogue state
-    private int dialogueTarget = -1; // NPC ID this player is currently talking to, or -1
-    
-    // Skills (stored server-side in Stats, cached here for quick access)
-    private int attackLevel = 1;
-    private int strengthLevel = 1;
-    private int defenceLevel = 1;
-    private int rangedLevel = 1;
-    private int magicLevel = 1;
-    
-    // Experience (stored server-side in Stats)
-    private long attackXp = 0;
-    private long strengthXp = 0;
-    private long defenceXp = 0;
+    private int dialogueTarget = -1;
+
+    // -----------------------------------------------------------------------
+    // Skill indices: 0=Attack 1=Strength 2=Defence 3=Hitpoints 4=Ranged 5=Magic
+    // -----------------------------------------------------------------------
+    public static final int SKILL_ATTACK    = 0;
+    public static final int SKILL_STRENGTH  = 1;
+    public static final int SKILL_DEFENCE   = 2;
+    public static final int SKILL_HITPOINTS = 3;
+    public static final int SKILL_RANGED    = 4;
+    public static final int SKILL_MAGIC     = 5;
+    public static final int SKILL_COUNT     = 6;
+
+    /** Total XP accumulated per skill. */
+    private final long[] skillXp    = new long[SKILL_COUNT];
+    /** Current level per skill (1–99, derived from XP). */
+    private final int[]  skillLevel = new int[SKILL_COUNT];
+
+    // OSRS XP table: xpTable[level-1] = XP needed to reach that level.
+    private static final long[] XP_TABLE = buildXpTable();
+
+    private static long[] buildXpTable() {
+        long[] table = new long[99];
+        table[0] = 0;
+        long points = 0;
+        for (int lvl = 1; lvl < 99; lvl++) {
+            points += (long) Math.floor(lvl + 300.0 * Math.pow(2.0, lvl / 7.0));
+            table[lvl] = (long) Math.floor(points / 4.0);
+        }
+        return table;
+    }
     
     public Player(int id, String name, int x, int y) {
         super(id, name, x, y);
-        this.health = 10; // Initial hitpoints
+        this.health = 10;
         this.maxHealth = 10;
+        for (int i = 0; i < SKILL_COUNT; i++) skillLevel[i] = 1;
+        // Hitpoints starts at level 10 in OSRS (new accounts)
+        skillLevel[SKILL_HITPOINTS] = 10;
     }
     
     public int getCombatTarget() {
@@ -103,36 +122,59 @@ public class Player extends Entity {
         return getFirstEmptySlot() < 0;
     }
     
-    // Skill getters/setters
-    public int getAttackLevel() { return attackLevel; }
-    public void setAttackLevel(int level) { this.attackLevel = level; }
-    
-    public int getStrengthLevel() { return strengthLevel; }
-    public void setStrengthLevel(int level) { this.strengthLevel = level; }
-    
-    public int getDefenceLevel() { return defenceLevel; }
-    public void setDefenceLevel(int level) { this.defenceLevel = level; }
-    
-    public int getRangedLevel() { return rangedLevel; }
-    public void setRangedLevel(int level) { this.rangedLevel = level; }
-    
-    public int getMagicLevel() { return magicLevel; }
-    public void setMagicLevel(int level) { this.magicLevel = level; }
-    
+    // -----------------------------------------------------------------------
+    // Skill access
+    // -----------------------------------------------------------------------
+
+    /** Returns current level for the given skill index (0-5). */
+    public int getSkillLevel(int skillIdx) {
+        return (skillIdx >= 0 && skillIdx < SKILL_COUNT) ? skillLevel[skillIdx] : 1;
+    }
+
+    /** Returns total XP for the given skill index. */
+    public long getSkillXp(int skillIdx) {
+        return (skillIdx >= 0 && skillIdx < SKILL_COUNT) ? skillXp[skillIdx] : 0;
+    }
+
+    /**
+     * Awards XP to a skill. Recomputes the level and returns true if a
+     * level-up occurred (caller should broadcast SkillUpdate with leveled_up=true).
+     */
+    public boolean addSkillXp(int skillIdx, long amount) {
+        if (skillIdx < 0 || skillIdx >= SKILL_COUNT || amount <= 0) return false;
+        skillXp[skillIdx] += amount;
+        int newLevel = levelFromXp(skillXp[skillIdx]);
+        boolean leveledUp = newLevel > skillLevel[skillIdx];
+        skillLevel[skillIdx] = newLevel;
+        return leveledUp;
+    }
+
+    private static int levelFromXp(long xp) {
+        int level = 1;
+        for (int i = 1; i < 99; i++) {
+            if (xp >= XP_TABLE[i]) level = i + 1;
+            else break;
+        }
+        return Math.min(level, 99);
+    }
+
+    // Convenience shortcuts used by CombatEngine
+    public int getAttackLevel()   { return skillLevel[SKILL_ATTACK]; }
+    public int getStrengthLevel() { return skillLevel[SKILL_STRENGTH]; }
+    public int getDefenceLevel()  { return skillLevel[SKILL_DEFENCE]; }
+
+    // -----------------------------------------------------------------------
+    // Combat style
+    // -----------------------------------------------------------------------
+
+    public CombatStyle getCombatStyle() { return combatStyle; }
+    public void setCombatStyle(CombatStyle style) { this.combatStyle = style; }
+
+    // -----------------------------------------------------------------------
+    // Dialogue
+    // -----------------------------------------------------------------------
+
     public int getDialogueTarget() { return dialogueTarget; }
     public void setDialogueTarget(int npcId) { this.dialogueTarget = npcId; }
     public boolean isInDialogue() { return dialogueTarget >= 0; }
-
-    // Experience getters/setters
-    public long getAttackXp() { return attackXp; }
-    public void setAttackXp(long xp) { this.attackXp = xp; }
-    public void addAttackXp(long xp) { this.attackXp += xp; }
-    
-    public long getStrengthXp() { return strengthXp; }
-    public void setStrengthXp(long xp) { this.strengthXp = xp; }
-    public void addStrengthXp(long xp) { this.strengthXp += xp; }
-    
-    public long getDefenceXp() { return defenceXp; }
-    public void setDefenceXp(long xp) { this.defenceXp = xp; }
-    public void addDefenceXp(long xp) { this.defenceXp += xp; }
 }

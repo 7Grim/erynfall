@@ -85,9 +85,22 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
     private int playerHealth = 10;
     private int playerMaxHealth = 10;
     /** Skill levels: 0=Attack, 1=Strength, 2=Defence, 3=Hitpoints, 4=Ranged, 5=Magic */
-    private final int[] skillLevels = {1, 1, 1, 1, 1, 1};
+    private final int[]  skillLevels   = {1, 1, 1, 1, 1, 1};
+    private final long[] skillTotalXp  = new long[6];
     private boolean leveledUp = false;
     private int leveledUpSkill = -1;
+
+    /** XP gain events queued for the render thread to show as floating text. */
+    public static class XpDropEvent {
+        public final int  skillIndex;
+        public final long xpGained;
+        public XpDropEvent(int skillIndex, long xpGained) {
+            this.skillIndex = skillIndex;
+            this.xpGained  = xpGained;
+        }
+    }
+
+    private final ConcurrentLinkedQueue<XpDropEvent> pendingXpDrops = new ConcurrentLinkedQueue<>();
 
     /** Set when the server sends a PlayerDeath packet; cleared by GameScreen after showing death overlay. */
     private volatile boolean playerDead = false;
@@ -225,7 +238,15 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
 
     private void handleSkillUpdate(NetworkProto.SkillUpdate update) {
         int idx = update.getSkillIndex();
-        if (idx >= 0 && idx < skillLevels.length) skillLevels[idx] = update.getNewLevel();
+        if (idx >= 0 && idx < skillLevels.length) {
+            skillLevels[idx] = update.getNewLevel();
+            long newTotalXp = update.getTotalXp();
+            long gained = newTotalXp - skillTotalXp[idx];
+            if (gained > 0) {
+                pendingXpDrops.add(new XpDropEvent(idx, gained));
+            }
+            skillTotalXp[idx] = newTotalXp;
+        }
         if (update.getLeveledUp()) {
             leveledUp = true;
             leveledUpSkill = idx;
@@ -283,6 +304,18 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
 
     public boolean consumeLevelUp() { boolean v = leveledUp; leveledUp = false; return v; }
     public int getLeveledUpSkill()  { return leveledUpSkill; }
+    public long getSkillTotalXp(int idx) {
+        return (idx >= 0 && idx < skillTotalXp.length) ? skillTotalXp[idx] : 0;
+    }
+
+    /** Drain all queued XP drop events for this frame. */
+    public List<XpDropEvent> drainXpDrops() {
+        if (pendingXpDrops.isEmpty()) return List.of();
+        List<XpDropEvent> out = new ArrayList<>();
+        XpDropEvent e;
+        while ((e = pendingXpDrops.poll()) != null) out.add(e);
+        return out;
+    }
 
     /** True if the player just died; GameScreen calls consumePlayerDeath() to acknowledge. */
     public boolean isPlayerDead()   { return playerDead; }
