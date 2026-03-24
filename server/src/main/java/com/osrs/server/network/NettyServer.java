@@ -10,6 +10,7 @@ import io.netty.handler.codec.LengthFieldPrepender;
 import io.netty.handler.codec.protobuf.ProtobufDecoder;
 import io.netty.handler.codec.protobuf.ProtobufEncoder;
 import com.osrs.protocol.NetworkProto;
+import com.osrs.server.world.World;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -21,21 +22,34 @@ import java.util.Map;
  * Handles client connections + packet routing.
  */
 public class NettyServer {
-    
+
     private static final Logger LOG = LoggerFactory.getLogger(NettyServer.class);
-    private static final int PORT = 43594;
     private static final int MAX_FRAME_LENGTH = 1024 * 64;
-    
+
+    private final int port;
+    private final int bossThreads;
+    private final int workerThreads;
+    private final World world;
+
     private EventLoopGroup bossGroup;
     private EventLoopGroup workerGroup;
     private Channel serverChannel;
-    
+
     private final Map<Integer, PlayerSession> sessions = new HashMap<>();
     private int nextSessionId = 1;
-    
+
+    public NettyServer(int port, int bossThreads, int workerThreads, World world) {
+        this.port = port;
+        this.bossThreads = bossThreads;
+        this.workerThreads = workerThreads;
+        this.world = world;
+    }
+
+    public World getWorld() { return world; }
+
     public void start() throws Exception {
-        bossGroup = new NioEventLoopGroup(1);
-        workerGroup = new NioEventLoopGroup();
+        bossGroup = new NioEventLoopGroup(bossThreads);
+        workerGroup = new NioEventLoopGroup(workerThreads);
         
         try {
             ServerBootstrap bootstrap = new ServerBootstrap();
@@ -49,8 +63,8 @@ public class NettyServer {
                         // Frame length decoder (message framing)
                         pipeline.addLast(new LengthFieldBasedFrameDecoder(MAX_FRAME_LENGTH, 0, 4, 0, 4));
                         
-                        // Protobuf decoders (generic message)
-                        pipeline.addLast(new ProtobufDecoder(NetworkProto.Handshake.getDefaultInstance()));
+                        // Protobuf decoder: decode all client packets as ClientMessage wrapper
+                        pipeline.addLast(new ProtobufDecoder(NetworkProto.ClientMessage.getDefaultInstance()));
                         
                         // Frame length encoder
                         pipeline.addLast(new LengthFieldPrepender(4));
@@ -65,8 +79,8 @@ public class NettyServer {
                 .option(ChannelOption.SO_BACKLOG, 128)
                 .childOption(ChannelOption.SO_KEEPALIVE, true);
             
-            serverChannel = bootstrap.bind(PORT).sync().channel();
-            LOG.info("Netty server listening on port {}", PORT);
+            serverChannel = bootstrap.bind(port).sync().channel();
+            LOG.info("Netty server listening on port {}", port);
             
         } catch (Exception e) {
             LOG.error("Failed to start Netty server", e);
@@ -100,5 +114,26 @@ public class NettyServer {
     
     public Map<Integer, PlayerSession> getSessions() {
         return sessions;
+    }
+
+    /**
+     * Broadcast a ServerMessage to all connected, authenticated sessions.
+     */
+    public void broadcastToAll(NetworkProto.ServerMessage message) {
+        for (PlayerSession session : sessions.values()) {
+            if (session.isAuthenticated() && session.getChannel().isActive()) {
+                session.getChannel().writeAndFlush(message);
+            }
+        }
+    }
+
+    /**
+     * Send a ServerMessage to a specific session.
+     */
+    public void sendToSession(int sessionId, NetworkProto.ServerMessage message) {
+        PlayerSession session = sessions.get(sessionId);
+        if (session != null && session.getChannel().isActive()) {
+            session.getChannel().writeAndFlush(message);
+        }
     }
 }

@@ -1,17 +1,23 @@
 # PROGRESS.md - Sprint Tracking
 
-**Last Updated:** 2026-03-16 (S2 Implementation Complete - 6+ hours of dev work)
+**Last Updated:** 2026-03-23 (S2 client rendering complete, all systems wired end-to-end)
 
-**Current Sprint:** S2 (Combat Basics) — 95% implemented, ready for testing
+**Current Sprint:** S2 (Combat Basics) — Complete, ready for testing
 
 **Team:** victorystyle (lead dev), game artist (TBD)
 
-**Work Summary Today:**
-- ✅ Fixed critical movement bug (arrow keys → right-click pathfinding)
-- ✅ Completed S1 (all 10 systems working)
-- ✅ Implemented S2 in full (combat, XP, quests, dialogue, inventory)
-- ✅ Integrated all systems end-to-end
-- ✅ Ready for Windows PC testing
+**Work Summary Today (2026-03-23):**
+- ✅ Fixed packet routing (ClientMessage/ServerMessage proto wrappers — all packets now routed correctly)
+- ✅ Fixed coordinate conversion (camera.unproject + correct inverse isometric formula)
+- ✅ Left-click-to-walk working with correct tile coordinates
+- ✅ Smooth tile-by-tile movement (1 tile/600ms interpolation, OSRS accurate)
+- ✅ Context menu rendered OSRS-style (dark navy panel, yellow "Choose Option" header, white options)
+- ✅ HUD: HP bar (red fill), Attack/Strength/Defence levels, tile coords (bottom-right)
+- ✅ Hitsplats: red/white floating damage numbers above entities, fade + float over 1.5s
+- ✅ GameLoop broadcasts CombatHit + HealthUpdate packets to clients
+- ✅ NPC health bars visible above NPCs when health < max
+- ✅ XP table replaced with exact OSRS formula (Level 99 = 13,034,431 XP)
+- ✅ Server connected to Azure SQL (erynfall.database.windows.net)
 
 ---
 

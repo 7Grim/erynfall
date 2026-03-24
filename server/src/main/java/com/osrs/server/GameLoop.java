@@ -1,5 +1,6 @@
 package com.osrs.server;
 
+import com.osrs.protocol.NetworkProto;
 import com.osrs.server.combat.CombatEngine;
 import com.osrs.server.network.NettyServer;
 import com.osrs.server.world.World;
@@ -7,6 +8,10 @@ import com.osrs.shared.NPC;
 import com.osrs.shared.Player;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Random;
 
 /**
  * 256-tick game loop running on a dedicated thread.
@@ -30,6 +35,20 @@ public class GameLoop {
     private final World world;
     private final NettyServer nettyServer;
     private final CombatEngine combatEngine;
+
+    // NPC wander: per-NPC tick counter for next random step
+    // At 256 Hz, 200-450 ticks ≈ 0.78–1.76 seconds between steps (OSRS-like cadence)
+    private static final int WANDER_MIN = 200;
+    private static final int WANDER_MAX = 450;
+    private final Map<Integer, Long> npcNextWanderTick = new HashMap<>();
+    private final Random random = new Random();
+
+    // NPC combat movement: 1 tile per ~0.6s = 154 ticks at 256 Hz
+    private static final int NPC_MOVE_SPEED   = 154;
+    // NPC attack speed: 4 OSRS ticks = 2.4s = 615 server ticks
+    private static final int NPC_ATTACK_SPEED = 615;
+    // NPC de-aggro chase limit: wander_radius + 5 tiles beyond spawn
+    private static final int NPC_CHASE_EXTRA  = 5;
     
     public GameLoop(long tickIntervalNs, World world, NettyServer nettyServer) {
         this.tickIntervalNs = tickIntervalNs;
@@ -115,12 +134,11 @@ public class GameLoop {
             // Currently handled by ServerPacketHandler directly
             // TODO: Create InputTicker to centralize this
             
-            // Stage 2: Movement update (update player positions via pathfinding)
-            // TODO: Create MovementTicker
-            updateEntityPositions();
-            
-            // Stage 3: Combat calculation (CombatEngine integration)
-            // TODO: Create CombatTicker with proper stage 3 semantics
+            // Stage 2: Movement — NPC wander + player pathfinding
+            updateNPCWander();
+            processNPCCombat();  // NPC follow & retaliate when aggroed
+
+            // Stage 3: Combat calculation
             processCombat();
             
             // Stage 4: Skill progression (XP awards, level-ups)
@@ -149,59 +167,295 @@ public class GameLoop {
     }
     
     /**
-     * Update entity positions (movement animation interpolation).
-     * TODO: Smooth movement between waypoints.
+     * NPC wander: each NPC with wanderRadius > 0 takes one random step per
+     * WANDER_MIN..WANDER_MAX ticks (≈0.8–1.8 s), staying within their radius
+     * of their spawn point. Broadcasts EntityUpdate to all clients on move.
+     * Skips NPCs that are in combat.
      */
-    private void updateEntityPositions() {
-        // Placeholder: positions are updated immediately in ServerPacketHandler
-        // In a full implementation, we'd animate movement here
+    private void updateNPCWander() {
+        for (NPC npc : world.getNPCs().values()) {
+            if (npc.isInCombat() || npc.isInDialogue() || npc.getWanderRadius() <= 0) continue;
+            // Also freeze if any player is currently attacking this NPC (even before aggro)
+            if (isBeingAttackedByPlayer(npc.getId())) continue;
+
+            long next = npcNextWanderTick.getOrDefault(npc.getId(), 0L);
+            if (tickCount < next) continue;
+
+            // Schedule next step
+            npcNextWanderTick.put(npc.getId(),
+                tickCount + WANDER_MIN + random.nextInt(WANDER_MAX - WANDER_MIN));
+
+            // Try up to 8 random directions; pick first valid tile within radius
+            int[] dx = {0, 1, 0, -1, 1, 1, -1, -1};
+            int[] dy = {1, 0, -1, 0, 1, -1, 1, -1};
+            int start = random.nextInt(8);
+            for (int i = 0; i < 8; i++) {
+                int dir = (start + i) % 8;
+                int nx = npc.getX() + dx[dir];
+                int ny = npc.getY() + dy[dir];
+                // Must be within wander radius of spawn AND within map bounds AND walkable
+                int distX = Math.abs(nx - npc.getSpawnX());
+                int distY = Math.abs(ny - npc.getSpawnY());
+                if (distX > npc.getWanderRadius() || distY > npc.getWanderRadius()) continue;
+                if (nx < 0 || nx >= 104 || ny < 0 || ny >= 104) continue;
+                if (!world.canWalkTo(nx, ny)) continue;
+
+                npc.setPosition(nx, ny);
+
+                NetworkProto.ServerMessage update = NetworkProto.ServerMessage.newBuilder()
+                    .setEntityUpdate(NetworkProto.EntityUpdate.newBuilder()
+                        .setEntityId(npc.getId())
+                        .setX(nx)
+                        .setY(ny))
+                    .build();
+                nettyServer.broadcastToAll(update);
+                break;
+            }
+        }
     }
-    
+
+    /**
+     * NPC combat AI: for every NPC that has been aggroed (combatTarget >= 0):
+     * - If target player gone / dead → clear combat target.
+     * - If player escaped beyond spawn + wander_radius + NPC_CHASE_EXTRA → de-aggro.
+     * - If in melee range (Chebyshev ≤ 1) → attack every NPC_ATTACK_SPEED ticks.
+     * - Otherwise → step one tile toward player every NPC_MOVE_SPEED ticks.
+     * NPCs in dialogue are skipped (frozen).
+     */
+    private void processNPCCombat() {
+        for (NPC npc : world.getNPCs().values()) {
+            if (!npc.isInCombat() || npc.isInDialogue()) continue;
+
+            Player target = world.getPlayer(npc.getCombatTarget());
+            if (target == null || target.getHealth() <= 0) {
+                npc.setCombatTarget(-1);
+                continue;
+            }
+
+            // De-aggro if player fled beyond chase limit from spawn
+            int chaseLimit = npc.getWanderRadius() + NPC_CHASE_EXTRA;
+            int playerFromSpawnX = Math.abs(target.getX() - npc.getSpawnX());
+            int playerFromSpawnY = Math.abs(target.getY() - npc.getSpawnY());
+            if (Math.max(playerFromSpawnX, playerFromSpawnY) > chaseLimit) {
+                npc.setCombatTarget(-1);
+                LOG.debug("NPC {} de-aggroed: player {} fled beyond chase range", npc.getId(), target.getId());
+                continue;
+            }
+
+            int chebyshev = Math.max(
+                Math.abs(npc.getX() - target.getX()),
+                Math.abs(npc.getY() - target.getY())
+            );
+
+            if (chebyshev <= 1) {
+                // In melee range — attack
+                if (tickCount - npc.getLastAttackTick() < NPC_ATTACK_SPEED) continue;
+
+                CombatEngine.HitResult result = combatEngine.calculateHit(npc, target, tickCount);
+                npc.setLastAttackTick(tickCount);
+
+                int newTargetHealth = target.getHealth();
+                if (result.hit) {
+                    newTargetHealth = Math.max(0, target.getHealth() - result.damage);
+                    target.setHealth(newTargetHealth);
+                    LOG.debug("NPC {} hit player {} for {} (HP now {})",
+                        npc.getId(), target.getId(), result.damage, newTargetHealth);
+                } else {
+                    LOG.debug("NPC {} missed player {}", npc.getId(), target.getId());
+                }
+
+                // Broadcast CombatHit (attacker = NPC, target = player)
+                nettyServer.broadcastToAll(NetworkProto.ServerMessage.newBuilder()
+                    .setCombatHit(NetworkProto.CombatHit.newBuilder()
+                        .setAttackerId(npc.getId())
+                        .setTargetId(target.getId())
+                        .setDamage(result.damage)
+                        .setHit(result.hit)
+                        .setXpAwarded(0)
+                        .setAttackerHealth(npc.getHealth())
+                        .setTargetHealth(newTargetHealth)
+                        .setTargetX(target.getX())
+                        .setTargetY(target.getY()))
+                    .build());
+
+                // Broadcast HealthUpdate for the player
+                nettyServer.broadcastToAll(NetworkProto.ServerMessage.newBuilder()
+                    .setHealthUpdate(NetworkProto.HealthUpdate.newBuilder()
+                        .setEntityId(target.getId())
+                        .setHealth(newTargetHealth)
+                        .setMaxHealth(target.getMaxHealth()))
+                    .build());
+
+                if (newTargetHealth <= 0) {
+                    npc.setCombatTarget(-1);
+                    LOG.info("NPC {} killed player {}", npc.getId(), target.getId());
+                    respawnPlayer(target);
+                }
+
+            } else {
+                // Out of melee range — step one tile toward player
+                if (tickCount - npc.getLastPathfindTick() < NPC_MOVE_SPEED) continue;
+
+                int signX = Integer.signum(target.getX() - npc.getX());
+                int signY = Integer.signum(target.getY() - npc.getY());
+                int nx = npc.getX(), ny = npc.getY();
+
+                // Try diagonal first, then cardinal fallbacks
+                if (world.canWalkTo(npc.getX() + signX, npc.getY() + signY)) {
+                    nx = npc.getX() + signX;
+                    ny = npc.getY() + signY;
+                } else if (signX != 0 && world.canWalkTo(npc.getX() + signX, npc.getY())) {
+                    nx = npc.getX() + signX;
+                } else if (signY != 0 && world.canWalkTo(npc.getX(), npc.getY() + signY)) {
+                    ny = npc.getY() + signY;
+                }
+
+                if (nx != npc.getX() || ny != npc.getY()) {
+                    npc.setPosition(nx, ny);
+                    npc.setLastPathfindTick(tickCount);
+
+                    nettyServer.broadcastToAll(NetworkProto.ServerMessage.newBuilder()
+                        .setEntityUpdate(NetworkProto.EntityUpdate.newBuilder()
+                            .setEntityId(npc.getId())
+                            .setX(nx)
+                            .setY(ny))
+                        .build());
+                }
+            }
+        }
+    }
+
     /**
      * Process all active combats.
-     * Each player in combat rolls hit/miss/damage every attack speed ticks.
+     * Each player in combat rolls hit/miss/damage every 4 ticks (2.4s, OSRS sword speed).
+     * Broadcasts CombatHit and HealthUpdate packets to all clients.
      */
     private void processCombat() {
         for (Player player : world.getPlayers().values()) {
             if (!player.isInCombat()) {
                 continue;
             }
-            
+
             NPC target = world.getNPC(player.getCombatTarget());
             if (target == null || target.getHealth() <= 0) {
-                // Target is dead or doesn't exist
                 player.setCombatTarget(-1);
                 LOG.debug("Player {} combat ended (target dead/gone)", player.getId());
                 continue;
             }
-            
-            // Attack every 4 ticks (default weapon speed)
-            // TODO: Check weapon for actual attack speed
-            int attackSpeed = 4;
-            if (tickCount - player.getLastAttackTick() >= attackSpeed) {
-                // Roll hit/miss/damage
-                CombatEngine.HitResult result = combatEngine.calculateHit(player, target, tickCount);
-                
-                // Apply damage
-                if (result.hit) {
-                    target.setHealth(target.getHealth() - result.damage);
-                    LOG.debug("Player {} hit {} for {}", 
-                        player.getId(), target.getId(), result.damage);
-                } else {
-                    LOG.debug("Player {} missed {}", player.getId(), target.getId());
+
+            // OSRS default weapon speed: 4 OSRS-ticks (2.4 seconds) = 615 server ticks at 256 Hz
+            int attackSpeed = 615;
+            if (tickCount - player.getLastAttackTick() < attackSpeed) {
+                continue;
+            }
+
+            CombatEngine.HitResult result = combatEngine.calculateHit(player, target, tickCount);
+
+            int newTargetHealth = target.getHealth();
+            if (result.hit) {
+                newTargetHealth = Math.max(0, target.getHealth() - result.damage);
+                target.setHealth(newTargetHealth);
+                player.addStrengthXp(result.xpAwarded);
+                LOG.debug("Player {} hit NPC {} for {} (HP now {})",
+                    player.getId(), target.getId(), result.damage, newTargetHealth);
+
+                // Aggro NPC only when a hit actually lands for > 0 damage
+                if (result.damage > 0 && !target.isInCombat()) {
+                    target.setCombatTarget(player.getId());
+                    LOG.info("NPC {} aggroed by player {} (took {} damage)",
+                        target.getId(), player.getId(), result.damage);
                 }
-                
-                // Award XP (TODO: to actual stats)
-                // player.getStats().addExperience(Skill.STRENGTH, result.xpAwarded);
-                
-                // Update last attack tick
-                player.setLastAttackTick(tickCount);
-                
-                // TODO: Broadcast CombatHit packet to clients
+            } else {
+                LOG.debug("Player {} missed NPC {}", player.getId(), target.getId());
+            }
+
+            player.setLastAttackTick(tickCount);
+
+            // Broadcast CombatHit to all clients
+            NetworkProto.ServerMessage combatMsg = NetworkProto.ServerMessage.newBuilder()
+                .setCombatHit(NetworkProto.CombatHit.newBuilder()
+                    .setAttackerId(player.getId())
+                    .setTargetId(target.getId())
+                    .setDamage(result.damage)
+                    .setHit(result.hit)
+                    .setXpAwarded(result.xpAwarded)
+                    .setAttackerHealth(player.getHealth())
+                    .setTargetHealth(newTargetHealth)
+                    .setTargetX(target.getX())
+                    .setTargetY(target.getY()))
+                .build();
+            nettyServer.broadcastToAll(combatMsg);
+
+            // Broadcast HealthUpdate for the NPC
+            NetworkProto.ServerMessage healthMsg = NetworkProto.ServerMessage.newBuilder()
+                .setHealthUpdate(NetworkProto.HealthUpdate.newBuilder()
+                    .setEntityId(target.getId())
+                    .setHealth(newTargetHealth)
+                    .setMaxHealth(target.getMaxHealth()))
+                .build();
+            nettyServer.broadcastToAll(healthMsg);
+
+            // NPC dies
+            if (newTargetHealth <= 0) {
+                player.setCombatTarget(-1);
+                LOG.info("Player {} killed NPC {}", player.getId(), target.getId());
+                // TODO: drop loot, schedule respawn
             }
         }
     }
     
+    /**
+     * Returns true if any player currently has this NPC set as their combat target.
+     * Used to freeze NPC wandering the moment a player begins attacking,
+     * even before the first damaging hit lands (which triggers full aggro/retaliation).
+     */
+    private boolean isBeingAttackedByPlayer(int npcId) {
+        for (Player p : world.getPlayers().values()) {
+            if (p.getCombatTarget() == npcId) return true;
+        }
+        return false;
+    }
+
+    /**
+     * Teleport the player to the world spawn point (Lumbridge) and restore full HP.
+     * Broadcasts a PlayerDeath packet to only that player's session, and an EntityUpdate
+     * (new position) to all clients so they see the player teleport away.
+     */
+    private void respawnPlayer(Player player) {
+        int spawnX = world.getSpawnX();
+        int spawnY = world.getSpawnY();
+
+        // Reset state
+        player.setHealth(player.getMaxHealth());
+        player.setPosition(spawnX, spawnY);
+        player.setCombatTarget(-1);
+
+        // Notify the dying player (death screen + respawn coords)
+        nettyServer.sendToSession(player.getId(), NetworkProto.ServerMessage.newBuilder()
+            .setPlayerDeath(NetworkProto.PlayerDeath.newBuilder()
+                .setRespawnX(spawnX)
+                .setRespawnY(spawnY))
+            .build());
+
+        // Broadcast full HP restore so all clients update health bar
+        nettyServer.broadcastToAll(NetworkProto.ServerMessage.newBuilder()
+            .setHealthUpdate(NetworkProto.HealthUpdate.newBuilder()
+                .setEntityId(player.getId())
+                .setHealth(player.getMaxHealth())
+                .setMaxHealth(player.getMaxHealth()))
+            .build());
+
+        // Broadcast new position so all clients see the teleport
+        nettyServer.broadcastToAll(NetworkProto.ServerMessage.newBuilder()
+            .setEntityUpdate(NetworkProto.EntityUpdate.newBuilder()
+                .setEntityId(player.getId())
+                .setX(spawnX)
+                .setY(spawnY))
+            .build());
+
+        LOG.info("Player {} died and respawned at ({}, {})", player.getId(), spawnX, spawnY);
+    }
+
     /**
      * Update skill experience and levels.
      * TODO: Process XP awards and level-up events.
@@ -210,7 +464,7 @@ public class GameLoop {
         // Placeholder: XP tracking is in Stats class
         // In a full implementation, we'd process level-up events here
     }
-    
+
     public long getTickCount() {
         return tickCount;
     }

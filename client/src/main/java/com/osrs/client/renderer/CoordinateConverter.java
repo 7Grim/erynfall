@@ -33,12 +33,12 @@ public class CoordinateConverter {
      * tileY = (screenY/8 - screenX/16) / 2
      */
     public static int screenToWorldX(float screenX, float screenY) {
-        float x = (screenX / TILE_WIDTH + screenY / TILE_HEIGHT) / 2.0f;
+        float x = (screenX / (TILE_WIDTH / 2.0f) + screenY / (TILE_HEIGHT / 2.0f)) / 2.0f;
         return Math.round(x);
     }
-    
+
     public static int screenToWorldY(float screenX, float screenY) {
-        float y = (screenY / TILE_HEIGHT - screenX / TILE_WIDTH) / 2.0f;
+        float y = (screenY / (TILE_HEIGHT / 2.0f) - screenX / (TILE_WIDTH / 2.0f)) / 2.0f;
         return Math.round(y);
     }
     

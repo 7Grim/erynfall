@@ -73,6 +73,8 @@ message CombatHit {
     int32 xp_awarded = 5;
     int32 attacker_health = 6;
     int32 target_health = 7;
+    int32 target_x = 8;   // World tile X of the target (for hitsplat positioning)
+    int32 target_y = 9;   // World tile Y of the target
 }
 
 // Attack: Client → Server
@@ -117,6 +119,18 @@ message DialogueResponse {
     int64 sequence = 2;
 }
 
+// PlayerDeath: Server → Client (local player died; respawn info included)
+message PlayerDeath {
+    int32 respawn_x = 1;   // Tile X of respawn point (Lumbridge)
+    int32 respawn_y = 2;   // Tile Y of respawn point
+}
+
+// TalkToNpc: Client → Server (initiate dialogue with an NPC)
+message TalkToNpc {
+    int32 npc_id = 1;
+    int64 sequence = 2;
+}
+
 // DialoguePrompt: Server → Client
 message DialoguePrompt {
     int32 npc_id = 1;
@@ -134,4 +148,42 @@ message InventoryUpdate {
 // Heartbeat: Server → Client (keep-alive)
 message Heartbeat {
     int64 server_time = 1;
+}
+
+// SkillUpdate: Server → Client (XP gain / level-up)
+message SkillUpdate {
+    int32 skill_index = 1;   // 0=Attack, 1=Strength, 2=Defence, 3=Hitpoints, 4=Ranged, 5=Magic
+    int32 new_level = 2;
+    int64 total_xp = 3;
+    bool leveled_up = 4;
+}
+
+// ClientMessage: wrapper for all client → server messages
+message ClientMessage {
+    oneof payload {
+        Handshake handshake = 1;
+        PlayerMovement movement = 2;
+        WalkTo walk_to = 3;
+        Attack attack = 4;
+        DialogueResponse dialogue_response = 5;
+        TalkToNpc talk_to_npc = 6;
+    }
+}
+
+// ServerMessage: wrapper for all server → client messages
+message ServerMessage {
+    oneof payload {
+        HandshakeResponse handshake_response = 1;
+        WorldState world_state = 2;
+        CombatHit combat_hit = 3;
+        HealthUpdate health_update = 4;
+        QuestUpdate quest_update = 5;
+        DialogueMessage dialogue_message = 6;
+        DialoguePrompt dialogue_prompt = 7;
+        InventoryUpdate inventory_update = 8;
+        Heartbeat heartbeat = 9;
+        SkillUpdate skill_update = 10;
+        EntityUpdate entity_update = 11;  // Live position delta (NPC move, player move, etc.)
+        PlayerDeath player_death = 12;    // Sent only to the dying player; includes respawn coords
+    }
 }

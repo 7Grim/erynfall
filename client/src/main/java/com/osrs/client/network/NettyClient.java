@@ -43,7 +43,7 @@ public class NettyClient {
                         ChannelPipeline pipeline = ch.pipeline();
                         
                         pipeline.addLast(new LengthFieldBasedFrameDecoder(MAX_FRAME_LENGTH, 0, 4, 0, 4));
-                        pipeline.addLast(new ProtobufDecoder(NetworkProto.HandshakeResponse.getDefaultInstance()));
+                        pipeline.addLast(new ProtobufDecoder(NetworkProto.ServerMessage.getDefaultInstance()));
                         
                         pipeline.addLast(new LengthFieldPrepender(4));
                         pipeline.addLast(new ProtobufEncoder());
@@ -77,54 +77,56 @@ public class NettyClient {
     }
     
     public void sendHandshake(String username) {
-        NetworkProto.Handshake handshake = NetworkProto.Handshake.newBuilder()
-            .setUsername(username)
-            .setPassword("dummy")
+        NetworkProto.ClientMessage msg = NetworkProto.ClientMessage.newBuilder()
+            .setHandshake(NetworkProto.Handshake.newBuilder()
+                .setUsername(username)
+                .setPassword("dummy"))
             .build();
-        
-        channel.writeAndFlush(handshake);
+        channel.writeAndFlush(msg);
         LOG.debug("Sent handshake: {}", username);
     }
-    
+
     public void sendPlayerMovement(int x, int y, int facing) {
-        NetworkProto.PlayerMovement movement = NetworkProto.PlayerMovement.newBuilder()
-            .setX(x)
-            .setY(y)
-            .setFacing(facing)
-            .setSequence(System.currentTimeMillis())
+        NetworkProto.ClientMessage msg = NetworkProto.ClientMessage.newBuilder()
+            .setMovement(NetworkProto.PlayerMovement.newBuilder()
+                .setX(x).setY(y).setFacing(facing).setSequence(System.currentTimeMillis()))
             .build();
-        
-        channel.writeAndFlush(movement);
+        channel.writeAndFlush(msg);
     }
-    
+
     public void sendWalkTo(int targetX, int targetY) {
-        NetworkProto.WalkTo walkTo = NetworkProto.WalkTo.newBuilder()
-            .setTargetX(targetX)
-            .setTargetY(targetY)
-            .setSequence(System.currentTimeMillis())
+        NetworkProto.ClientMessage msg = NetworkProto.ClientMessage.newBuilder()
+            .setWalkTo(NetworkProto.WalkTo.newBuilder()
+                .setTargetX(targetX).setTargetY(targetY).setSequence(System.currentTimeMillis()))
             .build();
-        
-        channel.writeAndFlush(walkTo);
+        channel.writeAndFlush(msg);
         LOG.debug("Sent WalkTo: ({}, {})", targetX, targetY);
     }
-    
+
     public void sendAttack(int targetId) {
-        NetworkProto.Attack attack = NetworkProto.Attack.newBuilder()
-            .setTargetId(targetId)
-            .setSequence(System.currentTimeMillis())
+        NetworkProto.ClientMessage msg = NetworkProto.ClientMessage.newBuilder()
+            .setAttack(NetworkProto.Attack.newBuilder()
+                .setTargetId(targetId).setSequence(System.currentTimeMillis()))
             .build();
-        
-        channel.writeAndFlush(attack);
+        channel.writeAndFlush(msg);
         LOG.debug("Sent Attack on entity {}", targetId);
     }
-    
-    public void sendDialogueResponse(int optionId) {
-        NetworkProto.DialogueResponse response = NetworkProto.DialogueResponse.newBuilder()
-            .setOptionId(optionId)
-            .setSequence(System.currentTimeMillis())
+
+    public void sendTalkToNpc(int npcId) {
+        NetworkProto.ClientMessage msg = NetworkProto.ClientMessage.newBuilder()
+            .setTalkToNpc(NetworkProto.TalkToNpc.newBuilder()
+                .setNpcId(npcId).setSequence(System.currentTimeMillis()))
             .build();
-        
-        channel.writeAndFlush(response);
+        channel.writeAndFlush(msg);
+        LOG.debug("Sent TalkToNpc: npc {}", npcId);
+    }
+
+    public void sendDialogueResponse(int optionId) {
+        NetworkProto.ClientMessage msg = NetworkProto.ClientMessage.newBuilder()
+            .setDialogueResponse(NetworkProto.DialogueResponse.newBuilder()
+                .setOptionId(optionId).setSequence(System.currentTimeMillis()))
+            .build();
+        channel.writeAndFlush(msg);
         LOG.debug("Sent dialogue response: option {}", optionId);
     }
     

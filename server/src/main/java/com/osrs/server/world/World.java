@@ -43,7 +43,7 @@ public class World {
         this.lootTables = worldData.lootTables;
         LOG.info("Loot tables loaded: {}", lootTables.keySet());
         
-        // Spawn NPCs from world configuration
+        // Spawn NPCs from world configuration (uses wander_radius from world.yml)
         spawnConfiguredNPCs();
         
         LOG.info("✓ World initialized successfully with {} NPCs", npcs.size());
@@ -57,6 +57,7 @@ public class World {
             NPC npc = new NPC(npcDef.id, npcDef.name, npcDef.combatLevel, npcDef.x, npcDef.y);
             npc.setLootTable(npcDef.lootTable);
             npc.setAggressive(npcDef.isAggressive);
+            npc.setWanderRadius(npcDef.wanderRadius);
             npcs.put(npcDef.id, npc);
             LOG.debug("Spawned NPC: {} (id={}, level={}, pos=({}, {}))", 
                 npcDef.name, npcDef.id, npcDef.combatLevel, npcDef.x, npcDef.y);
@@ -162,6 +163,9 @@ public class World {
     public TileMap getTileMap() {
         return tileMap;
     }
+
+    public int getSpawnX() { return worldData.spawnX; }
+    public int getSpawnY() { return worldData.spawnY; }
     
     /**
      * Get loot table by ID

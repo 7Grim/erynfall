@@ -19,6 +19,9 @@ public class Player extends Entity {
     // Combat state
     private int combatTarget = -1; // Entity ID of current combat target
     private long lastAttackTick = 0;
+
+    // Dialogue state
+    private int dialogueTarget = -1; // NPC ID this player is currently talking to, or -1
     
     // Skills (stored server-side in Stats, cached here for quick access)
     private int attackLevel = 1;
@@ -99,6 +102,10 @@ public class Player extends Entity {
     public int getMagicLevel() { return magicLevel; }
     public void setMagicLevel(int level) { this.magicLevel = level; }
     
+    public int getDialogueTarget() { return dialogueTarget; }
+    public void setDialogueTarget(int npcId) { this.dialogueTarget = npcId; }
+    public boolean isInDialogue() { return dialogueTarget >= 0; }
+
     // Experience getters/setters
     public long getAttackXp() { return attackXp; }
     public void setAttackXp(long xp) { this.attackXp = xp; }

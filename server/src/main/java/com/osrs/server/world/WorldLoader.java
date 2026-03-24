@@ -109,6 +109,7 @@ public class WorldLoader {
                     npcDef2.y = getInt(npcDef, "y", 0);
                     npcDef2.isAggressive = getBoolean(npcDef, "is_aggressive", false);
                     npcDef2.lootTable = getString(npcDef, "loot_table", "default");
+                    npcDef2.wanderRadius = getInt(npcDef, "wander_radius", 0);
                     
                     worldData.npcs.add(npcDef2);
                 }
@@ -179,6 +180,7 @@ class WorldData {
         public int x, y;
         public boolean isAggressive;
         public String lootTable;
+        public int wanderRadius;
     }
     
     static class LootTable {

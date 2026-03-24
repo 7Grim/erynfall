@@ -1,6 +1,7 @@
 package com.osrs.server.network;
 
 import com.osrs.protocol.NetworkProto;
+import com.osrs.server.world.World;
 import com.osrs.shared.NPC;
 import com.osrs.shared.Player;
 import io.netty.channel.ChannelHandlerContext;
@@ -37,33 +38,50 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
         // Client disconnected
         if (session != null) {
             LOG.info("Client {} disconnected", session.getSessionId());
+            Player player = session.getPlayer();
+            if (player != null) {
+                // Clean up any active dialogue state
+                int npcId = player.getDialogueTarget();
+                if (npcId >= 0) {
+                    NPC npc = server.getWorld().getNPC(npcId);
+                    if (npc != null) {
+                        npc.setInDialogue(false);
+                        npc.setDialoguePlayer(-1);
+                    }
+                }
+                server.getWorld().getPlayers().remove(player.getId());
+            }
             server.removeSession(session.getSessionId());
         }
     }
     
     @Override
     protected void channelRead0(ChannelHandlerContext ctx, Object msg) {
-        // Handle incoming packets
-        if (msg instanceof NetworkProto.PlayerMovement) {
-            handlePlayerMovement(ctx, (NetworkProto.PlayerMovement) msg);
-        } else if (msg instanceof NetworkProto.WalkTo) {
-            handleWalkTo(ctx, (NetworkProto.WalkTo) msg);
-        } else if (msg instanceof NetworkProto.Attack) {
-            handleAttack(ctx, (NetworkProto.Attack) msg);
-        } else if (msg instanceof NetworkProto.DialogueResponse) {
-            handleDialogueResponse(ctx, (NetworkProto.DialogueResponse) msg);
-        } else if (msg instanceof NetworkProto.Handshake) {
-            handleHandshake(ctx, (NetworkProto.Handshake) msg);
+        if (!(msg instanceof NetworkProto.ClientMessage)) {
+            LOG.warn("Unknown message type: {}", msg.getClass().getSimpleName());
+            return;
+        }
+        NetworkProto.ClientMessage packet = (NetworkProto.ClientMessage) msg;
+        switch (packet.getPayloadCase()) {
+            case HANDSHAKE -> handleHandshake(ctx, packet.getHandshake());
+            case MOVEMENT -> handlePlayerMovement(ctx, packet.getMovement());
+            case WALK_TO -> handleWalkTo(ctx, packet.getWalkTo());
+            case ATTACK -> handleAttack(ctx, packet.getAttack());
+            case DIALOGUE_RESPONSE -> handleDialogueResponse(ctx, packet.getDialogueResponse());
+            case TALK_TO_NPC -> handleTalkToNpc(ctx, packet.getTalkToNpc());
+            default -> LOG.warn("Unhandled payload case: {}", packet.getPayloadCase());
         }
     }
     
     private void handleHandshake(ChannelHandlerContext ctx, NetworkProto.Handshake handshake) {
         LOG.debug("Handshake from {}: {}", session.getSessionId(), handshake.getUsername());
         
-        // Create player
+        // Create player and register in world
         Player player = new Player(session.getSessionId(), handshake.getUsername(), 50, 50);
         session.setPlayer(player);
         session.setAuthenticated(true);
+        server.getWorld().getPlayers().put(player.getId(), player);
+        LOG.info("Player {} (id={}) registered in world", handshake.getUsername(), player.getId());
         
         // Send response
         sendHandshakeResponse(ctx, true, "Login successful", session.getSessionId());
@@ -109,8 +127,10 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             .setMessage(message)
             .setPlayerId(playerId)
             .build();
-        
-        ctx.writeAndFlush(response);
+        NetworkProto.ServerMessage wrapped = NetworkProto.ServerMessage.newBuilder()
+            .setHandshakeResponse(response)
+            .build();
+        ctx.writeAndFlush(wrapped);
     }
     
     private void handleAttack(ChannelHandlerContext ctx, NetworkProto.Attack attack) {
@@ -130,22 +150,100 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
     }
     
     private void handleDialogueResponse(ChannelHandlerContext ctx, NetworkProto.DialogueResponse response) {
-        if (session.getPlayer() == null) {
+        if (session.getPlayer() == null) return;
+
+        Player player = session.getPlayer();
+        LOG.debug("Player {} selected dialogue option: {}", session.getSessionId(), response.getOptionId());
+
+        // Clear dialogue state on both sides
+        int npcId = player.getDialogueTarget();
+        if (npcId >= 0) {
+            NPC npc = server.getWorld().getNPC(npcId);
+            if (npc != null) {
+                npc.setInDialogue(false);
+                npc.setDialoguePlayer(-1);
+            }
+            player.setDialogueTarget(-1);
+        }
+        // TODO: Progress dialogue via DialogueEngine (S3)
+    }
+
+    private void handleTalkToNpc(ChannelHandlerContext ctx, NetworkProto.TalkToNpc request) {
+        if (session.getPlayer() == null) return;
+
+        Player player = session.getPlayer();
+        NPC npc = server.getWorld().getNPC(request.getNpcId());
+        if (npc == null) {
+            LOG.warn("Player {} tried to talk to unknown NPC {}", player.getId(), request.getNpcId());
             return;
         }
-        
-        Player player = session.getPlayer();
-        LOG.debug("Player {} selected dialogue option: {}", 
-            session.getSessionId(), response.getOptionId());
-        
-        // TODO: Progress dialogue via DialogueEngine
-        // This would be handled by the game content system
+
+        // Verify proximity (player must be adjacent — Chebyshev ≤ 1)
+        int chebyshev = Math.max(
+            Math.abs(player.getX() - npc.getX()),
+            Math.abs(player.getY() - npc.getY())
+        );
+        if (chebyshev > 1) {
+            LOG.debug("Player {} too far from NPC {} to talk (dist={})", player.getId(), npc.getId(), chebyshev);
+            return;
+        }
+
+        // If already in dialogue with someone else, ignore
+        if (npc.isInDialogue() && npc.getDialoguePlayer() != player.getId()) {
+            LOG.debug("NPC {} already in dialogue with another player", npc.getId());
+            return;
+        }
+
+        // Freeze the NPC and link both sides
+        npc.setInDialogue(true);
+        npc.setDialoguePlayer(player.getId());
+        player.setDialogueTarget(npc.getId());
+
+        LOG.info("Player {} started dialogue with NPC {} ({})", player.getId(), npc.getId(), npc.getName());
+
+        // Send initial DialoguePrompt (TODO: route through DialogueEngine in S3)
+        ctx.writeAndFlush(NetworkProto.ServerMessage.newBuilder()
+            .setDialoguePrompt(NetworkProto.DialoguePrompt.newBuilder()
+                .setNpcId(npc.getId())
+                .setNpcSays("Hello, adventurer! Welcome to Tutorial Island. How can I help you?")
+                .addOptions(NetworkProto.DialogueOption.newBuilder().setOptionId(0).setText("Goodbye.")))
+            .build());
     }
     
     private void sendWorldState(ChannelHandlerContext ctx) {
-        // TODO: Send full world state (S1-010)
-        // For now, just acknowledge
-        LOG.debug("Sending world state to session {}", session.getSessionId());
+        NetworkProto.WorldState.Builder wsBuilder = NetworkProto.WorldState.newBuilder()
+            .setServerTick(0);
+
+        // All NPCs
+        for (com.osrs.shared.NPC npc : server.getWorld().getNPCs().values()) {
+            wsBuilder.addEntities(NetworkProto.Entity.newBuilder()
+                .setId(npc.getId())
+                .setName(npc.getName())
+                .setX(npc.getX())
+                .setY(npc.getY())
+                .setHealth(npc.getHealth())
+                .setMaxHealth(npc.getMaxHealth())
+                .setIsPlayer(false));
+        }
+
+        // All other connected players (excluding self)
+        for (PlayerSession ps : server.getSessions().values()) {
+            if (ps.getSessionId() == session.getSessionId()) continue;
+            if (ps.getPlayer() == null) continue;
+            com.osrs.shared.Player p = ps.getPlayer();
+            wsBuilder.addEntities(NetworkProto.Entity.newBuilder()
+                .setId(p.getId())
+                .setName(p.getName())
+                .setX(p.getX())
+                .setY(p.getY())
+                .setIsPlayer(true));
+        }
+
+        ctx.writeAndFlush(NetworkProto.ServerMessage.newBuilder()
+            .setWorldState(wsBuilder.build())
+            .build());
+        LOG.info("Sent WorldState to session {}: {} entities",
+            session.getSessionId(), wsBuilder.getEntitiesCount());
     }
     
     @Override
