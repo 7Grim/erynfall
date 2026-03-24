@@ -161,23 +161,32 @@ public class IsometricRenderer {
     }
 
     /**
-     * NPC sprite dispatcher.
-     * npcId 1 = Tutorial Guide (green robe)
-     * npcId 2 = Combat Instructor (red armour)
-     * other   = Rat
+     * NPC sprite dispatcher — dispatches by name so any future NPC with the same
+     * name automatically gets the correct model regardless of its database ID.
+     *
+     * @param npcName  entity name from the server (e.g. "Rat", "Chicken")
      */
-    public void renderNPC(int npcX, int npcY, int npcId) {
+    public void renderNPC(int npcX, int npcY, int npcId, String npcName) {
         float sx = worldToScreenX(npcX, npcY);
         float sy = worldToScreenY(npcX, npcY);
 
         sr.begin(ShapeRenderer.ShapeType.Filled);
-        switch (npcId) {
-            case 1  -> drawGuide(sx, sy);
-            case 2  -> drawInstructor(sx, sy);
-            default -> drawRat(sx, sy);
+        switch (npcName == null ? "" : npcName) {
+            case "Tutorial Guide"    -> drawGuide(sx, sy);
+            case "Combat Instructor" -> drawInstructor(sx, sy);
+            case "Rat"               -> drawRat(sx, sy);
+            case "Giant Rat"         -> drawGiantRat(sx, sy);
+            case "Chicken"           -> drawChicken(sx, sy);
+            case "Cow"               -> drawCow(sx, sy);
+            case "Goblin"            -> drawGoblin(sx, sy);
+            default                  -> drawRat(sx, sy);
         }
         sr.end();
     }
+
+    // -----------------------------------------------------------------------
+    // NPC sprite helpers
+    // -----------------------------------------------------------------------
 
     /** Tutorial Guide: green robe, brown hood. */
     private void drawGuide(float sx, float sy) {
@@ -214,24 +223,202 @@ public class IsometricRenderer {
         sr.rect(sx - 3, sy + 9, 6, 1);
     }
 
-    /** Rat: small brown creature with pink ears, dark eyes. */
+    /**
+     * Rat (level 1): small grey-brown creature, thin tail, pink ears.
+     * Smaller than Giant Rat to distinguish visually.
+     */
     private void drawRat(float sx, float sy) {
-        sr.setColor(0.50f, 0.32f, 0.18f, 1f); // body
-        sr.rect(sx - 4, sy - 3, 8, 5);
+        // Body — narrow, low to ground
+        sr.setColor(0.52f, 0.44f, 0.36f, 1f);
+        sr.rect(sx - 4, sy - 2, 8, 4);
 
-        sr.setColor(0.58f, 0.38f, 0.22f, 1f); // head
-        sr.rect(sx - 3, sy + 2, 6, 4);
+        // Head — small, pointed snout
+        sr.setColor(0.48f, 0.40f, 0.32f, 1f);
+        sr.rect(sx - 2, sy + 2, 5, 3);
+        sr.rect(sx + 2, sy + 1, 3, 2); // snout
 
-        sr.setColor(0.82f, 0.58f, 0.58f, 1f); // ears
-        sr.rect(sx - 4, sy + 4, 2, 2);
-        sr.rect(sx + 2, sy + 4, 2, 2);
+        // Ears — small pink
+        sr.setColor(0.88f, 0.62f, 0.62f, 1f);
+        sr.rect(sx - 3, sy + 3, 2, 2);
+        sr.rect(sx,     sy + 3, 2, 2);
 
-        sr.setColor(0.05f, 0.05f, 0.05f, 1f); // eyes
-        sr.rect(sx - 2, sy + 3, 1, 1);
-        sr.rect(sx + 1, sy + 3, 1, 1);
+        // Eyes — tiny black dots
+        sr.setColor(0.05f, 0.05f, 0.05f, 1f);
+        sr.rect(sx - 1, sy + 2, 1, 1);
+        sr.rect(sx + 2, sy + 2, 1, 1);
 
-        sr.setColor(0.72f, 0.55f, 0.45f, 1f); // tail
-        sr.rect(sx + 4, sy - 1, 3, 1);
+        // Tail — thin, curving right
+        sr.setColor(0.75f, 0.62f, 0.52f, 1f);
+        sr.rect(sx + 4, sy,     3, 1);
+        sr.rect(sx + 6, sy - 1, 2, 1);
+    }
+
+    /**
+     * Giant Rat (level 3): noticeably larger and darker than the regular Rat.
+     * Broader body, bigger head, thicker tail.
+     */
+    private void drawGiantRat(float sx, float sy) {
+        // Body — wide, dark brown
+        sr.setColor(0.40f, 0.26f, 0.14f, 1f);
+        sr.rect(sx - 6, sy - 3, 12, 6);
+
+        // Head — large, blocky
+        sr.setColor(0.36f, 0.22f, 0.10f, 1f);
+        sr.rect(sx - 3, sy + 3, 7, 5);
+        sr.rect(sx + 3, sy + 1, 4, 3); // wide snout
+
+        // Ears — larger pink patches
+        sr.setColor(0.82f, 0.52f, 0.52f, 1f);
+        sr.rect(sx - 5, sy + 5, 3, 3);
+        sr.rect(sx + 1, sy + 5, 3, 3);
+
+        // Eyes — small dark red (menacing)
+        sr.setColor(0.55f, 0.05f, 0.05f, 1f);
+        sr.rect(sx - 1, sy + 3, 2, 2);
+        sr.rect(sx + 3, sy + 3, 2, 2);
+
+        // Tail — thick
+        sr.setColor(0.62f, 0.45f, 0.30f, 1f);
+        sr.rect(sx + 6, sy,     4, 2);
+        sr.rect(sx + 9, sy - 2, 3, 2);
+    }
+
+    /**
+     * Chicken (level 1): white body, red comb, orange beak and feet.
+     * Rounded fluffy silhouette.
+     */
+    private void drawChicken(float sx, float sy) {
+        // Legs — thin orange sticks
+        sr.setColor(0.90f, 0.55f, 0.10f, 1f);
+        sr.rect(sx - 3, sy - 7, 2, 5);
+        sr.rect(sx + 1, sy - 7, 2, 5);
+
+        // Body — large white oval (approximated with rects)
+        sr.setColor(0.95f, 0.93f, 0.88f, 1f);
+        sr.rect(sx - 6, sy - 4, 12, 7);  // main body
+        sr.rect(sx - 5, sy + 3, 10, 3);  // rounded top
+
+        // Wing accent — light grey
+        sr.setColor(0.78f, 0.76f, 0.72f, 1f);
+        sr.rect(sx - 5, sy - 2, 4, 4);
+        sr.rect(sx + 1, sy - 2, 4, 4);
+
+        // Head — white circle
+        sr.setColor(0.95f, 0.93f, 0.88f, 1f);
+        sr.rect(sx - 2, sy + 6, 6, 5);
+
+        // Comb — bright red
+        sr.setColor(0.88f, 0.10f, 0.10f, 1f);
+        sr.rect(sx - 1, sy + 10, 2, 3);
+        sr.rect(sx + 1, sy + 11, 2, 2);
+        sr.rect(sx + 3, sy + 10, 2, 3);
+
+        // Beak — orange triangle (rect approximation)
+        sr.setColor(0.92f, 0.58f, 0.08f, 1f);
+        sr.rect(sx + 3, sy + 7, 3, 2);
+
+        // Eye — small black
+        sr.setColor(0.05f, 0.05f, 0.05f, 1f);
+        sr.rect(sx + 2, sy + 8, 1, 1);
+    }
+
+    /**
+     * Cow (level 2): large black-and-white patched body, prominent horns.
+     * Noticeably bigger than all other mobs.
+     */
+    private void drawCow(float sx, float sy) {
+        // Legs — thick, black
+        sr.setColor(0.15f, 0.15f, 0.15f, 1f);
+        sr.rect(sx - 6, sy - 10, 3, 8);
+        sr.rect(sx - 1, sy - 10, 3, 8);
+        sr.rect(sx + 3, sy - 10, 3, 8);
+
+        // Body — large white base
+        sr.setColor(0.92f, 0.92f, 0.90f, 1f);
+        sr.rect(sx - 8, sy - 4, 16, 10);
+
+        // Black patches (markings)
+        sr.setColor(0.12f, 0.12f, 0.12f, 1f);
+        sr.rect(sx - 7, sy - 2, 5, 6);
+        sr.rect(sx + 3, sy,     4, 5);
+        sr.rect(sx - 2, sy + 3, 4, 3);
+
+        // Head — white, broad
+        sr.setColor(0.88f, 0.88f, 0.85f, 1f);
+        sr.rect(sx - 4, sy + 6, 10, 7);
+
+        // Black nose patch
+        sr.setColor(0.30f, 0.20f, 0.20f, 1f);
+        sr.rect(sx + 1, sy + 6, 5, 3);
+        // Nostrils
+        sr.setColor(0.10f, 0.05f, 0.05f, 1f);
+        sr.rect(sx + 2, sy + 7, 1, 1);
+        sr.rect(sx + 4, sy + 7, 1, 1);
+
+        // Eyes — dark
+        sr.setColor(0.10f, 0.08f, 0.05f, 1f);
+        sr.rect(sx - 2, sy + 9, 2, 2);
+        sr.rect(sx + 3, sy + 9, 2, 2);
+
+        // Horns — cream/ivory
+        sr.setColor(0.88f, 0.82f, 0.62f, 1f);
+        sr.rect(sx - 5, sy + 11, 3, 2);
+        sr.rect(sx - 6, sy + 12, 2, 3);
+        sr.rect(sx + 5, sy + 11, 3, 2);
+        sr.rect(sx + 7, sy + 12, 2, 3);
+
+        // Ear — left, pinkish
+        sr.setColor(0.82f, 0.60f, 0.58f, 1f);
+        sr.rect(sx - 7, sy + 9, 3, 3);
+    }
+
+    /**
+     * Goblin (level 2): hunched green-skinned creature, big ears, crude armour.
+     * Wider stance and squatter proportions than a human.
+     */
+    private void drawGoblin(float sx, float sy) {
+        // Legs — dark leather
+        sr.setColor(0.28f, 0.16f, 0.06f, 1f);
+        sr.rect(sx - 4, sy - 8, 3, 7);
+        sr.rect(sx + 1, sy - 8, 3, 7);
+
+        // Body — dark brown crude armour
+        sr.setColor(0.38f, 0.22f, 0.08f, 1f);
+        sr.rect(sx - 5, sy - 2, 10, 7);
+
+        // Green belly/skin showing through
+        sr.setColor(0.28f, 0.52f, 0.16f, 1f);
+        sr.rect(sx - 2, sy,     4, 4);
+
+        // Head — green skin, slightly hunched forward
+        sr.setColor(0.30f, 0.55f, 0.18f, 1f);
+        sr.rect(sx - 4, sy + 5, 8, 7);
+
+        // Big protruding ears
+        sr.setColor(0.24f, 0.46f, 0.14f, 1f);
+        sr.rect(sx - 7, sy + 7, 4, 5);
+        sr.rect(sx + 3, sy + 7, 4, 5);
+        // Inner ear
+        sr.setColor(0.40f, 0.65f, 0.25f, 1f);
+        sr.rect(sx - 6, sy + 8, 2, 3);
+        sr.rect(sx + 4, sy + 8, 2, 3);
+
+        // Eyes — beady yellow
+        sr.setColor(0.90f, 0.80f, 0.05f, 1f);
+        sr.rect(sx - 2, sy + 8, 2, 2);
+        sr.rect(sx + 1, sy + 8, 2, 2);
+        // Pupils — black
+        sr.setColor(0.02f, 0.02f, 0.02f, 1f);
+        sr.rect(sx - 1, sy + 8, 1, 1);
+        sr.rect(sx + 2, sy + 8, 1, 1);
+
+        // Crude helmet/hood
+        sr.setColor(0.28f, 0.16f, 0.06f, 1f);
+        sr.rect(sx - 4, sy + 10, 8, 3);
+
+        // Weapon stub (club/sword held to side)
+        sr.setColor(0.55f, 0.55f, 0.58f, 1f);
+        sr.rect(sx + 5, sy - 2, 2, 9);
     }
 
     // -----------------------------------------------------------------------

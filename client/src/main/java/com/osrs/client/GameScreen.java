@@ -139,6 +139,7 @@ public class GameScreen extends ApplicationAdapter {
 
         font = new BitmapFont();
         font.setColor(Color.WHITE);
+        font.getData().markupEnabled = true; // enables [#rrggbb] color tags in strings
 
         screenProjection = new Matrix4().setToOrtho2D(
             0, 0, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
@@ -205,7 +206,8 @@ public class GameScreen extends ApplicationAdapter {
                 float[] vis = npcVisual.get(id);
                 if (vis == null) continue;
 
-                renderer.renderNPC((int) Math.round(vis[0]), (int) Math.round(vis[1]), id);
+                String npcName = handler.getEntityName(id);
+                renderer.renderNPC((int) Math.round(vis[0]), (int) Math.round(vis[1]), id, npcName);
 
                 int[] hp = handler.getEntityHealth(id);
                 if (hp[0] < hp[1]) {
@@ -580,7 +582,8 @@ public class GameScreen extends ApplicationAdapter {
         }
 
         // Check all server-tracked NPCs — show options for whichever NPC the
-        // player right-clicked (their current rendered tile, rounded)
+        // player right-clicked (their current rendered tile, rounded).
+        // OSRS format: verb in white, NPC name in yellow (#ffff00), level appended.
         ClientPacketHandler h = handler();
         if (h != null) {
             for (Map.Entry<Integer, int[]> entry : h.getEntityPositions().entrySet()) {
@@ -592,9 +595,23 @@ public class GameScreen extends ApplicationAdapter {
                 int vx = (int) Math.round(vis[0]);
                 int vy = (int) Math.round(vis[1]);
                 if (tileX == vx && tileY == vy) {
-                    String name = "NPC " + id;
-                    opts.add(new ContextMenu.MenuItem("Attack " + name, "attack", id));
-                    opts.add(new ContextMenu.MenuItem("Talk-to " + name, "talk",   id));
+                    String rawName = h.getEntityName(id);
+                    if (rawName == null || rawName.isEmpty()) rawName = "NPC " + id;
+                    int level = h.getEntityCombatLevel(id);
+
+                    // Yellow name with level suffix — OSRS style
+                    String yellowName = "[#ffff00]" + rawName + "[]";
+                    String levelSuffix = level > 0 ? " (level-" + level + ")" : "";
+
+                    if (level > 0) {
+                        // Combat NPC: Attack is the primary option (top)
+                        opts.add(new ContextMenu.MenuItem(
+                            "Attack " + yellowName + levelSuffix, "attack", id));
+                    }
+                    opts.add(new ContextMenu.MenuItem(
+                        "Talk-to " + yellowName, "talk", id));
+                    opts.add(new ContextMenu.MenuItem(
+                        "Examine " + yellowName, "examine_npc", id));
                 }
             }
         }
@@ -612,7 +629,25 @@ public class GameScreen extends ApplicationAdapter {
             case "inv_wield" -> { if (nettyClient != null) nettyClient.sendUseItem((Integer) item.target, "wield"); }
             case "inv_drop"  -> { if (nettyClient != null) nettyClient.sendDropItem((Integer) item.target); }
             case "inv_examine" -> LOG.info("Examine: {}", item.label);
+            case "examine_npc" -> examineNpc((Integer) item.target);
         }
+    }
+
+    /** Show an examine message in the chat area — text sourced per NPC type. */
+    private void examineNpc(int npcId) {
+        ClientPacketHandler h = handler();
+        String name = (h != null) ? h.getEntityName(npcId) : "";
+        String text = switch (name) {
+            case "Rat"               -> "A small rat. It doesn't look very threatening.";
+            case "Giant Rat"         -> "A big, fat, and very ugly rat.";
+            case "Chicken"           -> "It's a chicken. It's looking at me funny.";
+            case "Cow"               -> "A dairy cow. Moo.";
+            case "Goblin"            -> "A vile little green creature.";
+            case "Tutorial Guide"    -> "He looks like he wants to help.";
+            case "Combat Instructor" -> "A seasoned warrior, ready to teach combat basics.";
+            default                  -> "It's a " + (name.isEmpty() ? "creature" : name) + ".";
+        };
+        combatUI.addMessage(text);
     }
 
     // -----------------------------------------------------------------------
@@ -644,9 +679,11 @@ public class GameScreen extends ApplicationAdapter {
         font.setColor(1f, 0.85f, 0f, 1f);
         font.draw(screenBatch, "Choose Option", mx + 5, my + n * ContextMenu.ITEM_HEIGHT + 14);
         font.setColor(Color.WHITE);
-        for (int i = 0; i < n; i++)
+        for (int i = 0; i < n; i++) {
+            font.setColor(Color.WHITE);
             font.draw(screenBatch, items.get(i).label, mx + 5,
                 my + (n - 1 - i) * ContextMenu.ITEM_HEIGHT + 13);
+        }
         screenBatch.end();
         font.setColor(Color.WHITE);
     }
