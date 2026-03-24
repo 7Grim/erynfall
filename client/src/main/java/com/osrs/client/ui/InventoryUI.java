@@ -77,13 +77,15 @@ public class InventoryUI {
      * @param screenW current screen width
      * @param screenH current screen height
      */
+    /**
+     * Render the inventory panel at the given origin with the given projection.
+     * Called by SidePanel which controls the panel's screen position.
+     */
     public void render(ShapeRenderer sr, SpriteBatch batch, BitmapFont font,
-                       int screenW, int screenH) {
+                       int panelX, int panelY, Matrix4 proj) {
 
-        panelX = screenW - PANEL_W - 4;
-        panelY = 4;
-
-        Matrix4 proj = new Matrix4().setToOrtho2D(0, 0, screenW, screenH);
+        this.panelX = panelX;
+        this.panelY = panelY;
 
         // ----- Background panel -----
         sr.setProjectionMatrix(proj);

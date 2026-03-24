@@ -1,0 +1,518 @@
+package com.osrs.client.ui;
+
+import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.graphics.g2d.BitmapFont;
+import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
+import com.badlogic.gdx.math.Matrix4;
+
+/**
+ * OSRS-style unified side panel with a tab bar at the top.
+ *
+ * All game UI panels share a single anchored panel in the bottom-right corner.
+ * The tab row at the top switches between Combat Options, Skills, and Inventory —
+ * matching how OSRS uses F1-F6 (and bottom row F7-F12) to switch panel content.
+ *
+ *  ┌───────────────────────────────┐  ← TAB_H: tab icon row
+ *  │  [CMB]     [SKL]     [INV]   │
+ *  ├───────────────────────────────┤  ← divider
+ *  │                               │
+ *  │        active tab content     │  ← CONTENT_H
+ *  │                               │
+ *  └───────────────────────────────┘
+ *
+ * Panel is always anchored: right edge = screenW - MARGIN, bottom = MARGIN.
+ */
+public class SidePanel {
+
+    // -----------------------------------------------------------------------
+    // Layout
+    // -----------------------------------------------------------------------
+
+    /** Width of the side panel in pixels. Matches InventoryUI's internal width. */
+    public static final int PANEL_W   = 190;
+    /** Height of the tab icon row at the top of the panel. */
+    public static final int TAB_H     = 36;
+    /** Height of the content area (sized to fit 7-row inventory). */
+    public static final int CONTENT_H = 312;
+    /** Total panel height including the tab bar. */
+    public static final int TOTAL_H   = TAB_H + CONTENT_H;
+    /** Gap between panel edge and screen edge. */
+    public static final int MARGIN    = 8;
+
+    // -----------------------------------------------------------------------
+    // Tab definitions  — ordered left to right in the tab bar
+    // -----------------------------------------------------------------------
+
+    public enum Tab {
+        COMBAT    (0, "Combat"),
+        SKILLS    (1, "Skills"),
+        INVENTORY (2, "Inventory");
+
+        public final int    index;
+        public final String label;
+        Tab(int i, String l) { this.index = i; this.label = l; }
+    }
+
+    private static final Tab[] TABS = Tab.values();
+
+    private Tab activeTab = Tab.INVENTORY;   // default open tab (OSRS default)
+
+    // -----------------------------------------------------------------------
+    // Sub-components / data
+    // -----------------------------------------------------------------------
+
+    private final InventoryUI inventoryUI = new InventoryUI();
+
+    // Skills (synced from ClientPacketHandler each frame)
+    private final int[]  skillLevels = new int[6];
+    private final long[] skillXp     = new long[6];
+
+    private static final String[] SKILL_NAMES = {
+        "Attack", "Strength", "Defence", "Hitpoints", "Ranged", "Magic"
+    };
+    private static final Color[] SKILL_COLORS = {
+        new Color(0.80f, 0.20f, 0.20f, 1f),   // Attack    – red
+        new Color(0.80f, 0.50f, 0.10f, 1f),   // Strength  – orange
+        new Color(0.20f, 0.55f, 0.85f, 1f),   // Defence   – blue
+        new Color(0.55f, 0.85f, 0.25f, 1f),   // Hitpoints – green
+        new Color(0.25f, 0.75f, 0.25f, 1f),   // Ranged    – lime
+        new Color(0.45f, 0.30f, 0.90f, 1f),   // Magic     – purple
+    };
+
+    // Combat style (0=Accurate 1=Aggressive 2=Defensive 3=Controlled)
+    private int combatStyle = 1;   // default: Aggressive
+
+    private static final String[] STYLE_NAMES = {
+        "Accurate", "Aggressive", "Defensive", "Controlled"
+    };
+    private static final String[] STYLE_XP = {
+        "Attack XP", "Strength XP", "Defence XP", "Shared XP"
+    };
+
+    // Cached panel origin (set each render call)
+    private int panelX, panelY;
+
+    // -----------------------------------------------------------------------
+    // Lifecycle
+    // -----------------------------------------------------------------------
+
+    public void update(float delta) {
+        inventoryUI.update(delta);
+    }
+
+    // -----------------------------------------------------------------------
+    // Rendering
+    // -----------------------------------------------------------------------
+
+    public void render(ShapeRenderer sr, SpriteBatch batch, BitmapFont font,
+                       int screenW, int screenH, Matrix4 proj) {
+        panelX = screenW - PANEL_W - MARGIN;
+        panelY = MARGIN;
+
+        // --- Panel background ---
+        sr.setProjectionMatrix(proj);
+        sr.begin(ShapeRenderer.ShapeType.Filled);
+        sr.setColor(0.10f, 0.09f, 0.08f, 0.96f);
+        sr.rect(panelX, panelY, PANEL_W, TOTAL_H);
+        sr.end();
+
+        // --- Outer border (OSRS brown-gold) ---
+        sr.begin(ShapeRenderer.ShapeType.Line);
+        sr.setColor(0.55f, 0.46f, 0.28f, 1f);
+        sr.rect(panelX, panelY, PANEL_W, TOTAL_H);
+        sr.end();
+
+        // --- Tab bar ---
+        renderTabBar(sr, batch, font, proj);
+
+        // --- Divider line between tab bar and content ---
+        sr.begin(ShapeRenderer.ShapeType.Filled);
+        sr.setColor(0.55f, 0.46f, 0.28f, 1f);
+        sr.rect(panelX, panelY + CONTENT_H, PANEL_W, 1);
+        sr.end();
+
+        // --- Active tab content ---
+        switch (activeTab) {
+            case COMBAT    -> renderCombatTab(sr, batch, font, proj);
+            case SKILLS    -> renderSkillsTab(sr, batch, font, proj);
+            case INVENTORY -> inventoryUI.render(sr, batch, font, panelX + 2, panelY, proj);
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // Tab bar
+    // -----------------------------------------------------------------------
+
+    private void renderTabBar(ShapeRenderer sr, SpriteBatch batch, BitmapFont font, Matrix4 proj) {
+        int tabBarY = panelY + CONTENT_H;
+        int tabW    = PANEL_W / TABS.length;          // ~63 px each
+        int lastW   = PANEL_W - tabW * (TABS.length - 1); // absorb rounding
+
+        for (int i = 0; i < TABS.length; i++) {
+            int tx = panelX + i * tabW;
+            int tw = (i == TABS.length - 1) ? lastW : tabW;
+            boolean active = (TABS[i] == activeTab);
+
+            // Button fill
+            sr.begin(ShapeRenderer.ShapeType.Filled);
+            sr.setColor(active
+                ? new Color(0.28f, 0.22f, 0.05f, 1f)   // active: dark gold
+                : new Color(0.16f, 0.14f, 0.12f, 1f));  // inactive: very dark
+            sr.rect(tx + 1, tabBarY + 1, tw - 2, TAB_H - 2);
+            sr.end();
+
+            // Button border
+            sr.begin(ShapeRenderer.ShapeType.Line);
+            sr.setColor(active
+                ? new Color(1.0f, 0.85f, 0.10f, 1f)     // active: bright gold
+                : new Color(0.42f, 0.36f, 0.22f, 1f));  // inactive: dim tan
+            sr.rect(tx + 1, tabBarY + 1, tw - 2, TAB_H - 2);
+            sr.end();
+
+            // Draw icon shape
+            int cx = tx + tw / 2;
+            int cy = tabBarY + TAB_H / 2 + 5;
+            drawTabIcon(sr, i, cx, cy, active);
+        }
+
+        // Tab labels (below icons)
+        batch.setProjectionMatrix(proj);
+        batch.begin();
+        font.getData().setScale(0.65f);
+        for (int i = 0; i < TABS.length; i++) {
+            int tx = panelX + i * tabW;
+            int tw = (i == TABS.length - 1) ? lastW : tabW;
+            boolean active = (TABS[i] == activeTab);
+            font.setColor(active
+                ? new Color(1f, 0.90f, 0.10f, 1f)
+                : new Color(0.65f, 0.60f, 0.50f, 1f));
+            // Approximate center the text (each char ≈ 7px at 0.65 scale)
+            int charW = (int) (TABS[i].label.length() * 7);
+            font.draw(batch, TABS[i].label, tx + (tw - charW) / 2f, panelY + CONTENT_H + 13);
+        }
+        font.getData().setScale(1f);
+        font.setColor(Color.WHITE);
+        batch.end();
+    }
+
+    /**
+     * Draws a small shape icon for each tab using only ShapeRenderer primitives.
+     * All icons fit within a ~14×12 px bounding box centred at (cx, cy).
+     */
+    private void drawTabIcon(ShapeRenderer sr, int tabIdx, int cx, int cy, boolean active) {
+        Color c = active ? new Color(1f, 0.88f, 0.15f, 1f) : new Color(0.55f, 0.50f, 0.40f, 1f);
+        sr.begin(ShapeRenderer.ShapeType.Filled);
+        sr.setColor(c);
+        switch (tabIdx) {
+            case 0 -> {
+                // Combat: two crossed diagonal rectangles (suggesting crossed swords)
+                // Horizontal blade
+                sr.rect(cx - 7, cy - 2, 14, 3);
+                // Vertical blade
+                sr.rect(cx - 2, cy - 6, 3, 12);
+                // Small guard crosspiece
+                sr.setColor(c.r * 0.7f, c.g * 0.7f, c.b * 0.7f, 1f);
+                sr.rect(cx - 5, cy - 1, 10, 1);
+            }
+            case 1 -> {
+                // Skills: three ascending bars (like a level-up chart)
+                sr.rect(cx - 7, cy - 6, 4, 4);   // short bar
+                sr.rect(cx - 2, cy - 6, 4, 8);   // medium bar
+                sr.rect(cx + 3, cy - 6, 4, 12);  // tall bar
+            }
+            case 2 -> {
+                // Inventory: 2×2 grid of small squares (bag contents)
+                sr.rect(cx - 6, cy + 1, 5, 5);
+                sr.rect(cx + 1, cy + 1, 5, 5);
+                sr.rect(cx - 6, cy - 6, 5, 5);
+                sr.rect(cx + 1, cy - 6, 5, 5);
+            }
+        }
+        sr.end();
+    }
+
+    // -----------------------------------------------------------------------
+    // Combat tab
+    // -----------------------------------------------------------------------
+
+    private void renderCombatTab(ShapeRenderer sr, SpriteBatch batch, BitmapFont font, Matrix4 proj) {
+        int pad  = 10;
+        int btnW = (PANEL_W - pad * 3) / 2;   // ~80 px
+        int btnH = 48;
+
+        // Title
+        batch.setProjectionMatrix(proj);
+        batch.begin();
+        font.getData().setScale(0.85f);
+        font.setColor(new Color(0.9f, 0.80f, 0.50f, 1f));
+        font.draw(batch, "Combat Options", panelX + pad, panelY + CONTENT_H - 8);
+        font.getData().setScale(1f);
+        font.setColor(Color.WHITE);
+        batch.end();
+
+        // Title underline
+        sr.begin(ShapeRenderer.ShapeType.Filled);
+        sr.setColor(0.45f, 0.38f, 0.22f, 1f);
+        sr.rect(panelX + pad, panelY + CONTENT_H - 20, PANEL_W - pad * 2, 1);
+        sr.end();
+
+        // 2×2 button grid — top-left of the content area, below the title
+        int gridTop = panelY + CONTENT_H - 28;
+        for (int i = 0; i < 4; i++) {
+            int col = i % 2;
+            int row = i / 2;
+            int bx  = panelX + pad + col * (btnW + pad);
+            int by  = gridTop - (row + 1) * (btnH + pad);
+
+            boolean sel = (i == combatStyle);
+
+            // Button background
+            sr.begin(ShapeRenderer.ShapeType.Filled);
+            sr.setColor(sel
+                ? new Color(0.35f, 0.27f, 0.04f, 1f)
+                : new Color(0.17f, 0.15f, 0.13f, 1f));
+            sr.rect(bx, by, btnW, btnH);
+            sr.end();
+
+            // Button border
+            sr.begin(ShapeRenderer.ShapeType.Line);
+            sr.setColor(sel
+                ? new Color(1f, 0.85f, 0.10f, 1f)
+                : new Color(0.40f, 0.36f, 0.26f, 1f));
+            sr.rect(bx, by, btnW, btnH);
+            sr.end();
+
+            // Draw a small icon per style
+            drawCombatStyleIcon(sr, i, bx + btnW / 2, by + btnH - 16, sel);
+        }
+
+        // Button labels
+        batch.setProjectionMatrix(proj);
+        batch.begin();
+        for (int i = 0; i < 4; i++) {
+            int col = i % 2;
+            int row = i / 2;
+            int bx  = panelX + pad + col * (btnW + pad);
+            int by  = gridTop - (row + 1) * (btnH + pad);
+            boolean sel = (i == combatStyle);
+
+            font.getData().setScale(0.85f);
+            font.setColor(sel ? new Color(1f, 0.90f, 0.10f, 1f) : Color.WHITE);
+            font.draw(batch, STYLE_NAMES[i], bx + 6, by + btnH - 6);
+
+            font.getData().setScale(0.70f);
+            font.setColor(0.60f, 0.60f, 0.60f, 1f);
+            font.draw(batch, STYLE_XP[i], bx + 6, by + 14);
+        }
+        font.getData().setScale(1f);
+        font.setColor(Color.WHITE);
+        batch.end();
+    }
+
+    /** Small decorative icon inside each combat style button. */
+    private void drawCombatStyleIcon(ShapeRenderer sr, int style, int cx, int cy, boolean active) {
+        Color c = active ? new Color(1f, 0.85f, 0.15f, 1f) : new Color(0.50f, 0.48f, 0.38f, 1f);
+        sr.begin(ShapeRenderer.ShapeType.Filled);
+        sr.setColor(c);
+        switch (style) {
+            case 0 -> { // Accurate: target/aim — small diamond
+                sr.rect(cx - 1, cy + 2, 3, 3);
+                sr.rect(cx - 3, cy, 7, 3);
+                sr.rect(cx - 1, cy - 2, 3, 3);
+            }
+            case 1 -> { // Aggressive: power — upward arrow
+                sr.rect(cx - 4, cy - 3, 9, 4);
+                sr.rect(cx - 1, cy + 1, 3, 4);
+            }
+            case 2 -> { // Defensive: shield — rectangle with rounded top suggestion
+                sr.rect(cx - 4, cy - 3, 9, 7);
+                sr.rect(cx - 3, cy + 4, 7, 2);
+            }
+            case 3 -> { // Controlled: balance — horizontal bar with two legs
+                sr.rect(cx - 5, cy + 1, 11, 2);
+                sr.rect(cx - 4, cy - 3, 2, 5);
+                sr.rect(cx + 2, cy - 3, 2, 5);
+            }
+        }
+        sr.end();
+    }
+
+    // -----------------------------------------------------------------------
+    // Skills tab
+    // -----------------------------------------------------------------------
+
+    private void renderSkillsTab(ShapeRenderer sr, SpriteBatch batch, BitmapFont font, Matrix4 proj) {
+        int pad  = 8;
+        int rowH = 46;   // height per skill row
+
+        // Title
+        batch.setProjectionMatrix(proj);
+        batch.begin();
+        font.getData().setScale(0.85f);
+        font.setColor(new Color(0.9f, 0.80f, 0.50f, 1f));
+        font.draw(batch, "Skills", panelX + pad, panelY + CONTENT_H - 8);
+        font.getData().setScale(1f);
+        font.setColor(Color.WHITE);
+        batch.end();
+
+        // Title underline
+        sr.begin(ShapeRenderer.ShapeType.Filled);
+        sr.setColor(0.45f, 0.38f, 0.22f, 1f);
+        sr.rect(panelX + pad, panelY + CONTENT_H - 20, PANEL_W - pad * 2, 1);
+        sr.end();
+
+        // Two-column layout: 3 skills left, 3 skills right (like OSRS skills tab)
+        int colW  = (PANEL_W - pad * 3) / 2;
+        int startY = panelY + CONTENT_H - 28;
+
+        for (int i = 0; i < 6; i++) {
+            int col = i % 2;
+            int row = i / 2;
+            int sx  = panelX + pad + col * (colW + pad);
+            int sy  = startY - (row + 1) * (rowH + 4);
+
+            // Row background
+            sr.begin(ShapeRenderer.ShapeType.Filled);
+            sr.setColor(0.14f, 0.12f, 0.10f, 1f);
+            sr.rect(sx, sy, colW, rowH);
+            sr.end();
+
+            // Left color bar (skill color accent)
+            sr.begin(ShapeRenderer.ShapeType.Filled);
+            sr.setColor(SKILL_COLORS[i]);
+            sr.rect(sx, sy, 3, rowH);
+            sr.end();
+
+            // Row border
+            sr.begin(ShapeRenderer.ShapeType.Line);
+            sr.setColor(0.35f, 0.30f, 0.20f, 1f);
+            sr.rect(sx, sy, colW, rowH);
+            sr.end();
+        }
+
+        // Text labels
+        batch.setProjectionMatrix(proj);
+        batch.begin();
+        for (int i = 0; i < 6; i++) {
+            int col = i % 2;
+            int row = i / 2;
+            int sx  = panelX + pad + col * (colW + pad);
+            int sy  = startY - (row + 1) * (rowH + 4);
+
+            // Skill name
+            font.getData().setScale(0.80f);
+            font.setColor(Color.WHITE);
+            font.draw(batch, SKILL_NAMES[i], sx + 7, sy + rowH - 6);
+
+            // Level — right-aligned within column
+            font.setColor(new Color(1f, 0.85f, 0.10f, 1f));
+            String lvlStr = String.valueOf(skillLevels[i]);
+            font.draw(batch, lvlStr, sx + colW - 18, sy + rowH - 6);
+
+            // XP
+            font.getData().setScale(0.65f);
+            font.setColor(0.58f, 0.55f, 0.48f, 1f);
+            font.draw(batch, formatXp(skillXp[i]) + " xp", sx + 7, sy + 14);
+        }
+        font.getData().setScale(1f);
+        font.setColor(Color.WHITE);
+        batch.end();
+    }
+
+    private static String formatXp(long xp) {
+        if (xp >= 1_000_000) return String.format("%.1fM", xp / 1_000_000.0);
+        if (xp >= 1_000)     return String.format("%.1fK", xp / 1_000.0);
+        return String.valueOf(xp);
+    }
+
+    // -----------------------------------------------------------------------
+    // Input handling
+    // -----------------------------------------------------------------------
+
+    /**
+     * Handle a left-click.
+     * Returns the new combat style index (0–3) if a combat style button was
+     * clicked, or -1 for everything else (tab switches, inventory clicks, etc.).
+     */
+    public int handleLeftClick(int mx, int my) {
+        if (!isOverPanel(mx, my)) return -1;
+
+        // ── Tab bar click ──────────────────────────────────────────────────
+        if (my >= panelY + CONTENT_H) {
+            int tabW   = PANEL_W / TABS.length;
+            int tabIdx = Math.min((mx - panelX) / tabW, TABS.length - 1);
+            if (tabIdx >= 0) activeTab = TABS[tabIdx];
+            return -1;
+        }
+
+        // ── Content area click ─────────────────────────────────────────────
+        switch (activeTab) {
+            case COMBAT -> {
+                int pad  = 10;
+                int btnW = (PANEL_W - pad * 3) / 2;
+                int btnH = 48;
+                int gridTop = panelY + CONTENT_H - 28;
+
+                for (int i = 0; i < 4; i++) {
+                    int col = i % 2;
+                    int row = i / 2;
+                    int bx  = panelX + pad + col * (btnW + pad);
+                    int by  = gridTop - (row + 1) * (btnH + pad);
+
+                    if (mx >= bx && mx <= bx + btnW && my >= by && my <= by + btnH) {
+                        combatStyle = i;
+                        return i;
+                    }
+                }
+            }
+            case INVENTORY -> inventoryUI.handleMouseDown(mx, my, 0);
+            default -> { /* Skills tab: no clicks */ }
+        }
+        return -1;
+    }
+
+    /** Returns true if (mx, my) is anywhere within the side panel. */
+    public boolean isOverPanel(int mx, int my) {
+        return mx >= panelX && mx <= panelX + PANEL_W
+            && my >= panelY && my <= panelY + TOTAL_H;
+    }
+
+    public boolean isInventoryTabActive() { return activeTab == Tab.INVENTORY; }
+
+    // -----------------------------------------------------------------------
+    // Drag support (inventory)
+    // -----------------------------------------------------------------------
+
+    public void updateDrag(int mx, int my)    { inventoryUI.updateDrag(mx, my); }
+    public boolean isInventoryDragging()      { return inventoryUI.isDragging(); }
+    public int[]   handleInventoryMouseUp(int mx, int my) { return inventoryUI.handleMouseUp(mx, my); }
+    public int     getInventoryRightClickSlot(int mx, int my) { return inventoryUI.getRightClickSlot(mx, my); }
+
+    // -----------------------------------------------------------------------
+    // Data setters
+    // -----------------------------------------------------------------------
+
+    public void setInventorySlot(int slot, int itemId, int qty, String name, int flags) {
+        inventoryUI.setSlot(slot, itemId, qty, name, flags);
+    }
+
+    public void setSkillData(int[] levels, long[] xp) {
+        int n = Math.min(levels.length, skillLevels.length);
+        System.arraycopy(levels, 0, skillLevels, 0, n);
+        System.arraycopy(xp, 0, skillXp, 0, n);
+    }
+
+    public void setCombatStyle(int style) {
+        if (style >= 0 && style < 4) combatStyle = style;
+    }
+
+    // -----------------------------------------------------------------------
+    // Accessors for GameScreen
+    // -----------------------------------------------------------------------
+
+    public int    getInventoryItemId(int slot)    { return inventoryUI.getItemId(slot); }
+    public String getInventoryItemName(int slot)  { return inventoryUI.getName(slot); }
+    public int    getInventoryItemFlags(int slot) { return inventoryUI.getFlags(slot); }
+    public int    getCombatStyle()                { return combatStyle; }
+}

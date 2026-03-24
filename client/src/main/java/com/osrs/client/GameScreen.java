@@ -16,11 +16,10 @@ import com.osrs.client.network.NettyClient;
 import com.osrs.client.renderer.CoordinateConverter;
 import com.osrs.client.renderer.IsometricRenderer;
 import com.osrs.client.world.TutorialIslandMap;
-import com.osrs.client.ui.CombatStyleUI;
 import com.osrs.client.ui.CombatUI;
 import com.osrs.client.ui.ContextMenu;
 import com.osrs.client.ui.DialogueUI;
-import com.osrs.client.ui.InventoryUI;
+import com.osrs.client.ui.SidePanel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -65,12 +64,11 @@ public class GameScreen extends ApplicationAdapter {
     // -----------------------------------------------------------------------
     // Game objects
     // -----------------------------------------------------------------------
-    private NettyClient    nettyClient;
-    private ContextMenu    contextMenu;
-    private CombatUI       combatUI;
-    private CombatStyleUI  combatStyleUI;
-    private DialogueUI     dialogueUI;
-    private InventoryUI    inventoryUI;
+    private NettyClient  nettyClient;
+    private ContextMenu  contextMenu;
+    private CombatUI     combatUI;
+    private SidePanel    sidePanel;
+    private DialogueUI   dialogueUI;
     private int[][]      tileMap;
 
     // -----------------------------------------------------------------------
@@ -146,13 +144,12 @@ public class GameScreen extends ApplicationAdapter {
         screenProjection = new Matrix4().setToOrtho2D(
             0, 0, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
 
-        renderer      = new IsometricRenderer(camera, batch, shapeRenderer);
-        tileMap       = TutorialIslandMap.generate();
-        contextMenu   = new ContextMenu();
-        combatUI      = new CombatUI();
-        combatStyleUI = new CombatStyleUI();
-        dialogueUI    = new DialogueUI();
-        inventoryUI   = new InventoryUI();
+        renderer   = new IsometricRenderer(camera, batch, shapeRenderer);
+        tileMap    = TutorialIslandMap.generate();
+        contextMenu = new ContextMenu();
+        combatUI   = new CombatUI();
+        sidePanel  = new SidePanel();
+        dialogueUI = new DialogueUI();
 
         try {
             nettyClient = new NettyClient();
@@ -234,10 +231,9 @@ public class GameScreen extends ApplicationAdapter {
         int w = Gdx.graphics.getWidth(), h = Gdx.graphics.getHeight();
         renderHUD();
         if (combatTargetId >= 0) renderOpponentInfo();
-        combatStyleUI.render(shapeRenderer, screenBatch, font, w, h, screenProjection);
+        sidePanel.update(delta);
+        sidePanel.render(shapeRenderer, screenBatch, font, w, h, screenProjection);
         combatUI.renderMessages(screenBatch, font, h);
-        inventoryUI.update(delta);
-        inventoryUI.render(shapeRenderer, batch, font, w, h);
         if (contextMenu.isVisible()) renderContextMenu();
         if (deathScreenTimer > 0) renderDeathScreen(delta);
 
@@ -254,13 +250,22 @@ public class GameScreen extends ApplicationAdapter {
 
         playerHealth    = h.getPlayerHealth();
         playerMaxHealth = h.getPlayerMaxHealth();
-        attackLevel     = h.getSkillLevel(0);
-        strengthLevel   = h.getSkillLevel(1);
-        defenceLevel    = h.getSkillLevel(2);
+        attackLevel   = h.getSkillLevel(0);
+        strengthLevel = h.getSkillLevel(1);
+        defenceLevel  = h.getSkillLevel(2);
 
-        // Sync inventory to InventoryUI
+        // Sync full skill data to the Skills tab
+        int[]  lvls = new int[6];
+        long[] xps  = new long[6];
+        for (int i = 0; i < 6; i++) {
+            lvls[i] = h.getSkillLevel(i);
+            xps[i]  = h.getSkillTotalXp(i);
+        }
+        sidePanel.setSkillData(lvls, xps);
+
+        // Sync inventory to the Inventory tab
         for (int i = 0; i < 28; i++) {
-            inventoryUI.setSlot(i,
+            sidePanel.setInventorySlot(i,
                 h.getInventoryItemId(i),
                 h.getInventoryQuantity(i),
                 h.getInventoryName(i),
@@ -395,15 +400,17 @@ public class GameScreen extends ApplicationAdapter {
         // LibGDX y-flip: screen-space has Y=0 at bottom
         int screenMy = h - my;
 
-        // Update drag position continuously
-        inventoryUI.updateDrag(mx, screenMy);
+        // Update drag position continuously (for inventory drag)
+        sidePanel.updateDrag(mx, screenMy);
 
         if (Gdx.input.isButtonJustPressed(Input.Buttons.RIGHT)) {
-            // Check inventory right-click first
-            if (inventoryUI.isOverPanel(mx, screenMy)) {
-                int slot = inventoryUI.getRightClickSlot(mx, screenMy);
-                if (slot >= 0 && inventoryUI.getItemId(slot) > 0) {
-                    showInventoryContextMenu(slot, mx, screenMy);
+            // Check side panel right-click first
+            if (sidePanel.isOverPanel(mx, screenMy)) {
+                if (sidePanel.isInventoryTabActive()) {
+                    int slot = sidePanel.getInventoryRightClickSlot(mx, screenMy);
+                    if (slot >= 0 && sidePanel.getInventoryItemId(slot) > 0) {
+                        showInventoryContextMenu(slot, mx, screenMy);
+                    }
                 }
             } else {
                 int[] tile = screenToTile(mx, my);
@@ -419,14 +426,11 @@ public class GameScreen extends ApplicationAdapter {
                 ContextMenu.MenuItem clicked = contextMenu.getClickedItem(mx, screenMy);
                 if (clicked != null) handleContextMenuAction(clicked);
                 contextMenu.close();
-            } else if (combatStyleUI.isOverPanel(mx, screenMy, w, h)) {
-                int style = combatStyleUI.handleClick(mx, screenMy, w, h);
+            } else if (sidePanel.isOverPanel(mx, screenMy)) {
+                int style = sidePanel.handleLeftClick(mx, screenMy);
                 if (style >= 0 && nettyClient != null) {
                     nettyClient.sendSetCombatStyle(style);
-                    LOG.info("Combat style changed to {}", style);
                 }
-            } else if (inventoryUI.isOverPanel(mx, screenMy)) {
-                inventoryUI.handleMouseDown(mx, screenMy, 0);
             } else {
                 int[] tile = screenToTile(mx, my);
                 if (CoordinateConverter.isValidTile(tile[0], tile[1]))
@@ -434,9 +438,9 @@ public class GameScreen extends ApplicationAdapter {
             }
         }
 
-        // Mouse-up: finish drag
-        if (!Gdx.input.isButtonPressed(Input.Buttons.LEFT) && inventoryUI.isDragging()) {
-            int[] swap = inventoryUI.handleMouseUp(mx, screenMy);
+        // Mouse-up: finish inventory drag
+        if (!Gdx.input.isButtonPressed(Input.Buttons.LEFT) && sidePanel.isInventoryDragging()) {
+            int[] swap = sidePanel.handleInventoryMouseUp(mx, screenMy);
             if (swap != null && nettyClient != null) {
                 nettyClient.sendSwapInventorySlots(swap[0], swap[1]);
             }
@@ -446,9 +450,9 @@ public class GameScreen extends ApplicationAdapter {
     }
 
     private void showInventoryContextMenu(int slot, int mx, int my) {
-        String name = inventoryUI.getName(slot);
+        String name = sidePanel.getInventoryItemName(slot);
         if (name == null || name.isEmpty()) name = "Item";
-        int itemFlags = inventoryUI.getFlags(slot);
+        int itemFlags = sidePanel.getInventoryItemFlags(slot);
 
         List<ContextMenu.MenuItem> opts = new ArrayList<>();
         if ((itemFlags & 0x2) != 0) {
