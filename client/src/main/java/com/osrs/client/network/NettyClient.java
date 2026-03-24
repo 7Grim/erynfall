@@ -129,6 +129,44 @@ public class NettyClient {
         channel.writeAndFlush(msg);
         LOG.debug("Sent dialogue response: option {}", optionId);
     }
+
+    public void sendPickupItem(int groundItemId) {
+        NetworkProto.ClientMessage msg = NetworkProto.ClientMessage.newBuilder()
+            .setPickupItem(NetworkProto.PickupItem.newBuilder()
+                .setGroundItemId(groundItemId).setSequence(System.currentTimeMillis()))
+            .build();
+        channel.writeAndFlush(msg);
+        LOG.debug("Sent PickupItem: groundItemId={}", groundItemId);
+    }
+
+    public void sendDropItem(int inventorySlot) {
+        NetworkProto.ClientMessage msg = NetworkProto.ClientMessage.newBuilder()
+            .setDropItem(NetworkProto.DropItem.newBuilder()
+                .setInventorySlot(inventorySlot).setSequence(System.currentTimeMillis()))
+            .build();
+        channel.writeAndFlush(msg);
+        LOG.debug("Sent DropItem: slot={}", inventorySlot);
+    }
+
+    public void sendUseItem(int inventorySlot, String action) {
+        NetworkProto.ClientMessage msg = NetworkProto.ClientMessage.newBuilder()
+            .setUseItem(NetworkProto.UseItem.newBuilder()
+                .setInventorySlot(inventorySlot).setAction(action)
+                .setSequence(System.currentTimeMillis()))
+            .build();
+        channel.writeAndFlush(msg);
+        LOG.debug("Sent UseItem: slot={} action={}", inventorySlot, action);
+    }
+
+    public void sendSwapInventorySlots(int fromSlot, int toSlot) {
+        NetworkProto.ClientMessage msg = NetworkProto.ClientMessage.newBuilder()
+            .setSwapInventorySlots(NetworkProto.SwapInventorySlots.newBuilder()
+                .setFromSlot(fromSlot).setToSlot(toSlot)
+                .setSequence(System.currentTimeMillis()))
+            .build();
+        channel.writeAndFlush(msg);
+        LOG.debug("Sent SwapInventorySlots: {} ↔ {}", fromSlot, toSlot);
+    }
     
     public boolean isConnected() {
         return channel != null && channel.isActive();

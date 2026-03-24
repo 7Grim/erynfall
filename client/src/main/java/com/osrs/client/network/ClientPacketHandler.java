@@ -84,6 +84,26 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
     private volatile int deathRespawnX = 50;
     private volatile int deathRespawnY = 50;
 
+    // -----------------------------------------------------------------------
+    // Inventory state (28 slots)
+    // -----------------------------------------------------------------------
+    private final int[]    inventoryItemIds    = new int[28];
+    private final int[]    inventoryQuantities = new int[28];
+    private final String[] inventoryNames      = new String[28];
+    private final int[]    inventoryFlags      = new int[28];
+
+    // -----------------------------------------------------------------------
+    // Equipment state (11 slots)
+    // -----------------------------------------------------------------------
+    private final int[]    equipmentItemIds = new int[11];
+    private final String[] equipmentNames   = new String[11];
+
+    // -----------------------------------------------------------------------
+    // Ground items: groundItemId → int[]{itemId, quantity, x, y}
+    // -----------------------------------------------------------------------
+    private final Map<Integer, int[]>    groundItems     = new ConcurrentHashMap<>();
+    private final Map<Integer, String>   groundItemNames = new ConcurrentHashMap<>();
+
     private final NettyClient client;
     private NetworkProto.HandshakeResponse lastHandshakeResponse;
 
@@ -103,13 +123,17 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
         }
         NetworkProto.ServerMessage packet = (NetworkProto.ServerMessage) msg;
         switch (packet.getPayloadCase()) {
-            case HANDSHAKE_RESPONSE -> handleHandshakeResponse(packet.getHandshakeResponse());
-            case WORLD_STATE        -> handleWorldState(packet.getWorldState());
-            case ENTITY_UPDATE      -> handleEntityUpdate(packet.getEntityUpdate());
-            case COMBAT_HIT         -> handleCombatHit(packet.getCombatHit());
-            case HEALTH_UPDATE      -> handleHealthUpdate(packet.getHealthUpdate());
-            case SKILL_UPDATE       -> handleSkillUpdate(packet.getSkillUpdate());
-            case PLAYER_DEATH       -> handlePlayerDeath(packet.getPlayerDeath());
+            case HANDSHAKE_RESPONSE  -> handleHandshakeResponse(packet.getHandshakeResponse());
+            case WORLD_STATE         -> handleWorldState(packet.getWorldState());
+            case ENTITY_UPDATE       -> handleEntityUpdate(packet.getEntityUpdate());
+            case COMBAT_HIT          -> handleCombatHit(packet.getCombatHit());
+            case HEALTH_UPDATE       -> handleHealthUpdate(packet.getHealthUpdate());
+            case SKILL_UPDATE        -> handleSkillUpdate(packet.getSkillUpdate());
+            case PLAYER_DEATH        -> handlePlayerDeath(packet.getPlayerDeath());
+            case INVENTORY_UPDATE    -> handleInventoryUpdate(packet.getInventoryUpdate());
+            case EQUIPMENT_UPDATE    -> handleEquipmentUpdate(packet.getEquipmentUpdate());
+            case GROUND_ITEM_SPAWN   -> handleGroundItemSpawn(packet.getGroundItemSpawn());
+            case GROUND_ITEM_DESPAWN -> handleGroundItemDespawn(packet.getGroundItemDespawn());
             default -> LOG.debug("Unhandled server message: {}", packet.getPayloadCase());
         }
     }
@@ -253,6 +277,56 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
         playerDead = true;
         LOG.info("Player died — respawning at ({}, {})", deathRespawnX, deathRespawnY);
     }
+
+    private void handleInventoryUpdate(NetworkProto.InventoryUpdate update) {
+        int slot = update.getSlot();
+        if (slot < 0 || slot >= 28) return;
+        inventoryItemIds[slot]    = update.getItemId();
+        inventoryQuantities[slot] = update.getQuantity();
+        inventoryNames[slot]      = update.getItemName();
+        inventoryFlags[slot]      = update.getFlags();
+        LOG.debug("InventoryUpdate slot={} itemId={} qty={} name={}",
+            slot, update.getItemId(), update.getQuantity(), update.getItemName());
+    }
+
+    private void handleEquipmentUpdate(NetworkProto.EquipmentUpdate update) {
+        int slot = update.getSlot();
+        if (slot < 0 || slot >= 11) return;
+        equipmentItemIds[slot] = update.getItemId();
+        equipmentNames[slot]   = update.getItemName();
+        LOG.debug("EquipmentUpdate slot={} itemId={} name={}", slot, update.getItemId(), update.getItemName());
+    }
+
+    private void handleGroundItemSpawn(NetworkProto.GroundItemSpawn spawn) {
+        groundItems.put(spawn.getGroundItemId(),
+            new int[]{spawn.getItemId(), spawn.getQuantity(), spawn.getX(), spawn.getY()});
+        groundItemNames.put(spawn.getGroundItemId(), spawn.getItemName());
+        LOG.debug("GroundItemSpawn id={} itemId={} qty={} at ({},{})",
+            spawn.getGroundItemId(), spawn.getItemId(), spawn.getQuantity(),
+            spawn.getX(), spawn.getY());
+    }
+
+    private void handleGroundItemDespawn(NetworkProto.GroundItemDespawn despawn) {
+        groundItems.remove(despawn.getGroundItemId());
+        groundItemNames.remove(despawn.getGroundItemId());
+        LOG.debug("GroundItemDespawn id={}", despawn.getGroundItemId());
+    }
+
+    // -----------------------------------------------------------------------
+    // Accessors for inventory / equipment / ground items
+    // -----------------------------------------------------------------------
+
+    public int   getInventoryItemId(int slot)    { return (slot >= 0 && slot < 28) ? inventoryItemIds[slot]    : 0; }
+    public int   getInventoryQuantity(int slot)  { return (slot >= 0 && slot < 28) ? inventoryQuantities[slot] : 0; }
+    public String getInventoryName(int slot)     { return (slot >= 0 && slot < 28) ? inventoryNames[slot]      : ""; }
+    public int   getInventoryFlags(int slot)     { return (slot >= 0 && slot < 28) ? inventoryFlags[slot]      : 0; }
+
+    public int    getEquipmentItemId(int slot)   { return (slot >= 0 && slot < 11) ? equipmentItemIds[slot] : 0; }
+    public String getEquipmentName(int slot)     { return (slot >= 0 && slot < 11) ? equipmentNames[slot]   : ""; }
+
+    /** Snapshot of all ground items — safe to read on the render thread. */
+    public Map<Integer, int[]>  getGroundItems()     { return groundItems; }
+    public Map<Integer, String> getGroundItemNames() { return groundItemNames; }
 
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {

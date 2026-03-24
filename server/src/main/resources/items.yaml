@@ -1,0 +1,180 @@
+items:
+  - id: 526
+    name: "Bones"
+    examine: "Bury these for Prayer XP."
+    stackable: false
+    equipable: false
+    consumable: false
+    consume_heal: 0
+    equip_slot: -1
+    attack_bonus: 0
+    strength_bonus: 0
+    defence_bonus: 0
+
+  - id: 995
+    name: "Coins"
+    examine: "Lovely money!"
+    stackable: true
+    equipable: false
+    consumable: false
+    consume_heal: 0
+    equip_slot: -1
+    attack_bonus: 0
+    strength_bonus: 0
+    defence_bonus: 0
+
+  - id: 314
+    name: "Feather"
+    examine: "A tail feather from a bird."
+    stackable: true
+    equipable: false
+    consumable: false
+    consume_heal: 0
+    equip_slot: -1
+    attack_bonus: 0
+    strength_bonus: 0
+    defence_bonus: 0
+
+  - id: 2138
+    name: "Raw chicken"
+    examine: "I should cook this first."
+    stackable: false
+    equipable: false
+    consumable: false
+    consume_heal: 0
+    equip_slot: -1
+    attack_bonus: 0
+    strength_bonus: 0
+    defence_bonus: 0
+
+  - id: 2142
+    name: "Cowhide"
+    examine: "A cow's hide."
+    stackable: false
+    equipable: false
+    consumable: false
+    consume_heal: 0
+    equip_slot: -1
+    attack_bonus: 0
+    strength_bonus: 0
+    defence_bonus: 0
+
+  - id: 1739
+    name: "Leather"
+    examine: "Ready to be crafted."
+    stackable: false
+    equipable: false
+    consumable: false
+    consume_heal: 0
+    equip_slot: -1
+    attack_bonus: 0
+    strength_bonus: 0
+    defence_bonus: 0
+
+  - id: 1000
+    name: "Rat tail"
+    examine: "The tail of a rat."
+    stackable: false
+    equipable: false
+    consumable: false
+    consume_heal: 0
+    equip_slot: -1
+    attack_bonus: 0
+    strength_bonus: 0
+    defence_bonus: 0
+
+  - id: 315
+    name: "Shrimps"
+    examine: "Some nicely cooked shrimps."
+    stackable: false
+    equipable: false
+    consumable: true
+    consume_heal: 3
+    equip_slot: -1
+    attack_bonus: 0
+    strength_bonus: 0
+    defence_bonus: 0
+
+  - id: 361
+    name: "Tuna"
+    examine: "A nicely cooked tuna."
+    stackable: false
+    equipable: false
+    consumable: true
+    consume_heal: 10
+    equip_slot: -1
+    attack_bonus: 0
+    strength_bonus: 0
+    defence_bonus: 0
+
+  - id: 385
+    name: "Shark"
+    examine: "I'd better be careful eating this."
+    stackable: false
+    equipable: false
+    consumable: true
+    consume_heal: 20
+    equip_slot: -1
+    attack_bonus: 0
+    strength_bonus: 0
+    defence_bonus: 0
+
+  - id: 1277
+    name: "Bronze sword"
+    examine: "A solid bronze sword."
+    stackable: false
+    equipable: true
+    consumable: false
+    consume_heal: 0
+    equip_slot: 4
+    attack_bonus: 7
+    strength_bonus: 5
+    defence_bonus: 0
+
+  - id: 1173
+    name: "Wooden shield"
+    examine: "A basic wooden shield."
+    stackable: false
+    equipable: true
+    consumable: false
+    consume_heal: 0
+    equip_slot: 5
+    attack_bonus: 0
+    strength_bonus: 0
+    defence_bonus: 4
+
+  - id: 1115
+    name: "Bronze full helm"
+    examine: "A full helmet of bronze."
+    stackable: false
+    equipable: true
+    consumable: false
+    consume_heal: 0
+    equip_slot: 0
+    attack_bonus: 0
+    strength_bonus: 0
+    defence_bonus: 3
+
+  - id: 1119
+    name: "Bronze platebody"
+    examine: "Solid bronze armour."
+    stackable: false
+    equipable: true
+    consumable: false
+    consume_heal: 0
+    equip_slot: 6
+    attack_bonus: 0
+    strength_bonus: 0
+    defence_bonus: 8
+
+  - id: 1067
+    name: "Bronze platelegs"
+    examine: "These should protect my legs."
+    stackable: false
+    equipable: true
+    consumable: false
+    consume_heal: 0
+    equip_slot: 7
+    attack_bonus: 0
+    strength_bonus: 0
+    defence_bonus: 6

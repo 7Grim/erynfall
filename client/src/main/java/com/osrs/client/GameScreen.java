@@ -27,6 +27,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Main game screen.
@@ -89,6 +90,13 @@ public class GameScreen extends ApplicationAdapter {
     // -----------------------------------------------------------------------
     /** npcId → float[]{visualX, visualY} */
     private final Map<Integer, float[]> npcVisual = new HashMap<>();
+
+    // -----------------------------------------------------------------------
+    // Ground items (synced from ClientPacketHandler each frame)
+    // -----------------------------------------------------------------------
+    /** groundItemId → int[]{itemId, qty, x, y} */
+    private final Map<Integer, int[]>  groundItemsOnMap  = new ConcurrentHashMap<>();
+    private final Map<Integer, String> groundItemNamesMap = new ConcurrentHashMap<>();
 
     // -----------------------------------------------------------------------
     // Approach-and-act state
@@ -175,6 +183,12 @@ public class GameScreen extends ApplicationAdapter {
         // --- World ---
         renderer.renderWorld(tileMap, visualX, visualY);
 
+        // Ground items — rendered before NPCs and player
+        for (Map.Entry<Integer, int[]> entry : groundItemsOnMap.entrySet()) {
+            int[] data = entry.getValue();  // {itemId, qty, x, y}
+            renderer.renderGroundItem(data[2], data[3], data[0], data[1]);
+        }
+
         // NPCs — rendered at their smoothly interpolated visual positions
         ClientPacketHandler handler = handler();
         if (handler != null) {
@@ -206,8 +220,11 @@ public class GameScreen extends ApplicationAdapter {
         Gdx.gl.glEnable(GL20.GL_BLEND);
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
 
+        int w = Gdx.graphics.getWidth(), h = Gdx.graphics.getHeight();
         renderHUD();
-        combatUI.renderMessages(screenBatch, font, Gdx.graphics.getHeight());
+        combatUI.renderMessages(screenBatch, font, h);
+        inventoryUI.update(delta);
+        inventoryUI.render(shapeRenderer, batch, font, w, h);
         if (contextMenu.isVisible()) renderContextMenu();
         if (deathScreenTimer > 0) renderDeathScreen(delta);
 
@@ -227,6 +244,21 @@ public class GameScreen extends ApplicationAdapter {
         attackLevel     = h.getSkillLevel(0);
         strengthLevel   = h.getSkillLevel(1);
         defenceLevel    = h.getSkillLevel(2);
+
+        // Sync inventory to InventoryUI
+        for (int i = 0; i < 28; i++) {
+            inventoryUI.setSlot(i,
+                h.getInventoryItemId(i),
+                h.getInventoryQuantity(i),
+                h.getInventoryName(i),
+                h.getInventoryFlags(i));
+        }
+
+        // Sync ground items
+        groundItemsOnMap.clear();
+        groundItemsOnMap.putAll(h.getGroundItems());
+        groundItemNamesMap.clear();
+        groundItemNamesMap.putAll(h.getGroundItemNames());
 
         // Death detection — show overlay and snap to respawn
         if (h.isPlayerDead()) {
@@ -326,22 +358,37 @@ public class GameScreen extends ApplicationAdapter {
         // Block all input while death screen is showing
         if (deathScreenTimer > 0) return;
 
+        int mx = Gdx.input.getX();
+        int my = Gdx.input.getY();
+        // LibGDX y-flip: screen-space has Y=0 at bottom
+        int screenMy = Gdx.graphics.getHeight() - my;
+
+        // Update drag position continuously
+        inventoryUI.updateDrag(mx, screenMy);
+
         if (Gdx.input.isButtonJustPressed(Input.Buttons.RIGHT)) {
-            int mx = Gdx.input.getX(), my = Gdx.input.getY();
-            int[] tile = screenToTile(mx, my);
-            LOG.debug("Right-click tile ({},{})", tile[0], tile[1]);
-            List<ContextMenu.MenuItem> opts = generateContextMenu(tile[0], tile[1]);
-            if (!opts.isEmpty())
-                contextMenu.open(mx, Gdx.graphics.getHeight() - my, opts);
+            // Check inventory right-click first
+            if (inventoryUI.isOverPanel(mx, screenMy)) {
+                int slot = inventoryUI.getRightClickSlot(mx, screenMy);
+                if (slot >= 0 && inventoryUI.getItemId(slot) > 0) {
+                    showInventoryContextMenu(slot, mx, screenMy);
+                }
+            } else {
+                int[] tile = screenToTile(mx, my);
+                LOG.debug("Right-click tile ({},{})", tile[0], tile[1]);
+                List<ContextMenu.MenuItem> opts = generateContextMenu(tile[0], tile[1]);
+                if (!opts.isEmpty())
+                    contextMenu.open(mx, screenMy, opts);
+            }
         }
 
         if (Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)) {
-            int mx = Gdx.input.getX(), my = Gdx.input.getY();
             if (contextMenu.isVisible()) {
-                ContextMenu.MenuItem clicked =
-                    contextMenu.getClickedItem(mx, Gdx.graphics.getHeight() - my);
+                ContextMenu.MenuItem clicked = contextMenu.getClickedItem(mx, screenMy);
                 if (clicked != null) handleContextMenuAction(clicked);
                 contextMenu.close();
+            } else if (inventoryUI.isOverPanel(mx, screenMy)) {
+                inventoryUI.handleMouseDown(mx, screenMy, 0);
             } else {
                 int[] tile = screenToTile(mx, my);
                 if (CoordinateConverter.isValidTile(tile[0], tile[1]))
@@ -349,7 +396,34 @@ public class GameScreen extends ApplicationAdapter {
             }
         }
 
+        // Mouse-up: finish drag
+        if (!Gdx.input.isButtonPressed(Input.Buttons.LEFT) && inventoryUI.isDragging()) {
+            int[] swap = inventoryUI.handleMouseUp(mx, screenMy);
+            if (swap != null && nettyClient != null) {
+                nettyClient.sendSwapInventorySlots(swap[0], swap[1]);
+            }
+        }
+
         if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) contextMenu.close();
+    }
+
+    private void showInventoryContextMenu(int slot, int mx, int my) {
+        String name = inventoryUI.getName(slot);
+        if (name == null || name.isEmpty()) name = "Item";
+        int itemFlags = inventoryUI.getFlags(slot);
+
+        List<ContextMenu.MenuItem> opts = new ArrayList<>();
+        if ((itemFlags & 0x2) != 0) {
+            // Consumable
+            opts.add(new ContextMenu.MenuItem("Eat " + name, "inv_eat", slot));
+        }
+        if ((itemFlags & 0x1) != 0) {
+            // Equipable
+            opts.add(new ContextMenu.MenuItem("Wield " + name, "inv_wield", slot));
+        }
+        opts.add(new ContextMenu.MenuItem("Drop " + name, "inv_drop", slot));
+        opts.add(new ContextMenu.MenuItem("Examine " + name, "inv_examine", slot));
+        contextMenu.open(mx, my, opts);
     }
 
     /** Player-initiated walk — cancels any pending approach. */
@@ -477,6 +551,15 @@ public class GameScreen extends ApplicationAdapter {
 
         opts.add(new ContextMenu.MenuItem("Walk here", "walk", new int[]{tileX, tileY}));
 
+        // Ground items at this tile
+        for (Map.Entry<Integer, int[]> entry : groundItemsOnMap.entrySet()) {
+            int[] data = entry.getValue();  // {itemId, qty, x, y}
+            if (data[2] == tileX && data[3] == tileY) {
+                String name = groundItemNamesMap.getOrDefault(entry.getKey(), "Item");
+                opts.add(new ContextMenu.MenuItem("Take " + name, "take", entry.getKey()));
+            }
+        }
+
         // Check all server-tracked NPCs — show options for whichever NPC the
         // player right-clicked (their current rendered tile, rounded)
         ClientPacketHandler h = handler();
@@ -505,6 +588,11 @@ public class GameScreen extends ApplicationAdapter {
             case "walk"   -> { int[] t = (int[]) item.target; walkTo(t[0], t[1]); }
             case "attack" -> startApproach((Integer) item.target, "attack");
             case "talk"   -> startApproach((Integer) item.target, "talk");
+            case "take"   -> { if (nettyClient != null) nettyClient.sendPickupItem((Integer) item.target); }
+            case "inv_eat"   -> { if (nettyClient != null) nettyClient.sendUseItem((Integer) item.target, "eat"); }
+            case "inv_wield" -> { if (nettyClient != null) nettyClient.sendUseItem((Integer) item.target, "wield"); }
+            case "inv_drop"  -> { if (nettyClient != null) nettyClient.sendDropItem((Integer) item.target); }
+            case "inv_examine" -> LOG.info("Examine: {}", item.label);
         }
     }
 

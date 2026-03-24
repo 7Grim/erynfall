@@ -235,6 +235,32 @@ public class IsometricRenderer {
     }
 
     // -----------------------------------------------------------------------
+    // Ground items
+    // -----------------------------------------------------------------------
+
+    /**
+     * Render a ground item as a small coloured diamond slightly above the tile.
+     * Must be called outside any begin/end block — opens and closes its own.
+     */
+    public void renderGroundItem(int tileX, int tileY, int itemId, int quantity) {
+        float sx = worldToScreenX(tileX, tileY);
+        float sy = worldToScreenY(tileX, tileY) + 4f;  // slightly above ground
+
+        Color c = itemId == 995
+            ? Color.YELLOW
+            : itemId == 526
+                ? new Color(0.85f, 0.75f, 0.55f, 1f)
+                : new Color(0.8f, 0.5f, 0.2f, 1f);
+
+        sr.begin(ShapeRenderer.ShapeType.Filled);
+        sr.setColor(c);
+        // Small diamond: two triangles forming a 8-wide × 8-tall diamond
+        sr.triangle(sx,      sy + 4,  sx + 4f, sy,  sx - 4f, sy);   // upper half
+        sr.triangle(sx,      sy - 4,  sx + 4f, sy,  sx - 4f, sy);   // lower half
+        sr.end();
+    }
+
+    // -----------------------------------------------------------------------
     // Health bar
     // -----------------------------------------------------------------------
 

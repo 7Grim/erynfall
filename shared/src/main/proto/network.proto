@@ -143,6 +143,57 @@ message InventoryUpdate {
     int32 slot = 1;
     int32 item_id = 2;
     int32 quantity = 3;
+    string item_name = 4;
+    int32 flags = 5;
+}
+
+// EquipmentUpdate: Server → Client
+message EquipmentUpdate {
+    int32 slot = 1;
+    int32 item_id = 2;
+    string item_name = 3;
+    int32 flags = 4;
+}
+
+// GroundItemSpawn: Server → Client
+message GroundItemSpawn {
+    int32 ground_item_id = 1;
+    int32 item_id = 2;
+    int32 quantity = 3;
+    int32 x = 4;
+    int32 y = 5;
+    string item_name = 6;
+}
+
+// GroundItemDespawn: Server → Client
+message GroundItemDespawn {
+    int32 ground_item_id = 1;
+}
+
+// PickupItem: Client → Server
+message PickupItem {
+    int32 ground_item_id = 1;
+    int64 sequence = 2;
+}
+
+// DropItem: Client → Server
+message DropItem {
+    int32 inventory_slot = 1;
+    int64 sequence = 2;
+}
+
+// UseItem: Client → Server (eat, drink, wield, wear)
+message UseItem {
+    int32 inventory_slot = 1;
+    string action = 2;
+    int64 sequence = 3;
+}
+
+// SwapInventorySlots: Client → Server (drag-and-drop rearrange)
+message SwapInventorySlots {
+    int32 from_slot = 1;
+    int32 to_slot = 2;
+    int64 sequence = 3;
 }
 
 // Heartbeat: Server → Client (keep-alive)
@@ -167,6 +218,10 @@ message ClientMessage {
         Attack attack = 4;
         DialogueResponse dialogue_response = 5;
         TalkToNpc talk_to_npc = 6;
+        PickupItem pickup_item = 7;
+        DropItem drop_item = 8;
+        UseItem use_item = 9;
+        SwapInventorySlots swap_inventory_slots = 10;
     }
 }
 
@@ -185,5 +240,8 @@ message ServerMessage {
         SkillUpdate skill_update = 10;
         EntityUpdate entity_update = 11;  // Live position delta (NPC move, player move, etc.)
         PlayerDeath player_death = 12;    // Sent only to the dying player; includes respawn coords
+        EquipmentUpdate equipment_update = 13;
+        GroundItemSpawn ground_item_spawn = 14;
+        GroundItemDespawn ground_item_despawn = 15;
     }
 }

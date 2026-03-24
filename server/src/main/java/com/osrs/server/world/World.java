@@ -1,12 +1,14 @@
 package com.osrs.server.world;
 
 import com.osrs.shared.Entity;
+import com.osrs.shared.ItemDefinition;
 import com.osrs.shared.NPC;
 import com.osrs.shared.Player;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.*;
+import java.util.Random;
 
 /**
  * World state: all entities, tile map, and player sessions.
@@ -23,10 +25,28 @@ public class World {
     private final Map<String, WorldData.LootTable> lootTables;
     private final WorldData worldData;
     private int nextEntityId = 1;
-    
+
+    // Ground items
+    private final Map<Integer, GroundItem> groundItems = new HashMap<>();
+    private int nextGroundItemId = 1;
+
+    // Item definitions (loaded from items.yaml)
+    private final Map<Integer, ItemDefinition> itemDefs;
+    private static final ItemDefinition DEFAULT_ITEM_DEF = new ItemDefinition();
+
     public World() throws Exception {
         LOG.info("Initializing World...");
-        
+
+        // Load item definitions from items.yaml
+        Map<Integer, ItemDefinition> loadedItems;
+        try {
+            loadedItems = ItemLoader.loadItems();
+        } catch (Exception e) {
+            LOG.warn("Failed to load items.yaml, using empty item definitions: {}", e.getMessage());
+            loadedItems = new HashMap<>();
+        }
+        this.itemDefs = loadedItems;
+
         // Load world configuration from world.yml
         this.worldData = WorldLoader.loadWorld();
         LOG.info("World configuration loaded");
@@ -172,5 +192,74 @@ public class World {
      */
     public WorldData.LootTable getLootTable(String tableId) {
         return lootTables.get(tableId);
+    }
+
+    // -----------------------------------------------------------------------
+    // Item definitions
+    // -----------------------------------------------------------------------
+
+    public ItemDefinition getItemDef(int itemId) {
+        return itemDefs.getOrDefault(itemId, DEFAULT_ITEM_DEF);
+    }
+
+    // -----------------------------------------------------------------------
+    // Ground items
+    // -----------------------------------------------------------------------
+
+    public GroundItem spawnGroundItem(int itemId, int quantity, int x, int y,
+                                      int ownerPlayerId, long tick) {
+        int id = nextGroundItemId++;
+        GroundItem gi = new GroundItem(id, itemId, quantity, x, y, ownerPlayerId, tick);
+        groundItems.put(id, gi);
+        LOG.debug("Spawned ground item: id={} itemId={} qty={} at ({},{}) owner={}",
+            id, itemId, quantity, x, y, ownerPlayerId);
+        return gi;
+    }
+
+    public Map<Integer, GroundItem> getGroundItems() {
+        return groundItems;
+    }
+
+    public GroundItem getGroundItem(int id) {
+        return groundItems.get(id);
+    }
+
+    public void removeGroundItem(int id) {
+        groundItems.remove(id);
+    }
+
+    // -----------------------------------------------------------------------
+    // Loot generation (kept here to access package-private WorldData)
+    // -----------------------------------------------------------------------
+
+    /**
+     * Roll loot drops from the NPC's loot table and spawn them as ground items.
+     * Returns the list of spawned GroundItem objects so the caller can notify clients.
+     *
+     * @param npc    the NPC that just died
+     * @param owner  the player who gets owner-only visibility
+     * @param tick   current server tick
+     * @param rng    shared Random instance from GameLoop
+     */
+    public List<GroundItem> rollAndSpawnLoot(NPC npc, Player owner, long tick, Random rng) {
+        List<GroundItem> spawned = new ArrayList<>();
+        WorldData.LootTable table = lootTables.get(npc.getLootTable());
+        if (table == null) return spawned;
+
+        List<WorldData.LootDrop> drops = new ArrayList<>(table.alwaysDrops);
+        for (WorldData.LootDrop d : table.commonDrops) {
+            if (rng.nextInt(100) < d.chance) drops.add(d);
+        }
+        for (WorldData.LootDrop d : table.rareDrops) {
+            if (rng.nextInt(10000) < d.chance) drops.add(d);
+        }
+        for (WorldData.LootDrop d : drops) {
+            int qty = d.minQuantity + (d.maxQuantity > d.minQuantity
+                ? rng.nextInt(d.maxQuantity - d.minQuantity + 1) : 0);
+            GroundItem gi = spawnGroundItem(d.itemId, qty,
+                npc.getX(), npc.getY(), owner.getId(), tick);
+            spawned.add(gi);
+        }
+        return spawned;
     }
 }

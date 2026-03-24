@@ -8,13 +8,13 @@ import java.util.Map;
  * Extends Entity with player-specific properties like stats, inventory, quests.
  */
 public class Player extends Entity {
-    
-    // Equipment (8 slots: head, body, legs, feet, hands, weapon, shield, ring)
-    private int[] equipment = new int[8];
-    
-    // Inventory (20 slots)
-    private int[] inventoryItemIds = new int[20];
-    private int[] inventoryQuantities = new int[20];
+
+    // Equipment (11 slots using EquipmentSlot constants)
+    private int[] equipment = new int[EquipmentSlot.COUNT];
+
+    // Inventory (28 slots — OSRS standard)
+    private int[] inventoryItemIds = new int[28];
+    private int[] inventoryQuantities = new int[28];
     
     // Combat state
     private int combatTarget = -1; // Entity ID of current combat target
@@ -72,18 +72,35 @@ public class Player extends Entity {
     }
     
     public void setInventoryItem(int slot, int itemId, int quantity) {
-        if (slot >= 0 && slot < 20) {
+        if (slot >= 0 && slot < 28) {
             inventoryItemIds[slot] = itemId;
             inventoryQuantities[slot] = quantity;
         }
     }
-    
+
     public int getInventoryItemId(int slot) {
-        return (slot >= 0 && slot < 20) ? inventoryItemIds[slot] : 0;
+        return (slot >= 0 && slot < 28) ? inventoryItemIds[slot] : 0;
     }
-    
+
     public int getInventoryQuantity(int slot) {
-        return (slot >= 0 && slot < 20) ? inventoryQuantities[slot] : 0;
+        return (slot >= 0 && slot < 28) ? inventoryQuantities[slot] : 0;
+    }
+
+    /**
+     * Returns the index of the first empty inventory slot, or -1 if full.
+     */
+    public int getFirstEmptySlot() {
+        for (int i = 0; i < 28; i++) {
+            if (inventoryItemIds[i] == 0) return i;
+        }
+        return -1;
+    }
+
+    /**
+     * Returns true if every inventory slot is occupied.
+     */
+    public boolean isInventoryFull() {
+        return getFirstEmptySlot() < 0;
     }
     
     // Skill getters/setters

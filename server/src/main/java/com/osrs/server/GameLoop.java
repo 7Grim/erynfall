@@ -3,13 +3,16 @@ package com.osrs.server;
 import com.osrs.protocol.NetworkProto;
 import com.osrs.server.combat.CombatEngine;
 import com.osrs.server.network.NettyServer;
+import com.osrs.server.world.GroundItem;
 import com.osrs.server.world.World;
 import com.osrs.shared.NPC;
 import com.osrs.shared.Player;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Random;
 
@@ -145,9 +148,9 @@ public class GameLoop {
             // TODO: Create SkillTicker
             updateSkills();
             
-            // Stage 5: Loot generation (drop items, remove dead entities)
-            // TODO: Create LootTicker
-            
+            // Stage 5: Loot generation — tick ground item visibility and despawn
+            tickGroundItems();
+
             // Stage 6: Broadcast to clients (send delta packets)
             // TODO: Create BroadcastTicker
             // broadcastWorldState();
@@ -399,7 +402,8 @@ public class GameLoop {
             if (newTargetHealth <= 0) {
                 player.setCombatTarget(-1);
                 LOG.info("Player {} killed NPC {}", player.getId(), target.getId());
-                // TODO: drop loot, schedule respawn
+                spawnLoot(player, target);
+                // TODO: schedule respawn
             }
         }
     }
@@ -454,6 +458,55 @@ public class GameLoop {
             .build());
 
         LOG.info("Player {} died and respawned at ({}, {})", player.getId(), spawnX, spawnY);
+    }
+
+    /**
+     * Tick all ground items: despawn expired ones (broadcast GroundItemDespawn to all),
+     * and broadcast newly-public items (owner-only → all players) once the timer flips.
+     */
+    private void tickGroundItems() {
+        List<Integer> toRemove = new ArrayList<>();
+        for (GroundItem gi : world.getGroundItems().values()) {
+            if (gi.isDespawned(tickCount)) {
+                toRemove.add(gi.getGroundItemId());
+                nettyServer.broadcastToAll(NetworkProto.ServerMessage.newBuilder()
+                    .setGroundItemDespawn(NetworkProto.GroundItemDespawn.newBuilder()
+                        .setGroundItemId(gi.getGroundItemId()))
+                    .build());
+            } else if (!gi.isPublic(gi.getSpawnTick()) && gi.isPublic(tickCount)) {
+                // Just became public — broadcast to all players
+                String name = world.getItemDef(gi.getItemId()).name;
+                nettyServer.broadcastToAll(NetworkProto.ServerMessage.newBuilder()
+                    .setGroundItemSpawn(NetworkProto.GroundItemSpawn.newBuilder()
+                        .setGroundItemId(gi.getGroundItemId())
+                        .setItemId(gi.getItemId())
+                        .setQuantity(gi.getQuantity())
+                        .setX(gi.getX()).setY(gi.getY())
+                        .setItemName(name))
+                    .build());
+            }
+        }
+        toRemove.forEach(world::removeGroundItem);
+    }
+
+    /**
+     * Spawn loot drops on the ground at the NPC's tile when it dies.
+     * Delegates loot rolling to World (which has access to package-private WorldData).
+     * Sends each spawned item to the killer only (owner-only until OWNER_ONLY_TICKS elapses).
+     */
+    private void spawnLoot(Player killer, NPC npc) {
+        List<GroundItem> spawned = world.rollAndSpawnLoot(npc, killer, tickCount, random);
+        for (GroundItem gi : spawned) {
+            String name = world.getItemDef(gi.getItemId()).name;
+            nettyServer.sendToSession(killer.getId(), NetworkProto.ServerMessage.newBuilder()
+                .setGroundItemSpawn(NetworkProto.GroundItemSpawn.newBuilder()
+                    .setGroundItemId(gi.getGroundItemId())
+                    .setItemId(gi.getItemId())
+                    .setQuantity(gi.getQuantity())
+                    .setX(gi.getX()).setY(gi.getY())
+                    .setItemName(name))
+                .build());
+        }
     }
 
     /**

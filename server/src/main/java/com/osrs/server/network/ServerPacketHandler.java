@@ -1,7 +1,10 @@
 package com.osrs.server.network;
 
 import com.osrs.protocol.NetworkProto;
+import com.osrs.server.world.GroundItem;
 import com.osrs.server.world.World;
+import com.osrs.shared.EquipmentSlot;
+import com.osrs.shared.ItemDefinition;
 import com.osrs.shared.NPC;
 import com.osrs.shared.Player;
 import io.netty.channel.ChannelHandlerContext;
@@ -69,6 +72,10 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             case ATTACK -> handleAttack(ctx, packet.getAttack());
             case DIALOGUE_RESPONSE -> handleDialogueResponse(ctx, packet.getDialogueResponse());
             case TALK_TO_NPC -> handleTalkToNpc(ctx, packet.getTalkToNpc());
+            case PICKUP_ITEM -> handlePickupItem(ctx, packet.getPickupItem());
+            case DROP_ITEM -> handleDropItem(ctx, packet.getDropItem());
+            case USE_ITEM -> handleUseItem(ctx, packet.getUseItem());
+            case SWAP_INVENTORY_SLOTS -> handleSwapInventorySlots(ctx, packet.getSwapInventorySlots());
             default -> LOG.warn("Unhandled payload case: {}", packet.getPayloadCase());
         }
     }
@@ -246,6 +253,198 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             session.getSessionId(), wsBuilder.getEntitiesCount());
     }
     
+    // -----------------------------------------------------------------------
+    // Inventory / Item handlers
+    // -----------------------------------------------------------------------
+
+    private void handlePickupItem(ChannelHandlerContext ctx, NetworkProto.PickupItem req) {
+        if (session.getPlayer() == null) return;
+        Player player = session.getPlayer();
+
+        GroundItem gi = server.getWorld().getGroundItem(req.getGroundItemId());
+        if (gi == null) {
+            LOG.debug("Player {} tried to pick up unknown ground item {}", player.getId(), req.getGroundItemId());
+            return;
+        }
+
+        // Proximity check (Chebyshev ≤ 2)
+        int dist = Math.max(Math.abs(player.getX() - gi.getX()), Math.abs(player.getY() - gi.getY()));
+        if (dist > 2) {
+            LOG.debug("Player {} too far from ground item {} (dist={})", player.getId(), gi.getGroundItemId(), dist);
+            return;
+        }
+
+        // Inventory full check
+        if (player.isInventoryFull()) {
+            LOG.debug("Player {} inventory full, cannot pick up item {}", player.getId(), gi.getItemId());
+            return;
+        }
+
+        // Stackable items: merge into existing stack if present
+        ItemDefinition def = server.getWorld().getItemDef(gi.getItemId());
+        if (def.stackable) {
+            for (int i = 0; i < 28; i++) {
+                if (player.getInventoryItemId(i) == gi.getItemId()) {
+                    int newQty = player.getInventoryQuantity(i) + gi.getQuantity();
+                    player.setInventoryItem(i, gi.getItemId(), newQty);
+                    server.getWorld().removeGroundItem(gi.getGroundItemId());
+                    sendInventorySlot(ctx, player, i);
+                    server.broadcastToAll(NetworkProto.ServerMessage.newBuilder()
+                        .setGroundItemDespawn(NetworkProto.GroundItemDespawn.newBuilder()
+                            .setGroundItemId(gi.getGroundItemId()))
+                        .build());
+                    LOG.info("Player {} picked up {} x{} (stacked)", player.getId(), def.name, gi.getQuantity());
+                    return;
+                }
+            }
+        }
+
+        // Place in first empty slot
+        int slot = player.getFirstEmptySlot();
+        player.setInventoryItem(slot, gi.getItemId(), gi.getQuantity());
+        server.getWorld().removeGroundItem(gi.getGroundItemId());
+
+        sendInventorySlot(ctx, player, slot);
+        server.broadcastToAll(NetworkProto.ServerMessage.newBuilder()
+            .setGroundItemDespawn(NetworkProto.GroundItemDespawn.newBuilder()
+                .setGroundItemId(gi.getGroundItemId()))
+            .build());
+        LOG.info("Player {} picked up {} x{} into slot {}", player.getId(), def.name, gi.getQuantity(), slot);
+    }
+
+    private void handleDropItem(ChannelHandlerContext ctx, NetworkProto.DropItem req) {
+        if (session.getPlayer() == null) return;
+        Player player = session.getPlayer();
+
+        int slot = req.getInventorySlot();
+        if (slot < 0 || slot >= 28) return;
+
+        int itemId = player.getInventoryItemId(slot);
+        if (itemId == 0) return;
+
+        int qty = player.getInventoryQuantity(slot);
+
+        // Remove from inventory
+        player.setInventoryItem(slot, 0, 0);
+
+        // Spawn on ground (owner = player — others can't see for OWNER_ONLY_TICKS)
+        // Use a long-enough tick count proxy; GameLoop owns tickCount so we pass -1 as owner
+        // to make it immediately public (dropped intentionally by player)
+        GroundItem gi = server.getWorld().spawnGroundItem(itemId, qty,
+            player.getX(), player.getY(), -1, System.currentTimeMillis() / 4); // approximate tick
+        String name = server.getWorld().getItemDef(itemId).name;
+
+        // Send cleared slot back to player
+        sendInventorySlot(ctx, player, slot);
+
+        // Broadcast new ground item to everyone (owner=-1 means public immediately)
+        server.broadcastToAll(NetworkProto.ServerMessage.newBuilder()
+            .setGroundItemSpawn(NetworkProto.GroundItemSpawn.newBuilder()
+                .setGroundItemId(gi.getGroundItemId())
+                .setItemId(gi.getItemId())
+                .setQuantity(gi.getQuantity())
+                .setX(gi.getX()).setY(gi.getY())
+                .setItemName(name))
+            .build());
+
+        LOG.info("Player {} dropped {} x{} at ({},{})", player.getId(), name, qty, player.getX(), player.getY());
+    }
+
+    private void handleUseItem(ChannelHandlerContext ctx, NetworkProto.UseItem req) {
+        if (session.getPlayer() == null) return;
+        Player player = session.getPlayer();
+
+        int slot = req.getInventorySlot();
+        if (slot < 0 || slot >= 28) return;
+
+        int itemId = player.getInventoryItemId(slot);
+        if (itemId == 0) return;
+
+        ItemDefinition def = server.getWorld().getItemDef(itemId);
+        String action = req.getAction();
+
+        if (("eat".equals(action) || "drink".equals(action)) && def.consumable) {
+            // Consume: heal HP
+            int newHp = Math.min(player.getMaxHealth(), player.getHealth() + def.consumeHeal);
+            player.setHealth(newHp);
+            player.setInventoryItem(slot, 0, 0);
+
+            // Send cleared slot
+            sendInventorySlot(ctx, player, slot);
+
+            // Broadcast health update
+            server.broadcastToAll(NetworkProto.ServerMessage.newBuilder()
+                .setHealthUpdate(NetworkProto.HealthUpdate.newBuilder()
+                    .setEntityId(player.getId())
+                    .setHealth(newHp)
+                    .setMaxHealth(player.getMaxHealth()))
+                .build());
+            LOG.info("Player {} ate {} — healed {} HP (now {}/{})",
+                player.getId(), def.name, def.consumeHeal, newHp, player.getMaxHealth());
+
+        } else if (("wield".equals(action) || "wear".equals(action)) && def.equipable) {
+            int equipSlot = def.equipSlot;
+            if (equipSlot < 0 || equipSlot >= EquipmentSlot.COUNT) return;
+
+            // Swap: currently equipped item goes back into inventory slot being vacated
+            int oldItemId = player.getEquipment(equipSlot);
+            player.setEquipment(equipSlot, itemId);
+            player.setInventoryItem(slot, oldItemId, oldItemId > 0 ? 1 : 0);
+
+            // Send updated inventory slot
+            sendInventorySlot(ctx, player, slot);
+
+            // Send equipment update
+            ItemDefinition newEquipDef = server.getWorld().getItemDef(itemId);
+            ctx.writeAndFlush(NetworkProto.ServerMessage.newBuilder()
+                .setEquipmentUpdate(NetworkProto.EquipmentUpdate.newBuilder()
+                    .setSlot(equipSlot)
+                    .setItemId(itemId)
+                    .setItemName(newEquipDef.name)
+                    .setFlags(newEquipDef.getFlags()))
+                .build());
+            LOG.info("Player {} equipped {} into slot {}", player.getId(), def.name, equipSlot);
+        }
+    }
+
+    private void handleSwapInventorySlots(ChannelHandlerContext ctx, NetworkProto.SwapInventorySlots req) {
+        if (session.getPlayer() == null) return;
+        Player player = session.getPlayer();
+
+        int from = req.getFromSlot();
+        int to   = req.getToSlot();
+        if (from < 0 || from >= 28 || to < 0 || to >= 28 || from == to) return;
+
+        int fromId  = player.getInventoryItemId(from);
+        int fromQty = player.getInventoryQuantity(from);
+        int toId    = player.getInventoryItemId(to);
+        int toQty   = player.getInventoryQuantity(to);
+
+        player.setInventoryItem(from, toId,   toQty);
+        player.setInventoryItem(to,   fromId, fromQty);
+
+        sendInventorySlot(ctx, player, from);
+        sendInventorySlot(ctx, player, to);
+        LOG.debug("Player {} swapped inventory slots {} ↔ {}", player.getId(), from, to);
+    }
+
+    /**
+     * Helper: build and send an InventoryUpdate for a single slot to the given context.
+     */
+    private void sendInventorySlot(ChannelHandlerContext ctx, Player player, int slot) {
+        int itemId = player.getInventoryItemId(slot);
+        int qty    = player.getInventoryQuantity(slot);
+        ItemDefinition def = server.getWorld().getItemDef(itemId);
+        ctx.writeAndFlush(NetworkProto.ServerMessage.newBuilder()
+            .setInventoryUpdate(NetworkProto.InventoryUpdate.newBuilder()
+                .setSlot(slot)
+                .setItemId(itemId)
+                .setQuantity(qty)
+                .setItemName(itemId > 0 ? def.name : "")
+                .setFlags(itemId > 0 ? def.getFlags() : 0))
+            .build());
+    }
+
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
         LOG.error("Exception in packet handler", cause);
