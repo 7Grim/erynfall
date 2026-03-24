@@ -75,6 +75,9 @@ public class World {
     private void spawnConfiguredNPCs() {
         for (WorldData.NPCDefinition npcDef : worldData.npcs) {
             NPC npc = new NPC(npcDef.id, npcDef.name, npcDef.combatLevel, npcDef.x, npcDef.y);
+            npc.setMaxHealth(npcDef.maxHp);
+            npc.setMaxHit(npcDef.maxHit);
+            npc.setRespawnDelayTicks(npcDef.respawnDelayTicks);
             npc.setLootTable(npcDef.lootTable);
             npc.setAggressive(npcDef.isAggressive);
             npc.setWanderRadius(npcDef.wanderRadius);

@@ -230,6 +230,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
                 .setY(npc.getY())
                 .setHealth(npc.getHealth())
                 .setMaxHealth(npc.getMaxHealth())
+                .setCombatLevel(npc.getDefinitionId())
                 .setIsPlayer(false));
         }
 

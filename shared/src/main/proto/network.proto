@@ -45,6 +45,7 @@ message Entity {
     int32 health = 8;
     int32 max_health = 9;
     bool is_player = 10;
+    int32 combat_level = 11;
 }
 
 // WorldState: Server → Client
@@ -170,6 +171,22 @@ message GroundItemDespawn {
     int32 ground_item_id = 1;
 }
 
+// NpcDespawn: Server → Client (NPC died and its model should be removed)
+message NpcDespawn {
+    int32 npc_id = 1;
+}
+
+// NpcRespawn: Server → Client (NPC reappeared — full entity data re-sent)
+message NpcRespawn {
+    int32 npc_id = 1;
+    string name = 2;
+    int32 x = 3;
+    int32 y = 4;
+    int32 health = 5;
+    int32 max_health = 6;
+    int32 combat_level = 7;
+}
+
 // PickupItem: Client → Server
 message PickupItem {
     int32 ground_item_id = 1;
@@ -243,5 +260,7 @@ message ServerMessage {
         EquipmentUpdate equipment_update = 13;
         GroundItemSpawn ground_item_spawn = 14;
         GroundItemDespawn ground_item_despawn = 15;
+        NpcDespawn npc_despawn = 16;
+        NpcRespawn npc_respawn = 17;
     }
 }

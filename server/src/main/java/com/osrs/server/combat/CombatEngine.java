@@ -76,44 +76,44 @@ public class CombatEngine {
     }
     
     /**
-     * Get attack bonus from equipment + stats.
-     * TODO: Check equipped items for bonuses
+     * Attack bonus: player uses Attack skill level; NPCs use combat level as proxy.
      */
     private int getAttackBonus(Entity attacker) {
-        // Placeholder: base on attack level
         if (attacker instanceof Player) {
-            // TODO: Get actual attack level from player
-            return 10;
+            return ((Player) attacker).getAttackLevel();
         } else if (attacker instanceof NPC) {
-            // TODO: Get NPC attack level from definition
-            return 5;
+            // NPC combat level ≈ attack/defence level (simplified OSRS formula)
+            return Math.max(1, ((NPC) attacker).getDefinitionId());
         }
-        return 0;
+        return 1;
     }
-    
+
     /**
-     * Get defence bonus from equipment + stats.
-     * TODO: Check equipped items for bonuses
+     * Defence bonus: player uses Defence skill level; NPCs use combat level as proxy.
      */
     private int getDefenceBonus(Entity target) {
-        // Placeholder: base on defence level
         if (target instanceof Player) {
-            // TODO: Get actual defence level from player
-            return 10;
+            return ((Player) target).getDefenceLevel();
         } else if (target instanceof NPC) {
-            // TODO: Get NPC defence level from definition
-            return 5;
+            return Math.max(1, ((NPC) target).getDefinitionId());
         }
-        return 0;
+        return 1;
     }
-    
+
     /**
-     * Get maximum damage based on strength.
-     * TODO: Check equipped weapon for max hit
+     * Max hit: players scale with Strength level + equipped weapon;
+     * NPCs use their definition's max_hit from world.yml.
      */
     private int getMaxDamage(Entity attacker) {
-        // Placeholder: base 5-10 damage
-        return 10;
+        if (attacker instanceof Player) {
+            // OSRS simplified: floor(0.5 + strengthLevel * (strengthBonus + 64) / 640)
+            // For now: base 1 + 1 per 10 Strength levels above 1
+            int str = ((Player) attacker).getStrengthLevel();
+            return Math.max(1, 1 + (str - 1) / 5);
+        } else if (attacker instanceof NPC) {
+            return ((NPC) attacker).getMaxHit();
+        }
+        return 1;
     }
     
     /**

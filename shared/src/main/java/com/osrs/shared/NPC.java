@@ -17,6 +17,16 @@ public class NPC extends Entity {
     private int spawnX, spawnY;
     private int wanderRadius;
 
+    /** Maximum damage this NPC can deal per hit (from world.yml). */
+    private int maxHit = 1;
+
+    /** true while this NPC is dead and waiting to respawn. */
+    private boolean dead = false;
+    /** Server tick at which this NPC will respawn (-1 = not scheduled). */
+    private long respawnAtTick = -1;
+    /** How many server ticks to wait before respawning (set from world.yml). */
+    private int respawnDelayTicks = 3850; // default ~25 OSRS ticks
+
     /** true while the NPC is in an active dialogue — wander and combat movement are frozen. */
     private boolean inDialogue = false;
     /** Player ID currently in dialogue with this NPC, or -1 if none. */
@@ -94,4 +104,14 @@ public class NPC extends Entity {
     public void setDialoguePlayer(int id) { this.dialoguePlayer = id; }
     public long getLastAttackTick() { return lastAttackTick; }
     public void setLastAttackTick(long tick) { this.lastAttackTick = tick; }
+
+    public int getMaxHit() { return maxHit; }
+    public void setMaxHit(int maxHit) { this.maxHit = Math.max(0, maxHit); }
+
+    public boolean isDead() { return dead; }
+    public void setDead(boolean dead) { this.dead = dead; }
+    public long getRespawnAtTick() { return respawnAtTick; }
+    public void setRespawnAtTick(long tick) { this.respawnAtTick = tick; }
+    public int getRespawnDelayTicks() { return respawnDelayTicks; }
+    public void setRespawnDelayTicks(int ticks) { this.respawnDelayTicks = ticks; }
 }

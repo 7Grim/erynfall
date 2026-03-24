@@ -1,6 +1,7 @@
 # OSRS-MMORP World Configuration
 # All coordinates use the client 0-104 tile system.
 # Player spawns at (50, 50) — the centre of the Tutorial Island map.
+# All stats sourced from https://oldschool.runescape.wiki
 
 world:
   spawn_x: 50
@@ -17,10 +18,12 @@ maps:
     description: "Starting area for new players"
 
 npcs:
-  # --- Tutorial staff (low wander radius — they stay near their post) ---
+  # --- Tutorial staff (non-combat, stay near their post) ---
   - id: 1
     name: "Tutorial Guide"
     combat_level: 0
+    max_hp: 10
+    max_hit: 0
     location: "tutorial_island"
     x: 52
     y: 48
@@ -30,47 +33,91 @@ npcs:
   - id: 2
     name: "Combat Instructor"
     combat_level: 0
+    max_hp: 10
+    max_hit: 0
     location: "tutorial_island"
     x: 55
     y: 45
     wander_radius: 2
     is_aggressive: false
 
-  # --- Training rats ---
+  # --- Rats (level 1) — weakest enemy, cannot deal damage (max_hit: 0) ---
+  # OSRS: Rat — Combat 1, HP 2, Max hit 0, Respawn 2 OSRS ticks (308 server ticks)
   - id: 3
     name: "Rat"
-    combat_level: 3
+    combat_level: 1
+    max_hp: 2
+    max_hit: 0
+    respawn_delay_ticks: 308
     location: "tutorial_island"
     x: 47
     y: 47
-    wander_radius: 4
+    wander_radius: 3
     is_aggressive: false
     loot_table: "rat_basic"
 
   - id: 4
     name: "Rat"
-    combat_level: 3
+    combat_level: 1
+    max_hp: 2
+    max_hit: 0
+    respawn_delay_ticks: 308
     location: "tutorial_island"
     x: 48
     y: 45
-    wander_radius: 4
+    wander_radius: 3
     is_aggressive: false
     loot_table: "rat_basic"
 
   - id: 5
     name: "Rat"
-    combat_level: 3
+    combat_level: 1
+    max_hp: 2
+    max_hit: 0
+    respawn_delay_ticks: 308
     location: "tutorial_island"
     x: 46
     y: 49
-    wander_radius: 4
+    wander_radius: 3
     is_aggressive: false
     loot_table: "rat_basic"
 
-  # --- Chickens (NW quadrant) ---
+  # --- Giant Rats (level 3) — first real combat challenge ---
+  # OSRS: Giant rat — Combat 3, HP 5, Max hit 1, Respawn ~25 OSRS ticks (3850 server ticks)
+  - id: 12
+    name: "Giant Rat"
+    combat_level: 3
+    max_hp: 5
+    max_hit: 1
+    respawn_delay_ticks: 3850
+    location: "tutorial_island"
+    x: 44
+    y: 50
+    wander_radius: 4
+    is_aggressive: false
+    loot_table: "giant_rat_basic"
+
+  - id: 13
+    name: "Giant Rat"
+    combat_level: 3
+    max_hp: 5
+    max_hit: 1
+    respawn_delay_ticks: 3850
+    location: "tutorial_island"
+    x: 43
+    y: 48
+    wander_radius: 4
+    is_aggressive: false
+    loot_table: "giant_rat_basic"
+
+  # --- Chickens (level 1) — safe for beginners, good feather source ---
+  # OSRS: Chicken — Combat 1, HP 3, Max hit 1, Respawn 25 OSRS ticks (3850 server ticks)
   - id: 6
     name: "Chicken"
     combat_level: 1
+    max_hp: 3
+    max_hit: 1
+    respawn_delay_ticks: 3850
     location: "tutorial_island"
     x: 35
     y: 35
@@ -81,6 +128,9 @@ npcs:
   - id: 7
     name: "Chicken"
     combat_level: 1
+    max_hp: 3
+    max_hit: 1
+    respawn_delay_ticks: 3850
     location: "tutorial_island"
     x: 37
     y: 33
@@ -91,6 +141,9 @@ npcs:
   - id: 8
     name: "Chicken"
     combat_level: 1
+    max_hp: 3
+    max_hit: 1
+    respawn_delay_ticks: 3850
     location: "tutorial_island"
     x: 33
     y: 37
@@ -98,10 +151,14 @@ npcs:
     is_aggressive: false
     loot_table: "chicken_basic"
 
-  # --- Cows (SE quadrant) ---
+  # --- Cows (level 2) — good early source of cowhide and bones ---
+  # OSRS: Cow — Combat 2, HP 8, Max hit 1, Respawn 45 OSRS ticks (6930 server ticks)
   - id: 9
     name: "Cow"
-    combat_level: 5
+    combat_level: 2
+    max_hp: 8
+    max_hit: 1
+    respawn_delay_ticks: 6930
     location: "tutorial_island"
     x: 65
     y: 63
@@ -111,7 +168,10 @@ npcs:
 
   - id: 10
     name: "Cow"
-    combat_level: 5
+    combat_level: 2
+    max_hp: 8
+    max_hit: 1
+    respawn_delay_ticks: 6930
     location: "tutorial_island"
     x: 67
     y: 65
@@ -119,10 +179,14 @@ npcs:
     is_aggressive: false
     loot_table: "cow_basic"
 
-  # --- Goblin (NE quadrant) ---
+  # --- Goblins (level 2) — slightly tougher, drop coins ---
+  # OSRS: Goblin — Combat 2, HP 5, Max hit 1, Respawn 35 OSRS ticks (5390 server ticks)
   - id: 11
     name: "Goblin"
-    combat_level: 5
+    combat_level: 2
+    max_hp: 5
+    max_hit: 1
+    respawn_delay_ticks: 5390
     location: "tutorial_island"
     x: 65
     y: 35
@@ -147,50 +211,66 @@ spawns:
     max_alive: 1
 
 loot_tables:
+  # --- Rat (level 1) ---
+  # OSRS: Rat's tail (always, used in Witch's Potion quest), no bones
   rat_basic:
     always:
-      - item_id: 526
+      - item_id: 1000   # Rat's tail
         quantity: 1
     common:
-      - item_id: 1000
+      - item_id: 995    # Coins (1–3)
         quantity: 1
-        chance: 100
+        max_quantity: 3
+        chance: 20      # 20% chance
 
+  # --- Giant Rat (level 3) ---
+  # OSRS: Bones (always), Raw rat meat (always), Clue scroll beginner (1/128)
+  giant_rat_basic:
+    always:
+      - item_id: 526    # Bones
+        quantity: 1
+      - item_id: 2134   # Raw rat meat
+        quantity: 1
+    rare:
+      - item_id: 995    # Coins (1-5) — small bonus
+        quantity: 1
+        max_quantity: 5
+        chance: 15      # 0.15% of 10000 = ~1.5% chance
+
+  # --- Chicken (level 1) ---
+  # OSRS: Bones (always), Raw chicken (always), Feathers 5-15 (always)
   chicken_basic:
     always:
-      - item_id: 526
+      - item_id: 526    # Bones
         quantity: 1
-      - item_id: 2138
+      - item_id: 2138   # Raw chicken
         quantity: 1
-      - item_id: 314
+      - item_id: 314    # Feathers
         quantity: 5
         max_quantity: 15
-    rare:
-      - item_id: 995
-        quantity: 5
-        max_quantity: 25
-        chance: 30
 
+  # --- Cow (level 2) ---
+  # OSRS: Bones (always), Cowhide (always)
   cow_basic:
     always:
-      - item_id: 526
+      - item_id: 526    # Bones
         quantity: 1
-      - item_id: 2142
-        quantity: 1
-      - item_id: 1739
-        quantity: 1
-    rare:
-      - item_id: 995
-        quantity: 10
-        max_quantity: 50
-        chance: 50
-
-  goblin_basic:
-    always:
-      - item_id: 526
+      - item_id: 2142   # Cowhide
         quantity: 1
     common:
-      - item_id: 995
-        quantity: 5
-        max_quantity: 25
-        chance: 70
+      - item_id: 995    # Coins (1-5)
+        quantity: 1
+        max_quantity: 5
+        chance: 30      # 30%
+
+  # --- Goblin (level 2) ---
+  # OSRS: Bones (always), Coins 1-13 (common ~72%), Goblin mail (very rare)
+  goblin_basic:
+    always:
+      - item_id: 526    # Bones
+        quantity: 1
+    common:
+      - item_id: 995    # Coins (1-13)
+        quantity: 1
+        max_quantity: 13
+        chance: 72      # 72% — matches OSRS drop rate

@@ -83,18 +83,21 @@ public class Stats {
     }
     
     /**
-     * Generate XP table (levels 1-99).
-     * Simplified: each level requires 1000 * level XP.
+     * Generate XP table using the exact OSRS formula.
+     * table[level-1] = XP required to be that level.
+     * Level 1 = 0 XP, Level 99 = 13,034,431 XP.
+     * Level 92 is exactly 50% of level 99 XP (exponential curve).
      */
     private static long[] generateXPTable() {
         long[] table = new long[MAX_LEVEL];
-        long totalXP = 0;
-        
-        for (int i = 1; i <= MAX_LEVEL; i++) {
-            totalXP += i * 1000L;
-            table[i - 1] = totalXP;
+        table[0] = 0; // Level 1 requires 0 XP
+
+        long points = 0;
+        for (int level = 1; level < MAX_LEVEL; level++) {
+            // OSRS formula: floor(level + 300 * 2^(level/7))
+            points += (long) Math.floor(level + 300.0 * Math.pow(2.0, level / 7.0));
+            table[level] = (long) Math.floor(points / 4.0);
         }
-        
         return table;
     }
 }

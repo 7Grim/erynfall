@@ -15,7 +15,7 @@ public class Client {
     private static final Logger LOG = LoggerFactory.getLogger(Client.class);
     
     public static void main(String[] args) {
-        LOG.info("OSRS MMORP Client starting...");
+        LOG.info("Erynfall Client starting...");
         LOG.info("OS: {}", System.getProperty("os.name"));
         LOG.info("Arch: {}", System.getProperty("os.arch"));
         
@@ -24,7 +24,7 @@ public class Client {
         LOG.info("GLFW thread check disabled");
         
         Lwjgl3ApplicationConfiguration config = new Lwjgl3ApplicationConfiguration();
-        config.setTitle("OSRS MMORP");
+        config.setTitle("Erynfall");
         config.setWindowedMode(1024, 768);
         config.useVsync(true);
         config.setForegroundFPS(60);

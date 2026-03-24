@@ -58,4 +58,9 @@ public class Entity {
     public void setHealth(int health) {
         this.health = Math.max(0, Math.min(maxHealth, health));
     }
+
+    public void setMaxHealth(int maxHealth) {
+        this.maxHealth = Math.max(1, maxHealth);
+        this.health = this.maxHealth;
+    }
 }

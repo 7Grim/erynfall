@@ -1,4 +1,4 @@
-# OSRS-MMORP Server Configuration
+# Erynfall Server Configuration
 # This file is loaded on startup via ServerConfig.load()
 
 server:
@@ -9,9 +9,9 @@ server:
   max_players_future: 1000  # Document future goal
 
 database:
-  url: "jdbc:postgresql://localhost:5432/osrs_mmorp"
-  user: "postgres"
-  password: "password"  # TODO: Move to environment variable
+  url: "jdbc:sqlserver://erynfall.database.windows.net:1433;databaseName=erynfall;encrypt=true;trustServerCertificate=false;loginTimeout=60"
+  user: "erynfalladmin"
+  password: "Purple3-Waking6-Stipulate0-Coke9"  # TODO: Move to environment variable
   max_connections: 10
 
 network:

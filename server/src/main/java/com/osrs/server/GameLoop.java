@@ -151,6 +151,9 @@ public class GameLoop {
             // Stage 5: Loot generation — tick ground item visibility and despawn
             tickGroundItems();
 
+            // Stage 5b: NPC respawn timers
+            processNPCRespawns();
+
             // Stage 6: Broadcast to clients (send delta packets)
             // TODO: Create BroadcastTicker
             // broadcastWorldState();
@@ -173,11 +176,11 @@ public class GameLoop {
      * NPC wander: each NPC with wanderRadius > 0 takes one random step per
      * WANDER_MIN..WANDER_MAX ticks (≈0.8–1.8 s), staying within their radius
      * of their spawn point. Broadcasts EntityUpdate to all clients on move.
-     * Skips NPCs that are in combat.
+     * Skips NPCs that are dead, in combat, or in dialogue.
      */
     private void updateNPCWander() {
         for (NPC npc : world.getNPCs().values()) {
-            if (npc.isInCombat() || npc.isInDialogue() || npc.getWanderRadius() <= 0) continue;
+            if (npc.isDead() || npc.isInCombat() || npc.isInDialogue() || npc.getWanderRadius() <= 0) continue;
             // Also freeze if any player is currently attacking this NPC (even before aggro)
             if (isBeingAttackedByPlayer(npc.getId())) continue;
 
@@ -227,7 +230,7 @@ public class GameLoop {
      */
     private void processNPCCombat() {
         for (NPC npc : world.getNPCs().values()) {
-            if (!npc.isInCombat() || npc.isInDialogue()) continue;
+            if (npc.isDead() || !npc.isInCombat() || npc.isInDialogue()) continue;
 
             Player target = world.getPlayer(npc.getCombatTarget());
             if (target == null || target.getHealth() <= 0) {
@@ -340,7 +343,7 @@ public class GameLoop {
             }
 
             NPC target = world.getNPC(player.getCombatTarget());
-            if (target == null || target.getHealth() <= 0) {
+            if (target == null || target.isDead()) {
                 player.setCombatTarget(-1);
                 LOG.debug("Player {} combat ended (target dead/gone)", player.getId());
                 continue;
@@ -400,14 +403,77 @@ public class GameLoop {
 
             // NPC dies
             if (newTargetHealth <= 0) {
-                player.setCombatTarget(-1);
-                LOG.info("Player {} killed NPC {}", player.getId(), target.getId());
-                spawnLoot(player, target);
-                // TODO: schedule respawn
+                killNPC(target, player);
             }
         }
     }
     
+    /**
+     * Handles NPC death: marks the NPC as dead, clears all player combat targets
+     * pointing at it, spawns loot for the killer, and broadcasts NpcDespawn so
+     * every client removes the model. Schedules respawn for the future.
+     */
+    private void killNPC(NPC npc, Player killer) {
+        LOG.info("NPC {} ({}) killed by player {}", npc.getId(), npc.getName(), killer.getId());
+
+        // Mark dead and schedule respawn
+        npc.setDead(true);
+        npc.setHealth(0);
+        npc.setCombatTarget(-1);
+        npc.setInDialogue(false);
+        npc.setDialoguePlayer(-1);
+        npc.setRespawnAtTick(tickCount + npc.getRespawnDelayTicks());
+
+        // Clear any player who was fighting this NPC
+        for (Player p : world.getPlayers().values()) {
+            if (p.getCombatTarget() == npc.getId()) {
+                p.setCombatTarget(-1);
+            }
+        }
+
+        // Spawn loot for the killer
+        spawnLoot(killer, npc);
+
+        // Tell all clients to remove the NPC model
+        nettyServer.broadcastToAll(NetworkProto.ServerMessage.newBuilder()
+            .setNpcDespawn(NetworkProto.NpcDespawn.newBuilder()
+                .setNpcId(npc.getId()))
+            .build());
+    }
+
+    /**
+     * Checks all dead NPCs and respawns any whose timer has expired.
+     * Sends NpcRespawn to all clients so they re-add the entity.
+     */
+    private void processNPCRespawns() {
+        for (NPC npc : world.getNPCs().values()) {
+            if (!npc.isDead()) continue;
+            if (tickCount < npc.getRespawnAtTick()) continue;
+
+            // Reset to full health at spawn point
+            npc.setDead(false);
+            npc.setHealth(npc.getMaxHealth());
+            npc.setPosition(npc.getSpawnX(), npc.getSpawnY());
+            npc.setCombatTarget(-1);
+            npc.setRespawnAtTick(-1);
+
+            LOG.info("NPC {} ({}) respawned at ({}, {})",
+                npc.getId(), npc.getName(), npc.getSpawnX(), npc.getSpawnY());
+
+            // Send full entity data so clients can re-add it
+            nettyServer.broadcastToAll(NetworkProto.ServerMessage.newBuilder()
+                .setNpcRespawn(NetworkProto.NpcRespawn.newBuilder()
+                    .setNpcId(npc.getId())
+                    .setName(npc.getName())
+                    .setX(npc.getSpawnX())
+                    .setY(npc.getSpawnY())
+                    .setHealth(npc.getMaxHealth())
+                    .setMaxHealth(npc.getMaxHealth())
+                    .setCombatLevel(npc.getDefinitionId()))
+                .build());
+        }
+    }
+
     /**
      * Returns true if any player currently has this NPC set as their combat target.
      * Used to freeze NPC wandering the moment a player begins attacking,

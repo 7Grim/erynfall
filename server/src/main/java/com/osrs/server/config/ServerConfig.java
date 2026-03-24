@@ -5,8 +5,8 @@ import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -52,11 +52,15 @@ public class ServerConfig {
      * Load configuration from YAML file
      */
     public static ServerConfig load(String path) throws IOException {
-        LOG.info("Loading server configuration from: {}", path);
-        
+        LOG.info("Loading server configuration from classpath: server.yml");
+
         try {
+            InputStream is = ServerConfig.class.getClassLoader().getResourceAsStream("server.yml");
+            if (is == null) {
+                throw new IOException("server.yml not found on classpath");
+            }
             ObjectMapper mapper = new ObjectMapper(new YAMLFactory());
-            Map<String, Object> yaml = mapper.readValue(new File(path), Map.class);
+            Map<String, Object> yaml = mapper.readValue(is, Map.class);
             
             ServerConfig config = new ServerConfig();
             

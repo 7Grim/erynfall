@@ -1,5 +1,6 @@
 package com.osrs.server.database;
 
+import com.osrs.server.config.ServerConfig;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import org.slf4j.Logger;
@@ -31,13 +32,9 @@ public class DatabaseManager {
     private static DatabaseManager instance;
     private HikariDataSource dataSource;
     
-    // Database configuration (SQL Server 2025 on localhost)
-    private static final String JDBC_URL = "jdbc:sqlserver://localhost:1433;databaseName=osrsmmorp;encrypt=false;trustServerCertificate=true;";
-    private static final String DB_USER = "sa";  // Windows auth alternative
-    private static final String DB_PASSWORD = "";  // Empty for Windows auth
     private static final int MAX_POOL_SIZE = 10;
     private static final int MIN_IDLE = 2;
-    private static final long CONNECTION_TIMEOUT_MS = 5000;  // 5 seconds
+    private static final long CONNECTION_TIMEOUT_MS = 60000;  // 60 seconds (Azure serverless cold start)
     private static final long IDLE_TIMEOUT_MS = 600000;  // 10 minutes
     private static final long MAX_LIFETIME_MS = 1800000;  // 30 minutes
     
@@ -99,11 +96,14 @@ public class DatabaseManager {
      */
     private void createDataSource() throws SQLException {
         HikariConfig config = new HikariConfig();
-        
+
+        ServerConfig serverConfig = ServerConfig.get();
+        String jdbcUrl = serverConfig.dbUrl + ";trustServerCertificate=true";
+
         // Connection settings
-        config.setJdbcUrl(JDBC_URL);
-        config.setUsername(DB_USER);
-        config.setPassword(DB_PASSWORD);
+        config.setJdbcUrl(jdbcUrl);
+        config.setUsername(serverConfig.dbUser);
+        config.setPassword(serverConfig.dbPassword);
         config.setDriverClassName("com.microsoft.sqlserver.jdbc.SQLServerDriver");
         
         // Pool sizing
@@ -126,9 +126,9 @@ public class DatabaseManager {
         config.setAutoCommit(false);
         
         LOG.info("Creating HikariCP data source...");
-        LOG.info("  JDBC URL: " + JDBC_URL);
-        LOG.info("  Max Pool Size: " + MAX_POOL_SIZE);
-        LOG.info("  Min Idle: " + MIN_IDLE);
+        LOG.info("  JDBC URL: {}", jdbcUrl);
+        LOG.info("  Max Pool Size: {}", MAX_POOL_SIZE);
+        LOG.info("  Min Idle: {}", MIN_IDLE);
         
         this.dataSource = new HikariDataSource(config);
     }
@@ -179,7 +179,7 @@ public class DatabaseManager {
         return String.format("Active: %d, Idle: %d, Pending: %d, Total: %d",
             instance.dataSource.getHikariPoolMXBean().getActiveConnections(),
             instance.dataSource.getHikariPoolMXBean().getIdleConnections(),
-            instance.dataSource.getHikariPoolMXBean().getPendingThreads(),
+            instance.dataSource.getHikariPoolMXBean().getThreadsAwaitingConnection(),
             instance.dataSource.getHikariPoolMXBean().getTotalConnections());
     }
     

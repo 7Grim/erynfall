@@ -104,6 +104,9 @@ public class WorldLoader {
                     npcDef2.id = getInt(npcDef, "id", 0);
                     npcDef2.name = getString(npcDef, "name", "Unknown");
                     npcDef2.combatLevel = getInt(npcDef, "combat_level", 0);
+                    npcDef2.maxHp = getInt(npcDef, "max_hp", 100);
+                    npcDef2.maxHit = getInt(npcDef, "max_hit", 1);
+                    npcDef2.respawnDelayTicks = getInt(npcDef, "respawn_delay_ticks", 3850);
                     npcDef2.location = getString(npcDef, "location", "lumbridge");
                     npcDef2.x = getInt(npcDef, "x", 0);
                     npcDef2.y = getInt(npcDef, "y", 0);
@@ -176,6 +179,9 @@ class WorldData {
         public int id;
         public String name;
         public int combatLevel;
+        public int maxHp = 100;
+        public int maxHit = 1;
+        public int respawnDelayTicks = 3850; // server ticks (~25 OSRS ticks)
         public String location;
         public int x, y;
         public boolean isAggressive;

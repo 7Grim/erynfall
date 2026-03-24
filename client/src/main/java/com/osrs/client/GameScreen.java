@@ -107,6 +107,12 @@ public class GameScreen extends ApplicationAdapter {
     private int    pendingWalkTargX  = -1, pendingWalkTargY = -1;
 
     // -----------------------------------------------------------------------
+    // Combat target tracking (for opponent info HUD panel)
+    // -----------------------------------------------------------------------
+    /** Entity ID of the NPC the player is currently fighting, or -1 if none. */
+    private int combatTargetId = -1;
+
+    // -----------------------------------------------------------------------
     // Death screen state
     // -----------------------------------------------------------------------
     /** > 0 while the "Oh dear, you are dead!" overlay is showing (counts down in seconds). */
@@ -222,6 +228,7 @@ public class GameScreen extends ApplicationAdapter {
 
         int w = Gdx.graphics.getWidth(), h = Gdx.graphics.getHeight();
         renderHUD();
+        if (combatTargetId >= 0) renderOpponentInfo();
         combatUI.renderMessages(screenBatch, font, h);
         inventoryUI.update(delta);
         inventoryUI.render(shapeRenderer, batch, font, w, h);
@@ -260,6 +267,15 @@ public class GameScreen extends ApplicationAdapter {
         groundItemNamesMap.clear();
         groundItemNamesMap.putAll(h.getGroundItemNames());
 
+        // Process NPC deaths — remove visuals for despawned NPCs
+        for (int deadId : h.drainDespawnedNpcs()) {
+            npcVisual.remove(deadId);
+            if (combatTargetId == deadId) {
+                combatTargetId = -1;
+            }
+            LOG.debug("Client: removed visual for dead NPC {}", deadId);
+        }
+
         // Death detection — show overlay and snap to respawn
         if (h.isPlayerDead()) {
             h.consumePlayerDeath();
@@ -268,6 +284,7 @@ public class GameScreen extends ApplicationAdapter {
             playerY   = h.getDeathRespawnY();
             visualX   = playerX;
             visualY   = playerY;
+            combatTargetId = -1;
             clearPendingAction();
             combatUI.addMessage("Oh dear, you are dead!");
             LOG.info("Death screen shown — respawning at ({}, {})", playerX, playerY);
@@ -499,10 +516,12 @@ public class GameScreen extends ApplicationAdapter {
     private void executePendingAction() {
         LOG.info("In range of NPC {} — executing '{}'", pendingNpcId, pendingAction);
         if (nettyClient != null) {
-            if ("attack".equals(pendingAction))
+            if ("attack".equals(pendingAction)) {
                 nettyClient.sendAttack(pendingNpcId);
-            else if ("talk".equals(pendingAction))
+                combatTargetId = pendingNpcId;
+            } else if ("talk".equals(pendingAction)) {
                 nettyClient.sendTalkToNpc(pendingNpcId);
+            }
         }
         clearPendingAction();
     }
@@ -684,6 +703,76 @@ public class GameScreen extends ApplicationAdapter {
         font.getData().setScale(1f);
         font.setColor(Color.WHITE);
         screenBatch.end();
+    }
+
+    /**
+     * Renders a RuneLite-style "Opponent Information" panel in the top-left when
+     * the player has an active combat target.  Shows NPC name, combat level, and HP bar.
+     */
+    private void renderOpponentInfo() {
+        ClientPacketHandler h = handler();
+        if (h == null) return;
+
+        String npcName   = h.getEntityName(combatTargetId);
+        int combatLevel  = h.getEntityCombatLevel(combatTargetId);
+        int[] hp         = h.getEntityHealth(combatTargetId);
+        int curHp        = hp[0];
+        int maxHp        = Math.max(hp[1], 1);
+
+        // If the entity disappeared from the server, clear the target
+        if (npcName.isEmpty() && h.getEntityPosition(combatTargetId) == null) {
+            combatTargetId = -1;
+            return;
+        }
+        if (npcName.isEmpty()) npcName = "NPC " + combatTargetId;
+
+        // Panel dimensions and position (top-left, below the player HP bar)
+        int panelX = 10, panelY = Gdx.graphics.getHeight() - 90;
+        int panelW = 180, panelH = 60;
+        int barW   = panelW - 16;
+        int barH   = 10;
+
+        shapeRenderer.setProjectionMatrix(screenProjection);
+
+        // Panel background
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+        shapeRenderer.setColor(0.08f, 0.08f, 0.08f, 0.88f);
+        shapeRenderer.rect(panelX, panelY, panelW, panelH);
+        shapeRenderer.end();
+
+        // Panel border (gold)
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Line);
+        shapeRenderer.setColor(0.75f, 0.60f, 0.10f, 1f);
+        shapeRenderer.rect(panelX, panelY, panelW, panelH);
+        shapeRenderer.end();
+
+        // HP bar background (dark red)
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+        shapeRenderer.setColor(0.35f, 0f, 0f, 1f);
+        shapeRenderer.rect(panelX + 8, panelY + 8, barW, barH);
+        // HP bar fill — green → yellow → red based on percentage
+        float ratio = (float) curHp / maxHp;
+        if (ratio > 0.5f)
+            shapeRenderer.setColor(0.1f, 0.8f, 0.1f, 1f);   // green
+        else if (ratio > 0.25f)
+            shapeRenderer.setColor(0.9f, 0.8f, 0.0f, 1f);   // yellow
+        else
+            shapeRenderer.setColor(0.9f, 0.1f, 0.1f, 1f);   // red
+        shapeRenderer.rect(panelX + 8, panelY + 8, barW * ratio, barH);
+        shapeRenderer.end();
+
+        // Text
+        screenBatch.setProjectionMatrix(screenProjection);
+        screenBatch.begin();
+        font.getData().setScale(1f);
+        font.setColor(1f, 0.85f, 0f, 1f);  // gold NPC name
+        font.draw(screenBatch, npcName, panelX + 8, panelY + panelH - 6);
+        font.setColor(0.75f, 0.75f, 0.75f, 1f);  // grey subtitle
+        font.draw(screenBatch,
+            String.format("Level: %d   HP: %d / %d", combatLevel, curHp, maxHp),
+            panelX + 8, panelY + 22);
+        screenBatch.end();
+        font.setColor(Color.WHITE);
     }
 
     private void renderHUD() {

@@ -33,14 +33,24 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
     /** true = player-controlled entity, false = NPC */
     private final Map<Integer, Boolean> entityIsPlayer = new ConcurrentHashMap<>();
 
-    /** Name of each entity (for future name-plates). */
+    /** Name of each entity. */
     private final Map<Integer, String> entityNames = new ConcurrentHashMap<>();
+
+    /** Combat level of each entity (0 for players). */
+    private final Map<Integer, Integer> entityCombatLevels = new ConcurrentHashMap<>();
 
     /** Current health of each entity. int[]{hp, maxHp} */
     private final Map<Integer, int[]> entityHealth = new ConcurrentHashMap<>();
 
     /** The local player's entity ID (from HandshakeResponse). */
     private int myPlayerId = -1;
+
+    // -----------------------------------------------------------------------
+    // NPC despawn queue — drained by GameScreen each frame
+    // -----------------------------------------------------------------------
+
+    /** IDs of NPCs that just died, so GameScreen can remove their visuals. */
+    private final ConcurrentLinkedQueue<Integer> despawnedNpcQueue = new ConcurrentLinkedQueue<>();
 
     // -----------------------------------------------------------------------
     // Per-frame event queues
@@ -134,6 +144,8 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
             case EQUIPMENT_UPDATE    -> handleEquipmentUpdate(packet.getEquipmentUpdate());
             case GROUND_ITEM_SPAWN   -> handleGroundItemSpawn(packet.getGroundItemSpawn());
             case GROUND_ITEM_DESPAWN -> handleGroundItemDespawn(packet.getGroundItemDespawn());
+            case NPC_DESPAWN         -> handleNpcDespawn(packet.getNpcDespawn());
+            case NPC_RESPAWN         -> handleNpcRespawn(packet.getNpcRespawn());
             default -> LOG.debug("Unhandled server message: {}", packet.getPayloadCase());
         }
     }
@@ -159,6 +171,7 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
             entityPositions.put(e.getId(), new int[]{e.getX(), e.getY()});
             entityIsPlayer.put(e.getId(), e.getIsPlayer());
             entityNames.put(e.getId(), e.getName());
+            entityCombatLevels.put(e.getId(), e.getCombatLevel());
             entityHealth.put(e.getId(), new int[]{e.getHealth(), e.getMaxHealth()});
         }
         LOG.info("WorldState received: {} entities loaded", worldState.getEntitiesCount());
@@ -251,6 +264,16 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
         return entityHealth.getOrDefault(entityId, new int[]{100, 100});
     }
 
+    /** Name of the given entity, or empty string if unknown. */
+    public String getEntityName(int entityId) {
+        return entityNames.getOrDefault(entityId, "");
+    }
+
+    /** Combat level of the given entity, or 0 if unknown. */
+    public int getEntityCombatLevel(int entityId) {
+        return entityCombatLevels.getOrDefault(entityId, 0);
+    }
+
     public int getMyPlayerId()    { return myPlayerId; }
     public int getPlayerHealth()  { return playerHealth; }
     public int getPlayerMaxHealth() { return playerMaxHealth; }
@@ -310,6 +333,38 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
         groundItems.remove(despawn.getGroundItemId());
         groundItemNames.remove(despawn.getGroundItemId());
         LOG.debug("GroundItemDespawn id={}", despawn.getGroundItemId());
+    }
+
+    private void handleNpcDespawn(NetworkProto.NpcDespawn despawn) {
+        int id = despawn.getNpcId();
+        entityPositions.remove(id);
+        entityIsPlayer.remove(id);
+        entityNames.remove(id);
+        entityCombatLevels.remove(id);
+        entityHealth.remove(id);
+        despawnedNpcQueue.add(id);
+        LOG.info("NpcDespawn: id={}", id);
+    }
+
+    private void handleNpcRespawn(NetworkProto.NpcRespawn respawn) {
+        int id = respawn.getNpcId();
+        entityPositions.put(id, new int[]{respawn.getX(), respawn.getY()});
+        entityIsPlayer.put(id, false);
+        entityNames.put(id, respawn.getName());
+        entityCombatLevels.put(id, respawn.getCombatLevel());
+        entityHealth.put(id, new int[]{respawn.getHealth(), respawn.getMaxHealth()});
+        LOG.info("NpcRespawn: id={} name={} pos=({},{}) hp={}/{}",
+            id, respawn.getName(), respawn.getX(), respawn.getY(),
+            respawn.getHealth(), respawn.getMaxHealth());
+    }
+
+    /** Drain the IDs of NPCs that died this frame so GameScreen can clear their visuals. */
+    public List<Integer> drainDespawnedNpcs() {
+        if (despawnedNpcQueue.isEmpty()) return List.of();
+        List<Integer> out = new ArrayList<>();
+        Integer id;
+        while ((id = despawnedNpcQueue.poll()) != null) out.add(id);
+        return out;
     }
 
     // -----------------------------------------------------------------------

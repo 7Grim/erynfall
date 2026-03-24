@@ -7,33 +7,8 @@
 -- Created: 2026-03-21 FINAL
 -- ============================================================================
 
-USE [master];
-GO
-
--- Drop existing database
-IF EXISTS (SELECT 1 FROM sys.databases WHERE name = N'osrsmmorp')
-BEGIN
-  ALTER DATABASE [osrsmmorp] SET OFFLINE WITH ROLLBACK IMMEDIATE;
-  DROP DATABASE [osrsmmorp];
-END
-GO
-
-WAITFOR DELAY '00:00:02';
-GO
-
--- Create fresh database
-CREATE DATABASE [osrsmmorp];
-GO
-
-USE [osrsmmorp];
-GO
-
--- Enable isolation levels
-ALTER DATABASE [osrsmmorp] SET ALLOW_SNAPSHOT_ISOLATION ON;
-GO
-
-ALTER DATABASE [osrsmmorp] SET READ_COMMITTED_SNAPSHOT ON;
-GO
+-- Azure SQL: database already exists, skip CREATE/DROP DATABASE
+-- Schema objects use DROP IF EXISTS so this script is safe to re-run
 
 -- Create schema
 IF NOT EXISTS (SELECT 1 FROM sys.schemas WHERE name = N'osrs')
@@ -244,6 +219,7 @@ CREATE TABLE osrs.players (
 );
 GO
 
+SET QUOTED_IDENTIFIER ON;
 CREATE UNIQUE INDEX idx_players_username ON osrs.players(username);
 CREATE INDEX idx_players_created_at ON osrs.players(created_at);
 CREATE INDEX idx_players_location ON osrs.players(x, y);
@@ -339,6 +315,7 @@ CREATE TABLE osrs.ge_orders (
 GO
 
 -- CRITICAL PERFORMANCE INDEX: filtered to active orders only
+SET QUOTED_IDENTIFIER ON;
 CREATE INDEX idx_ge_matching ON osrs.ge_orders(item_id, is_buy, price_per_unit DESC, created_at) WHERE completed_at IS NULL;
 CREATE INDEX idx_ge_player ON osrs.ge_orders(player_id, completed_at);
 GO
@@ -612,7 +589,7 @@ GO
 PRINT '';
 PRINT '========== OSRS-MMORP SCHEMA CREATION COMPLETE ==========';
 PRINT '';
-PRINT 'Database: osrsmmorp';
+PRINT 'Database: erynfall';
 PRINT 'Schema: osrs';
 PRINT '';
 

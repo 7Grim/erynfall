@@ -73,7 +73,19 @@ items:
 
   - id: 1000
     name: "Rat tail"
-    examine: "The tail of a rat."
+    examine: "The tail of a rat. Used in the Witch's Potion recipe."
+    stackable: false
+    equipable: false
+    consumable: false
+    consume_heal: 0
+    equip_slot: -1
+    attack_bonus: 0
+    strength_bonus: 0
+    defence_bonus: 0
+
+  - id: 2134
+    name: "Raw rat meat"
+    examine: "I should cook this."
     stackable: false
     equipable: false
     consumable: false
