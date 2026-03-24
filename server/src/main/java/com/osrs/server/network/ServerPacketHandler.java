@@ -260,59 +260,67 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
     // Inventory / Item handlers
     // -----------------------------------------------------------------------
 
+    /**
+     * OSRS-accurate pickup: validates proximity then schedules a 3-OSRS-tick
+     * (≈ 462 server ticks) animation delay before the item enters inventory.
+     *
+     * Validation:
+     *   • Item must still exist on the ground
+     *   • Player must be within 1 tile (Chebyshev) — they must walk there first
+     *   • Inventory must not be full
+     *
+     * The actual inventory transfer is executed by GameLoop.processPendingPickups().
+     */
     private void handlePickupItem(ChannelHandlerContext ctx, NetworkProto.PickupItem req) {
         if (session.getPlayer() == null) return;
         Player player = session.getPlayer();
 
         GroundItem gi = server.getWorld().getGroundItem(req.getGroundItemId());
         if (gi == null) {
-            LOG.debug("Player {} tried to pick up unknown ground item {}", player.getId(), req.getGroundItemId());
+            // Item already gone (despawned or picked up by someone else)
+            sendChatMessage(ctx, "Too late — it's gone!", 1);
             return;
         }
 
-        // Proximity check (Chebyshev ≤ 2)
+        // Proximity check: player must be on or adjacent to the item tile (Chebyshev ≤ 1)
         int dist = Math.max(Math.abs(player.getX() - gi.getX()), Math.abs(player.getY() - gi.getY()));
-        if (dist > 2) {
-            LOG.debug("Player {} too far from ground item {} (dist={})", player.getId(), gi.getGroundItemId(), dist);
+        if (dist > 1) {
+            LOG.debug("Player {} too far from ground item {} (dist={}); client should walk first",
+                player.getId(), gi.getGroundItemId(), dist);
+            sendChatMessage(ctx, "I can't reach that!", 1);
             return;
         }
 
-        // Inventory full check
+        // Inventory check up-front (early-out with OSRS message)
         if (player.isInventoryFull()) {
-            LOG.debug("Player {} inventory full, cannot pick up item {}", player.getId(), gi.getItemId());
-            return;
-        }
-
-        // Stackable items: merge into existing stack if present
-        ItemDefinition def = server.getWorld().getItemDef(gi.getItemId());
-        if (def.stackable) {
-            for (int i = 0; i < 28; i++) {
-                if (player.getInventoryItemId(i) == gi.getItemId()) {
-                    int newQty = player.getInventoryQuantity(i) + gi.getQuantity();
-                    player.setInventoryItem(i, gi.getItemId(), newQty);
-                    server.getWorld().removeGroundItem(gi.getGroundItemId());
-                    sendInventorySlot(ctx, player, i);
-                    server.broadcastToAll(NetworkProto.ServerMessage.newBuilder()
-                        .setGroundItemDespawn(NetworkProto.GroundItemDespawn.newBuilder()
-                            .setGroundItemId(gi.getGroundItemId()))
-                        .build());
-                    LOG.info("Player {} picked up {} x{} (stacked)", player.getId(), def.name, gi.getQuantity());
-                    return;
+            ItemDefinition def = server.getWorld().getItemDef(gi.getItemId());
+            // Stackable items might still fit — check before rejecting
+            boolean hasStack = false;
+            if (def.stackable) {
+                for (int i = 0; i < 28; i++) {
+                    if (player.getInventoryItemId(i) == gi.getItemId()) { hasStack = true; break; }
                 }
+            }
+            if (!hasStack) {
+                sendChatMessage(ctx, "Your inventory is too full to pick up the " + def.name + ".", 1);
+                return;
             }
         }
 
-        // Place in first empty slot
-        int slot = player.getFirstEmptySlot();
-        player.setInventoryItem(slot, gi.getItemId(), gi.getQuantity());
-        server.getWorld().removeGroundItem(gi.getGroundItemId());
+        // Schedule pickup after 3 OSRS ticks (≈ 462 server ticks at 256 Hz)
+        // 1 OSRS tick = 0.6 s; 256 Hz × 0.6 s ≈ 154 server ticks; 3 × 154 = 462
+        long currentTick = server.getCurrentTick();
+        server.getWorld().schedulePendingPickup(player, gi.getGroundItemId(), currentTick + 462, ctx);
+        LOG.debug("Player {} scheduled pickup of ground item {} at tick {}",
+            player.getId(), gi.getGroundItemId(), currentTick + 462);
+    }
 
-        sendInventorySlot(ctx, player, slot);
-        server.broadcastToAll(NetworkProto.ServerMessage.newBuilder()
-            .setGroundItemDespawn(NetworkProto.GroundItemDespawn.newBuilder()
-                .setGroundItemId(gi.getGroundItemId()))
+    /** Send an OSRS-style game / error message only to this player's session. */
+    private void sendChatMessage(ChannelHandlerContext ctx, String text, int type) {
+        ctx.writeAndFlush(NetworkProto.ServerMessage.newBuilder()
+            .setChatMessage(NetworkProto.ChatMessage.newBuilder()
+                .setText(text).setType(type))
             .build());
-        LOG.info("Player {} picked up {} x{} into slot {}", player.getId(), def.name, gi.getQuantity(), slot);
     }
 
     private void handleDropItem(ChannelHandlerContext ctx, NetworkProto.DropItem req) {

@@ -38,6 +38,12 @@ public class NettyServer {
     private final Map<Integer, PlayerSession> sessions = new HashMap<>();
     private int nextSessionId = 1;
 
+    /** Shared tick counter — written by GameLoop, read by ServerPacketHandler for pickup scheduling. */
+    private volatile long currentTick = 0;
+
+    public long getCurrentTick()            { return currentTick; }
+    public void setCurrentTick(long tick)   { this.currentTick = tick; }
+
     public NettyServer(int port, int bossThreads, int workerThreads, World world) {
         this.port = port;
         this.bossThreads = bossThreads;

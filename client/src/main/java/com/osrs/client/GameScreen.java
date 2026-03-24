@@ -23,7 +23,9 @@ import com.osrs.client.ui.SidePanel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -113,6 +115,22 @@ public class GameScreen extends ApplicationAdapter {
     private int combatTargetId = -1;
 
     // -----------------------------------------------------------------------
+    // Ground item pickup approach
+    // -----------------------------------------------------------------------
+    /** Ground item ID the player is walking toward to pick up; -1 if none. */
+    private int    pendingGroundItemId = -1;
+    /** World tile the item is on (cached so we can still pathfind if map updates). */
+    private int    pendingGroundItemX  = -1, pendingGroundItemY = -1;
+
+    // -----------------------------------------------------------------------
+    // Pickup animation
+    // -----------------------------------------------------------------------
+    /** Seconds remaining in the pickup (kneel-down) animation; 0 = not playing. */
+    private float pickupAnimationTimer = 0f;
+    /** OSRS pickup animation: 3 OSRS ticks = 1.8 s real time. */
+    private static final float PICKUP_ANIM_DURATION = 1.8f;
+
+    // -----------------------------------------------------------------------
     // Death screen state
     // -----------------------------------------------------------------------
     /** > 0 while the "Oh dear, you are dead!" overlay is showing (counts down in seconds). */
@@ -178,8 +196,10 @@ public class GameScreen extends ApplicationAdapter {
         processServerEvents();
         handleInput();
         processApproach();
+        processGroundItemApproach();
         updateMovement(delta);
         updateNpcVisuals(delta);
+        if (pickupAnimationTimer > 0) pickupAnimationTimer = Math.max(0f, pickupAnimationTimer - delta);
 
         // Camera follows player visual position
         camera.position.set(
@@ -217,8 +237,8 @@ public class GameScreen extends ApplicationAdapter {
             }
         }
 
-        // Player
-        renderer.renderPlayer(visualX, visualY);
+        // Player (pickup animation plays for 1.8 s after item is clicked)
+        renderer.renderPlayer(visualX, visualY, pickupAnimationTimer > 0);
 
         // Hitsplats
         combatUI.update(delta);
@@ -285,6 +305,11 @@ public class GameScreen extends ApplicationAdapter {
                 combatTargetId = -1;
             }
             LOG.debug("Client: removed visual for dead NPC {}", deadId);
+        }
+
+        // Server chat messages ("I can't reach that!", "Too late — it's gone!", etc.)
+        for (String msg : h.drainServerChatMessages()) {
+            combatUI.addMessage(msg);
         }
 
         // Death detection — show overlay and snap to respawn
@@ -560,6 +585,114 @@ public class GameScreen extends ApplicationAdapter {
         return Math.max(Math.abs(px - nx), Math.abs(py - ny)) <= INTERACT_RANGE;
     }
 
+    // -----------------------------------------------------------------------
+    // Ground item approach + pickup
+    // -----------------------------------------------------------------------
+
+    /**
+     * Begin walking toward a ground item to pick it up.
+     * Runs a client-side BFS first — if the item's tile is unreachable,
+     * shows "I can't reach that!" immediately without sending a packet.
+     */
+    private void startGroundItemApproach(int groundItemId) {
+        ClientPacketHandler h = handler();
+        if (h == null) return;
+
+        int[] data = h.getGroundItems().get(groundItemId);
+        if (data == null) {
+            combatUI.addMessage("Too late — it's gone!");
+            return;
+        }
+        int itemX = data[2], itemY = data[3];
+
+        // BFS reachability check (client-side, OSRS "I can't reach that!")
+        if (!canReachTile(playerX, playerY, itemX, itemY)) {
+            combatUI.addMessage("I can't reach that!");
+            return;
+        }
+
+        pendingGroundItemId = groundItemId;
+        pendingGroundItemX  = itemX;
+        pendingGroundItemY  = itemY;
+
+        // Walk toward the item's tile
+        if (Math.max(Math.abs(playerX - itemX), Math.abs(playerY - itemY)) > 1) {
+            playerX = itemX;
+            playerY = itemY;
+            if (nettyClient != null) nettyClient.sendWalkTo(itemX, itemY);
+        }
+    }
+
+    /**
+     * Called every frame while a ground item pickup is pending.
+     * When the player is adjacent to the item tile, fires the PickupItem packet
+     * and starts the pickup animation.
+     */
+    private void processGroundItemApproach() {
+        if (pendingGroundItemId < 0) return;
+
+        ClientPacketHandler h = handler();
+        if (h == null) { pendingGroundItemId = -1; return; }
+
+        // Confirm item still exists (may have despawned while walking)
+        if (!h.getGroundItems().containsKey(pendingGroundItemId)) {
+            combatUI.addMessage("Too late — it's gone!");
+            pendingGroundItemId = -1;
+            return;
+        }
+
+        // Check if we've reached the item (Chebyshev ≤ 1, matching server validation)
+        int dist = Math.max(Math.abs(playerX - pendingGroundItemX),
+                            Math.abs(playerY - pendingGroundItemY));
+        if (dist <= 1) {
+            // Send pickup packet — server will execute after 3-tick animation delay
+            if (nettyClient != null) nettyClient.sendPickupItem(pendingGroundItemId);
+            pickupAnimationTimer = PICKUP_ANIM_DURATION;
+            pendingGroundItemId = -1;
+        }
+    }
+
+    /**
+     * Breadth-first search on the client walkability map.
+     * Returns true if there is any walkable path from (fromX, fromY) to within
+     * 1 Chebyshev tile of (toX, toY).
+     *
+     * Non-walkable tiles: WATER (2) and WALL (4) — matches TutorialIslandMap constants.
+     */
+    private boolean canReachTile(int fromX, int fromY, int toX, int toY) {
+        if (!CoordinateConverter.isValidTile(toX, toY)) return false;
+        // Item tile itself must not be a hard blocker
+        int destType = tileMap[toX][toY];
+        if (destType == TutorialIslandMap.WATER || destType == TutorialIslandMap.WALL) return false;
+
+        if (fromX == toX && fromY == toY) return true;
+
+        boolean[][] visited = new boolean[TutorialIslandMap.WIDTH][TutorialIslandMap.HEIGHT];
+        Deque<int[]> queue  = new ArrayDeque<>();
+        queue.add(new int[]{fromX, fromY});
+        visited[fromX][fromY] = true;
+
+        int[] dx = {0, 1, 0, -1, 1, 1, -1, -1};
+        int[] dy = {1, 0, -1, 0, 1, -1, 1, -1};
+
+        while (!queue.isEmpty()) {
+            int[] cur = queue.poll();
+            // Reached adjacency to target
+            if (Math.max(Math.abs(cur[0] - toX), Math.abs(cur[1] - toY)) <= 1) return true;
+
+            for (int i = 0; i < 8; i++) {
+                int nx = cur[0] + dx[i], ny = cur[1] + dy[i];
+                if (!CoordinateConverter.isValidTile(nx, ny)) continue;
+                if (visited[nx][ny]) continue;
+                int t = tileMap[nx][ny];
+                if (t == TutorialIslandMap.WATER || t == TutorialIslandMap.WALL) continue;
+                visited[nx][ny] = true;
+                queue.add(new int[]{nx, ny});
+            }
+        }
+        return false;
+    }
+
     private int[] closestAdjacentTile(int px, int py, int nx, int ny) {
         int bx = nx, by = ny - 1;
         double best = Double.MAX_VALUE;
@@ -647,7 +780,7 @@ public class GameScreen extends ApplicationAdapter {
             case "walk"   -> { int[] t = (int[]) item.target; walkTo(t[0], t[1]); }
             case "attack" -> startApproach((Integer) item.target, "attack");
             case "talk"   -> startApproach((Integer) item.target, "talk");
-            case "take"   -> { if (nettyClient != null) nettyClient.sendPickupItem((Integer) item.target); }
+            case "take"   -> startGroundItemApproach((Integer) item.target);
             case "inv_eat"   -> { if (nettyClient != null) nettyClient.sendUseItem((Integer) item.target, "eat"); }
             case "inv_wield" -> { if (nettyClient != null) nettyClient.sendUseItem((Integer) item.target, "wield"); }
             case "inv_drop"  -> { if (nettyClient != null) nettyClient.sendDropItem((Integer) item.target); }

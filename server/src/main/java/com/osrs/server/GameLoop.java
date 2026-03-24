@@ -5,6 +5,7 @@ import com.osrs.server.combat.CombatEngine;
 import com.osrs.server.network.NettyServer;
 import com.osrs.server.world.GroundItem;
 import com.osrs.server.world.World;
+import com.osrs.shared.ItemDefinition;
 import com.osrs.shared.CombatStyle;
 import com.osrs.shared.NPC;
 import com.osrs.shared.Player;
@@ -134,34 +135,112 @@ public class GameLoop {
      */
     private void processTick() {
         try {
+            // Expose current tick to ServerPacketHandler for pickup scheduling
+            nettyServer.setCurrentTick(tickCount);
+
             // Stage 1: Input dequeue (dequeue packets from Netty)
             // Currently handled by ServerPacketHandler directly
-            // TODO: Create InputTicker to centralize this
-            
+
             // Stage 2: Movement — NPC wander + player pathfinding
             updateNPCWander();
             processNPCCombat();  // NPC follow & retaliate when aggroed
 
             // Stage 3: Combat calculation
             processCombat();
-            
+
             // Stage 4: Skill progression (XP awards, level-ups)
-            // TODO: Create SkillTicker
             updateSkills();
-            
+
             // Stage 5: Loot generation — tick ground item visibility and despawn
             tickGroundItems();
 
             // Stage 5b: NPC respawn timers
             processNPCRespawns();
 
-            // Stage 6: Broadcast to clients (send delta packets)
-            // TODO: Create BroadcastTicker
-            // broadcastWorldState();
-            
+            // Stage 5c: Pending item pickups (3-OSRS-tick animation delay)
+            processPendingPickups();
+
         } catch (Exception e) {
             LOG.error("Error in tick {}", tickCount, e);
         }
+    }
+
+    /**
+     * Execute all scheduled item pickups whose animation delay has elapsed.
+     * OSRS: 3-tick (1.8 s) animation; item enters inventory + despawns after that.
+     */
+    private void processPendingPickups() {
+        for (World.PendingPickup pp : world.drainDuePickups(tickCount)) {
+            Player player = pp.player;
+            GroundItem gi  = world.getGroundItem(pp.groundItemId);
+
+            if (gi == null) {
+                // Item despawned between scheduling and execution
+                sendChatMessageToPlayer(pp.ctx, "Too late — it's gone!", 1);
+                continue;
+            }
+
+            // Re-check inventory (may have filled up during the delay)
+            ItemDefinition def = world.getItemDef(gi.getItemId());
+            if (def.stackable) {
+                // Try to stack
+                for (int i = 0; i < 28; i++) {
+                    if (player.getInventoryItemId(i) == gi.getItemId()) {
+                        int newQty = player.getInventoryQuantity(i) + gi.getQuantity();
+                        player.setInventoryItem(i, gi.getItemId(), newQty);
+                        world.removeGroundItem(gi.getGroundItemId());
+                        sendInventorySlot(pp.ctx, player, i);
+                        broadcastGroundItemDespawn(gi.getGroundItemId());
+                        LOG.info("Player {} picked up {} x{} (stacked into slot {})",
+                            player.getId(), def.name, gi.getQuantity(), i);
+                        gi = null;
+                        break;
+                    }
+                }
+                if (gi == null) continue;
+            }
+
+            int slot = player.getFirstEmptySlot();
+            if (slot < 0) {
+                sendChatMessageToPlayer(pp.ctx,
+                    "Your inventory is too full to pick up the " + def.name + ".", 1);
+                continue;
+            }
+
+            player.setInventoryItem(slot, gi.getItemId(), gi.getQuantity());
+            world.removeGroundItem(gi.getGroundItemId());
+            sendInventorySlot(pp.ctx, player, slot);
+            broadcastGroundItemDespawn(gi.getGroundItemId());
+            LOG.info("Player {} picked up {} x{} into slot {}", player.getId(), def.name, gi.getQuantity(), slot);
+        }
+    }
+
+    private void sendInventorySlot(io.netty.channel.ChannelHandlerContext ctx, Player player, int slot) {
+        int itemId = player.getInventoryItemId(slot);
+        int qty    = player.getInventoryQuantity(slot);
+        ItemDefinition def = world.getItemDef(itemId);
+        ctx.writeAndFlush(NetworkProto.ServerMessage.newBuilder()
+            .setInventoryUpdate(NetworkProto.InventoryUpdate.newBuilder()
+                .setSlot(slot)
+                .setItemId(itemId)
+                .setQuantity(qty)
+                .setItemName(itemId > 0 ? def.name : "")
+                .setFlags(itemId > 0 ? def.getFlags() : 0))
+            .build());
+    }
+
+    private void broadcastGroundItemDespawn(int groundItemId) {
+        nettyServer.broadcastToAll(NetworkProto.ServerMessage.newBuilder()
+            .setGroundItemDespawn(NetworkProto.GroundItemDespawn.newBuilder()
+                .setGroundItemId(groundItemId))
+            .build());
+    }
+
+    private void sendChatMessageToPlayer(io.netty.channel.ChannelHandlerContext ctx, String text, int type) {
+        ctx.writeAndFlush(NetworkProto.ServerMessage.newBuilder()
+            .setChatMessage(NetworkProto.ChatMessage.newBuilder()
+                .setText(text).setType(type))
+            .build());
     }
     
     /**

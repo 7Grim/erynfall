@@ -135,27 +135,51 @@ public class IsometricRenderer {
      * Accepts float coords for smooth interpolated movement.
      */
     public void renderPlayer(float playerX, float playerY) {
+        renderPlayer(playerX, playerY, false);
+    }
+
+    /**
+     * Renders the player sprite.
+     *
+     * @param pickingUp  true while the 3-tick pickup animation is playing —
+     *                   shifts the body down and bends the torso to suggest
+     *                   kneeling to pick up an item (OSRS take animation).
+     */
+    public void renderPlayer(float playerX, float playerY, boolean pickingUp) {
         float sx = worldToScreenX(playerX, playerY);
         float sy = worldToScreenY(playerX, playerY);
+
+        // Pickup animation: body crouches (all parts shift down 4px, torso squashes)
+        float bodyY   = pickingUp ? sy - 4 : sy;
+        float bodyH   = pickingUp ? 5 : 8;
+        float headY   = pickingUp ? sy + 1 : sy + 6;
+        float headH   = pickingUp ? 5 : 6;
+        float hairY   = pickingUp ? headY + headH - 2 : sy + 10;
 
         sr.begin(ShapeRenderer.ShapeType.Filled);
 
         // Legs
         sr.setColor(PANTS);
-        sr.rect(sx - 4, sy - 8, 3, 6);
-        sr.rect(sx + 1, sy - 8, 3, 6);
+        sr.rect(sx - 4, sy - 8, 3, pickingUp ? 4 : 6);
+        sr.rect(sx + 1, sy - 8, 3, pickingUp ? 4 : 6);
 
-        // Shirt (OSRS blue)
+        // Shirt
         sr.setColor(0.18f, 0.38f, 0.76f, 1f);
-        sr.rect(sx - 5, sy - 2, 10, 8);
+        sr.rect(sx - 5, bodyY - 2, 10, bodyH);
 
         // Head
         sr.setColor(SKIN);
-        sr.rect(sx - 3, sy + 6, 6, 6);
+        sr.rect(sx - 3, headY, 6, headH);
 
         // Hair
         sr.setColor(HAIR);
-        sr.rect(sx - 3, sy + 10, 6, 2);
+        sr.rect(sx - 3, hairY, 6, 2);
+
+        // Arm extended downward during pickup
+        if (pickingUp) {
+            sr.setColor(SKIN);
+            sr.rect(sx - 6, sy - 6, 3, 6);  // left arm reaching down
+        }
 
         sr.end();
     }

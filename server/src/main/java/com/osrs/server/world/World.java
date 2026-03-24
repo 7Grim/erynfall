@@ -7,8 +7,11 @@ import com.osrs.shared.Player;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import io.netty.channel.ChannelHandlerContext;
+
 import java.util.*;
 import java.util.Random;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 /**
  * World state: all entities, tile map, and player sessions.
@@ -29,6 +32,49 @@ public class World {
     // Ground items
     private final Map<Integer, GroundItem> groundItems = new HashMap<>();
     private int nextGroundItemId = 1;
+
+    // -----------------------------------------------------------------------
+    // Pending item pickups (cross-tick scheduling)
+    // -----------------------------------------------------------------------
+
+    /**
+     * A pickup that has been validated and is waiting for the 3-OSRS-tick
+     * animation delay before the item enters the player's inventory.
+     */
+    public static class PendingPickup {
+        public final Player            player;
+        public final int               groundItemId;
+        public final long              executeTick;
+        public final ChannelHandlerContext ctx;
+
+        public PendingPickup(Player player, int groundItemId,
+                             long executeTick, ChannelHandlerContext ctx) {
+            this.player       = player;
+            this.groundItemId = groundItemId;
+            this.executeTick  = executeTick;
+            this.ctx          = ctx;
+        }
+    }
+
+    private final ConcurrentLinkedQueue<PendingPickup> pendingPickups =
+        new ConcurrentLinkedQueue<>();
+
+    /** Schedule a validated pickup to execute after the animation delay. */
+    public void schedulePendingPickup(Player player, int groundItemId,
+                                      long executeTick, ChannelHandlerContext ctx) {
+        pendingPickups.add(new PendingPickup(player, groundItemId, executeTick, ctx));
+    }
+
+    /** Drain all pickups whose execute tick has arrived. */
+    public List<PendingPickup> drainDuePickups(long currentTick) {
+        List<PendingPickup> due = new ArrayList<>();
+        // Peek-and-remove those that are due; leave future ones in the queue
+        pendingPickups.removeIf(p -> {
+            if (p.executeTick <= currentTick) { due.add(p); return true; }
+            return false;
+        });
+        return due;
+    }
 
     // Item definitions (loaded from items.yaml)
     private final Map<Integer, ItemDefinition> itemDefs;

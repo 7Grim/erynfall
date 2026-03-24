@@ -159,6 +159,7 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
             case GROUND_ITEM_DESPAWN -> handleGroundItemDespawn(packet.getGroundItemDespawn());
             case NPC_DESPAWN         -> handleNpcDespawn(packet.getNpcDespawn());
             case NPC_RESPAWN         -> handleNpcRespawn(packet.getNpcRespawn());
+            case CHAT_MESSAGE        -> handleChatMessage(packet.getChatMessage());
             default -> LOG.debug("Unhandled server message: {}", packet.getPayloadCase());
         }
     }
@@ -389,6 +390,26 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
         LOG.info("NpcRespawn: id={} name={} pos=({},{}) hp={}/{}",
             id, respawn.getName(), respawn.getX(), respawn.getY(),
             respawn.getHealth(), respawn.getMaxHealth());
+    }
+
+    // -----------------------------------------------------------------------
+    // Chat messages from server
+    // -----------------------------------------------------------------------
+
+    private final ConcurrentLinkedQueue<String> serverChatMessages = new ConcurrentLinkedQueue<>();
+
+    private void handleChatMessage(NetworkProto.ChatMessage msg) {
+        serverChatMessages.add(msg.getText());
+        LOG.debug("Server chat: {}", msg.getText());
+    }
+
+    /** Drain server chat messages queued this frame. */
+    public List<String> drainServerChatMessages() {
+        if (serverChatMessages.isEmpty()) return List.of();
+        List<String> out = new ArrayList<>();
+        String m;
+        while ((m = serverChatMessages.poll()) != null) out.add(m);
+        return out;
     }
 
     /** Drain the IDs of NPCs that died this frame so GameScreen can clear their visuals. */

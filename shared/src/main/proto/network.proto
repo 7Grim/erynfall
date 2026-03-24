@@ -224,6 +224,13 @@ message Heartbeat {
     int64 server_time = 1;
 }
 
+// ChatMessage: Server → Client (game messages shown in chat/message area)
+message ChatMessage {
+    string text = 1;
+    // 0 = game message (white), 1 = error/can't-do (red), 2 = info (cyan)
+    int32 type = 2;
+}
+
 // SkillUpdate: Server → Client (XP gain / level-up)
 message SkillUpdate {
     int32 skill_index = 1;   // 0=Attack, 1=Strength, 2=Defence, 3=Hitpoints, 4=Ranged, 5=Magic
@@ -269,5 +276,6 @@ message ServerMessage {
         GroundItemDespawn ground_item_despawn = 15;
         NpcDespawn npc_despawn = 16;
         NpcRespawn npc_respawn = 17;
+        ChatMessage chat_message = 18;    // Game message shown in chat area
     }
 }
