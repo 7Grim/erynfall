@@ -36,11 +36,31 @@ public class ItemLoader {
             def.stackable    = getBool(raw, "stackable", false);
             def.equipable    = getBool(raw, "equipable", false);
             def.equipSlot    = getInt(raw, "equip_slot", -1);
-            def.consumable   = getBool(raw, "consumable", false);
-            def.consumeHeal  = getInt(raw, "consume_heal", 0);
-            def.attackBonus  = getInt(raw, "attack_bonus", 0);
-            def.strengthBonus= getInt(raw, "strength_bonus", 0);
-            def.defenceBonus = getInt(raw, "defence_bonus", 0);
+            def.consumable      = getBool(raw, "consumable", false);
+            def.consumeHeal     = getInt(raw, "consume_heal", 0);
+            def.attackRange     = getInt(raw, "attack_range", 1);
+            def.weaponType      = getString(raw, "weapon_type", "slash");
+
+            // Attack bonuses
+            def.stabAttack      = getInt(raw, "stab_attack",   0);
+            def.slashAttack     = getInt(raw, "slash_attack",  0);
+            def.crushAttack     = getInt(raw, "crush_attack",  0);
+            def.magicAttack     = getInt(raw, "magic_attack",  0);
+            def.rangedAttack    = getInt(raw, "ranged_attack", 0);
+
+            // Defence bonuses
+            def.stabDefence     = getInt(raw, "stab_defence",   0);
+            def.slashDefence    = getInt(raw, "slash_defence",  0);
+            def.crushDefence    = getInt(raw, "crush_defence",  0);
+            def.magicDefence    = getInt(raw, "magic_defence",  0);
+            def.rangedDefence   = getInt(raw, "ranged_defence", 0);
+
+            // Other bonuses
+            def.meleeStrength   = getInt(raw, "melee_strength",  0);
+            def.rangedStrength  = getInt(raw, "ranged_strength", 0);
+            def.magicDamage     = getInt(raw, "magic_damage",    0);
+            def.prayer          = getInt(raw, "prayer",          0);
+
             if (def.id > 0) items.put(def.id, def);
         }
         LOG.info("Loaded {} item definitions", items.size());

@@ -112,8 +112,15 @@ public class WorldLoader {
                     npcDef2.y = getInt(npcDef, "y", 0);
                     npcDef2.isAggressive = getBoolean(npcDef, "is_aggressive", false);
                     npcDef2.lootTable = getString(npcDef, "loot_table", "default");
-                    npcDef2.wanderRadius = getInt(npcDef, "wander_radius", 0);
-                    
+                    npcDef2.wanderRadius    = getInt(npcDef, "wander_radius", 0);
+                    npcDef2.attackRange     = getInt(npcDef, "attack_range", 1);
+                    npcDef2.attackLevel     = getInt(npcDef, "attack_level",   -1);
+                    npcDef2.strengthLevel   = getInt(npcDef, "strength_level", -1);
+                    npcDef2.defenceLevel    = getInt(npcDef, "defence_level",  -1);
+                    npcDef2.attackBonus     = getInt(npcDef, "attack_bonus",   0);
+                    npcDef2.strengthBonus   = getInt(npcDef, "strength_bonus", 0);
+                    npcDef2.defenceBonus    = getInt(npcDef, "defence_bonus",  0);
+
                     worldData.npcs.add(npcDef2);
                 }
                 LOG.info("Loaded {} NPCs", worldData.npcs.size());
@@ -187,6 +194,14 @@ class WorldData {
         public boolean isAggressive;
         public String lootTable;
         public int wanderRadius;
+        public int attackRange = 1;
+        // OSRS combat stats (defaults to combatLevel if not set in world.yml)
+        public int attackLevel   = -1;
+        public int strengthLevel = -1;
+        public int defenceLevel  = -1;
+        public int attackBonus   = 0;
+        public int strengthBonus = 0;
+        public int defenceBonus  = 0;
     }
     
     static class LootTable {

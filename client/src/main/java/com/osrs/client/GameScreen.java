@@ -16,10 +16,13 @@ import com.osrs.client.network.NettyClient;
 import com.osrs.client.renderer.CoordinateConverter;
 import com.osrs.client.renderer.IsometricRenderer;
 import com.osrs.client.world.TutorialIslandMap;
+import com.osrs.client.ui.ChatBox;
 import com.osrs.client.ui.CombatUI;
 import com.osrs.client.ui.ContextMenu;
 import com.osrs.client.ui.DialogueUI;
+import com.osrs.client.ui.LevelUpOverlay;
 import com.osrs.client.ui.SidePanel;
+import com.osrs.client.ui.XpDropOverlay;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -52,6 +55,20 @@ public class GameScreen extends ApplicationAdapter {
     /** Chebyshev distance to activate an NPC interaction. */
     private static final int INTERACT_RANGE = 1;
 
+    // Credentials passed from LoginScreen (null = dev bypass, will use defaults)
+    private final String loginUsername;
+    private final String loginPassword;
+
+    public GameScreen() {
+        this.loginUsername = "TestPlayer";
+        this.loginPassword = "testpass";
+    }
+
+    public GameScreen(String username, String password) {
+        this.loginUsername = username;
+        this.loginPassword = password;
+    }
+
     // -----------------------------------------------------------------------
     // Graphics
     // -----------------------------------------------------------------------
@@ -71,13 +88,18 @@ public class GameScreen extends ApplicationAdapter {
     private CombatUI     combatUI;
     private SidePanel    sidePanel;
     private DialogueUI   dialogueUI;
+    private ChatBox      chatBox;
+    private XpDropOverlay xpDropOverlay;
+    private LevelUpOverlay levelUpOverlay;
     private int[][]      tileMap;
 
     // -----------------------------------------------------------------------
     // Player state
     // -----------------------------------------------------------------------
-    /** Logical (server-authoritative) tile the player is walking toward. */
+    /** Current logical tile the player is standing on (advances tile-by-tile during movement). */
     private int   playerX = 50, playerY = 50;
+    /** Walk destination tile; -1 when not walking. Visual interpolates toward this. */
+    private int   walkDestX = -1, walkDestY = -1;
     /** Smoothly interpolated render position. */
     private float visualX = 50f, visualY = 50f;
 
@@ -137,6 +159,20 @@ public class GameScreen extends ApplicationAdapter {
     private float deathScreenTimer = 0f;
     private static final float DEATH_SCREEN_DURATION = 4f;
 
+    // -----------------------------------------------------------------------
+    // Overhead chat text
+    // -----------------------------------------------------------------------
+    /** Overhead text per entity ID — yellow text floating above their head for 3 s (OSRS spec). */
+    private static class OverheadText {
+        final String text;
+        float timer;  // counts down from 3.0 to 0
+        OverheadText(String t) { this.text = t; this.timer = 3.0f; }
+    }
+    /** entityId → active overhead text (null / absent = no text shown). */
+    private final Map<Integer, OverheadText> overheadTexts = new HashMap<>();
+    /** Entity ID used for the local player's overhead text. */
+    private int localPlayerId = -1;
+
     private boolean initialized = false;
 
     // -----------------------------------------------------------------------
@@ -168,12 +204,15 @@ public class GameScreen extends ApplicationAdapter {
         combatUI   = new CombatUI();
         sidePanel  = new SidePanel();
         dialogueUI = new DialogueUI();
+        chatBox        = new ChatBox();
+        xpDropOverlay  = new XpDropOverlay();
+        levelUpOverlay = new LevelUpOverlay();
 
         try {
             nettyClient = new NettyClient();
             nettyClient.connect();
-            nettyClient.sendHandshake("TestPlayer");
-            LOG.info("Connected to server");
+            nettyClient.sendHandshake(loginUsername, loginPassword);
+            LOG.info("Connected to server as {}", loginUsername);
         } catch (Exception e) {
             LOG.error("Failed to connect to server", e);
         }
@@ -244,6 +283,12 @@ public class GameScreen extends ApplicationAdapter {
         combatUI.update(delta);
         combatUI.render(shapeRenderer, batch, font, camera);
 
+        // Overhead chat text (world space — same projection as hitsplats)
+        chatBox.update(delta);
+        xpDropOverlay.update(delta);
+        levelUpOverlay.update(delta);
+        renderOverheadText(delta);
+
         // --- Screen-space UI ---
         Gdx.gl.glEnable(GL20.GL_BLEND);
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
@@ -252,8 +297,15 @@ public class GameScreen extends ApplicationAdapter {
         renderHUD();
         if (combatTargetId >= 0) renderOpponentInfo();
         sidePanel.update(delta);
-        sidePanel.render(shapeRenderer, screenBatch, font, w, h, screenProjection);
-        combatUI.renderMessages(screenBatch, font, h);
+        // Convert LibGDX mouse Y (0=top) to screen Y (0=bottom)
+        int mouseScreenX = Gdx.input.getX();
+        int mouseScreenY = h - Gdx.input.getY();
+        sidePanel.render(shapeRenderer, screenBatch, font, w, h, screenProjection,
+                         mouseScreenX, mouseScreenY);
+        chatBox.render(shapeRenderer, screenBatch, font, w, h, screenProjection);
+        levelUpOverlay.render(shapeRenderer, screenBatch, font, w, h, screenProjection);
+        xpDropOverlay.render(shapeRenderer, screenBatch, font, w, h, screenProjection,
+            sidePanel.getPanelX(), SidePanel.TOTAL_H + SidePanel.MARGIN);
         if (contextMenu.isVisible()) renderContextMenu();
         if (deathScreenTimer > 0) renderDeathScreen(delta);
 
@@ -267,6 +319,9 @@ public class GameScreen extends ApplicationAdapter {
     private void processServerEvents() {
         ClientPacketHandler h = handler();
         if (h == null) return;
+
+        // Cache local player ID for overhead text lookup
+        if (localPlayerId < 0) localPlayerId = h.getMyPlayerId();
 
         playerHealth    = h.getPlayerHealth();
         playerMaxHealth = h.getPlayerMaxHealth();
@@ -309,7 +364,7 @@ public class GameScreen extends ApplicationAdapter {
 
         // Server chat messages ("I can't reach that!", "Too late — it's gone!", etc.)
         for (String msg : h.drainServerChatMessages()) {
-            combatUI.addMessage(msg);
+            chatBox.addSystemMessage(msg);
         }
 
         // Death detection — show overlay and snap to respawn
@@ -322,7 +377,7 @@ public class GameScreen extends ApplicationAdapter {
             visualY   = playerY;
             combatTargetId = -1;
             clearPendingAction();
-            combatUI.addMessage("Oh dear, you are dead!");
+            chatBox.addSystemMessage("Oh dear, you are dead!");
             LOG.info("Death screen shown — respawning at ({}, {})", playerX, playerY);
         }
 
@@ -330,29 +385,43 @@ public class GameScreen extends ApplicationAdapter {
             combatUI.addDamageNumber(evt.targetX, evt.targetY, evt.damage, evt.hit);
             boolean npcHitMe = (evt.targetId == h.getMyPlayerId());
             if (npcHitMe) {
-                combatUI.addMessage(evt.hit
+                chatBox.addSystemMessage(evt.hit
                     ? String.format("You were hit for %d!", evt.damage)
                     : "The attack missed you.");
             } else {
-                combatUI.addMessage(evt.hit
+                chatBox.addSystemMessage(evt.hit
                     ? String.format("You hit for %d!", evt.damage)
                     : "Your attack missed.");
-                if (evt.xpAwarded > 0) combatUI.addMessage("+" + evt.xpAwarded + " XP");
+                // XP is shown via XpDropOverlay (per-skill events), not here
             }
         }
 
-        // XP drop events — show per-skill XP gain
+        // XP drop events — show OSRS-style floating XP drops on the right side
         String[] skillNames = {"Attack", "Strength", "Defence", "Hitpoints", "Ranged", "Magic"};
         for (ClientPacketHandler.XpDropEvent xp : h.drainXpDrops()) {
             if (xp.skillIndex >= 0 && xp.skillIndex < skillNames.length) {
-                combatUI.addMessage("+" + xp.xpGained + " " + skillNames[xp.skillIndex] + " XP");
+                xpDropOverlay.addDrop(xp.skillIndex, xp.xpGained);
             }
         }
 
         if (h.consumeLevelUp()) {
             int idx = h.getLeveledUpSkill();
-            if (idx >= 0 && idx < skillNames.length)
-                combatUI.addMessage("LEVEL UP! " + skillNames[idx] + " → " + h.getSkillLevel(idx));
+            if (idx >= 0 && idx < skillNames.length) {
+                int newLevel = h.getSkillLevel(idx);
+                levelUpOverlay.addLevelUp(idx, newLevel);
+                chatBox.addSystemMessage(
+                    "Congratulations, you just advanced a "
+                    + skillNames[idx] + " level. Your "
+                    + skillNames[idx] + " level is now " + newLevel + ".");
+            }
+        }
+
+        // Public chat broadcasts from nearby players.
+        // Skip our own messages — already shown optimistically in submitChat().
+        for (ClientPacketHandler.ChatBroadcastEvent evt : h.drainChatBroadcasts()) {
+            if (evt.senderId == localPlayerId) continue;  // own message already displayed
+            chatBox.addPublicMessage(evt.senderName, evt.text);
+            overheadTexts.put(evt.senderId, new OverheadText(evt.text));
         }
     }
 
@@ -418,6 +487,87 @@ public class GameScreen extends ApplicationAdapter {
         // Block all input while death screen is showing
         if (deathScreenTimer > 0) return;
 
+        // ── Chat input ────────────────────────────────────────────────────────
+        if (Gdx.input.isKeyJustPressed(Input.Keys.ENTER)) {
+            if (!chatBox.isActive()) {
+                chatBox.setActive(true);
+            } else {
+                submitChat();
+            }
+            return;
+        }
+
+        if (chatBox.isActive()) {
+            if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
+                chatBox.setActive(false);
+                return;
+            }
+            if (Gdx.input.isKeyJustPressed(Input.Keys.BACKSPACE)) {
+                String buf = chatBox.getInputBuffer();
+                if (!buf.isEmpty())
+                    chatBox.setInputBuffer(buf.substring(0, buf.length() - 1));
+                return;
+            }
+            // ── Letters: A-Z (key codes 29-54 in LibGDX) ──────────────────
+            // NOTE: Input.Keys.SPACE=62, Input.Keys.A=29, Input.Keys.Z=54.
+            // The range must start at A (29), NOT SPACE (62).
+            for (int key = Input.Keys.A; key <= Input.Keys.Z; key++) {
+                if (Gdx.input.isKeyJustPressed(key)) {
+                    if (chatBox.getInputBuffer().length() >= 80) return;
+                    char c = Input.Keys.toString(key).charAt(0);  // returns uppercase e.g. "A"
+                    if (!Gdx.input.isKeyPressed(Input.Keys.SHIFT_LEFT)
+                     && !Gdx.input.isKeyPressed(Input.Keys.SHIFT_RIGHT)) {
+                        c = Character.toLowerCase(c);
+                    }
+                    chatBox.setInputBuffer(chatBox.getInputBuffer() + c);
+                    return;
+                }
+            }
+            // ── Space ──────────────────────────────────────────────────────
+            if (Gdx.input.isKeyJustPressed(Input.Keys.SPACE)) {
+                if (chatBox.getInputBuffer().length() < 80)
+                    chatBox.setInputBuffer(chatBox.getInputBuffer() + ' ');
+                return;
+            }
+            // ── Digits 0-9 ─────────────────────────────────────────────────
+            int[] numKeys  = {Input.Keys.NUM_0, Input.Keys.NUM_1, Input.Keys.NUM_2,
+                              Input.Keys.NUM_3, Input.Keys.NUM_4, Input.Keys.NUM_5,
+                              Input.Keys.NUM_6, Input.Keys.NUM_7, Input.Keys.NUM_8,
+                              Input.Keys.NUM_9};
+            char[] numChars = {'0','1','2','3','4','5','6','7','8','9'};
+            for (int i = 0; i < numKeys.length; i++) {
+                if (Gdx.input.isKeyJustPressed(numKeys[i])) {
+                    if (chatBox.getInputBuffer().length() < 80)
+                        chatBox.setInputBuffer(chatBox.getInputBuffer() + numChars[i]);
+                    return;
+                }
+            }
+            // ── Common punctuation ─────────────────────────────────────────
+            if (Gdx.input.isKeyJustPressed(Input.Keys.APOSTROPHE)) {
+                if (chatBox.getInputBuffer().length() < 80)
+                    chatBox.setInputBuffer(chatBox.getInputBuffer() + '\'');
+                return;
+            }
+            if (Gdx.input.isKeyJustPressed(Input.Keys.COMMA)) {
+                if (chatBox.getInputBuffer().length() < 80)
+                    chatBox.setInputBuffer(chatBox.getInputBuffer() + ',');
+                return;
+            }
+            if (Gdx.input.isKeyJustPressed(Input.Keys.PERIOD)) {
+                if (chatBox.getInputBuffer().length() < 80)
+                    chatBox.setInputBuffer(chatBox.getInputBuffer() + '.');
+                return;
+            }
+            if (Gdx.input.isKeyJustPressed(Input.Keys.MINUS)) {
+                if (chatBox.getInputBuffer().length() < 80)
+                    chatBox.setInputBuffer(chatBox.getInputBuffer() + '-');
+                return;
+            }
+            // Absorb all other keys while chat is open
+            return;
+        }
+        // ── End chat input ────────────────────────────────────────────────────
+
         int mx = Gdx.input.getX();
         int my = Gdx.input.getY();
         int w = Gdx.graphics.getWidth();
@@ -447,6 +597,11 @@ public class GameScreen extends ApplicationAdapter {
         }
 
         if (Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)) {
+            // Click on the chat box input area activates typing (OSRS behaviour)
+            if (screenMy < ChatBox.TOTAL_H && mx >= 0 && mx < ChatBox.BOX_W) {
+                chatBox.setActive(true);
+                return;
+            }
             if (contextMenu.isVisible()) {
                 ContextMenu.MenuItem clicked = contextMenu.getClickedItem(mx, screenMy);
                 if (clicked != null) handleContextMenuAction(clicked);
@@ -474,6 +629,33 @@ public class GameScreen extends ApplicationAdapter {
         if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) contextMenu.close();
     }
 
+    /**
+     * Send the current input buffer as a public chat message.
+     *
+     * OSRS behaviour: message appears in the chat box IMMEDIATELY (client-side),
+     * then the server broadcasts it to nearby players. We do the same: show
+     * optimistically here, and skip the server echo when it arrives back to us.
+     */
+    private void submitChat() {
+        String msg = chatBox.getInputBuffer().trim();
+        chatBox.setActive(false);   // close input regardless
+        if (msg.isEmpty()) return;
+
+        // Immediate local display — player always sees their own message at once
+        ClientPacketHandler h = handler();
+        String myName = "";
+        if (h != null && localPlayerId >= 0) myName = h.getEntityName(localPlayerId);
+        if (myName.isEmpty()) myName = "Me";
+
+        chatBox.addPublicMessage(myName, msg);
+        if (localPlayerId >= 0) {
+            overheadTexts.put(localPlayerId, new OverheadText(msg));
+        }
+
+        // Send to server for broadcast to other nearby players
+        if (nettyClient != null) nettyClient.sendPublicChat(msg);
+    }
+
     private void showInventoryContextMenu(int slot, int mx, int my) {
         String name = sidePanel.getInventoryItemName(slot);
         if (name == null || name.isEmpty()) name = "Item";
@@ -496,13 +678,13 @@ public class GameScreen extends ApplicationAdapter {
     /** Player-initiated walk — cancels any pending approach. */
     private void walkTo(int x, int y) {
         clearPendingAction();
-        playerX = x; playerY = y;
+        walkDestX = x; walkDestY = y;
         if (nettyClient != null) nettyClient.sendWalkTo(x, y);
     }
 
     /** Auto-walk from approach logic — does NOT clear the pending action. */
     private void autoWalkTo(int x, int y) {
-        playerX = x; playerY = y;
+        walkDestX = x; walkDestY = y;
         pendingWalkTargX = x; pendingWalkTargY = y;
         if (nettyClient != null) nettyClient.sendWalkTo(x, y);
     }
@@ -512,12 +694,46 @@ public class GameScreen extends ApplicationAdapter {
     // -----------------------------------------------------------------------
 
     private void updateMovement(float delta) {
-        float dx = playerX - visualX, dy = playerY - visualY;
+        // Move toward walk destination if one is set, otherwise stay at current tile
+        float targetX = (walkDestX >= 0) ? walkDestX : playerX;
+        float targetY = (walkDestY >= 0) ? walkDestY : playerY;
+
+        float dx = targetX - visualX, dy = targetY - visualY;
         float dist = (float) Math.sqrt(dx * dx + dy * dy);
-        if (dist < 0.01f) { visualX = playerX; visualY = playerY; return; }
+
+        if (dist < 0.01f) {
+            visualX = targetX; visualY = targetY;
+            if (walkDestX >= 0) {
+                // Arrived — commit destination as current tile, notify server
+                playerX = walkDestX; playerY = walkDestY;
+                walkDestX = -1; walkDestY = -1;
+                if (nettyClient != null) nettyClient.sendPlayerMovement(playerX, playerY, 0);
+            }
+            return;
+        }
+
+        // Snapshot current rounded tile before moving
+        int prevTileX = Math.round(visualX);
+        int prevTileY = Math.round(visualY);
+
         float step = TILES_PER_SECOND * delta;
-        if (step >= dist) { visualX = playerX; visualY = playerY; }
-        else { visualX += (dx / dist) * step; visualY += (dy / dist) * step; }
+        if (step >= dist) {
+            visualX = targetX; visualY = targetY;
+            playerX = (int) Math.round(targetX);
+            playerY = (int) Math.round(targetY);
+            walkDestX = -1; walkDestY = -1;
+            if (nettyClient != null) nettyClient.sendPlayerMovement(playerX, playerY, 0);
+        } else {
+            visualX += (dx / dist) * step;
+            visualY += (dy / dist) * step;
+            // Advance logical tile whenever visual crosses a tile boundary
+            int newTileX = Math.round(visualX);
+            int newTileY = Math.round(visualY);
+            if (newTileX != prevTileX || newTileY != prevTileY) {
+                playerX = newTileX; playerY = newTileY;
+                if (nettyClient != null) nettyClient.sendPlayerMovement(playerX, playerY, 0);
+            }
+        }
     }
 
     // -----------------------------------------------------------------------
@@ -600,14 +816,14 @@ public class GameScreen extends ApplicationAdapter {
 
         int[] data = h.getGroundItems().get(groundItemId);
         if (data == null) {
-            combatUI.addMessage("Too late — it's gone!");
+            chatBox.addSystemMessage("Too late — it's gone!");
             return;
         }
         int itemX = data[2], itemY = data[3];
 
         // BFS reachability check (client-side, OSRS "I can't reach that!")
         if (!canReachTile(playerX, playerY, itemX, itemY)) {
-            combatUI.addMessage("I can't reach that!");
+            chatBox.addSystemMessage("I can't reach that!");
             return;
         }
 
@@ -617,8 +833,7 @@ public class GameScreen extends ApplicationAdapter {
 
         // Walk toward the item's tile
         if (Math.max(Math.abs(playerX - itemX), Math.abs(playerY - itemY)) > 1) {
-            playerX = itemX;
-            playerY = itemY;
+            walkDestX = itemX; walkDestY = itemY;
             if (nettyClient != null) nettyClient.sendWalkTo(itemX, itemY);
         }
     }
@@ -636,7 +851,7 @@ public class GameScreen extends ApplicationAdapter {
 
         // Confirm item still exists (may have despawned while walking)
         if (!h.getGroundItems().containsKey(pendingGroundItemId)) {
-            combatUI.addMessage("Too late — it's gone!");
+            chatBox.addSystemMessage("Too late — it's gone!");
             pendingGroundItemId = -1;
             return;
         }
@@ -803,7 +1018,86 @@ public class GameScreen extends ApplicationAdapter {
             case "Combat Instructor" -> "A seasoned warrior, ready to teach combat basics.";
             default                  -> "It's a " + (name.isEmpty() ? "creature" : name) + ".";
         };
-        combatUI.addMessage(text);
+        chatBox.addSystemMessage(text);
+    }
+
+    // -----------------------------------------------------------------------
+    // Overhead chat text (world space)
+    // -----------------------------------------------------------------------
+
+    /**
+     * Tick and render all active overhead chat texts.
+     *
+     * OSRS spec:
+     *   - Yellow text by default
+     *   - Black drop shadow (1px offset, no outline box)
+     *   - No background — text floats above the entity's head
+     *   - Centered horizontally above the entity
+     *   - Visible for 3 seconds (150 × 20ms client ticks), then removed
+     */
+    private void renderOverheadText(float delta) {
+        if (overheadTexts.isEmpty()) return;
+
+        ClientPacketHandler h = handler();
+
+        // Expire old entries
+        overheadTexts.values().removeIf(ot -> {
+            ot.timer -= delta;
+            return ot.timer <= 0;
+        });
+
+        if (overheadTexts.isEmpty()) return;
+
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
+
+        batch.setProjectionMatrix(camera.combined);
+        batch.begin();
+
+        for (Map.Entry<Integer, OverheadText> entry : overheadTexts.entrySet()) {
+            int      entityId = entry.getKey();
+            OverheadText ot   = entry.getValue();
+
+            // Determine world tile of this entity
+            float tx, ty;
+            if (entityId == localPlayerId) {
+                tx = visualX; ty = visualY;
+            } else {
+                float[] vis = npcVisual.get(entityId);
+                if (vis != null) {
+                    tx = vis[0]; ty = vis[1];
+                } else if (h != null) {
+                    int[] pos = h.getEntityPosition(entityId);
+                    if (pos == null) continue;
+                    tx = pos[0]; ty = pos[1];
+                } else continue;
+            }
+
+            // Isometric screen coordinates — 50px above entity head
+            float sx = (tx - ty) * 16f;
+            float sy = (tx + ty) * 8f + 50f;
+
+            // Alpha fades to 0 in the last 0.5 s
+            float alpha = (ot.timer < 0.5f) ? ot.timer / 0.5f : 1f;
+
+            // Centre the text
+            com.badlogic.gdx.graphics.g2d.GlyphLayout gl =
+                new com.badlogic.gdx.graphics.g2d.GlyphLayout(font, ot.text);
+            float textX = sx - gl.width * 0.5f;
+            float textY = sy;
+
+            // Shadow (black, 1px down-right)
+            font.setColor(0f, 0f, 0f, alpha * 0.85f);
+            font.draw(batch, ot.text, textX + 1f, textY - 1f);
+
+            // Main text — OSRS yellow
+            font.setColor(1f, 1f, 0f, alpha);
+            font.draw(batch, ot.text, textX, textY);
+        }
+
+        batch.end();
+        font.setColor(Color.WHITE);
+        Gdx.gl.glDisable(GL20.GL_BLEND);
     }
 
     // -----------------------------------------------------------------------
@@ -919,9 +1213,9 @@ public class GameScreen extends ApplicationAdapter {
         }
         if (npcName.isEmpty()) npcName = "NPC " + combatTargetId;
 
-        // Panel dimensions and position (top-left, below the player HP bar)
-        int panelX = 10, panelY = Gdx.graphics.getHeight() - 90;
-        int panelW = 180, panelH = 60;
+        // Panel dimensions and position (top-left, below the player HP bar with gap)
+        int panelX = 10, panelY = Gdx.graphics.getHeight() - 105;
+        int panelW = 190, panelH = 65;
         int barW   = panelW - 16;
         int barH   = 10;
 
@@ -984,10 +1278,6 @@ public class GameScreen extends ApplicationAdapter {
         screenBatch.begin();
         font.setColor(1f, 0.9f, 0.9f, 1f);
         font.draw(screenBatch, String.format("HP %d/%d", playerHealth, maxHp), 136, h - 9);
-        font.setColor(0.9f, 0.9f, 0.9f, 1f);
-        font.draw(screenBatch,
-            String.format("Atk:%d  Str:%d  Def:%d", attackLevel, strengthLevel, defenceLevel),
-            10, h - 28);
         font.setColor(0.6f, 0.6f, 0.6f, 0.8f);
         font.draw(screenBatch, String.format("(%d,%d)", playerX, playerY), w - 70, 15);
         screenBatch.end();

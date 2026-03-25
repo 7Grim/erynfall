@@ -76,11 +76,11 @@ public class NettyClient {
         group.shutdownGracefully();
     }
     
-    public void sendHandshake(String username) {
+    public void sendHandshake(String username, String password) {
         NetworkProto.ClientMessage msg = NetworkProto.ClientMessage.newBuilder()
             .setHandshake(NetworkProto.Handshake.newBuilder()
                 .setUsername(username)
-                .setPassword("dummy"))
+                .setPassword(password))
             .build();
         channel.writeAndFlush(msg);
         LOG.debug("Sent handshake: {}", username);
@@ -177,6 +177,16 @@ public class NettyClient {
         LOG.debug("Sent SwapInventorySlots: {} ↔ {}", fromSlot, toSlot);
     }
     
+    public void sendPublicChat(String text) {
+        if (text == null || text.trim().isEmpty()) return;
+        NetworkProto.ClientMessage msg = NetworkProto.ClientMessage.newBuilder()
+            .setPublicChat(NetworkProto.PublicChat.newBuilder()
+                .setText(text.trim()))
+            .build();
+        channel.writeAndFlush(msg);
+        LOG.debug("Sent PublicChat: {}", text);
+    }
+
     public boolean isConnected() {
         return channel != null && channel.isActive();
     }

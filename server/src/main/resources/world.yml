@@ -48,6 +48,7 @@ npcs:
     combat_level: 1
     max_hp: 2
     max_hit: 0
+    attack_range: 1
     respawn_delay_ticks: 308
     location: "tutorial_island"
     x: 47
@@ -61,6 +62,7 @@ npcs:
     combat_level: 1
     max_hp: 2
     max_hit: 0
+    attack_range: 1
     respawn_delay_ticks: 308
     location: "tutorial_island"
     x: 48
@@ -74,6 +76,7 @@ npcs:
     combat_level: 1
     max_hp: 2
     max_hit: 0
+    attack_range: 1
     respawn_delay_ticks: 308
     location: "tutorial_island"
     x: 46
@@ -89,6 +92,7 @@ npcs:
     combat_level: 3
     max_hp: 5
     max_hit: 1
+    attack_range: 1
     respawn_delay_ticks: 3850
     location: "tutorial_island"
     x: 44
@@ -102,6 +106,7 @@ npcs:
     combat_level: 3
     max_hp: 5
     max_hit: 1
+    attack_range: 1
     respawn_delay_ticks: 3850
     location: "tutorial_island"
     x: 43
@@ -117,6 +122,7 @@ npcs:
     combat_level: 1
     max_hp: 3
     max_hit: 1
+    attack_range: 1
     respawn_delay_ticks: 3850
     location: "tutorial_island"
     x: 35
@@ -130,6 +136,7 @@ npcs:
     combat_level: 1
     max_hp: 3
     max_hit: 1
+    attack_range: 1
     respawn_delay_ticks: 3850
     location: "tutorial_island"
     x: 37
@@ -143,6 +150,7 @@ npcs:
     combat_level: 1
     max_hp: 3
     max_hit: 1
+    attack_range: 1
     respawn_delay_ticks: 3850
     location: "tutorial_island"
     x: 33
@@ -158,6 +166,7 @@ npcs:
     combat_level: 2
     max_hp: 8
     max_hit: 1
+    attack_range: 1
     respawn_delay_ticks: 6930
     location: "tutorial_island"
     x: 65
@@ -171,6 +180,7 @@ npcs:
     combat_level: 2
     max_hp: 8
     max_hit: 1
+    attack_range: 1
     respawn_delay_ticks: 6930
     location: "tutorial_island"
     x: 67
@@ -186,6 +196,7 @@ npcs:
     combat_level: 2
     max_hp: 5
     max_hit: 1
+    attack_range: 1
     respawn_delay_ticks: 5390
     location: "tutorial_island"
     x: 65

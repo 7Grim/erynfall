@@ -1,6 +1,8 @@
 package com.osrs.server.network;
 
 import com.osrs.protocol.NetworkProto;
+import com.osrs.server.database.DatabaseManager;
+import com.osrs.server.database.PlayerRepository;
 import com.osrs.server.world.GroundItem;
 import com.osrs.server.world.World;
 import com.osrs.shared.CombatStyle;
@@ -39,7 +41,6 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
     
     @Override
     public void channelInactive(ChannelHandlerContext ctx) {
-        // Client disconnected
         if (session != null) {
             LOG.info("Client {} disconnected", session.getSessionId());
             Player player = session.getPlayer();
@@ -52,6 +53,12 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
                         npc.setInDialogue(false);
                         npc.setDialoguePlayer(-1);
                     }
+                }
+                // Save player state to DB on disconnect
+                if (session.isAuthenticated() && DatabaseManager.isHealthy()) {
+                    PlayerRepository.savePlayer(player);
+                    PlayerRepository.saveInventory(player);
+                    LOG.info("Saved player {} on disconnect", player.getName());
                 }
                 server.getWorld().getPlayers().remove(player.getId());
             }
@@ -78,25 +85,70 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             case USE_ITEM -> handleUseItem(ctx, packet.getUseItem());
             case SWAP_INVENTORY_SLOTS -> handleSwapInventorySlots(ctx, packet.getSwapInventorySlots());
             case SET_COMBAT_STYLE    -> handleSetCombatStyle(packet.getSetCombatStyle());
+            case PUBLIC_CHAT         -> handlePublicChat(ctx, packet.getPublicChat());
             default -> LOG.warn("Unhandled payload case: {}", packet.getPayloadCase());
         }
     }
     
     private void handleHandshake(ChannelHandlerContext ctx, NetworkProto.Handshake handshake) {
-        LOG.debug("Handshake from {}: {}", session.getSessionId(), handshake.getUsername());
-        
-        // Create player and register in world
-        Player player = new Player(session.getSessionId(), handshake.getUsername(), 50, 50);
+        String username = handshake.getUsername().trim();
+        String password = handshake.getPassword();
+        LOG.info("Handshake from session {}: username={}", session.getSessionId(), username);
+
+        // Basic validation
+        if (username.isEmpty() || username.length() > 12 || password.isEmpty()) {
+            sendHandshakeResponse(ctx, false, "Invalid username or password.", 0);
+            return;
+        }
+
+        Player player = null;
+
+        if (DatabaseManager.isHealthy()) {
+            // Try login first; if account doesn't exist, register a new one
+            player = PlayerRepository.login(username, password, session.getSessionId());
+            if (player == null) {
+                // Not found → attempt registration (first time playing)
+                player = PlayerRepository.register(username, password, session.getSessionId());
+                if (player == null) {
+                    // Username taken with wrong password
+                    sendHandshakeResponse(ctx, false, "Incorrect password.", 0);
+                    return;
+                }
+                LOG.info("New account created: {}", username);
+            } else {
+                // Load inventory for returning player
+                PlayerRepository.loadInventory(player);
+            }
+        } else {
+            // DB offline: fall back to in-memory session (no persistence)
+            LOG.warn("DB unavailable — logging in {} without persistence", username);
+            player = new Player(session.getSessionId(), username, 3222, 3218);
+        }
+
         session.setPlayer(player);
         session.setAuthenticated(true);
         server.getWorld().getPlayers().put(player.getId(), player);
-        LOG.info("Player {} (id={}) registered in world", handshake.getUsername(), player.getId());
-        
-        // Send response
-        sendHandshakeResponse(ctx, true, "Login successful", session.getSessionId());
-        
-        // Send world state
+        LOG.info("Player {} (id={}) entered world at ({},{})", username, player.getId(), player.getX(), player.getY());
+
+        sendHandshakeResponse(ctx, true, "Welcome back, " + username + "!", session.getSessionId());
+
+        // Send initial skill state so the client's skills tab is populated immediately
+        sendAllSkillUpdates(ctx, player);
+
         sendWorldState(ctx);
+    }
+
+    /** Sends a SkillUpdate (leveled_up=false) for every skill — used on login to sync client. */
+    private void sendAllSkillUpdates(ChannelHandlerContext ctx, Player player) {
+        for (int i = 0; i < Player.SKILL_COUNT; i++) {
+            ctx.writeAndFlush(NetworkProto.ServerMessage.newBuilder()
+                .setSkillUpdate(NetworkProto.SkillUpdate.newBuilder()
+                    .setSkillIndex(i)
+                    .setNewLevel(player.getSkillLevel(i))
+                    .setTotalXp(player.getSkillXp(i))
+                    .setLeveledUp(false))
+                .build());
+        }
     }
     
     private void handlePlayerMovement(ChannelHandlerContext ctx, NetworkProto.PlayerMovement movement) {
@@ -114,20 +166,11 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
     }
     
     private void handleWalkTo(ChannelHandlerContext ctx, NetworkProto.WalkTo walkTo) {
-        if (session.getPlayer() == null) {
-            return;
-        }
-        
-        Player player = session.getPlayer();
-        int targetX = walkTo.getTargetX();
-        int targetY = walkTo.getTargetY();
-        
-        // TODO: Calculate pathfinding via World.findPath()
-        // For now, just validate and move directly
-        player.setPosition(targetX, targetY);
-        
-        LOG.debug("Player {} walk-to request: ({}, {})", 
-            session.getSessionId(), targetX, targetY);
+        if (session.getPlayer() == null) return;
+        // Walk destination noted. Actual position is updated tile-by-tile via
+        // PlayerMovement packets as the client crosses each tile boundary.
+        LOG.debug("Player {} walk-to destination: ({}, {})",
+            session.getSessionId(), walkTo.getTargetX(), walkTo.getTargetY());
     }
     
     private void sendHandshakeResponse(ChannelHandlerContext ctx, boolean success, String message, int playerId) {
@@ -402,6 +445,16 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             player.setEquipment(equipSlot, itemId);
             player.setInventoryItem(slot, oldItemId, oldItemId > 0 ? 1 : 0);
 
+            // Update player's effective attack range from the equipped weapon
+            // Weapon slot = EquipmentSlot.WEAPON (index 3); only weapons override range
+            if (equipSlot == EquipmentSlot.WEAPON) {
+                player.setWeaponAttackRange(def.attackRange);
+            }
+            // Unequipping (swapping weapon back to empty): restore melee range
+            if (equipSlot == EquipmentSlot.WEAPON && itemId == 0) {
+                player.setWeaponAttackRange(1);
+            }
+
             // Send updated inventory slot
             sendInventorySlot(ctx, player, slot);
 
@@ -437,6 +490,46 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
         sendInventorySlot(ctx, player, from);
         sendInventorySlot(ctx, player, to);
         LOG.debug("Player {} swapped inventory slots {} ↔ {}", player.getId(), from, to);
+    }
+
+    /**
+     * Public chat: validate the message and broadcast it to all players within
+     * PUBLIC_CHAT_RANGE tiles (Chebyshev) of the sender — matching OSRS "local scene" range.
+     * The sender also receives their own broadcast so they see it in their own chat box.
+     */
+    private static final int PUBLIC_CHAT_RANGE = 15;
+    private static final int PUBLIC_CHAT_MAX_LENGTH = 80;
+
+    private void handlePublicChat(ChannelHandlerContext ctx, NetworkProto.PublicChat req) {
+        if (session.getPlayer() == null) return;
+        Player sender = session.getPlayer();
+
+        String text = req.getText().trim();
+        if (text.isEmpty() || text.length() > PUBLIC_CHAT_MAX_LENGTH) return;
+
+        LOG.info("Player {} says: {}", sender.getName(), text);
+
+        NetworkProto.ServerMessage broadcast = NetworkProto.ServerMessage.newBuilder()
+            .setChatBroadcast(NetworkProto.ChatBroadcast.newBuilder()
+                .setSenderId(sender.getId())
+                .setSenderName(sender.getName())
+                .setText(text)
+                .setX(sender.getX())
+                .setY(sender.getY()))
+            .build();
+
+        // Broadcast to all players within range, including the sender
+        for (PlayerSession s : server.getSessions().values()) {
+            if (!s.isAuthenticated() || s.getPlayer() == null) continue;
+            Player other = s.getPlayer();
+            int dist = Math.max(
+                Math.abs(other.getX() - sender.getX()),
+                Math.abs(other.getY() - sender.getY())
+            );
+            if (dist <= PUBLIC_CHAT_RANGE) {
+                s.getChannel().writeAndFlush(broadcast);
+            }
+        }
     }
 
     private void handleSetCombatStyle(NetworkProto.SetCombatStyle req) {

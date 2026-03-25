@@ -160,6 +160,7 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
             case NPC_DESPAWN         -> handleNpcDespawn(packet.getNpcDespawn());
             case NPC_RESPAWN         -> handleNpcRespawn(packet.getNpcRespawn());
             case CHAT_MESSAGE        -> handleChatMessage(packet.getChatMessage());
+            case CHAT_BROADCAST      -> handleChatBroadcast(packet.getChatBroadcast());  // public_chat from nearby player
             default -> LOG.debug("Unhandled server message: {}", packet.getPayloadCase());
         }
     }
@@ -409,6 +410,44 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
         List<String> out = new ArrayList<>();
         String m;
         while ((m = serverChatMessages.poll()) != null) out.add(m);
+        return out;
+    }
+
+    // -----------------------------------------------------------------------
+    // Public chat broadcasts
+    // -----------------------------------------------------------------------
+
+    /** A public chat message from a nearby player. */
+    public static class ChatBroadcastEvent {
+        public final int    senderId;
+        public final String senderName;
+        public final String text;
+        public final int    x, y;
+
+        public ChatBroadcastEvent(int senderId, String senderName, String text, int x, int y) {
+            this.senderId   = senderId;
+            this.senderName = senderName;
+            this.text       = text;
+            this.x          = x;
+            this.y          = y;
+        }
+    }
+
+    private final ConcurrentLinkedQueue<ChatBroadcastEvent> pendingChatBroadcasts =
+        new ConcurrentLinkedQueue<>();
+
+    private void handleChatBroadcast(NetworkProto.ChatBroadcast msg) {
+        pendingChatBroadcasts.add(new ChatBroadcastEvent(
+            msg.getSenderId(), msg.getSenderName(), msg.getText(), msg.getX(), msg.getY()));
+        LOG.debug("ChatBroadcast from {}: {}", msg.getSenderName(), msg.getText());
+    }
+
+    /** Drain all public chat broadcasts queued this frame. */
+    public List<ChatBroadcastEvent> drainChatBroadcasts() {
+        if (pendingChatBroadcasts.isEmpty()) return List.of();
+        List<ChatBroadcastEvent> out = new ArrayList<>();
+        ChatBroadcastEvent e;
+        while ((e = pendingChatBroadcasts.poll()) != null) out.add(e);
         return out;
     }
 

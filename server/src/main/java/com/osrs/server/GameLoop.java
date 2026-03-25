@@ -2,6 +2,8 @@ package com.osrs.server;
 
 import com.osrs.protocol.NetworkProto;
 import com.osrs.server.combat.CombatEngine;
+import com.osrs.server.database.DatabaseManager;
+import com.osrs.server.database.PlayerRepository;
 import com.osrs.server.network.NettyServer;
 import com.osrs.server.world.GroundItem;
 import com.osrs.server.world.World;
@@ -13,6 +15,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -45,6 +48,9 @@ public class GameLoop {
     // At 256 Hz, 200-450 ticks ≈ 0.78–1.76 seconds between steps (OSRS-like cadence)
     private static final int WANDER_MIN = 200;
     private static final int WANDER_MAX = 450;
+
+    // Autosave every 60 seconds (256 Hz × 60 = 15,360 ticks)
+    private static final long AUTOSAVE_INTERVAL = 15_360L;
     private final Map<Integer, Long> npcNextWanderTick = new HashMap<>();
     private final Random random = new Random();
 
@@ -54,12 +60,18 @@ public class GameLoop {
     private static final int NPC_ATTACK_SPEED = 615;
     // NPC de-aggro chase limit: wander_radius + 5 tiles beyond spawn
     private static final int NPC_CHASE_EXTRA  = 5;
+
+    // PID rotation: every 100-150 OSRS ticks (15400-23100 server ticks)
+    // OSRS: PID re-randomizes each cycle; lower PID = higher priority in simultaneous actions
+    private static final long PID_ROTATE_MIN = 15400L;
+    private static final long PID_ROTATE_MAX = 23100L;
+    private long nextPidRotateTick = 0;
     
     public GameLoop(long tickIntervalNs, World world, NettyServer nettyServer) {
         this.tickIntervalNs = tickIntervalNs;
         this.world = world;
         this.nettyServer = nettyServer;
-        this.combatEngine = new CombatEngine();
+        this.combatEngine = new CombatEngine(world.getItemDefs());
     }
     
     public void start() {
@@ -141,6 +153,11 @@ public class GameLoop {
             // Stage 1: Input dequeue (dequeue packets from Netty)
             // Currently handled by ServerPacketHandler directly
 
+            // PID rotation: re-randomize player priorities every 100-150 OSRS ticks
+            if (tickCount >= nextPidRotateTick) {
+                rotatePids();
+            }
+
             // Stage 2: Movement — NPC wander + player pathfinding
             updateNPCWander();
             processNPCCombat();  // NPC follow & retaliate when aggroed
@@ -159,6 +176,15 @@ public class GameLoop {
 
             // Stage 5c: Pending item pickups (3-OSRS-tick animation delay)
             processPendingPickups();
+
+            // Stage 6: Autosave — persist all online players every 60 seconds
+            if (tickCount > 0 && tickCount % AUTOSAVE_INTERVAL == 0 && DatabaseManager.isHealthy()) {
+                for (Player p : world.getPlayers().values()) {
+                    PlayerRepository.savePlayer(p);
+                    PlayerRepository.saveInventory(p);
+                }
+                LOG.info("Autosave complete — {} player(s) saved", world.getPlayers().size());
+            }
 
         } catch (Exception e) {
             LOG.error("Error in tick {}", tickCount, e);
@@ -333,8 +359,8 @@ public class GameLoop {
                 Math.abs(npc.getY() - target.getY())
             );
 
-            if (chebyshev <= 1) {
-                // In melee range — attack
+            if (chebyshev <= npc.getAttackRange()) {
+                // In attack range — attack
                 if (tickCount - npc.getLastAttackTick() < NPC_ATTACK_SPEED) continue;
 
                 CombatEngine.HitResult result = combatEngine.calculateHit(npc, target, tickCount);
@@ -413,11 +439,16 @@ public class GameLoop {
 
     /**
      * Process all active combats.
-     * Each player in combat rolls hit/miss/damage every 4 ticks (2.4s, OSRS sword speed).
-     * Broadcasts CombatHit and HealthUpdate packets to all clients.
+     * Players are sorted by PID (lower = higher priority) to implement OSRS PID priority.
+     * Each player in combat checks attack range before rolling hit/miss/damage every 4 ticks.
+     * Out-of-range players maintain their combat target (enabling kiting) but do not fire.
      */
     private void processCombat() {
-        for (Player player : world.getPlayers().values()) {
+        // Sort players by PID — lower PID acts first (OSRS priority system)
+        List<Player> players = new ArrayList<>(world.getPlayers().values());
+        players.sort((a, b) -> Long.compare(a.getPid(), b.getPid()));
+
+        for (Player player : players) {
             if (!player.isInCombat()) {
                 continue;
             }
@@ -426,6 +457,17 @@ public class GameLoop {
             if (target == null || target.isDead()) {
                 player.setCombatTarget(-1);
                 LOG.debug("Player {} combat ended (target dead/gone)", player.getId());
+                continue;
+            }
+
+            // Attack range check: if the player is out of weapon range, skip the attack but
+            // keep the combat target set — this is what enables kiting. The client walks the
+            // player toward the NPC (or away to kite), and attacks resume once back in range.
+            int dist = Math.max(
+                Math.abs(player.getX() - target.getX()),
+                Math.abs(player.getY() - target.getY())
+            );
+            if (dist > player.getAttackRange()) {
                 continue;
             }
 
@@ -657,6 +699,26 @@ public class GameLoop {
                     .setItemName(name))
                 .build());
         }
+    }
+
+    /**
+     * Randomly reassigns PIDs to all connected players, then schedules the next rotation.
+     * OSRS: PID rotates every 100-150 OSRS ticks; lower PID = first to act when simultaneous.
+     */
+    private void rotatePids() {
+        List<Player> players = new ArrayList<>(world.getPlayers().values());
+        if (!players.isEmpty()) {
+            // Generate a shuffled list of unique IDs in range [1, N]
+            List<Integer> pids = new ArrayList<>();
+            for (int i = 1; i <= players.size(); i++) pids.add(i);
+            Collections.shuffle(pids, random);
+            for (int i = 0; i < players.size(); i++) {
+                players.get(i).setPid(pids.get(i));
+            }
+            LOG.debug("PID rotation: {} players reassigned", players.size());
+        }
+        nextPidRotateTick = tickCount + PID_ROTATE_MIN
+            + random.nextInt((int) (PID_ROTATE_MAX - PID_ROTATE_MIN));
     }
 
     /**

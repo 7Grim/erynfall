@@ -127,6 +127,15 @@ public class World {
             npc.setLootTable(npcDef.lootTable);
             npc.setAggressive(npcDef.isAggressive);
             npc.setWanderRadius(npcDef.wanderRadius);
+            npc.setAttackRange(npcDef.attackRange);
+            // Set combat stats; -1 means "derive from combatLevel"
+            npc.setCombatLevel(npcDef.combatLevel);
+            if (npcDef.attackLevel   >= 0) npc.setAttackLevel(npcDef.attackLevel);
+            if (npcDef.strengthLevel >= 0) npc.setStrengthLevel(npcDef.strengthLevel);
+            if (npcDef.defenceLevel  >= 0) npc.setDefenceLevel(npcDef.defenceLevel);
+            npc.setAttackBonus(npcDef.attackBonus);
+            npc.setStrengthBonus(npcDef.strengthBonus);
+            npc.setDefenceBonus(npcDef.defenceBonus);
             npcs.put(npcDef.id, npc);
             LOG.debug("Spawned NPC: {} (id={}, level={}, pos=({}, {}))", 
                 npcDef.name, npcDef.id, npcDef.combatLevel, npcDef.x, npcDef.y);
@@ -246,6 +255,8 @@ public class World {
     // -----------------------------------------------------------------------
     // Item definitions
     // -----------------------------------------------------------------------
+
+    public Map<Integer, ItemDefinition> getItemDefs() { return itemDefs; }
 
     public ItemDefinition getItemDef(int itemId) {
         return itemDefs.getOrDefault(itemId, DEFAULT_ITEM_DEF);

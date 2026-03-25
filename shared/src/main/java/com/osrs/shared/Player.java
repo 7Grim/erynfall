@@ -17,6 +17,10 @@ public class Player extends Entity {
     private int combatTarget = -1;
     private long lastAttackTick = 0;
     private CombatStyle combatStyle = CombatStyle.AGGRESSIVE;
+    /** Attack range (tiles) based on currently equipped weapon. Default 1 = melee. */
+    private int weaponAttackRange = 1;
+    /** PID — lower value = higher priority in simultaneous action resolution. Re-randomized every 100-150 OSRS ticks. */
+    private long pid = 0;
 
     // Dialogue state
     private int dialogueTarget = -1;
@@ -56,7 +60,8 @@ public class Player extends Entity {
         this.health = 10;
         this.maxHealth = 10;
         for (int i = 0; i < SKILL_COUNT; i++) skillLevel[i] = 1;
-        // Hitpoints starts at level 10 in OSRS (new accounts)
+        // Hitpoints starts at level 10 in OSRS (1,154 XP = level 10)
+        skillXp[SKILL_HITPOINTS]    = 1154L;
         skillLevel[SKILL_HITPOINTS] = 10;
     }
     
@@ -136,6 +141,13 @@ public class Player extends Entity {
         return (skillIdx >= 0 && skillIdx < SKILL_COUNT) ? skillXp[skillIdx] : 0;
     }
 
+    /** Directly sets XP and recomputes level — used when loading from DB. */
+    public void setSkillXp(int skillIdx, long xp) {
+        if (skillIdx < 0 || skillIdx >= SKILL_COUNT) return;
+        skillXp[skillIdx]   = xp;
+        skillLevel[skillIdx] = levelFromXp(xp);
+    }
+
     /**
      * Awards XP to a skill. Recomputes the level and returns true if a
      * level-up occurred (caller should broadcast SkillUpdate with leveled_up=true).
@@ -169,6 +181,23 @@ public class Player extends Entity {
 
     public CombatStyle getCombatStyle() { return combatStyle; }
     public void setCombatStyle(CombatStyle style) { this.combatStyle = style; }
+
+    public int getWeaponAttackRange() { return weaponAttackRange; }
+    public void setWeaponAttackRange(int range) { this.weaponAttackRange = range; }
+
+    /**
+     * Effective attack range: weapon range + 2 if using Longrange style (capped at 10).
+     * OSRS: Longrange adds +2 tiles to ranged weapons; melee Defensive style does NOT add range.
+     */
+    public int getAttackRange() {
+        if (combatStyle == CombatStyle.DEFENSIVE && weaponAttackRange > 1) {
+            return Math.min(10, weaponAttackRange + 2);
+        }
+        return weaponAttackRange;
+    }
+
+    public long getPid() { return pid; }
+    public void setPid(long pid) { this.pid = pid; }
 
     // -----------------------------------------------------------------------
     // Dialogue

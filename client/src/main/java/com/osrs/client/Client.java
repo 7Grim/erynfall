@@ -32,7 +32,7 @@ public class Client {
         
         LOG.info("Creating LibGDX application...");
         try {
-            new Lwjgl3Application(new GameScreen(), config);
+            new Lwjgl3Application(new ErynfallGame(), config);
             LOG.info("LibGDX application created successfully");
         } catch (Exception e) {
             LOG.error("Failed to create LibGDX application", e);

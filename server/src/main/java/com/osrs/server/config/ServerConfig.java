@@ -78,8 +78,16 @@ public class ServerConfig {
                 Map<String, Object> db = (Map<String, Object>) yaml.get("database");
                 config.dbUrl = getString(db, "url", "jdbc:postgresql://localhost:5432/osrs_mmorp");
                 config.dbUser = getString(db, "user", "postgres");
-                config.dbPassword = getString(db, "password", "password");
+                config.dbPassword = getString(db, "password", "");
                 config.maxConnections = getInt(db, "max_connections", 10);
+            }
+
+            // Environment variable overrides YAML for sensitive values (never commit passwords)
+            String envPassword = System.getenv("DB_PASSWORD");
+            if (envPassword != null && !envPassword.isEmpty()) {
+                config.dbPassword = envPassword;
+            } else if (config.dbPassword.isEmpty()) {
+                LOG.warn("DB_PASSWORD environment variable not set and no password in config — DB connection will fail");
             }
             
             // Load network section

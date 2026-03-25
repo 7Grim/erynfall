@@ -1,15 +1,12 @@
 items:
+  # ── Non-equippable drops ──────────────────────────────────────────────────
+
   - id: 526
     name: "Bones"
     examine: "Bury these for Prayer XP."
     stackable: false
     equipable: false
     consumable: false
-    consume_heal: 0
-    equip_slot: -1
-    attack_bonus: 0
-    strength_bonus: 0
-    defence_bonus: 0
 
   - id: 995
     name: "Coins"
@@ -17,11 +14,6 @@ items:
     stackable: true
     equipable: false
     consumable: false
-    consume_heal: 0
-    equip_slot: -1
-    attack_bonus: 0
-    strength_bonus: 0
-    defence_bonus: 0
 
   - id: 314
     name: "Feather"
@@ -29,11 +21,6 @@ items:
     stackable: true
     equipable: false
     consumable: false
-    consume_heal: 0
-    equip_slot: -1
-    attack_bonus: 0
-    strength_bonus: 0
-    defence_bonus: 0
 
   - id: 2138
     name: "Raw chicken"
@@ -41,11 +28,6 @@ items:
     stackable: false
     equipable: false
     consumable: false
-    consume_heal: 0
-    equip_slot: -1
-    attack_bonus: 0
-    strength_bonus: 0
-    defence_bonus: 0
 
   - id: 2142
     name: "Cowhide"
@@ -53,11 +35,6 @@ items:
     stackable: false
     equipable: false
     consumable: false
-    consume_heal: 0
-    equip_slot: -1
-    attack_bonus: 0
-    strength_bonus: 0
-    defence_bonus: 0
 
   - id: 1739
     name: "Leather"
@@ -65,11 +42,6 @@ items:
     stackable: false
     equipable: false
     consumable: false
-    consume_heal: 0
-    equip_slot: -1
-    attack_bonus: 0
-    strength_bonus: 0
-    defence_bonus: 0
 
   - id: 1000
     name: "Rat tail"
@@ -77,11 +49,6 @@ items:
     stackable: false
     equipable: false
     consumable: false
-    consume_heal: 0
-    equip_slot: -1
-    attack_bonus: 0
-    strength_bonus: 0
-    defence_bonus: 0
 
   - id: 2134
     name: "Raw rat meat"
@@ -89,11 +56,8 @@ items:
     stackable: false
     equipable: false
     consumable: false
-    consume_heal: 0
-    equip_slot: -1
-    attack_bonus: 0
-    strength_bonus: 0
-    defence_bonus: 0
+
+  # ── Food ─────────────────────────────────────────────────────────────────
 
   - id: 315
     name: "Shrimps"
@@ -102,10 +66,6 @@ items:
     equipable: false
     consumable: true
     consume_heal: 3
-    equip_slot: -1
-    attack_bonus: 0
-    strength_bonus: 0
-    defence_bonus: 0
 
   - id: 361
     name: "Tuna"
@@ -114,10 +74,6 @@ items:
     equipable: false
     consumable: true
     consume_heal: 10
-    equip_slot: -1
-    attack_bonus: 0
-    strength_bonus: 0
-    defence_bonus: 0
 
   - id: 385
     name: "Shark"
@@ -126,10 +82,9 @@ items:
     equipable: false
     consumable: true
     consume_heal: 20
-    equip_slot: -1
-    attack_bonus: 0
-    strength_bonus: 0
-    defence_bonus: 0
+
+  # ── Weapons ──────────────────────────────────────────────────────────────
+  # Source: https://oldschool.runescape.wiki/w/Bronze_sword
 
   - id: 1277
     name: "Bronze sword"
@@ -137,11 +92,53 @@ items:
     stackable: false
     equipable: true
     consumable: false
-    consume_heal: 0
+    equip_slot: 4              # WEAPON
+    weapon_type: "slash"
+    attack_range: 1
+    stab_attack: 7
+    slash_attack: 3
+    crush_attack: -1
+    melee_strength: 6
+
+  - id: 1321
+    name: "Bronze scimitar"
+    examine: "A finely balanced bronze scimitar."
+    stackable: false
+    equipable: true
+    consumable: false
     equip_slot: 4
-    attack_bonus: 7
-    strength_bonus: 5
-    defence_bonus: 0
+    weapon_type: "slash"
+    attack_range: 1
+    stab_attack: -2
+    slash_attack: 14
+    crush_attack: -2
+    melee_strength: 14
+
+  # ── Ranged weapons and ammo ───────────────────────────────────────────────
+  # Source: https://oldschool.runescape.wiki/w/Shortbow
+
+  - id: 841
+    name: "Shortbow"
+    examine: "Short but effective."
+    stackable: false
+    equipable: true
+    consumable: false
+    equip_slot: 4
+    weapon_type: "ranged"
+    attack_range: 7
+    ranged_attack: 8
+
+  - id: 882
+    name: "Bronze arrow"
+    examine: "Arrows with bronze heads."
+    stackable: true
+    equipable: true
+    consumable: false
+    equip_slot: 10             # AMMO
+    ranged_strength: 7
+
+  # ── Shields ───────────────────────────────────────────────────────────────
+  # Source: https://oldschool.runescape.wiki/w/Wooden_shield  (tutorial item)
 
   - id: 1173
     name: "Wooden shield"
@@ -149,11 +146,14 @@ items:
     stackable: false
     equipable: true
     consumable: false
-    consume_heal: 0
-    equip_slot: 5
-    attack_bonus: 0
-    strength_bonus: 0
-    defence_bonus: 4
+    equip_slot: 5              # SHIELD
+    stab_defence: 2
+    slash_defence: 3
+    crush_defence: 2
+    ranged_defence: 2
+
+  # ── Helmets ───────────────────────────────────────────────────────────────
+  # Source: https://oldschool.runescape.wiki/w/Bronze_full_helm
 
   - id: 1115
     name: "Bronze full helm"
@@ -161,11 +161,15 @@ items:
     stackable: false
     equipable: true
     consumable: false
-    consume_heal: 0
-    equip_slot: 0
-    attack_bonus: 0
-    strength_bonus: 0
-    defence_bonus: 3
+    equip_slot: 0              # HEAD
+    stab_defence: 3
+    slash_defence: 4
+    crush_defence: 3
+    magic_defence: -1
+    ranged_defence: 4
+
+  # ── Body armour ────────────────────────────────────────────────────────────
+  # Source: https://oldschool.runescape.wiki/w/Bronze_platebody
 
   - id: 1119
     name: "Bronze platebody"
@@ -173,11 +177,18 @@ items:
     stackable: false
     equipable: true
     consumable: false
-    consume_heal: 0
-    equip_slot: 6
-    attack_bonus: 0
-    strength_bonus: 0
-    defence_bonus: 8
+    equip_slot: 6              # BODY
+    magic_attack: -6
+    ranged_attack: -15
+    stab_defence: 17
+    slash_defence: 17
+    crush_defence: 15
+    magic_defence: -6
+    ranged_defence: 17
+    prayer: -1
+
+  # ── Leg armour ─────────────────────────────────────────────────────────────
+  # Source: https://oldschool.runescape.wiki/w/Bronze_platelegs
 
   - id: 1067
     name: "Bronze platelegs"
@@ -185,8 +196,11 @@ items:
     stackable: false
     equipable: true
     consumable: false
-    consume_heal: 0
-    equip_slot: 7
-    attack_bonus: 0
-    strength_bonus: 0
-    defence_bonus: 6
+    equip_slot: 7              # LEGS
+    magic_attack: -2
+    ranged_attack: -7
+    stab_defence: 11
+    slash_defence: 13
+    crush_defence: 11
+    magic_defence: -2
+    ranged_defence: 11

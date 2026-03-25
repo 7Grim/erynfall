@@ -1,6 +1,8 @@
 package com.osrs.client.ui;
 
+import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
@@ -30,7 +32,7 @@ public class SidePanel {
     // -----------------------------------------------------------------------
 
     /** Width of the side panel in pixels. Matches InventoryUI's internal width. */
-    public static final int PANEL_W   = 190;
+    public static final int PANEL_W   = 240;
     /** Height of the tab icon row at the top of the panel. */
     public static final int TAB_H     = 36;
     /** Height of the content area (sized to fit 7-row inventory). */
@@ -39,6 +41,30 @@ public class SidePanel {
     public static final int TOTAL_H   = TAB_H + CONTENT_H;
     /** Gap between panel edge and screen edge. */
     public static final int MARGIN    = 8;
+
+    // -----------------------------------------------------------------------
+    // OSRS XP table — exact formula: floor(level + 300 * 2^(level/7)) / 4
+    // -----------------------------------------------------------------------
+
+    /** XP required to reach each level. Index = level (1-99). */
+    private static final long[] XP_TABLE = buildXpTable();
+
+    private static long[] buildXpTable() {
+        long[] table = new long[100];  // index = level
+        long   points = 0;
+        for (int level = 1; level < 99; level++) {
+            points += (long) Math.floor(level + 300.0 * Math.pow(2.0, level / 7.0));
+            table[level + 1] = (long) Math.floor(points / 4.0);
+        }
+        return table;
+    }
+
+    /** XP required to reach {@code level} (1–99). Returns 0 for level 1, caps at 13,034,431. */
+    private static long xpForLevel(int level) {
+        if (level <= 1)  return 0L;
+        if (level >= 99) return 13_034_431L;
+        return XP_TABLE[level];
+    }
 
     // -----------------------------------------------------------------------
     // Tab definitions  — ordered left to right in the tab bar
@@ -106,7 +132,7 @@ public class SidePanel {
     // -----------------------------------------------------------------------
 
     public void render(ShapeRenderer sr, SpriteBatch batch, BitmapFont font,
-                       int screenW, int screenH, Matrix4 proj) {
+                       int screenW, int screenH, Matrix4 proj, int mouseX, int mouseY) {
         panelX = screenW - PANEL_W - MARGIN;
         panelY = MARGIN;
 
@@ -135,7 +161,7 @@ public class SidePanel {
         // --- Active tab content ---
         switch (activeTab) {
             case COMBAT    -> renderCombatTab(sr, batch, font, proj);
-            case SKILLS    -> renderSkillsTab(sr, batch, font, proj);
+            case SKILLS    -> renderSkillsTab(sr, batch, font, proj, screenW, screenH, mouseX, mouseY);
             case INVENTORY -> inventoryUI.render(sr, batch, font, panelX + 2, panelY, proj);
         }
     }
@@ -146,90 +172,80 @@ public class SidePanel {
 
     private void renderTabBar(ShapeRenderer sr, SpriteBatch batch, BitmapFont font, Matrix4 proj) {
         int tabBarY = panelY + CONTENT_H;
-        int tabW    = PANEL_W / TABS.length;          // ~63 px each
-        int lastW   = PANEL_W - tabW * (TABS.length - 1); // absorb rounding
+        int tabW    = PANEL_W / TABS.length;
+        int lastW   = PANEL_W - tabW * (TABS.length - 1);
 
+        // ── Pass 1: all filled backgrounds + icons ───────────────────────────
+        sr.setProjectionMatrix(proj);
+        sr.begin(ShapeRenderer.ShapeType.Filled);
         for (int i = 0; i < TABS.length; i++) {
-            int tx = panelX + i * tabW;
-            int tw = (i == TABS.length - 1) ? lastW : tabW;
+            int     tx     = panelX + i * tabW;
+            int     tw     = (i == TABS.length - 1) ? lastW : tabW;
             boolean active = (TABS[i] == activeTab);
 
-            // Button fill
-            sr.begin(ShapeRenderer.ShapeType.Filled);
             sr.setColor(active
-                ? new Color(0.28f, 0.22f, 0.05f, 1f)   // active: dark gold
-                : new Color(0.16f, 0.14f, 0.12f, 1f));  // inactive: very dark
+                ? new Color(0.28f, 0.22f, 0.05f, 1f)
+                : new Color(0.16f, 0.14f, 0.12f, 1f));
             sr.rect(tx + 1, tabBarY + 1, tw - 2, TAB_H - 2);
-            sr.end();
 
-            // Button border
-            sr.begin(ShapeRenderer.ShapeType.Line);
-            sr.setColor(active
-                ? new Color(1.0f, 0.85f, 0.10f, 1f)     // active: bright gold
-                : new Color(0.42f, 0.36f, 0.22f, 1f));  // inactive: dim tan
-            sr.rect(tx + 1, tabBarY + 1, tw - 2, TAB_H - 2);
-            sr.end();
-
-            // Draw icon shape
-            int cx = tx + tw / 2;
-            int cy = tabBarY + TAB_H / 2 + 5;
-            drawTabIcon(sr, i, cx, cy, active);
+            // Icon
+            int     cx = tx + tw / 2;
+            int     cy = tabBarY + TAB_H / 2 + 5;
+            Color   c  = active ? new Color(1f, 0.88f, 0.15f, 1f)
+                                 : new Color(0.55f, 0.50f, 0.40f, 1f);
+            sr.setColor(c);
+            switch (i) {
+                case 0 -> {
+                    sr.rect(cx - 7, cy - 2, 14, 3);
+                    sr.rect(cx - 2, cy - 6, 3, 12);
+                    sr.setColor(c.r * 0.7f, c.g * 0.7f, c.b * 0.7f, 1f);
+                    sr.rect(cx - 5, cy - 1, 10, 1);
+                }
+                case 1 -> {
+                    sr.rect(cx - 7, cy - 6, 4, 4);
+                    sr.rect(cx - 2, cy - 6, 4, 8);
+                    sr.rect(cx + 3, cy - 6, 4, 12);
+                }
+                case 2 -> {
+                    sr.rect(cx - 6, cy + 1, 5, 5);
+                    sr.rect(cx + 1, cy + 1, 5, 5);
+                    sr.rect(cx - 6, cy - 6, 5, 5);
+                    sr.rect(cx + 1, cy - 6, 5, 5);
+                }
+            }
         }
+        sr.end();
 
-        // Tab labels (below icons)
+        // ── Pass 2: all borders ──────────────────────────────────────────────
+        sr.begin(ShapeRenderer.ShapeType.Line);
+        for (int i = 0; i < TABS.length; i++) {
+            int     tx     = panelX + i * tabW;
+            int     tw     = (i == TABS.length - 1) ? lastW : tabW;
+            boolean active = (TABS[i] == activeTab);
+            sr.setColor(active
+                ? new Color(1.0f, 0.85f, 0.10f, 1f)
+                : new Color(0.42f, 0.36f, 0.22f, 1f));
+            sr.rect(tx + 1, tabBarY + 1, tw - 2, TAB_H - 2);
+        }
+        sr.end();
+
+        // ── Pass 3: labels ───────────────────────────────────────────────────
         batch.setProjectionMatrix(proj);
         batch.begin();
         font.getData().setScale(0.65f);
         for (int i = 0; i < TABS.length; i++) {
-            int tx = panelX + i * tabW;
-            int tw = (i == TABS.length - 1) ? lastW : tabW;
+            int     tx     = panelX + i * tabW;
+            int     tw     = (i == TABS.length - 1) ? lastW : tabW;
             boolean active = (TABS[i] == activeTab);
             font.setColor(active
                 ? new Color(1f, 0.90f, 0.10f, 1f)
                 : new Color(0.65f, 0.60f, 0.50f, 1f));
-            // Approximate center the text (each char ≈ 7px at 0.65 scale)
             int charW = (int) (TABS[i].label.length() * 7);
             font.draw(batch, TABS[i].label, tx + (tw - charW) / 2f, panelY + CONTENT_H + 13);
         }
         font.getData().setScale(1f);
         font.setColor(Color.WHITE);
         batch.end();
-    }
-
-    /**
-     * Draws a small shape icon for each tab using only ShapeRenderer primitives.
-     * All icons fit within a ~14×12 px bounding box centred at (cx, cy).
-     */
-    private void drawTabIcon(ShapeRenderer sr, int tabIdx, int cx, int cy, boolean active) {
-        Color c = active ? new Color(1f, 0.88f, 0.15f, 1f) : new Color(0.55f, 0.50f, 0.40f, 1f);
-        sr.begin(ShapeRenderer.ShapeType.Filled);
-        sr.setColor(c);
-        switch (tabIdx) {
-            case 0 -> {
-                // Combat: two crossed diagonal rectangles (suggesting crossed swords)
-                // Horizontal blade
-                sr.rect(cx - 7, cy - 2, 14, 3);
-                // Vertical blade
-                sr.rect(cx - 2, cy - 6, 3, 12);
-                // Small guard crosspiece
-                sr.setColor(c.r * 0.7f, c.g * 0.7f, c.b * 0.7f, 1f);
-                sr.rect(cx - 5, cy - 1, 10, 1);
-            }
-            case 1 -> {
-                // Skills: three ascending bars (like a level-up chart)
-                sr.rect(cx - 7, cy - 6, 4, 4);   // short bar
-                sr.rect(cx - 2, cy - 6, 4, 8);   // medium bar
-                sr.rect(cx + 3, cy - 6, 4, 12);  // tall bar
-            }
-            case 2 -> {
-                // Inventory: 2×2 grid of small squares (bag contents)
-                sr.rect(cx - 6, cy + 1, 5, 5);
-                sr.rect(cx + 1, cy + 1, 5, 5);
-                sr.rect(cx - 6, cy - 6, 5, 5);
-                sr.rect(cx + 1, cy - 6, 5, 5);
-            }
-        }
-        sr.end();
     }
 
     // -----------------------------------------------------------------------
@@ -339,91 +355,189 @@ public class SidePanel {
     }
 
     // -----------------------------------------------------------------------
-    // Skills tab
+    // Skills tab  —  OSRS-accurate layout
+    //
+    // OSRS skills tab uses a 3-column grid where each cell shows:
+    //   [skill icon 32×32]  [level]
+    // The level is displayed as a yellow number (current level).
+    // Skill names are not shown as text — the icon identifies the skill.
+    // XP is NOT shown in the cell; it appears only on hover.
+    //
+    // For our 6 MVP skills we use a 2-column, 3-row grid that closely
+    // mirrors the left two columns of the real OSRS skills tab.
+    // Column order matches OSRS: Attack/Strength/Defence on the left,
+    // Hitpoints/Ranged/Magic on the right.
     // -----------------------------------------------------------------------
 
-    private void renderSkillsTab(ShapeRenderer sr, SpriteBatch batch, BitmapFont font, Matrix4 proj) {
-        int pad  = 8;
-        int rowH = 46;   // height per skill row
+    /** Maps our skill array index to the OSRS two-column grid position.
+     *  [col, row] — col 0 = left column, col 1 = right column. */
+    private static final int[][] SKILL_GRID_POS = {
+        {0, 0},  // Attack     — left col,  row 0
+        {0, 1},  // Strength   — left col,  row 1
+        {0, 2},  // Defence    — left col,  row 2
+        {1, 0},  // Hitpoints  — right col, row 0
+        {1, 1},  // Ranged     — right col, row 1
+        {1, 2},  // Magic      — right col, row 2
+    };
 
-        // Title
+    private void renderSkillsTab(ShapeRenderer sr, SpriteBatch batch, BitmapFont font, Matrix4 proj,
+                                  int screenW, int screenH, int mouseX, int mouseY) {
+        final int COLS   = 2;
+        final int ROWS   = 3;
+        final int PAD    = 6;
+        final int CELL_W = (PANEL_W - PAD * (COLS + 1)) / COLS;  // ~86 px
+        final int CELL_H = (CONTENT_H - PAD * (ROWS + 1)) / ROWS; // ~96 px
+        final int ICON_SZ = 22;
+
+        // Precompute cell origins
+        int[] cellX = new int[6], cellY = new int[6];
+        for (int i = 0; i < 6; i++) {
+            cellX[i] = panelX + PAD + SKILL_GRID_POS[i][0] * (CELL_W + PAD);
+            cellY[i] = panelY + CONTENT_H - PAD - (SKILL_GRID_POS[i][1] + 1) * (CELL_H + PAD) + PAD;
+        }
+
+        // ── Pass 1: all filled shapes (backgrounds + icons) ─────────────────
+        sr.setProjectionMatrix(proj);
+        sr.begin(ShapeRenderer.ShapeType.Filled);
+        for (int i = 0; i < 6; i++) {
+            int cx = cellX[i], cy = cellY[i];
+            // Cell background
+            sr.setColor(0.11f, 0.10f, 0.08f, 1f);
+            sr.rect(cx, cy, CELL_W, CELL_H);
+            // Skill icon
+            int iconX = cx + (CELL_W - ICON_SZ) / 2;
+            int iconY = cy + CELL_H - ICON_SZ - 8;
+            Color ic  = SKILL_COLORS[i];
+            sr.setColor(ic.r, ic.g, ic.b, 1f);
+            sr.rect(iconX, iconY, ICON_SZ, ICON_SZ);
+            // Highlight edges
+            sr.setColor(Math.min(1f, ic.r + 0.35f), Math.min(1f, ic.g + 0.35f),
+                        Math.min(1f, ic.b + 0.35f), 0.65f);
+            sr.rect(iconX, iconY + ICON_SZ - 4, ICON_SZ, 4);
+            sr.rect(iconX, iconY, 4, ICON_SZ);
+        }
+        sr.end();
+
+        // ── Pass 2: all borders (Line mode) ─────────────────────────────────
+        sr.begin(ShapeRenderer.ShapeType.Line);
+        sr.setColor(0.48f, 0.40f, 0.18f, 1f);
+        for (int i = 0; i < 6; i++) {
+            sr.rect(cellX[i], cellY[i], CELL_W, CELL_H);
+        }
+        sr.end();
+
+        // ── Pass 3: all text ─────────────────────────────────────────────────
+        batch.setProjectionMatrix(proj);
+        batch.begin();
+        for (int i = 0; i < 6; i++) {
+            int cx = cellX[i], cy = cellY[i];
+
+            // Skill name — small grey text below icon
+            font.getData().setScale(0.7f);
+            font.setColor(0.75f, 0.70f, 0.60f, 1f);
+            String name  = SKILL_NAMES[i];
+            float  nameW = name.length() * 5.8f;
+            font.draw(batch, name, cx + (CELL_W - nameW) / 2f, cy + CELL_H - 34);
+
+            // Level — large yellow number
+            font.getData().setScale(1.0f);
+            font.setColor(1f, 0.85f, 0.10f, 1f);
+            String lvl  = String.valueOf(skillLevels[i]);
+            float  lvlW = lvl.length() * 8f;
+            font.draw(batch, lvl, cx + (CELL_W - lvlW) / 2f, cy + 22);
+        }
+        font.getData().setScale(1f);
+        font.setColor(Color.WHITE);
+        batch.end();
+
+        // ── Tooltip: show XP info when mouse hovers a skill cell ─────────────
+        for (int i = 0; i < 6; i++) {
+            if (mouseX >= cellX[i] && mouseX < cellX[i] + CELL_W
+             && mouseY >= cellY[i] && mouseY < cellY[i] + CELL_H) {
+                renderSkillTooltip(sr, batch, font, proj, i, mouseX, mouseY, screenW, screenH);
+                break;
+            }
+        }
+    }
+
+    /**
+     * Renders an OSRS-style tooltip to the left of the side panel showing:
+     *  - Skill name
+     *  - Current XP (formatted with commas)
+     *  - Remaining XP to next level + progress bar
+     */
+    private void renderSkillTooltip(ShapeRenderer sr, SpriteBatch batch, BitmapFont font,
+                                     Matrix4 proj, int skillIdx, int mouseX, int mouseY,
+                                     int screenW, int screenH) {
+        int  level       = skillLevels[skillIdx];
+        long currentXp   = skillXp[skillIdx];
+        long xpThisLevel = xpForLevel(level);
+        long xpNextLevel = xpForLevel(level + 1);
+        long remaining   = (level >= 99) ? 0L : Math.max(0L, xpNextLevel - currentXp);
+        float progress   = (level >= 99) ? 1f
+                         : (xpNextLevel <= xpThisLevel) ? 1f
+                         : (float)(currentXp - xpThisLevel) / (float)(xpNextLevel - xpThisLevel);
+        progress = Math.min(1f, Math.max(0f, progress));
+
+        final int TIP_W = 215;
+        final int TIP_H = 80;
+        final int T_PAD = 8;
+        final int BAR_H = 6;
+
+        int tipX = panelX - TIP_W - 10;
+        int tipY = mouseY - TIP_H / 2;
+        if (tipX < 4)                    tipX = 4;
+        if (tipY < 4)                    tipY = 4;
+        if (tipY + TIP_H > screenH - 4)  tipY = screenH - TIP_H - 4;
+
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
+
+        // Background + progress bar fill
+        sr.setProjectionMatrix(proj);
+        sr.begin(ShapeRenderer.ShapeType.Filled);
+        sr.setColor(0.07f, 0.06f, 0.05f, 0.96f);
+        sr.rect(tipX, tipY, TIP_W, TIP_H);
+        // Progress bar track
+        sr.setColor(0.18f, 0.14f, 0.04f, 1f);
+        sr.rect(tipX + T_PAD, tipY + T_PAD, TIP_W - T_PAD * 2, BAR_H);
+        // Progress bar fill (gold)
+        sr.setColor(0.85f, 0.70f, 0.10f, 1f);
+        sr.rect(tipX + T_PAD, tipY + T_PAD, (TIP_W - T_PAD * 2) * progress, BAR_H);
+        sr.end();
+
+        // Border
+        sr.begin(ShapeRenderer.ShapeType.Line);
+        sr.setColor(0.75f, 0.62f, 0.10f, 1f);
+        sr.rect(tipX, tipY, TIP_W, TIP_H);
+        sr.end();
+
         batch.setProjectionMatrix(proj);
         batch.begin();
         font.getData().setScale(0.85f);
-        font.setColor(new Color(0.9f, 0.80f, 0.50f, 1f));
-        font.draw(batch, "Skills", panelX + pad, panelY + CONTENT_H - 8);
+
+        // Skill name (gold, bold appearance via colour)
+        font.setColor(1f, 0.85f, 0.10f, 1f);
+        font.draw(batch, SKILL_NAMES[skillIdx], tipX + T_PAD, tipY + TIP_H - T_PAD);
+
+        // Current XP
+        font.setColor(Color.WHITE);
+        font.draw(batch, "XP: " + String.format("%,d", currentXp),
+                  tipX + T_PAD, tipY + TIP_H - T_PAD - 18);
+
+        // Remaining XP / max level
+        if (level >= 99) {
+            font.setColor(1f, 0.85f, 0.10f, 1f);
+            font.draw(batch, "MAX LEVEL", tipX + T_PAD, tipY + TIP_H - T_PAD - 36);
+        } else {
+            font.setColor(0.75f, 0.75f, 0.75f, 1f);
+            font.draw(batch, "Remaining XP: " + String.format("%,d", remaining),
+                      tipX + T_PAD, tipY + TIP_H - T_PAD - 36);
+        }
+
         font.getData().setScale(1f);
         font.setColor(Color.WHITE);
         batch.end();
-
-        // Title underline
-        sr.begin(ShapeRenderer.ShapeType.Filled);
-        sr.setColor(0.45f, 0.38f, 0.22f, 1f);
-        sr.rect(panelX + pad, panelY + CONTENT_H - 20, PANEL_W - pad * 2, 1);
-        sr.end();
-
-        // Two-column layout: 3 skills left, 3 skills right (like OSRS skills tab)
-        int colW  = (PANEL_W - pad * 3) / 2;
-        int startY = panelY + CONTENT_H - 28;
-
-        for (int i = 0; i < 6; i++) {
-            int col = i % 2;
-            int row = i / 2;
-            int sx  = panelX + pad + col * (colW + pad);
-            int sy  = startY - (row + 1) * (rowH + 4);
-
-            // Row background
-            sr.begin(ShapeRenderer.ShapeType.Filled);
-            sr.setColor(0.14f, 0.12f, 0.10f, 1f);
-            sr.rect(sx, sy, colW, rowH);
-            sr.end();
-
-            // Left color bar (skill color accent)
-            sr.begin(ShapeRenderer.ShapeType.Filled);
-            sr.setColor(SKILL_COLORS[i]);
-            sr.rect(sx, sy, 3, rowH);
-            sr.end();
-
-            // Row border
-            sr.begin(ShapeRenderer.ShapeType.Line);
-            sr.setColor(0.35f, 0.30f, 0.20f, 1f);
-            sr.rect(sx, sy, colW, rowH);
-            sr.end();
-        }
-
-        // Text labels
-        batch.setProjectionMatrix(proj);
-        batch.begin();
-        for (int i = 0; i < 6; i++) {
-            int col = i % 2;
-            int row = i / 2;
-            int sx  = panelX + pad + col * (colW + pad);
-            int sy  = startY - (row + 1) * (rowH + 4);
-
-            // Skill name
-            font.getData().setScale(0.80f);
-            font.setColor(Color.WHITE);
-            font.draw(batch, SKILL_NAMES[i], sx + 7, sy + rowH - 6);
-
-            // Level — right-aligned within column
-            font.setColor(new Color(1f, 0.85f, 0.10f, 1f));
-            String lvlStr = String.valueOf(skillLevels[i]);
-            font.draw(batch, lvlStr, sx + colW - 18, sy + rowH - 6);
-
-            // XP
-            font.getData().setScale(0.65f);
-            font.setColor(0.58f, 0.55f, 0.48f, 1f);
-            font.draw(batch, formatXp(skillXp[i]) + " xp", sx + 7, sy + 14);
-        }
-        font.getData().setScale(1f);
-        font.setColor(Color.WHITE);
-        batch.end();
-    }
-
-    private static String formatXp(long xp) {
-        if (xp >= 1_000_000) return String.format("%.1fM", xp / 1_000_000.0);
-        if (xp >= 1_000)     return String.format("%.1fK", xp / 1_000.0);
-        return String.valueOf(xp);
     }
 
     // -----------------------------------------------------------------------
@@ -479,6 +593,7 @@ public class SidePanel {
     }
 
     public boolean isInventoryTabActive() { return activeTab == Tab.INVENTORY; }
+    public int     getPanelX()            { return panelX; }
 
     // -----------------------------------------------------------------------
     // Drag support (inventory)

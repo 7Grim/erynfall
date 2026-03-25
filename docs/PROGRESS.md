@@ -1,12 +1,43 @@
 # PROGRESS.md - Sprint Tracking
 
-**Last Updated:** 2026-03-23 (S2 client rendering complete, all systems wired end-to-end)
+**Last Updated:** 2026-03-25 (S3 auth, persistence, equipment bonuses, combat rewrite complete)
 
-**Current Sprint:** S2 (Combat Basics) — Complete, ready for testing
+**Current Sprint:** S3 — Account auth + persistence shipped; dialogue/quest wiring remains
 
 **Team:** victorystyle (lead dev), game artist (TBD)
 
-**Work Summary Today (2026-03-23):**
+**Work Summary 2026-03-25 (S3 account auth, persistence, equipment bonuses, OSRS combat):**
+- ✅ LoginScreen: OSRS-style login UI (username/password fields, Tab to switch, Enter to submit, asterisk masking)
+- ✅ ErynfallGame: LibGDX Game wrapper — starts with LoginScreen, transitions to GameScreen on submit
+- ✅ PlayerRepository: full DB auth — BCrypt login, auto-register on first play, DB-offline fallback to in-memory
+- ✅ Server saves player XP + position on disconnect and every 60 seconds (autosave)
+- ✅ Handshake sends all 6 skill levels to client on login (skills tab populates immediately)
+- ✅ Stats.java deleted (was vestigial/unused — Player.java canonical skill tracking)
+- ✅ Hitpoints XP bug fixed: new players now start at 1,154 XP (level 10) consistently
+- ✅ Password security fix: Azure SQL password removed from server.yml; reads from DB_PASSWORD env var
+- ✅ ItemDefinition expanded: full 14-field OSRS bonus model (stab/slash/crush/magic/ranged atk+def, meleeStr, rangedStr, magicDmg, prayer, weaponType)
+- ✅ items.yaml updated: OSRS-accurate stats for all equipment (bronze sword +6 str, scimitar +14, shortbow, bronze arrows, shield, helm, platebody, platelegs)
+- ✅ NPC combat stats added: attackLevel, strengthLevel, defenceLevel, attackBonus, strengthBonus, defenceBonus (defaults from combatLevel)
+- ✅ EquipmentBonusCalculator: sums all 11 equipment slots per player each combat tick
+- ✅ CombatEngine rewritten: exact OSRS hit-chance formula, max-hit formula for melee and ranged; replaces old simplified 50±bonus% approximation
+- ✅ SQL migration created: sql/migrations/001_add_missing_skill_columns.sql (hitpoints_xp + ranged_xp)
+
+**Pending Azure setup (must do before auth works on prod):**
+- Rotate Azure SQL password (old one was in git history — treat as compromised)
+- Run sql/migrations/001_add_missing_skill_columns.sql on erynfall database
+- Set DB_PASSWORD environment variable before starting server
+
+**Work Summary 2026-03-24 (S3 HUD + XP UI polish):**
+- ✅ XpDropOverlay: OSRS-accurate yellow XP drops float upward on right side; simultaneous drops (e.g. Attack + Hitpoints) stacked vertically so they never overlap
+- ✅ LevelUpOverlay: golden banner popup above chat box with queued display (5s, 0.8s fade); exact OSRS text wording
+- ✅ Skills tab overhauled: 2-column grid (Attack/Str/Def left, Hitpoints/Ranged/Magic right); large yellow level numbers; renders in 3 GL passes (no per-cell begin/end spam)
+- ✅ Skill XP tooltip on hover: shows current XP (formatted with commas), remaining XP to next level, gold progress bar — rendered as floating panel left of side panel
+- ✅ Chat fully fixed: key range bug fixed (SPACE > Z), click-to-activate, own messages displayed immediately (optimistic), overhead text shows, server echo skipped to prevent duplicates
+- ✅ Combat messages now route to chat box Game filter (removed separate renderMessages overlay that was overlapping chat box at y=80)
+- ✅ HUD cleaned up: removed redundant Atk/Str/Def text (in skills tab), opponent info panel repositioned to h-105 with clear gap from HP bar
+- ✅ Side panel widened to 240px (OSRS-authentic 249px); combat buttons no longer truncate "Aggressive"/"Controlled"
+
+**Work Summary 2026-03-23 (S2 completion):**
 - ✅ Fixed packet routing (ClientMessage/ServerMessage proto wrappers — all packets now routed correctly)
 - ✅ Fixed coordinate conversion (camera.unproject + correct inverse isometric formula)
 - ✅ Left-click-to-walk working with correct tile coordinates
@@ -565,56 +596,42 @@ git checkout -b feature/s1-002-tick-loop
 
 ---
 
-## Sprint S2: Combat Basics (In Progress) 🟡
+## Sprint S2: Combat Basics — COMPLETE ✅
 
 ### S2-011: Combat Engine ✅
 - ✅ CombatEngine class (hit/miss/damage, deterministic RNG)
 - ✅ Integrated into GameLoop.processTick() (attack speed, per-tick rolling)
-- ✅ XP awards (Strength to attacker, Defence to defender)
+- ✅ XP awards (Attack/Strength/Defence/Hitpoints per combat style)
 - ✅ Server-side validation (authority-server model)
 
 ### S2-012: Combat UI ✅
-- ✅ CombatUI class (damage numbers, combat messages)
-- ✅ Placeholder rendering framework
-- ✅ Message log (max 5 messages visible)
+- ✅ CombatUI: hitsplat circles (red/white) with floating damage numbers
+- ✅ Combat messages → chat box system messages (Game filter)
+- ✅ HP bar above NPCs (shows after first hit)
+- ✅ Opponent info panel (top-left, name + level + HP bar)
 
 ### S2-013: Skill Progression ✅
-- ✅ Stats class with XP table (levels 1-99)
-- ✅ Player skill tracking (Attack, Strength, Defence, Ranged, Magic)
-- ✅ Level calculation from XP
-- ✅ XP award system
+- ✅ Stats class with exact OSRS XP table (level 99 = 13,034,431)
+- ✅ Player skill tracking: Attack, Strength, Defence, Hitpoints, Ranged, Magic
+- ✅ SkillUpdate packet: sends new_level + total_xp + leveled_up flag
+- ✅ XpDropOverlay: OSRS yellow drops, right side, float up, no overlap
+- ✅ LevelUpOverlay: golden banner with exact OSRS wording, queued, 5s display
+- ✅ Skills tab: 2-column grid with hover tooltip (XP + remaining XP + progress bar)
+- ⚠️ XP persists in-memory only — lost on server restart (needs account/persistence)
 
 ### S2-014: Inventory System ✅
-- ✅ InventoryUI class (20-slot inventory grid + 8-slot equipment)
-- ✅ Item tracking (ID + quantity)
-- ✅ Equipment slots
-- ✅ Placeholder rendering
+- ✅ InventoryUI: 20-slot inventory grid, item pickup from world, right-click use/drop
+- ✅ Ground items: server spawns + despawns; client shows name label
+- ✅ Equipment slots (stubbed — no stat bonuses applied yet)
 
 ### S2-015: Quest System ✅
-- ✅ Quest class (tasks, rewards, completion tracking)
-- ✅ QuestManager (per-player quest state)
-- ✅ Quest types: dialogue, kill, collect, action, equip
-- ✅ Tutorial Island quest initialized
+- ✅ Quest class + QuestManager (per-player quest state machine)
+- ⚠️ Quest loading from YAML not wired (QuestManager exists, no YAML state tracked)
 
 ### S2-016: Dialogue System ✅
-- ✅ DialogueEngine class (dialogue trees, state machine)
-- ✅ Dialogue branching (options → next dialogue)
-- ✅ DialogueUI (display text + options)
-- ✅ Tutorial Island dialogues (3 initial)
-
-### Network Protocol S2 Messages ✅
-- ✅ CombatHit (attacker, target, damage, health)
-- ✅ Attack (initiate combat)
-- ✅ HealthUpdate (entity health change)
-- ✅ QuestUpdate (quest progress)
-- ✅ DialogueMessage (show dialogue)
-- ✅ DialogueResponse (player chooses option)
-
-### Client/Server Integration ✅
-- ✅ ServerPacketHandler routes Attack/DialogueResponse
-- ✅ NettyClient sends combat/dialogue packets
-- ✅ GameScreen generates "Talk" + "Attack" context menu options
-- ✅ Right-click NPC → combat/dialogue ready
+- ✅ DialogueUI renders NPC text + player response options
+- ✅ TalkToNpc packet flow: approach → server validates → DialoguePrompt
+- ⚠️ DialogueEngine per-player state not fully wired (placeholder responses)
 
 ---
 

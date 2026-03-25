@@ -231,6 +231,20 @@ message ChatMessage {
     int32 type = 2;
 }
 
+// PublicChat: Client → Server (player typed a public chat message)
+message PublicChat {
+    string text = 1;   // max 80 characters; server validates and rejects if empty/too long
+}
+
+// ChatBroadcast: Server → Client (public chat from a nearby player, broadcast to all in range)
+message ChatBroadcast {
+    int32  sender_id   = 1;   // Entity ID of the sender (for overhead text placement)
+    string sender_name = 2;   // Display name shown before the message
+    string text        = 3;   // Message content (already validated by server)
+    int32  x           = 4;   // Sender's tile X at time of sending (for range-gating on client)
+    int32  y           = 5;   // Sender's tile Y
+}
+
 // SkillUpdate: Server → Client (XP gain / level-up)
 message SkillUpdate {
     int32 skill_index = 1;   // 0=Attack, 1=Strength, 2=Defence, 3=Hitpoints, 4=Ranged, 5=Magic
@@ -253,6 +267,7 @@ message ClientMessage {
         UseItem use_item = 9;
         SwapInventorySlots swap_inventory_slots = 10;
         SetCombatStyle set_combat_style = 11;
+        PublicChat public_chat = 12;
     }
 }
 
@@ -277,5 +292,6 @@ message ServerMessage {
         NpcDespawn npc_despawn = 16;
         NpcRespawn npc_respawn = 17;
         ChatMessage chat_message = 18;    // Game message shown in chat area
+        ChatBroadcast chat_broadcast = 19; // Public chat from a nearby player
     }
 }
