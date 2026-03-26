@@ -408,24 +408,16 @@ public class GameLoop {
                 }
 
             } else {
-                // Out of melee range — step one tile toward player
+                // Out of range — step one tile along a valid BFS path.
                 if (tickCount - npc.getLastPathfindTick() < NPC_MOVE_SPEED) continue;
 
-                int signX = Integer.signum(target.getX() - npc.getX());
-                int signY = Integer.signum(target.getY() - npc.getY());
-                int nx = npc.getX(), ny = npc.getY();
+                List<com.osrs.server.world.Pathfinding.Tile> path = world.findPath(
+                    npc.getX(), npc.getY(), target.getX(), target.getY());
+                if (!path.isEmpty()) {
+                    com.osrs.server.world.Pathfinding.Tile step = path.get(0);
+                    int nx = step.x;
+                    int ny = step.y;
 
-                // Try diagonal first, then cardinal fallbacks
-                if (world.canWalkTo(npc.getX() + signX, npc.getY() + signY)) {
-                    nx = npc.getX() + signX;
-                    ny = npc.getY() + signY;
-                } else if (signX != 0 && world.canWalkTo(npc.getX() + signX, npc.getY())) {
-                    nx = npc.getX() + signX;
-                } else if (signY != 0 && world.canWalkTo(npc.getX(), npc.getY() + signY)) {
-                    ny = npc.getY() + signY;
-                }
-
-                if (nx != npc.getX() || ny != npc.getY()) {
                     npc.setPosition(nx, ny);
                     npc.setLastPathfindTick(tickCount);
 

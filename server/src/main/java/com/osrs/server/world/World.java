@@ -101,7 +101,12 @@ public class World {
         
         // Initialize tile map
         this.tileMap = new TileMap();
-        tileMap.initializeDefaultMap(104, 104);  // OSRS default size
+        try {
+            tileMap.load("map.yaml");
+        } catch (Exception e) {
+            LOG.warn("Failed to load map.yaml; using default walkable map: {}", e.getMessage());
+            tileMap.initializeDefaultMap(104, 104);  // OSRS default size
+        }
         this.pathfinding = new Pathfinding(tileMap);
         LOG.info("Tile map initialized: {} x {} tiles", tileMap.getWidth(), tileMap.getHeight());
         

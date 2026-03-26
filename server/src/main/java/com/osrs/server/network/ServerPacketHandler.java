@@ -24,6 +24,7 @@ import org.slf4j.LoggerFactory;
 public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
     
     private static final Logger LOG = LoggerFactory.getLogger(ServerPacketHandler.class);
+    private static final int MAX_STEP = 1;
     
     private final NettyServer server;
     private PlayerSession session;
@@ -153,10 +154,33 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
         if (session.getPlayer() == null) {
             return;
         }
-        
-        // TODO: Validate movement (S1-009)
+
         Player player = session.getPlayer();
-        player.setPosition(movement.getX(), movement.getY());
+        int fromX = player.getX();
+        int fromY = player.getY();
+        int toX = movement.getX();
+        int toY = movement.getY();
+
+        int chebyshev = Math.max(Math.abs(toX - fromX), Math.abs(toY - fromY));
+        if (chebyshev > MAX_STEP) {
+            LOG.warn("Rejected movement for player {}: step too large from ({},{}) to ({},{})",
+                player.getId(), fromX, fromY, toX, toY);
+            sendPositionCorrection(ctx, player);
+            return;
+        }
+
+        if (!server.getWorld().canWalkTo(toX, toY)) {
+            LOG.debug("Rejected movement for player {}: blocked tile ({},{})", player.getId(), toX, toY);
+            sendChatMessage(ctx, "I can't reach that!", 1);
+            sendPositionCorrection(ctx, player);
+            return;
+        }
+
+        if (player.isInDialogue() && (toX != fromX || toY != fromY)) {
+            closeDialogue(player);
+        }
+
+        player.setPosition(toX, toY);
         player.setFacing(movement.getFacing());
         
         LOG.debug("Player {} moved to ({}, {})", 
@@ -165,6 +189,22 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
     
     private void handleWalkTo(ChannelHandlerContext ctx, NetworkProto.WalkTo walkTo) {
         if (session.getPlayer() == null) return;
+        Player player = session.getPlayer();
+
+        int tx = walkTo.getTargetX();
+        int ty = walkTo.getTargetY();
+        if (!server.getWorld().canWalkTo(tx, ty)) {
+            sendChatMessage(ctx, "I can't reach that!", 1);
+            LOG.debug("Rejected walk-to for player {}: target ({},{}) not walkable", player.getId(), tx, ty);
+            return;
+        }
+
+        if (!server.getWorld().canReach(player.getX(), player.getY(), tx, ty)) {
+            sendChatMessage(ctx, "I can't reach that!", 1);
+            LOG.debug("Rejected walk-to for player {}: no path to ({},{})", player.getId(), tx, ty);
+            return;
+        }
+
         // Walk destination noted. Actual position is updated tile-by-tile via
         // PlayerMovement packets as the client crosses each tile boundary.
         LOG.debug("Player {} walk-to destination: ({}, {})",
@@ -190,6 +230,21 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
         
         Player player = session.getPlayer();
         int targetId = attack.getTargetId();
+        NPC target = server.getWorld().getNPC(targetId);
+        if (target == null || target.isDead()) {
+            sendChatMessage(ctx, "They seem to be gone.", 1);
+            return;
+        }
+
+        int chebyshev = Math.max(Math.abs(player.getX() - target.getX()), Math.abs(player.getY() - target.getY()));
+        if (chebyshev == 0) {
+            sendChatMessage(ctx, "You step back before attacking.", 2);
+            return;
+        }
+        if (chebyshev > player.getAttackRange()) {
+            sendChatMessage(ctx, "I can't reach that!", 1);
+            return;
+        }
         
         // Find target (could be NPC or another player)
         // For now, assume NPC
@@ -255,13 +310,18 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             }
         }
 
-        // Verify proximity (player must be adjacent — Chebyshev ≤ 1)
+        // Verify proximity (talking requires adjacency and not sharing tile)
         int chebyshev = Math.max(
             Math.abs(player.getX() - npc.getX()),
             Math.abs(player.getY() - npc.getY())
         );
+        if (chebyshev == 0) {
+            sendChatMessage(ctx, "Please step away before talking.", 1);
+            return;
+        }
         if (chebyshev > 1) {
             LOG.debug("Player {} too far from NPC {} to talk (dist={})", player.getId(), npc.getId(), chebyshev);
+            sendChatMessage(ctx, "I can't reach that!", 1);
             return;
         }
 
@@ -394,6 +454,15 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             .setDialoguePrompt(prompt)
             .build());
     }
+
+    private void sendPositionCorrection(ChannelHandlerContext ctx, Player player) {
+        ctx.writeAndFlush(NetworkProto.ServerMessage.newBuilder()
+            .setEntityUpdate(NetworkProto.EntityUpdate.newBuilder()
+                .setEntityId(player.getId())
+                .setX(player.getX())
+                .setY(player.getY()))
+            .build());
+    }
     
     private void sendWorldState(ChannelHandlerContext ctx) {
         NetworkProto.WorldState.Builder wsBuilder = NetworkProto.WorldState.newBuilder()
@@ -458,11 +527,10 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             return;
         }
 
-        // Proximity check: player must be on or adjacent to the item tile (Chebyshev ≤ 1)
-        int dist = Math.max(Math.abs(player.getX() - gi.getX()), Math.abs(player.getY() - gi.getY()));
-        if (dist > 1) {
-            LOG.debug("Player {} too far from ground item {} (dist={}); client should walk first",
-                player.getId(), gi.getGroundItemId(), dist);
+        // OSRS-like pickup stance: player should stand on the item tile.
+        if (player.getX() != gi.getX() || player.getY() != gi.getY()) {
+            LOG.debug("Player {} not on ground item {} tile (player={},{} item={},{}); client should walk first",
+                player.getId(), gi.getGroundItemId(), player.getX(), player.getY(), gi.getX(), gi.getY());
             sendChatMessage(ctx, "I can't reach that!", 1);
             return;
         }

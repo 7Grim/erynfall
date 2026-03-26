@@ -881,7 +881,8 @@ public class GameScreen extends ApplicationAdapter {
     }
 
     private boolean isInRange(int px, int py, int nx, int ny) {
-        return Math.max(Math.abs(px - nx), Math.abs(py - ny)) <= INTERACT_RANGE;
+        int chebyshev = Math.max(Math.abs(px - nx), Math.abs(py - ny));
+        return chebyshev <= INTERACT_RANGE && !(px == nx && py == ny);
     }
 
     // -----------------------------------------------------------------------
@@ -914,8 +915,8 @@ public class GameScreen extends ApplicationAdapter {
         pendingGroundItemX  = itemX;
         pendingGroundItemY  = itemY;
 
-        // Walk toward the item's tile
-        if (Math.max(Math.abs(playerX - itemX), Math.abs(playerY - itemY)) > 1) {
+        // Walk onto the item's tile (OSRS pickup stance)
+        if (playerX != itemX || playerY != itemY) {
             walkDestX = itemX; walkDestY = itemY;
             if (nettyClient != null) nettyClient.sendWalkTo(itemX, itemY);
         }
@@ -939,10 +940,8 @@ public class GameScreen extends ApplicationAdapter {
             return;
         }
 
-        // Check if we've reached the item (Chebyshev ≤ 1, matching server validation)
-        int dist = Math.max(Math.abs(playerX - pendingGroundItemX),
-                            Math.abs(playerY - pendingGroundItemY));
-        if (dist <= 1) {
+        // Check if we've reached the item tile itself.
+        if (playerX == pendingGroundItemX && playerY == pendingGroundItemY) {
             // Send pickup packet — server will execute after 3-tick animation delay
             if (nettyClient != null) nettyClient.sendPickupItem(pendingGroundItemId);
             pickupAnimationTimer = PICKUP_ANIM_DURATION;
@@ -952,8 +951,8 @@ public class GameScreen extends ApplicationAdapter {
 
     /**
      * Breadth-first search on the client walkability map.
-     * Returns true if there is any walkable path from (fromX, fromY) to within
-     * 1 Chebyshev tile of (toX, toY).
+     * Returns true if there is any walkable path from (fromX, fromY) to
+     * exactly (toX, toY).
      *
      * Non-walkable tiles: WATER (2) and WALL (4) — matches TutorialIslandMap constants.
      */
@@ -975,8 +974,7 @@ public class GameScreen extends ApplicationAdapter {
 
         while (!queue.isEmpty()) {
             int[] cur = queue.poll();
-            // Reached adjacency to target
-            if (Math.max(Math.abs(cur[0] - toX), Math.abs(cur[1] - toY)) <= 1) return true;
+            if (cur[0] == toX && cur[1] == toY) return true;
 
             for (int i = 0; i < 8; i++) {
                 int nx = cur[0] + dx[i], ny = cur[1] + dy[i];
@@ -999,11 +997,30 @@ public class GameScreen extends ApplicationAdapter {
                 if (dx == 0 && dy == 0) continue;
                 int tx = nx + dx, ty = ny + dy;
                 if (!CoordinateConverter.isValidTile(tx, ty)) continue;
+                if (!isWalkableClientTile(tx, ty)) continue;
+                if (isNpcOccupying(tx, ty, pendingNpcId)) continue;
                 double d = Math.hypot(px - tx, py - ty);
                 if (d < best) { best = d; bx = tx; by = ty; }
             }
         }
         return new int[]{bx, by};
+    }
+
+    private boolean isWalkableClientTile(int x, int y) {
+        int tile = tileMap[x][y];
+        return tile != TutorialIslandMap.WATER && tile != TutorialIslandMap.WALL;
+    }
+
+    private boolean isNpcOccupying(int x, int y, int exceptNpcId) {
+        ClientPacketHandler h = handler();
+        if (h == null) return false;
+        for (Map.Entry<Integer, int[]> e : h.getEntityPositions().entrySet()) {
+            int id = e.getKey();
+            if (id == exceptNpcId || h.isPlayer(id)) continue;
+            int[] pos = e.getValue();
+            if (pos[0] == x && pos[1] == y) return true;
+        }
+        return false;
     }
 
     /**
