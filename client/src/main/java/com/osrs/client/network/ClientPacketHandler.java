@@ -104,6 +104,26 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
     private final ConcurrentLinkedQueue<DialoguePromptEvent> pendingDialoguePrompts =
         new ConcurrentLinkedQueue<>();
 
+    /** Quest updates sent by server — drained by GameScreen each frame. */
+    public static class QuestUpdateEvent {
+        public final int questId;
+        public final String questName;
+        public final int tasksCompleted;
+        public final int tasksTotal;
+        public final boolean completed;
+
+        public QuestUpdateEvent(int questId, String questName, int tasksCompleted, int tasksTotal, boolean completed) {
+            this.questId = questId;
+            this.questName = questName;
+            this.tasksCompleted = tasksCompleted;
+            this.tasksTotal = tasksTotal;
+            this.completed = completed;
+        }
+    }
+
+    private final ConcurrentLinkedQueue<QuestUpdateEvent> pendingQuestUpdates =
+        new ConcurrentLinkedQueue<>();
+
     // -----------------------------------------------------------------------
     // Player state
     // -----------------------------------------------------------------------
@@ -179,6 +199,7 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
             case HEALTH_UPDATE       -> handleHealthUpdate(packet.getHealthUpdate());
             case SKILL_UPDATE        -> handleSkillUpdate(packet.getSkillUpdate());
             case DIALOGUE_PROMPT     -> handleDialoguePrompt(packet.getDialoguePrompt());
+            case QUEST_UPDATE        -> handleQuestUpdate(packet.getQuestUpdate());
             case PLAYER_DEATH        -> handlePlayerDeath(packet.getPlayerDeath());
             case INVENTORY_UPDATE    -> handleInventoryUpdate(packet.getInventoryUpdate());
             case EQUIPMENT_UPDATE    -> handleEquipmentUpdate(packet.getEquipmentUpdate());
@@ -293,6 +314,18 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
         LOG.debug("DialoguePrompt npcId={} options={}", prompt.getNpcId(), options.size());
     }
 
+    private void handleQuestUpdate(NetworkProto.QuestUpdate update) {
+        pendingQuestUpdates.add(new QuestUpdateEvent(
+            update.getQuestId(),
+            update.getQuestName(),
+            update.getTasksCompleted(),
+            update.getTasksTotal(),
+            update.getCompleted()
+        ));
+        LOG.debug("QuestUpdate id={} progress={}/{} complete={}",
+            update.getQuestId(), update.getTasksCompleted(), update.getTasksTotal(), update.getCompleted());
+    }
+
     // -----------------------------------------------------------------------
     // Accessors for GameScreen (called from render thread)
     // -----------------------------------------------------------------------
@@ -362,6 +395,15 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
         List<DialoguePromptEvent> out = new ArrayList<>();
         DialoguePromptEvent e;
         while ((e = pendingDialoguePrompts.poll()) != null) out.add(e);
+        return out;
+    }
+
+    /** Drain quest updates queued this frame. */
+    public List<QuestUpdateEvent> drainQuestUpdates() {
+        if (pendingQuestUpdates.isEmpty()) return List.of();
+        List<QuestUpdateEvent> out = new ArrayList<>();
+        QuestUpdateEvent e;
+        while ((e = pendingQuestUpdates.poll()) != null) out.add(e);
         return out;
     }
 

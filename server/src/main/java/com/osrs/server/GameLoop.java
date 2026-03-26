@@ -5,6 +5,9 @@ import com.osrs.server.combat.CombatEngine;
 import com.osrs.server.database.DatabaseManager;
 import com.osrs.server.database.PlayerRepository;
 import com.osrs.server.network.NettyServer;
+import com.osrs.server.network.PlayerSession;
+import com.osrs.server.quest.Quest;
+import com.osrs.server.quest.QuestManager;
 import com.osrs.server.world.GroundItem;
 import com.osrs.server.world.World;
 import com.osrs.shared.ItemDefinition;
@@ -559,11 +562,52 @@ public class GameLoop {
 
         // Spawn loot for the killer
         spawnLoot(killer, npc);
+        updateKillQuestObjectives(killer, npc.getDefinitionId());
 
         // Tell all clients to remove the NPC model
         nettyServer.broadcastToAll(NetworkProto.ServerMessage.newBuilder()
             .setNpcDespawn(NetworkProto.NpcDespawn.newBuilder()
                 .setNpcId(npc.getId()))
+            .build());
+    }
+
+    private void updateKillQuestObjectives(Player killer, int npcDefinitionId) {
+        PlayerSession killerSession = nettyServer.getSessions().get(killer.getId());
+        if (killerSession == null || killerSession.getQuestManager() == null) {
+            return;
+        }
+
+        QuestManager questManager = killerSession.getQuestManager();
+        for (Quest quest : questManager.getQuests().values()) {
+            for (Quest.Task task : quest.tasks) {
+                if (task.type != Quest.TaskType.KILL || task.completed || task.targetEntityId != npcDefinitionId) {
+                    continue;
+                }
+
+                boolean finished = questManager.addTaskProgress(quest.id, task.id, 1);
+                Quest updated = questManager.getQuest(quest.id);
+                sendQuestUpdate(killerSession, updated);
+
+                if (finished) {
+                    LOG.info("Player {} completed kill objective '{}' for quest {}",
+                        killer.getId(), task.id, quest.id);
+                }
+            }
+        }
+    }
+
+    private void sendQuestUpdate(PlayerSession session, Quest quest) {
+        if (session == null || quest == null) {
+            return;
+        }
+
+        session.getChannel().writeAndFlush(NetworkProto.ServerMessage.newBuilder()
+            .setQuestUpdate(NetworkProto.QuestUpdate.newBuilder()
+                .setQuestId(quest.id)
+                .setQuestName(quest.name)
+                .setTasksCompleted(quest.getCompletedTaskCount())
+                .setTasksTotal(quest.tasks.size())
+                .setCompleted(quest.allTasksCompleted()))
             .build());
     }
 

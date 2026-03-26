@@ -173,6 +173,8 @@ public class GameScreen extends ApplicationAdapter {
     private final Map<Integer, OverheadText> overheadTexts = new HashMap<>();
     /** Entity ID used for the local player's overhead text. */
     private int localPlayerId = -1;
+    /** questId -> last displayed task completion count. */
+    private final Map<Integer, Integer> shownQuestProgress = new HashMap<>();
 
     private boolean initialized = false;
 
@@ -427,6 +429,19 @@ public class GameScreen extends ApplicationAdapter {
             if (evt.senderId == localPlayerId) continue;  // own message already displayed
             chatBox.addPublicMessage(evt.senderName, evt.text);
             overheadTexts.put(evt.senderId, new OverheadText(evt.text));
+        }
+
+        for (ClientPacketHandler.QuestUpdateEvent evt : h.drainQuestUpdates()) {
+            int shown = shownQuestProgress.getOrDefault(evt.questId, -1);
+            if (shown != evt.tasksCompleted || evt.completed) {
+                if (evt.completed) {
+                    chatBox.addSystemMessage("Quest complete: " + evt.questName + "!");
+                } else {
+                    chatBox.addSystemMessage(evt.questName + ": "
+                        + evt.tasksCompleted + "/" + evt.tasksTotal + " objectives complete.");
+                }
+                shownQuestProgress.put(evt.questId, evt.tasksCompleted);
+            }
         }
 
         for (ClientPacketHandler.DialoguePromptEvent evt : h.drainDialoguePrompts()) {

@@ -12,6 +12,7 @@ import io.netty.handler.codec.protobuf.ProtobufEncoder;
 import com.osrs.protocol.NetworkProto;
 import com.osrs.server.GameContent;
 import com.osrs.server.quest.DialogueEngine;
+import com.osrs.server.quest.Quest;
 import com.osrs.server.world.World;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -58,6 +59,7 @@ public class NettyServer {
     public World getWorld() { return world; }
     public DialogueEngine getDialogueEngine() { return gameContent.getDialogueEngine(); }
     public String getInitialDialogueIdForNpc(int npcId) { return gameContent.getInitialDialogueIdForNpc(npcId); }
+    public Map<Integer, Quest> getQuestDefinitions() { return gameContent.getQuestDefinitions(); }
 
     public void start() throws Exception {
         bossGroup = new NioEventLoopGroup(bossThreads);

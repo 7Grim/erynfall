@@ -4,6 +4,8 @@ import com.osrs.protocol.NetworkProto;
 import com.osrs.server.database.DatabaseManager;
 import com.osrs.server.database.PlayerRepository;
 import com.osrs.server.quest.DialogueEngine;
+import com.osrs.server.quest.Quest;
+import com.osrs.server.quest.QuestManager;
 import com.osrs.server.world.GroundItem;
 import com.osrs.server.world.World;
 import com.osrs.shared.CombatStyle;
@@ -120,6 +122,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
 
         session.setPlayer(player);
         session.setAuthenticated(true);
+        initializeQuestsForSession();
         server.getWorld().getPlayers().put(player.getId(), player);
         LOG.info("Player {} (id={}) entered world at ({},{})", username, player.getId(), player.getX(), player.getY());
 
@@ -127,6 +130,8 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
 
         // Send initial skill state so the client's skills tab is populated immediately
         sendAllSkillUpdates(ctx, player);
+
+        sendInitialQuestState(ctx);
 
         sendWorldState(ctx);
     }
@@ -285,7 +290,70 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
         player.setDialogueTarget(npc.getId());
 
         LOG.info("Player {} started dialogue with NPC {} ({})", player.getId(), npc.getId(), npc.getName());
+        updateDialogueQuestObjectives(ctx, npc.getId());
         sendDialoguePrompt(ctx, dialogue);
+    }
+
+    private void initializeQuestsForSession() {
+        if (session.getQuestManager() != null || session.getPlayer() == null) {
+            return;
+        }
+
+        QuestManager questManager = new QuestManager(session.getPlayer().getId());
+        for (Quest quest : server.getQuestDefinitions().values()) {
+            questManager.startQuest(quest);
+        }
+        session.setQuestManager(questManager);
+    }
+
+    private void sendInitialQuestState(ChannelHandlerContext ctx) {
+        QuestManager questManager = session.getQuestManager();
+        if (questManager == null) {
+            return;
+        }
+
+        for (Quest quest : questManager.getQuests().values()) {
+            sendQuestUpdate(ctx, quest);
+        }
+    }
+
+    private void updateDialogueQuestObjectives(ChannelHandlerContext ctx, int npcId) {
+        QuestManager questManager = session.getQuestManager();
+        if (questManager == null) {
+            return;
+        }
+
+        for (Quest quest : questManager.getQuests().values()) {
+            for (Quest.Task task : quest.tasks) {
+                if (task.type != Quest.TaskType.DIALOGUE || task.completed || task.targetEntityId != npcId) {
+                    continue;
+                }
+
+                boolean completed = questManager.addTaskProgress(quest.id, task.id, 1);
+                if (completed) {
+                    sendQuestUpdate(ctx, questManager.getQuest(quest.id));
+                }
+            }
+        }
+    }
+
+    private void sendQuestUpdate(ChannelHandlerContext ctx, Quest quest) {
+        if (quest == null) {
+            return;
+        }
+
+        int completed = quest.getCompletedTaskCount();
+        int total = quest.tasks.size();
+        boolean done = quest.allTasksCompleted();
+
+        ctx.writeAndFlush(NetworkProto.ServerMessage.newBuilder()
+            .setQuestUpdate(NetworkProto.QuestUpdate.newBuilder()
+                .setQuestId(quest.id)
+                .setQuestName(quest.name)
+                .setTasksCompleted(completed)
+                .setTasksTotal(total)
+                .setCompleted(done))
+            .build());
     }
 
     private void closeDialogue(Player player) {
