@@ -290,8 +290,14 @@ public class GameLoop {
     private void updateNPCWander() {
         for (NPC npc : world.getNPCs().values()) {
             if (npc.isDead() || npc.isInCombat() || npc.isInDialogue() || npc.getWanderRadius() <= 0) continue;
+            // Keep guide/instructor style NPCs stable; non-combat NPCs should not
+            // drift around while players attempt to start dialogue.
+            if (npc.getCombatLevel() <= 0) continue;
             // Also freeze if any player is currently attacking this NPC (even before aggro)
             if (isBeingAttackedByPlayer(npc.getId())) continue;
+            // Keep dialogue/trade style NPC interactions stable: when a player is already
+            // adjacent, do not take a wander step away before interaction packet lands.
+            if (isAnyPlayerAdjacent(npc)) continue;
 
             long next = npcNextWanderTick.getOrDefault(npc.getId(), 0L);
             if (tickCount < next) continue;
@@ -340,6 +346,12 @@ public class GameLoop {
     private void processNPCCombat() {
         for (NPC npc : world.getNPCs().values()) {
             if (npc.isDead() || !npc.isInCombat() || npc.isInDialogue()) continue;
+
+            // Non-combat NPCs (guides, bankers, etc.) should never chase/attack.
+            if (npc.getCombatLevel() <= 0) {
+                npc.setCombatTarget(-1);
+                continue;
+            }
 
             Player target = world.getPlayer(npc.getCombatTarget());
             if (target == null || target.getHealth() <= 0) {
@@ -631,7 +643,7 @@ public class GameLoop {
                     .setY(npc.getSpawnY())
                     .setHealth(npc.getMaxHealth())
                     .setMaxHealth(npc.getMaxHealth())
-                    .setCombatLevel(npc.getDefinitionId()))
+                    .setCombatLevel(npc.getCombatLevel()))
                 .build());
         }
     }
@@ -644,6 +656,19 @@ public class GameLoop {
     private boolean isBeingAttackedByPlayer(int npcId) {
         for (Player p : world.getPlayers().values()) {
             if (p.getCombatTarget() == npcId) return true;
+        }
+        return false;
+    }
+
+    private boolean isAnyPlayerAdjacent(NPC npc) {
+        for (Player p : world.getPlayers().values()) {
+            int chebyshev = Math.max(
+                Math.abs(p.getX() - npc.getX()),
+                Math.abs(p.getY() - npc.getY())
+            );
+            if (chebyshev <= 1) {
+                return true;
+            }
         }
         return false;
     }

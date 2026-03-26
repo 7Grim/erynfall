@@ -125,7 +125,7 @@ public class World {
      */
     private void spawnConfiguredNPCs() {
         for (WorldData.NPCDefinition npcDef : worldData.npcs) {
-            NPC npc = new NPC(npcDef.id, npcDef.name, npcDef.combatLevel, npcDef.x, npcDef.y);
+            NPC npc = new NPC(npcDef.id, npcDef.name, npcDef.id, npcDef.x, npcDef.y);
             npc.setMaxHealth(npcDef.maxHp);
             npc.setMaxHit(npcDef.maxHit);
             npc.setRespawnDelayTicks(npcDef.respawnDelayTicks);

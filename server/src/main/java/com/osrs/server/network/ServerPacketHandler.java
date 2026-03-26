@@ -25,6 +25,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
     
     private static final Logger LOG = LoggerFactory.getLogger(ServerPacketHandler.class);
     private static final int MAX_STEP = 1;
+    private static final int TRANSIENT_PLAYER_ID_OFFSET = 900_000;
     
     private final NettyServer server;
     private PlayerSession session;
@@ -118,7 +119,19 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
         } else {
             // DB offline: fall back to in-memory session (no persistence)
             LOG.warn("DB unavailable — logging in {} without persistence", username);
-            player = new Player(session.getSessionId(), username, 3222, 3218);
+            player = new Player(
+                TRANSIENT_PLAYER_ID_OFFSET + session.getSessionId(),
+                username,
+                server.getWorld().getSpawnX(),
+                server.getWorld().getSpawnY()
+            );
+        }
+
+        // Heal legacy accounts whose persisted coordinates are outside this local map.
+        if (!server.getWorld().canWalkTo(player.getX(), player.getY())) {
+            LOG.warn("Player {} had out-of-bounds position ({},{}); resetting to spawn ({},{})",
+                username, player.getX(), player.getY(), server.getWorld().getSpawnX(), server.getWorld().getSpawnY());
+            player.setPosition(server.getWorld().getSpawnX(), server.getWorld().getSpawnY());
         }
 
         session.setPlayer(player);
@@ -127,7 +140,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
         server.getWorld().getPlayers().put(player.getId(), player);
         LOG.info("Player {} (id={}) entered world at ({},{})", username, player.getId(), player.getX(), player.getY());
 
-        sendHandshakeResponse(ctx, true, "Welcome back, " + username + "!", session.getSessionId());
+        sendHandshakeResponse(ctx, true, "Welcome back, " + username + "!", player.getId());
 
         // Send initial skill state so the client's skills tab is populated immediately
         sendAllSkillUpdates(ctx, player);
@@ -235,15 +248,13 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             sendChatMessage(ctx, "They seem to be gone.", 1);
             return;
         }
-
-        int chebyshev = Math.max(Math.abs(player.getX() - target.getX()), Math.abs(player.getY() - target.getY()));
-        if (chebyshev == 0) {
-            sendChatMessage(ctx, "You step back before attacking.", 2);
+        if (target.getCombatLevel() <= 0) {
+            sendChatMessage(ctx, "You can't attack them.", 1);
             return;
         }
-        if (chebyshev > player.getAttackRange()) {
-            sendChatMessage(ctx, "I can't reach that!", 1);
-            return;
+
+        if (player.isInDialogue()) {
+            closeDialogue(player);
         }
         
         // Find target (could be NPC or another player)
@@ -310,15 +321,11 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             }
         }
 
-        // Verify proximity (talking requires adjacency and not sharing tile)
+        // Verify proximity (talking requires adjacency)
         int chebyshev = Math.max(
             Math.abs(player.getX() - npc.getX()),
             Math.abs(player.getY() - npc.getY())
         );
-        if (chebyshev == 0) {
-            sendChatMessage(ctx, "Please step away before talking.", 1);
-            return;
-        }
         if (chebyshev > 1) {
             LOG.debug("Player {} too far from NPC {} to talk (dist={})", player.getId(), npc.getId(), chebyshev);
             sendChatMessage(ctx, "I can't reach that!", 1);
@@ -477,7 +484,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
                 .setY(npc.getY())
                 .setHealth(npc.getHealth())
                 .setMaxHealth(npc.getMaxHealth())
-                .setCombatLevel(npc.getDefinitionId())
+                .setCombatLevel(npc.getCombatLevel())
                 .setIsPlayer(false));
         }
 

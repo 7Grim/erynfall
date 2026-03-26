@@ -191,6 +191,10 @@ public class IsometricRenderer {
      * @param npcName  entity name from the server (e.g. "Rat", "Chicken")
      */
     public void renderNPC(int npcX, int npcY, int npcId, String npcName) {
+        renderNPC((float) npcX, (float) npcY, npcId, npcName);
+    }
+
+    public void renderNPC(float npcX, float npcY, int npcId, String npcName) {
         float sx = worldToScreenX(npcX, npcY);
         float sy = worldToScreenY(npcX, npcY);
 
@@ -479,6 +483,10 @@ public class IsometricRenderer {
      * Thin red/green bar above an entity — call when HP < max.
      */
     public void renderHealthBar(int tileX, int tileY, int health, int maxHealth) {
+        renderHealthBar((float) tileX, (float) tileY, health, maxHealth);
+    }
+
+    public void renderHealthBar(float tileX, float tileY, int health, int maxHealth) {
         if (maxHealth <= 0) return;
         float sx = worldToScreenX(tileX, tileY);
         float sy = worldToScreenY(tileX, tileY);

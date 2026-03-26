@@ -18,6 +18,7 @@ public class PlayerRepository {
 
     // BCrypt cost factor — 10 is a reasonable production default (~100ms on modern hardware)
     private static final int BCRYPT_COST = 10;
+    private static final int PLAYER_ENTITY_ID_OFFSET = 100_000;
 
     // -----------------------------------------------------------------------
     // Auth: login / register
@@ -57,7 +58,8 @@ public class PlayerRepository {
             int x     = rs.getInt("x");
             int y     = rs.getInt("y");
 
-            Player player = new Player(assignedId, username, x, y);
+            int runtimeEntityId = toRuntimeEntityId(dbId);
+            Player player = new Player(runtimeEntityId, username, x, y);
             player.setSkillXp(Player.SKILL_ATTACK,    rs.getLong("attack_xp"));
             player.setSkillXp(Player.SKILL_STRENGTH,  rs.getLong("strength_xp"));
             player.setSkillXp(Player.SKILL_DEFENCE,   rs.getLong("defence_xp"));
@@ -77,7 +79,7 @@ public class PlayerRepository {
             upd.executeUpdate();
             conn.commit();
 
-            LOG.info("Login successful: {} (dbId={})", username, dbId);
+            LOG.info("Login successful: {} (dbId={}, entityId={})", username, dbId, runtimeEntityId);
             return player;
 
         } catch (SQLException e) {
@@ -113,20 +115,29 @@ public class PlayerRepository {
                 return null;
             }
 
-            // Insert new player at Tutorial Island spawn (3222, 3218)
+            // Insert new player at local world spawn (Tutorial Island center)
             PreparedStatement ins = conn.prepareStatement(
                 "INSERT INTO osrs.players (username, password_hash, x, y, hitpoints_xp) " +
-                "VALUES (?, ?, 3222, 3218, 1154)",
+                "VALUES (?, ?, 50, 50, 1154)",
                 Statement.RETURN_GENERATED_KEYS
             );
             ins.setString(1, username);
             ins.setString(2, hash);
             ins.executeUpdate();
+
+            ResultSet keys = ins.getGeneratedKeys();
+            if (!keys.next()) {
+                LOG.error("Registration succeeded but no DB id generated for {}", username);
+                conn.rollback();
+                return null;
+            }
+            int dbId = keys.getInt(1);
             conn.commit();
 
-            LOG.info("Registered new account: {}", username);
+            int runtimeEntityId = toRuntimeEntityId(dbId);
+            LOG.info("Registered new account: {} (dbId={}, entityId={})", username, dbId, runtimeEntityId);
             // New player — use defaults (all XP = 0 except HP which we set in constructor)
-            return new Player(assignedId, username, 3222, 3218);
+            return new Player(runtimeEntityId, username, 50, 50);
 
         } catch (SQLException e) {
             LOG.error("DB error during registration for {}", username, e);
@@ -233,5 +244,9 @@ public class PlayerRepository {
         } catch (SQLException e) {
             LOG.error("Failed to load inventory for: {}", player.getName(), e);
         }
+    }
+
+    private static int toRuntimeEntityId(int dbId) {
+        return PLAYER_ENTITY_ID_OFFSET + dbId;
     }
 }

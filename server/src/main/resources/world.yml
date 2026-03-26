@@ -27,7 +27,7 @@ npcs:
     location: "tutorial_island"
     x: 52
     y: 48
-    wander_radius: 2
+    wander_radius: 0
     is_aggressive: false
 
   - id: 2
@@ -38,7 +38,7 @@ npcs:
     location: "tutorial_island"
     x: 55
     y: 45
-    wander_radius: 2
+    wander_radius: 0
     is_aggressive: false
 
   # --- Rats (level 1) — weakest enemy, cannot deal damage (max_hit: 0) ---

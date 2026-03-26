@@ -128,6 +128,8 @@ public class GameScreen extends ApplicationAdapter {
     // -----------------------------------------------------------------------
     private int    pendingNpcId      = -1;
     private String pendingAction     = null; // "attack" | "talk"
+    /** Seconds until we can resend talk/attack while in range. */
+    private float  pendingActionRetryTimer = 0f;
     /** The walk-target tile we last submitted so we don't spam WalkTo. */
     private int    pendingWalkTargX  = -1, pendingWalkTargY = -1;
 
@@ -269,12 +271,11 @@ public class GameScreen extends ApplicationAdapter {
                 if (vis == null) continue;
 
                 String npcName = handler.getEntityName(id);
-                renderer.renderNPC((int) Math.round(vis[0]), (int) Math.round(vis[1]), id, npcName);
+                renderer.renderNPC(vis[0], vis[1], id, npcName);
 
                 int[] hp = handler.getEntityHealth(id);
                 if (hp[0] < hp[1]) {
-                    renderer.renderHealthBar(
-                        (int) Math.round(vis[0]), (int) Math.round(vis[1]), hp[0], hp[1]);
+                    renderer.renderHealthBar(vis[0], vis[1], hp[0], hp[1]);
                 }
             }
         }
@@ -372,6 +373,10 @@ public class GameScreen extends ApplicationAdapter {
         // Server chat messages ("I can't reach that!", "Too late — it's gone!", etc.)
         for (String msg : h.drainServerChatMessages()) {
             chatBox.addSystemMessage(msg);
+            if ("I can't reach that!".equals(msg) || "Please step away before talking.".equals(msg)) {
+                clearPendingAction();
+                pendingGroundItemId = -1;
+            }
         }
 
         // Death detection — show overlay and snap to respawn
@@ -455,6 +460,10 @@ public class GameScreen extends ApplicationAdapter {
                 uiOptions.add(new DialogueUI.DialogueOption(opt.optionId, opt.text));
             }
             dialogueUI.open("npc_" + evt.npcId, evt.npcId, evt.npcText, uiOptions);
+            // We got server acknowledgement; stop re-sending talk intent.
+            if (pendingNpcId == evt.npcId && "talk".equals(pendingAction)) {
+                clearPendingAction();
+            }
         }
     }
 
@@ -847,6 +856,9 @@ public class GameScreen extends ApplicationAdapter {
      */
     private void processApproach() {
         if (pendingNpcId < 0) return;
+        if (pendingActionRetryTimer > 0f) {
+            pendingActionRetryTimer = Math.max(0f, pendingActionRetryTimer - Gdx.graphics.getDeltaTime());
+        }
         int[] pos = npcLogicalPosition(pendingNpcId);
         if (pos == null) { clearPendingAction(); return; }
 
@@ -864,20 +876,27 @@ public class GameScreen extends ApplicationAdapter {
 
     private void executePendingAction() {
         LOG.info("In range of NPC {} — executing '{}'", pendingNpcId, pendingAction);
+        if (pendingActionRetryTimer > 0f) {
+            return;
+        }
         if (nettyClient != null) {
             if ("attack".equals(pendingAction)) {
                 nettyClient.sendAttack(pendingNpcId);
                 combatTargetId = pendingNpcId;
+                clearPendingAction();
             } else if ("talk".equals(pendingAction)) {
                 nettyClient.sendTalkToNpc(pendingNpcId);
+                // Keep pending action alive until server actually opens dialogue,
+                // because a moving NPC can invalidate a single packet attempt.
+                pendingActionRetryTimer = 0.25f;
             }
         }
-        clearPendingAction();
     }
 
     private void clearPendingAction() {
         pendingNpcId = -1; pendingAction = null;
         pendingWalkTargX = -1; pendingWalkTargY = -1;
+        pendingActionRetryTimer = 0f;
     }
 
     private boolean isInRange(int px, int py, int nx, int ny) {
