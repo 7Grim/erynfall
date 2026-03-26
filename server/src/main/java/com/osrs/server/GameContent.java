@@ -1,12 +1,22 @@
 package com.osrs.server;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.osrs.server.quest.DialogueEngine;
 import com.osrs.server.quest.Quest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Game content initialization (quests, dialogues, etc.).
@@ -18,10 +28,12 @@ public class GameContent {
     
     private final DialogueEngine dialogueEngine;
     private final Map<Integer, String> npcInitialDialogueIds;
+    private final Map<Integer, Quest> questDefinitions;
     
     public GameContent() {
         this.dialogueEngine = new DialogueEngine();
         this.npcInitialDialogueIds = new HashMap<>();
+        this.questDefinitions = new LinkedHashMap<>();
     }
     
     /**
@@ -29,53 +41,191 @@ public class GameContent {
      */
     public void initializeTutorialIsland() {
         LOG.info("Initializing Tutorial Island content");
-        
-        // Create Tutorial Quest
-        Quest tutorialQuest = new Quest(1, "Tutorial Island", "Learn the basics of RuneScape");
-        tutorialQuest.addTask(new Quest.Task("speak_guide", Quest.TaskType.DIALOGUE, 
-            "Speak to the Tutorial Guide", 1, 1, 10));
-        tutorialQuest.addTask(new Quest.Task("kill_rats", Quest.TaskType.KILL, 
-            "Kill 5 rats", 3, 5, 50));
-        tutorialQuest.addTask(new Quest.Task("collect_logs", Quest.TaskType.COLLECT, 
-            "Collect 10 logs", 101, 10, 50));
-        
-        LOG.info("Registered Tutorial Quest: {} (ID: {})", tutorialQuest.name, tutorialQuest.id);
-        
-        // Create Dialogues
-        DialogueEngine.Dialogue intro = new DialogueEngine.Dialogue("dialogue_tutorial_intro", 1,
-            "Welcome to Tutorial Island, adventurer!");
-        intro.addOption(new DialogueEngine.DialogueOption(1, "Tell me about combat", 
-            "dialogue_combat_intro"));
-        intro.addOption(new DialogueEngine.DialogueOption(2, "I'll explore on my own", null));
-        dialogueEngine.registerDialogue(intro);
-        npcInitialDialogueIds.put(1, intro.id);
-        
-        DialogueEngine.Dialogue combatIntro = new DialogueEngine.Dialogue("dialogue_combat_intro", 1,
-            "Combat is essential! You'll develop Attack, Strength, and Defence skills.");
-        combatIntro.addOption(new DialogueEngine.DialogueOption(1, "Where can I practice?", 
-            "dialogue_combat_location"));
-        combatIntro.addOption(new DialogueEngine.DialogueOption(2, "Back to intro", 
-            "dialogue_tutorial_intro"));
-        dialogueEngine.registerDialogue(combatIntro);
-        
-        DialogueEngine.Dialogue combatLocation = new DialogueEngine.Dialogue("dialogue_combat_location", 1,
-            "Head east to find some rats. They're perfect for practice!");
-        combatLocation.addOption(new DialogueEngine.DialogueOption(1, "Thanks!", null));
-        dialogueEngine.registerDialogue(combatLocation);
 
-        DialogueEngine.Dialogue instructorIntro = new DialogueEngine.Dialogue("dialogue_combat_instructor", 2,
-            "Ready to learn how to fight properly?");
-        instructorIntro.addOption(new DialogueEngine.DialogueOption(1, "Yes, teach me", "dialogue_combat_lesson"));
-        instructorIntro.addOption(new DialogueEngine.DialogueOption(2, "Not now", null));
-        dialogueEngine.registerDialogue(instructorIntro);
-        npcInitialDialogueIds.put(2, instructorIntro.id);
+        int dialogueCount = loadDialoguesFromYaml();
+        int questCount = loadQuestsFromYaml();
 
-        DialogueEngine.Dialogue lesson = new DialogueEngine.Dialogue("dialogue_combat_lesson", 2,
-            "Good! Go defeat 5 rats and return to me.");
-        lesson.addOption(new DialogueEngine.DialogueOption(1, "I'll do it", null));
-        dialogueEngine.registerDialogue(lesson);
-        
-        LOG.info("Registered {} NPC dialogue entry points", npcInitialDialogueIds.size());
+        LOG.info("Loaded {} dialogues, {} quest definitions, {} NPC dialogue entry points",
+            dialogueCount, questCount, npcInitialDialogueIds.size());
+    }
+
+    @SuppressWarnings("unchecked")
+    private int loadDialoguesFromYaml() {
+        try (InputStream is = openContentStream("dialogue.yaml")) {
+            if (is == null) {
+                LOG.warn("dialogue.yaml not found; dialogue system will have no conversations");
+                return 0;
+            }
+
+            ObjectMapper mapper = new ObjectMapper(new YAMLFactory());
+            Map<String, Object> root = mapper.readValue(is, Map.class);
+            Object dialoguesObj = root.get("dialogues");
+            if (!(dialoguesObj instanceof Map<?, ?> dialoguesMapRaw)) {
+                LOG.warn("dialogue.yaml missing 'dialogues' map");
+                return 0;
+            }
+
+            Map<String, Map<String, Object>> dialoguesMap = (Map<String, Map<String, Object>>) dialoguesMapRaw;
+            Set<String> dialogueIds = dialoguesMap.keySet();
+            int loaded = 0;
+
+            for (Map.Entry<String, Map<String, Object>> entry : dialoguesMap.entrySet()) {
+                String dialogueId = entry.getKey();
+                Map<String, Object> data = entry.getValue();
+                int npcId = getInt(data, "npc_id", -1);
+                String npcText = getString(data, "npc_says", "");
+                if (npcId < 0 || npcText.isEmpty()) {
+                    LOG.warn("Skipping invalid dialogue '{}' (npc_id={}, npc_says length={})",
+                        dialogueId, npcId, npcText.length());
+                    continue;
+                }
+
+                DialogueEngine.Dialogue dialogue = new DialogueEngine.Dialogue(dialogueId, npcId, npcText);
+                Object optionsObj = data.get("options");
+                if (optionsObj instanceof List<?> options) {
+                    for (Object optionObj : options) {
+                        if (!(optionObj instanceof Map<?, ?> optionMapRaw)) continue;
+                        Map<String, Object> optionMap = (Map<String, Object>) optionMapRaw;
+                        int optionId = getInt(optionMap, "option_id", -1);
+                        String text = getString(optionMap, "text", "");
+                        String nextDialogue = getNullableString(optionMap.get("next_dialogue"));
+                        if (optionId < 0 || text.isEmpty()) {
+                            LOG.warn("Skipping invalid option in dialogue '{}' (option_id={}, text='{}')",
+                                dialogueId, optionId, text);
+                            continue;
+                        }
+                        dialogue.addOption(new DialogueEngine.DialogueOption(optionId, text, nextDialogue));
+                    }
+                }
+
+                for (DialogueEngine.DialogueOption option : dialogue.options) {
+                    if (option.nextDialogue != null && !dialogueIds.contains(option.nextDialogue)) {
+                        LOG.warn("Dialogue '{}' option {} points to missing next_dialogue '{}' — ending dialogue instead",
+                            dialogueId, option.optionId, option.nextDialogue);
+                        option.nextDialogue = null;
+                    }
+                }
+
+                dialogueEngine.registerDialogue(dialogue);
+                npcInitialDialogueIds.putIfAbsent(npcId, dialogueId);
+                loaded++;
+            }
+
+            return loaded;
+        } catch (Exception e) {
+            LOG.error("Failed to load dialogue.yaml", e);
+            return 0;
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private int loadQuestsFromYaml() {
+        try (InputStream is = openContentStream("quests.yaml")) {
+            if (is == null) {
+                LOG.warn("quests.yaml not found; quest definitions disabled");
+                return 0;
+            }
+
+            ObjectMapper mapper = new ObjectMapper(new YAMLFactory());
+            Map<String, Object> root = mapper.readValue(is, Map.class);
+            Object questsObj = root.get("quests");
+            if (!(questsObj instanceof List<?> questList)) {
+                LOG.warn("quests.yaml missing 'quests' list");
+                return 0;
+            }
+
+            int loaded = 0;
+            for (Object questObj : questList) {
+                if (!(questObj instanceof Map<?, ?> questMapRaw)) continue;
+                Map<String, Object> questMap = (Map<String, Object>) questMapRaw;
+
+                int id = getInt(questMap, "id", -1);
+                String name = getString(questMap, "name", "");
+                String description = getString(questMap, "description", "");
+                if (id < 0 || name.isEmpty()) {
+                    LOG.warn("Skipping invalid quest (id={}, name='{}')", id, name);
+                    continue;
+                }
+
+                Quest quest = new Quest(id, name, description);
+                Object tasksObj = questMap.get("tasks");
+                if (tasksObj instanceof List<?> tasks) {
+                    for (Object taskObj : tasks) {
+                        if (!(taskObj instanceof Map<?, ?> taskMapRaw)) continue;
+                        Map<String, Object> taskMap = (Map<String, Object>) taskMapRaw;
+
+                        String taskId = getString(taskMap, "id", "");
+                        String typeStr = getString(taskMap, "type", "").toUpperCase();
+                        String taskDesc = taskId;
+                        int quantity = getInt(taskMap, "count", 1);
+                        int rewardXp = getInt(taskMap, "reward_xp", 0);
+                        int target = getInt(taskMap, "npc_id", getInt(taskMap, "item_id", 0));
+
+                        Quest.TaskType taskType;
+                        try {
+                            taskType = Quest.TaskType.valueOf(typeStr);
+                        } catch (IllegalArgumentException e) {
+                            LOG.warn("Skipping task '{}' in quest {} due to unknown type '{}'", taskId, id, typeStr);
+                            continue;
+                        }
+
+                        if (taskId.isEmpty()) {
+                            LOG.warn("Skipping unnamed task in quest {}", id);
+                            continue;
+                        }
+
+                        quest.addTask(new Quest.Task(taskId, taskType, taskDesc, target, quantity, rewardXp));
+                    }
+                }
+
+                questDefinitions.put(id, quest);
+                loaded++;
+            }
+
+            return loaded;
+        } catch (Exception e) {
+            LOG.error("Failed to load quests.yaml", e);
+            return 0;
+        }
+    }
+
+    private InputStream openContentStream(String fileName) throws IOException {
+        InputStream classpathStream = GameContent.class.getClassLoader().getResourceAsStream(fileName);
+        if (classpathStream != null) {
+            return classpathStream;
+        }
+
+        Path fromRepoRoot = Paths.get("assets", "data", fileName);
+        if (Files.exists(fromRepoRoot)) {
+            return Files.newInputStream(fromRepoRoot);
+        }
+
+        Path fromServerModule = Paths.get("..", "assets", "data", fileName);
+        if (Files.exists(fromServerModule)) {
+            return Files.newInputStream(fromServerModule);
+        }
+
+        return null;
+    }
+
+    private static int getInt(Map<String, Object> map, String key, int defaultValue) {
+        if (!map.containsKey(key)) return defaultValue;
+        Object val = map.get(key);
+        if (val instanceof Integer integer) return integer;
+        if (val instanceof Number number) return number.intValue();
+        return defaultValue;
+    }
+
+    private static String getString(Map<String, Object> map, String key, String defaultValue) {
+        if (!map.containsKey(key)) return defaultValue;
+        Object val = map.get(key);
+        return val == null ? defaultValue : val.toString();
+    }
+
+    private static String getNullableString(Object value) {
+        if (value == null) return null;
+        String asString = value.toString();
+        return asString.isBlank() ? null : asString;
     }
     
     public DialogueEngine getDialogueEngine() {
@@ -84,5 +234,9 @@ public class GameContent {
 
     public String getInitialDialogueIdForNpc(int npcId) {
         return npcInitialDialogueIds.get(npcId);
+    }
+
+    public Map<Integer, Quest> getQuestDefinitions() {
+        return new LinkedHashMap<>(questDefinitions);
     }
 }
