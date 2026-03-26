@@ -9,7 +9,9 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.Matrix4;
 
+import java.util.ArrayList;
 import java.util.LinkedList;
+import java.util.List;
 
 /**
  * OSRS-accurate public chat box.
@@ -77,6 +79,20 @@ public class ChatBox {
             this.senderName = senderName;
             this.text       = text;
             this.type       = type;
+        }
+    }
+
+    private static class WrappedLine {
+        final MessageType type;
+        final String namePrefix;
+        final String text;
+        final boolean continuation;
+
+        WrappedLine(MessageType type, String namePrefix, String text, boolean continuation) {
+            this.type = type;
+            this.namePrefix = namePrefix;
+            this.text = text;
+            this.continuation = continuation;
         }
     }
 
@@ -165,25 +181,32 @@ public class ChatBox {
         batch.setProjectionMatrix(proj);
         batch.begin();
 
-        // Render up to VISIBLE_LINES from the bottom of the list
-        int startIdx = Math.max(0, lines.size() - VISIBLE_LINES);
-        int count    = lines.size() - startIdx;
+        // Render up to VISIBLE_LINES from the bottom of wrapped output.
+        List<WrappedLine> wrapped = buildWrappedLines(font);
+        int startIdx = Math.max(0, wrapped.size() - VISIBLE_LINES);
+        int count = wrapped.size() - startIdx;
         for (int i = 0; i < count; i++) {
-            ChatLine line = lines.get(startIdx + i);
+            WrappedLine line = wrapped.get(startIdx + i);
             int lineY = boxY + INPUT_H + PAD_Y + i * LINE_H;
 
             if (line.type == MessageType.SYSTEM) {
                 font.setColor(SYS_COLOR);
                 font.draw(batch, line.text, boxX + PAD_X, lineY);
             } else {
-                // "Name: " in blue, then message text in white
-                String nameTag = line.senderName + ": ";
-                font.setColor(NAME_COLOR);
-                font.draw(batch, nameTag, boxX + PAD_X, lineY);
+                float x = boxX + PAD_X;
+                float textX = x;
+                if (!line.continuation && !line.namePrefix.isEmpty()) {
+                    font.setColor(NAME_COLOR);
+                    font.draw(batch, line.namePrefix, x, lineY);
+                    GlyphLayout gl = new GlyphLayout(font, line.namePrefix);
+                    textX += gl.width;
+                } else if (line.continuation && !line.namePrefix.isEmpty()) {
+                    GlyphLayout gl = new GlyphLayout(font, line.namePrefix);
+                    textX += gl.width;
+                }
 
-                GlyphLayout gl = new GlyphLayout(font, nameTag);
                 font.setColor(MSG_COLOR);
-                font.draw(batch, line.text, boxX + PAD_X + gl.width, lineY);
+                font.draw(batch, line.text, textX, lineY);
             }
         }
 
@@ -199,5 +222,92 @@ public class ChatBox {
 
         batch.end();
         font.setColor(Color.WHITE);
+    }
+
+    private List<WrappedLine> buildWrappedLines(BitmapFont font) {
+        float totalWidth = BOX_W - (PAD_X * 2f);
+        List<WrappedLine> out = new ArrayList<>();
+
+        for (ChatLine line : lines) {
+            if (line.type == MessageType.SYSTEM) {
+                List<String> chunks = wrapText(font, line.text, totalWidth);
+                if (chunks.isEmpty()) chunks = List.of("");
+                for (String c : chunks) {
+                    out.add(new WrappedLine(MessageType.SYSTEM, "", c, false));
+                }
+                continue;
+            }
+
+            String namePrefix = line.senderName + ": ";
+            float prefixWidth = new GlyphLayout(font, namePrefix).width;
+            float firstLineWidth = Math.max(24f, totalWidth - prefixWidth);
+
+            List<String> chunks = wrapText(font, line.text, totalWidth);
+            if (chunks.isEmpty()) chunks = List.of("");
+
+            // Rewrap first chunk with first-line reduced width so name and text fit.
+            List<String> firstWrapped = wrapText(font, chunks.get(0), firstLineWidth);
+            if (firstWrapped.isEmpty()) firstWrapped = List.of("");
+
+            out.add(new WrappedLine(MessageType.PUBLIC, namePrefix, firstWrapped.get(0), false));
+            for (int i = 1; i < firstWrapped.size(); i++) {
+                out.add(new WrappedLine(MessageType.PUBLIC, namePrefix, firstWrapped.get(i), true));
+            }
+
+            for (int i = 1; i < chunks.size(); i++) {
+                List<String> continuation = wrapText(font, chunks.get(i), totalWidth - prefixWidth);
+                if (continuation.isEmpty()) continuation = List.of("");
+                for (String c : continuation) {
+                    out.add(new WrappedLine(MessageType.PUBLIC, namePrefix, c, true));
+                }
+            }
+        }
+
+        return out;
+    }
+
+    private List<String> wrapText(BitmapFont font, String text, float maxWidth) {
+        List<String> linesOut = new ArrayList<>();
+        if (text == null || text.isEmpty()) {
+            return linesOut;
+        }
+
+        String[] words = text.split(" ");
+        StringBuilder current = new StringBuilder();
+        GlyphLayout gl = new GlyphLayout();
+
+        for (String word : words) {
+            String candidate = current.isEmpty() ? word : current + " " + word;
+            gl.setText(font, candidate);
+            if (gl.width <= maxWidth) {
+                current.setLength(0);
+                current.append(candidate);
+            } else {
+                if (!current.isEmpty()) {
+                    linesOut.add(current.toString());
+                    current.setLength(0);
+                    current.append(word);
+                } else {
+                    // Single long token: hard-break by characters.
+                    String remainder = word;
+                    while (!remainder.isEmpty()) {
+                        int cut = remainder.length();
+                        while (cut > 1) {
+                            gl.setText(font, remainder.substring(0, cut));
+                            if (gl.width <= maxWidth) break;
+                            cut--;
+                        }
+                        linesOut.add(remainder.substring(0, cut));
+                        remainder = remainder.substring(cut);
+                    }
+                }
+            }
+        }
+
+        if (!current.isEmpty()) {
+            linesOut.add(current.toString());
+        }
+
+        return linesOut;
     }
 }
