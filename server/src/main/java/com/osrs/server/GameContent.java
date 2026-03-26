@@ -5,6 +5,9 @@ import com.osrs.server.quest.Quest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.HashMap;
+import java.util.Map;
+
 /**
  * Game content initialization (quests, dialogues, etc.).
  * Loads Tutorial Island content.
@@ -14,9 +17,11 @@ public class GameContent {
     private static final Logger LOG = LoggerFactory.getLogger(GameContent.class);
     
     private final DialogueEngine dialogueEngine;
+    private final Map<Integer, String> npcInitialDialogueIds;
     
     public GameContent() {
         this.dialogueEngine = new DialogueEngine();
+        this.npcInitialDialogueIds = new HashMap<>();
     }
     
     /**
@@ -43,6 +48,7 @@ public class GameContent {
             "dialogue_combat_intro"));
         intro.addOption(new DialogueEngine.DialogueOption(2, "I'll explore on my own", null));
         dialogueEngine.registerDialogue(intro);
+        npcInitialDialogueIds.put(1, intro.id);
         
         DialogueEngine.Dialogue combatIntro = new DialogueEngine.Dialogue("dialogue_combat_intro", 1,
             "Combat is essential! You'll develop Attack, Strength, and Defence skills.");
@@ -56,11 +62,27 @@ public class GameContent {
             "Head east to find some rats. They're perfect for practice!");
         combatLocation.addOption(new DialogueEngine.DialogueOption(1, "Thanks!", null));
         dialogueEngine.registerDialogue(combatLocation);
+
+        DialogueEngine.Dialogue instructorIntro = new DialogueEngine.Dialogue("dialogue_combat_instructor", 2,
+            "Ready to learn how to fight properly?");
+        instructorIntro.addOption(new DialogueEngine.DialogueOption(1, "Yes, teach me", "dialogue_combat_lesson"));
+        instructorIntro.addOption(new DialogueEngine.DialogueOption(2, "Not now", null));
+        dialogueEngine.registerDialogue(instructorIntro);
+        npcInitialDialogueIds.put(2, instructorIntro.id);
+
+        DialogueEngine.Dialogue lesson = new DialogueEngine.Dialogue("dialogue_combat_lesson", 2,
+            "Good! Go defeat 5 rats and return to me.");
+        lesson.addOption(new DialogueEngine.DialogueOption(1, "I'll do it", null));
+        dialogueEngine.registerDialogue(lesson);
         
-        LOG.info("Registered {} dialogues for Tutorial Island", 3);
+        LOG.info("Registered {} NPC dialogue entry points", npcInitialDialogueIds.size());
     }
     
     public DialogueEngine getDialogueEngine() {
         return dialogueEngine;
+    }
+
+    public String getInitialDialogueIdForNpc(int npcId) {
+        return npcInitialDialogueIds.get(npcId);
     }
 }

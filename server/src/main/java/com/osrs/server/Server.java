@@ -68,7 +68,7 @@ public class Server {
         
         // Stage 6: Start Netty server
         LOG.info("Stage 6: Starting Netty server");
-        nettyServer = new NettyServer(config.port, config.bossThreads, config.workerThreads, world);
+        nettyServer = new NettyServer(config.port, config.bossThreads, config.workerThreads, world, gameContent);
         nettyServer.start();
         LOG.info("✓ Netty server listening on port {}", config.port);
         

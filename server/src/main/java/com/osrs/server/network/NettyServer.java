@@ -10,6 +10,8 @@ import io.netty.handler.codec.LengthFieldPrepender;
 import io.netty.handler.codec.protobuf.ProtobufDecoder;
 import io.netty.handler.codec.protobuf.ProtobufEncoder;
 import com.osrs.protocol.NetworkProto;
+import com.osrs.server.GameContent;
+import com.osrs.server.quest.DialogueEngine;
 import com.osrs.server.world.World;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,6 +32,7 @@ public class NettyServer {
     private final int bossThreads;
     private final int workerThreads;
     private final World world;
+    private final GameContent gameContent;
 
     private EventLoopGroup bossGroup;
     private EventLoopGroup workerGroup;
@@ -44,14 +47,17 @@ public class NettyServer {
     public long getCurrentTick()            { return currentTick; }
     public void setCurrentTick(long tick)   { this.currentTick = tick; }
 
-    public NettyServer(int port, int bossThreads, int workerThreads, World world) {
+    public NettyServer(int port, int bossThreads, int workerThreads, World world, GameContent gameContent) {
         this.port = port;
         this.bossThreads = bossThreads;
         this.workerThreads = workerThreads;
         this.world = world;
+        this.gameContent = gameContent;
     }
 
     public World getWorld() { return world; }
+    public DialogueEngine getDialogueEngine() { return gameContent.getDialogueEngine(); }
+    public String getInitialDialogueIdForNpc(int npcId) { return gameContent.getInitialDialogueIdForNpc(npcId); }
 
     public void start() throws Exception {
         bossGroup = new NioEventLoopGroup(bossThreads);

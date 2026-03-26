@@ -7,6 +7,7 @@ import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
+import com.badlogic.gdx.graphics.g2d.GlyphLayout;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.Matrix4;
@@ -302,7 +303,11 @@ public class GameScreen extends ApplicationAdapter {
         int mouseScreenY = h - Gdx.input.getY();
         sidePanel.render(shapeRenderer, screenBatch, font, w, h, screenProjection,
                          mouseScreenX, mouseScreenY);
-        chatBox.render(shapeRenderer, screenBatch, font, w, h, screenProjection);
+        if (dialogueUI.isVisible()) {
+            renderDialogueOverlay(mouseScreenX, mouseScreenY);
+        } else {
+            chatBox.render(shapeRenderer, screenBatch, font, w, h, screenProjection);
+        }
         levelUpOverlay.render(shapeRenderer, screenBatch, font, w, h, screenProjection);
         xpDropOverlay.render(shapeRenderer, screenBatch, font, w, h, screenProjection,
             sidePanel.getPanelX(), SidePanel.TOTAL_H + SidePanel.MARGIN);
@@ -423,6 +428,19 @@ public class GameScreen extends ApplicationAdapter {
             chatBox.addPublicMessage(evt.senderName, evt.text);
             overheadTexts.put(evt.senderId, new OverheadText(evt.text));
         }
+
+        for (ClientPacketHandler.DialoguePromptEvent evt : h.drainDialoguePrompts()) {
+            if (evt.options.isEmpty()) {
+                dialogueUI.close();
+                continue;
+            }
+
+            List<DialogueUI.DialogueOption> uiOptions = new ArrayList<>();
+            for (ClientPacketHandler.DialoguePromptEvent.DialogueOptionEvent opt : evt.options) {
+                uiOptions.add(new DialogueUI.DialogueOption(opt.optionId, opt.text));
+            }
+            dialogueUI.open("npc_" + evt.npcId, evt.npcId, evt.npcText, uiOptions);
+        }
     }
 
     // -----------------------------------------------------------------------
@@ -486,6 +504,11 @@ public class GameScreen extends ApplicationAdapter {
     private void handleInput() {
         // Block all input while death screen is showing
         if (deathScreenTimer > 0) return;
+
+        if (dialogueUI.isVisible()) {
+            handleDialogueInput();
+            return;
+        }
 
         // ── Chat input ────────────────────────────────────────────────────────
         if (Gdx.input.isKeyJustPressed(Input.Keys.ENTER)) {
@@ -627,6 +650,51 @@ public class GameScreen extends ApplicationAdapter {
         }
 
         if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) contextMenu.close();
+    }
+
+    private void handleDialogueInput() {
+        if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_1)) {
+            submitDialogueOptionByIndex(0);
+            return;
+        }
+        if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_2)) {
+            submitDialogueOptionByIndex(1);
+            return;
+        }
+        if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_3)) {
+            submitDialogueOptionByIndex(2);
+            return;
+        }
+        if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_4)) {
+            submitDialogueOptionByIndex(3);
+            return;
+        }
+        if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_5)) {
+            submitDialogueOptionByIndex(4);
+            return;
+        }
+
+        // OSRS-style continue shortcut; for option prompts we map Space to option 1.
+        if (Gdx.input.isKeyJustPressed(Input.Keys.SPACE)) {
+            submitDialogueOptionByIndex(0);
+            return;
+        }
+
+        if (Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)) {
+            int mx = Gdx.input.getX();
+            int my = Gdx.graphics.getHeight() - Gdx.input.getY();
+            DialogueUI.DialogueOption selected = dialogueUI.getSelectedOption(mx, my);
+            if (selected != null && nettyClient != null) {
+                nettyClient.sendDialogueResponse(selected.optionId);
+            }
+        }
+    }
+
+    private void submitDialogueOptionByIndex(int index) {
+        if (index < 0 || index >= dialogueUI.getOptions().size() || nettyClient == null) {
+            return;
+        }
+        nettyClient.sendDialogueResponse(dialogueUI.getOptions().get(index).optionId);
     }
 
     /**
@@ -1134,6 +1202,64 @@ public class GameScreen extends ApplicationAdapter {
             font.draw(screenBatch, items.get(i).label, mx + 5,
                 my + (n - 1 - i) * ContextMenu.ITEM_HEIGHT + 13);
         }
+        screenBatch.end();
+        font.setColor(Color.WHITE);
+    }
+
+    private void renderDialogueOverlay(int mouseX, int mouseY) {
+        if (!dialogueUI.isVisible()) return;
+
+        int panelX = DialogueUI.PANEL_X;
+        int panelY = DialogueUI.PANEL_Y;
+        int optionX = panelX + DialogueUI.H_PADDING;
+        int optionY = panelY + ChatBox.INPUT_H + DialogueUI.CONTENT_TOP_PADDING;
+        int optionW = DialogueUI.PANEL_WIDTH - (DialogueUI.H_PADDING * 2);
+        int contentTop = panelY + DialogueUI.PANEL_HEIGHT - 8;
+
+        shapeRenderer.setProjectionMatrix(screenProjection);
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+        shapeRenderer.setColor(0.05f, 0.04f, 0.04f, 0.9f);
+        shapeRenderer.rect(panelX, panelY, DialogueUI.PANEL_WIDTH, DialogueUI.PANEL_HEIGHT);
+        shapeRenderer.setColor(0.2f, 0.2f, 0.2f, 0.8f);
+        shapeRenderer.rect(panelX, panelY + ChatBox.INPUT_H - 1, DialogueUI.PANEL_WIDTH, 1);
+        shapeRenderer.end();
+
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Line);
+        shapeRenderer.setColor(0.85f, 0.75f, 0.1f, 1f);
+        shapeRenderer.rect(panelX, panelY, DialogueUI.PANEL_WIDTH, DialogueUI.PANEL_HEIGHT);
+        shapeRenderer.end();
+
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+        List<DialogueUI.DialogueOption> options = dialogueUI.getOptions();
+        for (int i = 0; i < options.size(); i++) {
+            int y = optionY + i * (DialogueUI.OPTION_HEIGHT + DialogueUI.OPTION_GAP);
+            boolean hover = mouseX >= optionX && mouseX < optionX + optionW
+                && mouseY >= y && mouseY < y + DialogueUI.OPTION_HEIGHT;
+            if (hover) {
+                shapeRenderer.setColor(0.2f, 0.24f, 0.34f, 0.9f);
+            } else {
+                shapeRenderer.setColor(0.1f, 0.1f, 0.16f, 0.72f);
+            }
+            shapeRenderer.rect(optionX, y, optionW, DialogueUI.OPTION_HEIGHT);
+        }
+        shapeRenderer.end();
+
+        screenBatch.setProjectionMatrix(screenProjection);
+        screenBatch.begin();
+
+        font.setColor(Color.WHITE);
+        String npcText = dialogueUI.getNpcText();
+        GlyphLayout layout = new GlyphLayout(font, npcText, Color.WHITE, optionW, -1, true);
+        font.draw(screenBatch, layout, optionX, contentTop);
+
+        for (int i = 0; i < options.size(); i++) {
+            int y = optionY + i * (DialogueUI.OPTION_HEIGHT + DialogueUI.OPTION_GAP);
+            font.setColor(Color.WHITE);
+            font.draw(screenBatch, (i + 1) + ". " + options.get(i).text, optionX + 8, y + 14);
+        }
+
+        font.setColor(0.95f, 0.95f, 0.5f, 1f);
+        font.draw(screenBatch, "Choose an Option (1-5 or click)", panelX + 8, panelY + ChatBox.INPUT_H - 4);
         screenBatch.end();
         font.setColor(Color.WHITE);
     }

@@ -3,6 +3,7 @@ package com.osrs.server.network;
 import com.osrs.protocol.NetworkProto;
 import com.osrs.server.database.DatabaseManager;
 import com.osrs.server.database.PlayerRepository;
+import com.osrs.server.quest.DialogueEngine;
 import com.osrs.server.world.GroundItem;
 import com.osrs.server.world.World;
 import com.osrs.shared.CombatStyle;
@@ -45,15 +46,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             LOG.info("Client {} disconnected", session.getSessionId());
             Player player = session.getPlayer();
             if (player != null) {
-                // Clean up any active dialogue state
-                int npcId = player.getDialogueTarget();
-                if (npcId >= 0) {
-                    NPC npc = server.getWorld().getNPC(npcId);
-                    if (npc != null) {
-                        npc.setInDialogue(false);
-                        npc.setDialoguePlayer(-1);
-                    }
-                }
+                closeDialogue(player);
                 // Save player state to DB on disconnect
                 if (session.isAuthenticated() && DatabaseManager.isHealthy()) {
                     PlayerRepository.savePlayer(player);
@@ -207,17 +200,31 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
         Player player = session.getPlayer();
         LOG.debug("Player {} selected dialogue option: {}", session.getSessionId(), response.getOptionId());
 
-        // Clear dialogue state on both sides
-        int npcId = player.getDialogueTarget();
-        if (npcId >= 0) {
-            NPC npc = server.getWorld().getNPC(npcId);
-            if (npc != null) {
-                npc.setInDialogue(false);
-                npc.setDialoguePlayer(-1);
-            }
-            player.setDialogueTarget(-1);
+        if (!player.isInDialogue()) {
+            LOG.debug("Ignoring dialogue response from player {} — not in dialogue", player.getId());
+            return;
         }
-        // TODO: Progress dialogue via DialogueEngine (S3)
+
+        NPC npc = server.getWorld().getNPC(player.getDialogueTarget());
+        DialogueEngine.Dialogue next = server.getDialogueEngine().selectOption(player.getId(), response.getOptionId());
+        if (next == null) {
+            closeDialogue(player);
+            sendDialoguePrompt(ctx, -1, "Farewell.");
+            return;
+        }
+
+        // Keep lock consistent if dialogue hops across NPC IDs.
+        if (npc != null && next.npcId != npc.getId()) {
+            npc.setInDialogue(false);
+            npc.setDialoguePlayer(-1);
+        }
+        NPC nextNpc = server.getWorld().getNPC(next.npcId);
+        if (nextNpc != null) {
+            nextNpc.setInDialogue(true);
+            nextNpc.setDialoguePlayer(player.getId());
+        }
+        player.setDialogueTarget(next.npcId);
+        sendDialoguePrompt(ctx, next);
     }
 
     private void handleTalkToNpc(ChannelHandlerContext ctx, NetworkProto.TalkToNpc request) {
@@ -228,6 +235,19 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
         if (npc == null) {
             LOG.warn("Player {} tried to talk to unknown NPC {}", player.getId(), request.getNpcId());
             return;
+        }
+
+        if (player.isInDialogue() && player.getDialogueTarget() != npc.getId()) {
+            LOG.debug("Player {} tried to start a second dialogue", player.getId());
+            return;
+        }
+
+        if (player.isInDialogue() && player.getDialogueTarget() == npc.getId()) {
+            DialogueEngine.Dialogue current = server.getDialogueEngine().getCurrentDialogue(player.getId());
+            if (current != null) {
+                sendDialoguePrompt(ctx, current);
+                return;
+            }
         }
 
         // Verify proximity (player must be adjacent — Chebyshev ≤ 1)
@@ -246,19 +266,64 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             return;
         }
 
+        String entryDialogueId = server.getInitialDialogueIdForNpc(npc.getId());
+        if (entryDialogueId == null) {
+            sendChatMessage(ctx, "They have nothing interesting to say right now.", 2);
+            return;
+        }
+
+        DialogueEngine.Dialogue dialogue = server.getDialogueEngine().startDialogue(player.getId(), entryDialogueId);
+        if (dialogue == null) {
+            LOG.warn("NPC {} has entry dialogue id '{}' but no registered dialogue", npc.getId(), entryDialogueId);
+            sendChatMessage(ctx, "The conversation trails off awkwardly.", 2);
+            return;
+        }
+
         // Freeze the NPC and link both sides
         npc.setInDialogue(true);
         npc.setDialoguePlayer(player.getId());
         player.setDialogueTarget(npc.getId());
 
         LOG.info("Player {} started dialogue with NPC {} ({})", player.getId(), npc.getId(), npc.getName());
+        sendDialoguePrompt(ctx, dialogue);
+    }
 
-        // Send initial DialoguePrompt (TODO: route through DialogueEngine in S3)
+    private void closeDialogue(Player player) {
+        int npcId = player.getDialogueTarget();
+        if (npcId >= 0) {
+            NPC npc = server.getWorld().getNPC(npcId);
+            if (npc != null) {
+                npc.setInDialogue(false);
+                npc.setDialoguePlayer(-1);
+            }
+        }
+        server.getDialogueEngine().endDialogue(player.getId());
+        player.setDialogueTarget(-1);
+    }
+
+    private void sendDialoguePrompt(ChannelHandlerContext ctx, DialogueEngine.Dialogue dialogue) {
+        sendDialoguePrompt(ctx, dialogue.npcId, dialogue.npcText, dialogue.options);
+    }
+
+    private void sendDialoguePrompt(ChannelHandlerContext ctx, int npcId, String npcSays) {
+        sendDialoguePrompt(ctx, npcId, npcSays, null);
+    }
+
+    private void sendDialoguePrompt(ChannelHandlerContext ctx, int npcId, String npcSays,
+                                    java.util.List<DialogueEngine.DialogueOption> options) {
+        NetworkProto.DialoguePrompt.Builder prompt = NetworkProto.DialoguePrompt.newBuilder()
+            .setNpcId(npcId)
+            .setNpcSays(npcSays == null ? "" : npcSays);
+        if (options != null) {
+            for (DialogueEngine.DialogueOption opt : options) {
+                prompt.addOptions(NetworkProto.DialogueOption.newBuilder()
+                    .setOptionId(opt.optionId)
+                    .setText(opt.text));
+            }
+        }
+
         ctx.writeAndFlush(NetworkProto.ServerMessage.newBuilder()
-            .setDialoguePrompt(NetworkProto.DialoguePrompt.newBuilder()
-                .setNpcId(npc.getId())
-                .setNpcSays("Hello, adventurer! Welcome to Tutorial Island. How can I help you?")
-                .addOptions(NetworkProto.DialogueOption.newBuilder().setOptionId(0).setText("Goodbye.")))
+            .setDialoguePrompt(prompt)
             .build());
     }
     

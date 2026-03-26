@@ -78,6 +78,32 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
     private final ConcurrentLinkedQueue<CombatHitEvent> pendingCombatHits =
         new ConcurrentLinkedQueue<>();
 
+    /** Dialogue prompts sent by the server — drained by GameScreen each frame. */
+    public static class DialoguePromptEvent {
+        public static class DialogueOptionEvent {
+            public final int optionId;
+            public final String text;
+
+            public DialogueOptionEvent(int optionId, String text) {
+                this.optionId = optionId;
+                this.text = text;
+            }
+        }
+
+        public final int npcId;
+        public final String npcText;
+        public final List<DialogueOptionEvent> options;
+
+        public DialoguePromptEvent(int npcId, String npcText, List<DialogueOptionEvent> options) {
+            this.npcId = npcId;
+            this.npcText = npcText;
+            this.options = options;
+        }
+    }
+
+    private final ConcurrentLinkedQueue<DialoguePromptEvent> pendingDialoguePrompts =
+        new ConcurrentLinkedQueue<>();
+
     // -----------------------------------------------------------------------
     // Player state
     // -----------------------------------------------------------------------
@@ -152,6 +178,7 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
             case COMBAT_HIT          -> handleCombatHit(packet.getCombatHit());
             case HEALTH_UPDATE       -> handleHealthUpdate(packet.getHealthUpdate());
             case SKILL_UPDATE        -> handleSkillUpdate(packet.getSkillUpdate());
+            case DIALOGUE_PROMPT     -> handleDialoguePrompt(packet.getDialoguePrompt());
             case PLAYER_DEATH        -> handlePlayerDeath(packet.getPlayerDeath());
             case INVENTORY_UPDATE    -> handleInventoryUpdate(packet.getInventoryUpdate());
             case EQUIPMENT_UPDATE    -> handleEquipmentUpdate(packet.getEquipmentUpdate());
@@ -256,6 +283,16 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
         }
     }
 
+    private void handleDialoguePrompt(NetworkProto.DialoguePrompt prompt) {
+        List<DialoguePromptEvent.DialogueOptionEvent> options = new ArrayList<>();
+        for (NetworkProto.DialogueOption option : prompt.getOptionsList()) {
+            options.add(new DialoguePromptEvent.DialogueOptionEvent(option.getOptionId(), option.getText()));
+        }
+
+        pendingDialoguePrompts.add(new DialoguePromptEvent(prompt.getNpcId(), prompt.getNpcSays(), options));
+        LOG.debug("DialoguePrompt npcId={} options={}", prompt.getNpcId(), options.size());
+    }
+
     // -----------------------------------------------------------------------
     // Accessors for GameScreen (called from render thread)
     // -----------------------------------------------------------------------
@@ -316,6 +353,15 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
         List<XpDropEvent> out = new ArrayList<>();
         XpDropEvent e;
         while ((e = pendingXpDrops.poll()) != null) out.add(e);
+        return out;
+    }
+
+    /** Drain dialogue prompts queued this frame. */
+    public List<DialoguePromptEvent> drainDialoguePrompts() {
+        if (pendingDialoguePrompts.isEmpty()) return List.of();
+        List<DialoguePromptEvent> out = new ArrayList<>();
+        DialoguePromptEvent e;
+        while ((e = pendingDialoguePrompts.poll()) != null) out.add(e);
         return out;
     }
 

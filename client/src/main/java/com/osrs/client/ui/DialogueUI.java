@@ -7,6 +7,14 @@ import java.util.List;
  * UI for dialogue display and option selection.
  */
 public class DialogueUI {
+    public static final int PANEL_X = 0;
+    public static final int PANEL_Y = 0;
+    public static final int PANEL_WIDTH = ChatBox.BOX_W;
+    public static final int PANEL_HEIGHT = ChatBox.TOTAL_H;
+    public static final int H_PADDING = 8;
+    public static final int CONTENT_TOP_PADDING = 8;
+    public static final int OPTION_HEIGHT = 18;
+    public static final int OPTION_GAP = 2;
     
     public static class DialogueOption {
         public int optionId;
@@ -50,16 +58,17 @@ public class DialogueUI {
         if (!visible) {
             return null;
         }
-        
-        // Calculate option position
-        // Each option is ~20 pixels tall, starting at Y=200
-        int optionStartY = 200;
-        int optionHeight = 20;
-        
+
+        int optionX = PANEL_X + H_PADDING;
+        int optionY = PANEL_Y + ChatBox.INPUT_H + CONTENT_TOP_PADDING;
+        int optionW = PANEL_WIDTH - (H_PADDING * 2);
+
         for (int i = 0; i < options.size(); i++) {
-            int optionY = optionStartY + (i * optionHeight);
-            
-            if (mouseY >= optionY && mouseY < optionY + optionHeight) {
+            int y = optionY + i * (OPTION_HEIGHT + OPTION_GAP);
+
+            boolean inX = mouseX >= optionX && mouseX < optionX + optionW;
+            boolean inY = mouseY >= y && mouseY < y + OPTION_HEIGHT;
+            if (inX && inY) {
                 return options.get(i);
             }
         }
