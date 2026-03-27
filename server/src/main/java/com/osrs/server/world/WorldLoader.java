@@ -102,6 +102,7 @@ public class WorldLoader {
                 for (Map<String, Object> npcDef : npcs) {
                     WorldData.NPCDefinition npcDef2 = new WorldData.NPCDefinition();
                     npcDef2.id = getInt(npcDef, "id", 0);
+                    npcDef2.definitionId = getInt(npcDef, "definition_id", npcDef2.id);
                     npcDef2.name = getString(npcDef, "name", "Unknown");
                     npcDef2.combatLevel = getInt(npcDef, "combat_level", 0);
                     npcDef2.maxHp = getInt(npcDef, "max_hp", 100);
@@ -185,6 +186,7 @@ class WorldData {
     
     static class NPCDefinition {
         public int id;
+        public int definitionId;
         public String name;
         public int combatLevel;
         public int maxHp = 100;

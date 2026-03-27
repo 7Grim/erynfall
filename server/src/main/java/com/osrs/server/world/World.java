@@ -126,7 +126,7 @@ public class World {
      */
     private void spawnConfiguredNPCs() {
         for (WorldData.NPCDefinition npcDef : worldData.npcs) {
-            NPC npc = new NPC(npcDef.id, npcDef.name, npcDef.id, npcDef.x, npcDef.y);
+            NPC npc = new NPC(npcDef.id, npcDef.name, npcDef.definitionId, npcDef.x, npcDef.y);
             npc.setMaxHealth(npcDef.maxHp);
             npc.setMaxHit(npcDef.maxHit);
             npc.setRespawnDelayTicks(npcDef.respawnDelayTicks);
@@ -162,7 +162,8 @@ public class World {
      * Spawn an NPC (for dynamic spawning, not from config)
      */
     public void spawnNPC(int npcId, String npcName, int combatLevel, int x, int y) {
-        NPC npc = new NPC(npcId, npcName, combatLevel, x, y);
+        NPC npc = new NPC(npcId, npcName, npcId, x, y);
+        npc.setCombatLevel(combatLevel);
         npcs.put(npcId, npc);
         LOG.debug("NPC {} spawned at ({}, {})", npcName, x, y);
     }

@@ -46,6 +46,7 @@ npcs:
   # --- Rats (level 1) — weakest enemy, cannot deal damage (max_hit: 0) ---
   # OSRS: Rat — Combat 1, HP 2, Max hit 0, Respawn 2 OSRS ticks (308 server ticks)
   - id: 3
+    definition_id: 3
     name: "Rat"
     combat_level: 1
     max_hp: 2
@@ -61,6 +62,7 @@ npcs:
     loot_table: "rat_basic"
 
   - id: 4
+    definition_id: 3
     name: "Rat"
     combat_level: 1
     max_hp: 2
@@ -75,6 +77,7 @@ npcs:
     loot_table: "rat_basic"
 
   - id: 5
+    definition_id: 3
     name: "Rat"
     combat_level: 1
     max_hp: 2
@@ -91,6 +94,7 @@ npcs:
   # --- Giant Rats (level 3) — first real combat challenge ---
   # OSRS: Giant rat — Combat 3, HP 5, Max hit 1, Respawn ~25 OSRS ticks (3850 server ticks)
   - id: 12
+    definition_id: 3
     name: "Giant Rat"
     combat_level: 3
     max_hp: 5
@@ -106,6 +110,7 @@ npcs:
     loot_table: "giant_rat_basic"
 
   - id: 13
+    definition_id: 3
     name: "Giant Rat"
     combat_level: 3
     max_hp: 5

@@ -177,6 +177,8 @@ public class GameScreen extends ApplicationAdapter {
     private int localPlayerId = -1;
     /** questId -> last displayed task completion count. */
     private final Map<Integer, Integer> shownQuestProgress = new HashMap<>();
+    /** questId -> whether completion message already shown. */
+    private final Map<Integer, Boolean> shownQuestComplete = new HashMap<>();
 
     private boolean initialized = false;
 
@@ -438,14 +440,44 @@ public class GameScreen extends ApplicationAdapter {
 
         for (ClientPacketHandler.QuestUpdateEvent evt : h.drainQuestUpdates()) {
             int shown = shownQuestProgress.getOrDefault(evt.questId, -1);
-            if (shown != evt.tasksCompleted || evt.completed) {
-                if (evt.completed) {
+            boolean wasComplete = shownQuestComplete.getOrDefault(evt.questId, false);
+
+            List<SidePanel.QuestTaskView> tasks = new ArrayList<>();
+            for (ClientPacketHandler.QuestUpdateEvent.TaskEvent task : evt.tasks) {
+                tasks.add(new SidePanel.QuestTaskView(
+                    task.taskId,
+                    task.description,
+                    task.currentCount,
+                    task.requiredCount,
+                    task.completed
+                ));
+            }
+
+            SidePanel.QuestStatus status = switch (evt.status) {
+                case COMPLETED -> SidePanel.QuestStatus.COMPLETED;
+                case IN_PROGRESS -> SidePanel.QuestStatus.IN_PROGRESS;
+                case NOT_STARTED -> SidePanel.QuestStatus.NOT_STARTED;
+            };
+
+            sidePanel.setQuestState(new SidePanel.QuestView(
+                evt.questId,
+                evt.questName,
+                evt.questDescription,
+                evt.miniquest,
+                evt.questPointsReward,
+                status,
+                tasks
+            ), evt.playerTotalQuestPoints);
+
+            if (shown != evt.tasksCompleted || (evt.completed && !wasComplete)) {
+                if (evt.completed && !wasComplete) {
                     chatBox.addSystemMessage("Quest complete: " + evt.questName + "!");
                 } else {
                     chatBox.addSystemMessage(evt.questName + ": "
                         + evt.tasksCompleted + "/" + evt.tasksTotal + " objectives complete.");
                 }
                 shownQuestProgress.put(evt.questId, evt.tasksCompleted);
+                shownQuestComplete.put(evt.questId, evt.completed);
             }
         }
 

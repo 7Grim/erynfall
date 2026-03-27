@@ -92,12 +92,32 @@ message HealthUpdate {
 }
 
 // QuestUpdate: Server → Client
+enum QuestStatus {
+    QUEST_NOT_STARTED = 0;
+    QUEST_IN_PROGRESS = 1;
+    QUEST_COMPLETED = 2;
+}
+
+message QuestTaskUpdate {
+    string task_id = 1;
+    string description = 2;
+    int32 current_count = 3;
+    int32 required_count = 4;
+    bool completed = 5;
+}
+
 message QuestUpdate {
     int32 quest_id = 1;
     string quest_name = 2;
     int32 tasks_completed = 3;
     int32 tasks_total = 4;
     bool completed = 5;
+    QuestStatus status = 6;
+    bool miniquest = 7;
+    int32 quest_points_reward = 8;
+    int32 player_total_quest_points = 9;
+    string quest_description = 10;
+    repeated QuestTaskUpdate tasks = 11;
 }
 
 // DialogueOption: Server → Client

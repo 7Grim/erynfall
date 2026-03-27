@@ -4,40 +4,48 @@ quests:
   - id: 1
     name: "Tutorial Island"
     description: "Complete the Tutorial Island training"
+    miniquest: true
+    quest_points: 1
     free_to_play: true
     tasks:
       - id: "speak_guide"
         type: "dialogue"
+        description: "Speak to the Tutorial Guide"
         npc_id: 1
         dialogue_id: "dialogue_tutorial_intro"
         reward_xp: 10
         
       - id: "learn_combat"
         type: "dialogue"
+        description: "Speak to the Combat Instructor"
         npc_id: 2
         dialogue_id: "dialogue_combat_instructor"
         reward_xp: 25
         
       - id: "kill_rats"
         type: "kill"
+        description: "Defeat 5 rats"
         npc_id: 3
         count: 5
         reward_xp: 150
         
       - id: "collect_logs"
         type: "collect"
+        description: "Collect 10 logs"
         item_id: 101
         count: 10
         reward_xp: 100
         
       - id: "cook_food"
         type: "action"
+        description: "Cook 5 food items"
         action: "cook_logs"
         count: 5
         reward_xp: 100
         
       - id: "equip_armor"
         type: "equip"
+        description: "Equip training armour"
         item_id: 201
         reward_xp: 50
 

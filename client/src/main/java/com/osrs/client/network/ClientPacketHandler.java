@@ -106,18 +106,55 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
 
     /** Quest updates sent by server — drained by GameScreen each frame. */
     public static class QuestUpdateEvent {
+        public enum Status {
+            NOT_STARTED,
+            IN_PROGRESS,
+            COMPLETED
+        }
+
+        public static class TaskEvent {
+            public final String taskId;
+            public final String description;
+            public final int currentCount;
+            public final int requiredCount;
+            public final boolean completed;
+
+            public TaskEvent(String taskId, String description, int currentCount, int requiredCount, boolean completed) {
+                this.taskId = taskId;
+                this.description = description;
+                this.currentCount = currentCount;
+                this.requiredCount = requiredCount;
+                this.completed = completed;
+            }
+        }
+
         public final int questId;
         public final String questName;
+        public final String questDescription;
         public final int tasksCompleted;
         public final int tasksTotal;
         public final boolean completed;
+        public final boolean miniquest;
+        public final int questPointsReward;
+        public final int playerTotalQuestPoints;
+        public final Status status;
+        public final List<TaskEvent> tasks;
 
-        public QuestUpdateEvent(int questId, String questName, int tasksCompleted, int tasksTotal, boolean completed) {
+        public QuestUpdateEvent(int questId, String questName, String questDescription,
+                                int tasksCompleted, int tasksTotal, boolean completed,
+                                boolean miniquest, int questPointsReward, int playerTotalQuestPoints,
+                                Status status, List<TaskEvent> tasks) {
             this.questId = questId;
             this.questName = questName;
+            this.questDescription = questDescription;
             this.tasksCompleted = tasksCompleted;
             this.tasksTotal = tasksTotal;
             this.completed = completed;
+            this.miniquest = miniquest;
+            this.questPointsReward = questPointsReward;
+            this.playerTotalQuestPoints = playerTotalQuestPoints;
+            this.status = status;
+            this.tasks = tasks;
         }
     }
 
@@ -321,12 +358,35 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
     }
 
     private void handleQuestUpdate(NetworkProto.QuestUpdate update) {
+        List<QuestUpdateEvent.TaskEvent> tasks = new ArrayList<>();
+        for (NetworkProto.QuestTaskUpdate task : update.getTasksList()) {
+            tasks.add(new QuestUpdateEvent.TaskEvent(
+                task.getTaskId(),
+                task.getDescription(),
+                task.getCurrentCount(),
+                task.getRequiredCount(),
+                task.getCompleted()
+            ));
+        }
+
+        QuestUpdateEvent.Status status = switch (update.getStatus()) {
+            case QUEST_COMPLETED -> QuestUpdateEvent.Status.COMPLETED;
+            case QUEST_IN_PROGRESS -> QuestUpdateEvent.Status.IN_PROGRESS;
+            case QUEST_NOT_STARTED, UNRECOGNIZED -> QuestUpdateEvent.Status.NOT_STARTED;
+        };
+
         pendingQuestUpdates.add(new QuestUpdateEvent(
             update.getQuestId(),
             update.getQuestName(),
+            update.getQuestDescription(),
             update.getTasksCompleted(),
             update.getTasksTotal(),
-            update.getCompleted()
+            update.getCompleted(),
+            update.getMiniquest(),
+            update.getQuestPointsReward(),
+            update.getPlayerTotalQuestPoints(),
+            status,
+            tasks
         ));
         LOG.debug("QuestUpdate id={} progress={}/{} complete={}",
             update.getQuestId(), update.getTasksCompleted(), update.getTasksTotal(), update.getCompleted());

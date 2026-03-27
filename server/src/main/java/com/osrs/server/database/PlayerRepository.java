@@ -1,6 +1,8 @@
 package com.osrs.server.database;
 
 import at.favre.lib.crypto.bcrypt.BCrypt;
+import com.osrs.server.quest.Quest;
+import com.osrs.server.quest.QuestManager;
 import com.osrs.shared.Player;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -244,6 +246,92 @@ public class PlayerRepository {
         } catch (SQLException e) {
             LOG.error("Failed to load inventory for: {}", player.getName(), e);
         }
+    }
+
+    public static void saveQuestProgress(Player player, QuestManager questManager) {
+        if (questManager == null) return;
+
+        try (Connection conn = DatabaseManager.getConnection()) {
+            int dbId = getDbIdByUsername(conn, player.getName());
+            if (dbId < 0) return;
+
+            PreparedStatement upd = conn.prepareStatement(
+                "UPDATE osrs.player_quests SET status = ?, completed_objectives = ?, " +
+                "completed_at = CASE WHEN ? = 2 AND completed_at IS NULL THEN GETDATE() ELSE completed_at END " +
+                "WHERE player_id = ? AND quest_id = ?"
+            );
+
+            PreparedStatement ins = conn.prepareStatement(
+                "INSERT INTO osrs.player_quests (player_id, quest_id, status, completed_objectives, completed_at) " +
+                "VALUES (?, ?, ?, ?, ?)"
+            );
+
+            for (Quest quest : questManager.getQuests().values()) {
+                int status = questManager.getStatusCode(quest.id);
+                int bitmask = questManager.getCompletedObjectivesBitmask(quest.id);
+
+                upd.setInt(1, status);
+                upd.setInt(2, bitmask);
+                upd.setInt(3, status);
+                upd.setInt(4, dbId);
+                upd.setInt(5, quest.id);
+                int updated = upd.executeUpdate();
+
+                if (updated == 0) {
+                    ins.setInt(1, dbId);
+                    ins.setInt(2, quest.id);
+                    ins.setInt(3, status);
+                    ins.setInt(4, bitmask);
+                    if (status == 2) {
+                        ins.setTimestamp(5, new Timestamp(System.currentTimeMillis()));
+                    } else {
+                        ins.setNull(5, Types.TIMESTAMP);
+                    }
+                    ins.addBatch();
+                }
+            }
+
+            ins.executeBatch();
+            conn.commit();
+        } catch (SQLException e) {
+            LOG.error("Failed to save quest progress for: {}", player.getName(), e);
+        }
+    }
+
+    public static void loadQuestProgress(Player player, QuestManager questManager) {
+        if (questManager == null) return;
+
+        try (Connection conn = DatabaseManager.getConnection()) {
+            int dbId = getDbIdByUsername(conn, player.getName());
+            if (dbId < 0) return;
+
+            PreparedStatement ps = conn.prepareStatement(
+                "SELECT quest_id, status, completed_objectives FROM osrs.player_quests WHERE player_id = ?"
+            );
+            ps.setInt(1, dbId);
+
+            ResultSet rs = ps.executeQuery();
+            while (rs.next()) {
+                int questId = rs.getInt("quest_id");
+                int status = rs.getInt("status");
+                int bitmask = rs.getInt("completed_objectives");
+                questManager.applyPersistedState(questId, status, bitmask);
+            }
+        } catch (SQLException e) {
+            LOG.error("Failed to load quest progress for: {}", player.getName(), e);
+        }
+    }
+
+    private static int getDbIdByUsername(Connection conn, String username) throws SQLException {
+        PreparedStatement idPs = conn.prepareStatement(
+            "SELECT id FROM osrs.players WHERE LOWER(username) = LOWER(?)"
+        );
+        idPs.setString(1, username);
+        ResultSet rs = idPs.executeQuery();
+        if (!rs.next()) {
+            return -1;
+        }
+        return rs.getInt("id");
     }
 
     private static int toRuntimeEntityId(int dbId) {

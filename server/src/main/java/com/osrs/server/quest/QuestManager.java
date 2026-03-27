@@ -35,6 +35,7 @@ public class QuestManager {
         Quest playerQuest = copyQuest(quest);
         quests.put(playerQuest.id, playerQuest);
         questProgress.put(quest.id, 0);
+        playerQuest.status = Quest.QuestStatus.IN_PROGRESS;
         LOG.info("Player {} started quest: {}", playerId, quest.name);
     }
     
@@ -69,6 +70,12 @@ public class QuestManager {
                 if (next >= task.quantity) {
                     task.completed = true;
                     questProgress.put(questId, questProgress.getOrDefault(questId, 0) + 1);
+
+                    if (quest.allTasksCompleted()) {
+                        quest.completed = true;
+                        quest.status = Quest.QuestStatus.COMPLETED;
+                    }
+
                     LOG.info("Player {} completed task {} in quest {}", 
                         playerId, taskId, questId);
                     return true;
@@ -135,12 +142,72 @@ public class QuestManager {
         return 0;
     }
 
+    /**
+     * Applies persisted DB state to a started quest.
+     * status: 0=not started, 1=in progress, 2=completed.
+     */
+    public void applyPersistedState(int questId, int status, int completedObjectivesBitmask) {
+        Quest quest = quests.get(questId);
+        if (quest == null) return;
+
+        int completedCount = 0;
+        for (int i = 0; i < quest.tasks.size(); i++) {
+            Quest.Task task = quest.tasks.get(i);
+            boolean done = (completedObjectivesBitmask & (1 << i)) != 0;
+            task.completed = done;
+            taskProgress.put(taskKey(questId, task.id), done ? task.quantity : 0);
+            if (done) completedCount++;
+        }
+        questProgress.put(questId, completedCount);
+
+        if (status <= 0) {
+            quest.status = Quest.QuestStatus.NOT_STARTED;
+            quest.completed = false;
+        } else if (status == 1) {
+            quest.status = Quest.QuestStatus.IN_PROGRESS;
+            quest.completed = quest.allTasksCompleted();
+            if (quest.completed) quest.status = Quest.QuestStatus.COMPLETED;
+        } else {
+            quest.status = Quest.QuestStatus.COMPLETED;
+            quest.completed = true;
+            for (Quest.Task task : quest.tasks) {
+                task.completed = true;
+                taskProgress.put(taskKey(questId, task.id), task.quantity);
+            }
+            questProgress.put(questId, quest.tasks.size());
+        }
+    }
+
+    public int getCompletedObjectivesBitmask(int questId) {
+        Quest quest = quests.get(questId);
+        if (quest == null) return 0;
+        int bitmask = 0;
+        for (int i = 0; i < quest.tasks.size() && i < 31; i++) {
+            if (quest.tasks.get(i).completed) {
+                bitmask |= (1 << i);
+            }
+        }
+        return bitmask;
+    }
+
+    public int getStatusCode(int questId) {
+        Quest quest = quests.get(questId);
+        if (quest == null) return 0;
+        return switch (quest.status) {
+            case NOT_STARTED -> 0;
+            case IN_PROGRESS -> 1;
+            case COMPLETED -> 2;
+        };
+    }
+
     private static String taskKey(int questId, String taskId) {
         return questId + ":" + taskId;
     }
 
     private static Quest copyQuest(Quest source) {
         Quest copy = new Quest(source.id, source.name, source.description);
+        copy.questPointsReward = source.questPointsReward;
+        copy.miniquest = source.miniquest;
         for (Quest.Task task : source.tasks) {
             copy.addTask(new Quest.Task(
                 task.id,
@@ -152,5 +219,15 @@ public class QuestManager {
             ));
         }
         return copy;
+    }
+
+    public int getTotalQuestPoints() {
+        int total = 0;
+        for (Quest quest : quests.values()) {
+            if (quest.status == Quest.QuestStatus.COMPLETED) {
+                total += Math.max(0, quest.questPointsReward);
+            }
+        }
+        return total;
     }
 }

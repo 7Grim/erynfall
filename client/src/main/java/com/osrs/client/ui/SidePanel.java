@@ -8,6 +8,12 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.Matrix4;
 
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
 /**
  * OSRS-style unified side panel with a tab bar at the top.
  *
@@ -73,7 +79,8 @@ public class SidePanel {
     public enum Tab {
         COMBAT    (0, "Combat"),
         SKILLS    (1, "Skills"),
-        INVENTORY (2, "Inventory");
+        CHARACTER (2, "Summary"),
+        INVENTORY (3, "Inventory");
 
         public final int    index;
         public final String label;
@@ -89,6 +96,56 @@ public class SidePanel {
     // -----------------------------------------------------------------------
 
     private final InventoryUI inventoryUI = new InventoryUI();
+
+    private enum CharacterPage {
+        SUMMARY,
+        QUEST_LIST,
+        QUEST_JOURNAL
+    }
+
+    public enum QuestStatus {
+        NOT_STARTED,
+        IN_PROGRESS,
+        COMPLETED
+    }
+
+    public static class QuestTaskView {
+        public final String taskId;
+        public final String description;
+        public final int currentCount;
+        public final int requiredCount;
+        public final boolean completed;
+
+        public QuestTaskView(String taskId, String description, int currentCount, int requiredCount, boolean completed) {
+            this.taskId = taskId;
+            this.description = description;
+            this.currentCount = currentCount;
+            this.requiredCount = requiredCount;
+            this.completed = completed;
+        }
+    }
+
+    public static class QuestView {
+        public final int questId;
+        public final String questName;
+        public final String description;
+        public final boolean miniquest;
+        public final int questPointsReward;
+        public final QuestStatus status;
+        public final List<QuestTaskView> tasks;
+
+        public QuestView(int questId, String questName, String description,
+                         boolean miniquest, int questPointsReward,
+                         QuestStatus status, List<QuestTaskView> tasks) {
+            this.questId = questId;
+            this.questName = questName;
+            this.description = description;
+            this.miniquest = miniquest;
+            this.questPointsReward = questPointsReward;
+            this.status = status;
+            this.tasks = tasks;
+        }
+    }
 
     // Skills (synced from ClientPacketHandler each frame)
     private final int[]  skillLevels = new int[6];
@@ -108,6 +165,10 @@ public class SidePanel {
 
     // Combat style (0=Accurate 1=Aggressive 2=Defensive 3=Controlled)
     private int combatStyle = 1;   // default: Aggressive
+    private CharacterPage characterPage = CharacterPage.SUMMARY;
+    private final Map<Integer, QuestView> quests = new HashMap<>();
+    private int selectedQuestId = -1;
+    private int playerQuestPoints = 0;
 
     private static final String[] STYLE_NAMES = {
         "Accurate", "Aggressive", "Defensive", "Controlled"
@@ -162,6 +223,7 @@ public class SidePanel {
         switch (activeTab) {
             case COMBAT    -> renderCombatTab(sr, batch, font, proj);
             case SKILLS    -> renderSkillsTab(sr, batch, font, proj, screenW, screenH, mouseX, mouseY);
+            case CHARACTER -> renderCharacterTab(sr, batch, font, proj);
             case INVENTORY -> {
                 int invX = panelX + (PANEL_W - inventoryUI.getPanelWidth()) / 2;
                 inventoryUI.render(sr, batch, font, invX, panelY, proj);
@@ -178,7 +240,14 @@ public class SidePanel {
         int tabW    = PANEL_W / TABS.length;
         int lastW   = PANEL_W - tabW * (TABS.length - 1);
 
-        // ── Pass 1: all filled backgrounds + icons ───────────────────────────
+        // Background strip behind all tab buttons.
+        sr.setProjectionMatrix(proj);
+        sr.begin(ShapeRenderer.ShapeType.Filled);
+        sr.setColor(0.11f, 0.09f, 0.08f, 1f);
+        sr.rect(panelX + 1, tabBarY + 1, PANEL_W - 2, TAB_H - 2);
+        sr.end();
+
+        // ── Pass 1: all filled button backgrounds + icons ───────────────────
         sr.setProjectionMatrix(proj);
         sr.begin(ShapeRenderer.ShapeType.Filled);
         for (int i = 0; i < TABS.length; i++) {
@@ -187,29 +256,38 @@ public class SidePanel {
             boolean active = (TABS[i] == activeTab);
 
             sr.setColor(active
-                ? new Color(0.28f, 0.22f, 0.05f, 1f)
-                : new Color(0.16f, 0.14f, 0.12f, 1f));
-            sr.rect(tx + 1, tabBarY + 1, tw - 2, TAB_H - 2);
+                ? new Color(0.34f, 0.28f, 0.08f, 1f)
+                : new Color(0.15f, 0.13f, 0.11f, 1f));
+            sr.rect(tx + 2, tabBarY + 2, tw - 4, TAB_H - 4);
 
             // Icon
             int     cx = tx + tw / 2;
-            int     cy = tabBarY + TAB_H / 2 + 5;
+            int     cy = tabBarY + TAB_H / 2;
             Color   c  = active ? new Color(1f, 0.88f, 0.15f, 1f)
                                  : new Color(0.55f, 0.50f, 0.40f, 1f);
             sr.setColor(c);
             switch (i) {
                 case 0 -> {
+                    // Combat
                     sr.rect(cx - 7, cy - 2, 14, 3);
                     sr.rect(cx - 2, cy - 6, 3, 12);
                     sr.setColor(c.r * 0.7f, c.g * 0.7f, c.b * 0.7f, 1f);
                     sr.rect(cx - 5, cy - 1, 10, 1);
                 }
                 case 1 -> {
+                    // Skills
                     sr.rect(cx - 7, cy - 6, 4, 4);
                     sr.rect(cx - 2, cy - 6, 4, 8);
                     sr.rect(cx + 3, cy - 6, 4, 12);
                 }
                 case 2 -> {
+                    // Character Summary icon (scroll/list)
+                    sr.rect(cx - 6, cy + 3, 12, 2);
+                    sr.rect(cx - 6, cy, 12, 2);
+                    sr.rect(cx - 6, cy - 3, 12, 2);
+                }
+                case 3 -> {
+                    // Inventory
                     sr.rect(cx - 6, cy + 1, 5, 5);
                     sr.rect(cx + 1, cy + 1, 5, 5);
                     sr.rect(cx - 6, cy - 6, 5, 5);
@@ -228,27 +306,15 @@ public class SidePanel {
             sr.setColor(active
                 ? new Color(1.0f, 0.85f, 0.10f, 1f)
                 : new Color(0.42f, 0.36f, 0.22f, 1f));
-            sr.rect(tx + 1, tabBarY + 1, tw - 2, TAB_H - 2);
+            sr.rect(tx + 2, tabBarY + 2, tw - 4, TAB_H - 4);
+        }
+        // Vertical separators between tabs
+        sr.setColor(0.32f, 0.28f, 0.18f, 1f);
+        for (int i = 1; i < TABS.length; i++) {
+            int x = panelX + i * tabW;
+            sr.line(x, tabBarY + 4, x, tabBarY + TAB_H - 4);
         }
         sr.end();
-
-        // ── Pass 3: labels ───────────────────────────────────────────────────
-        batch.setProjectionMatrix(proj);
-        batch.begin();
-        font.getData().setScale(0.65f);
-        for (int i = 0; i < TABS.length; i++) {
-            int     tx     = panelX + i * tabW;
-            int     tw     = (i == TABS.length - 1) ? lastW : tabW;
-            boolean active = (TABS[i] == activeTab);
-            font.setColor(active
-                ? new Color(1f, 0.90f, 0.10f, 1f)
-                : new Color(0.65f, 0.60f, 0.50f, 1f));
-            int charW = (int) (TABS[i].label.length() * 7);
-            font.draw(batch, TABS[i].label, tx + (tw - charW) / 2f, panelY + CONTENT_H + 13);
-        }
-        font.getData().setScale(1f);
-        font.setColor(Color.WHITE);
-        batch.end();
     }
 
     // -----------------------------------------------------------------------
@@ -540,6 +606,130 @@ public class SidePanel {
         batch.end();
     }
 
+    private void renderCharacterTab(ShapeRenderer sr, SpriteBatch batch, BitmapFont font, Matrix4 proj) {
+        final int pad = 8;
+        final int headerY = panelY + CONTENT_H - 8;
+        final int subY = panelY + CONTENT_H - 34;
+        final int subW = (PANEL_W - pad * 4) / 3;
+        final int subH = 18;
+
+        // Title
+        batch.setProjectionMatrix(proj);
+        batch.begin();
+        font.getData().setScale(0.85f);
+        font.setColor(new Color(0.9f, 0.80f, 0.50f, 1f));
+        font.draw(batch, "Character Summary", panelX + pad, headerY);
+        font.getData().setScale(1f);
+        batch.end();
+
+        // Sub-nav buttons
+        sr.setProjectionMatrix(proj);
+        sr.begin(ShapeRenderer.ShapeType.Filled);
+        for (int i = 0; i < 3; i++) {
+            int bx = panelX + pad + i * (subW + pad);
+            boolean active = characterPage.ordinal() == i;
+            sr.setColor(active ? new Color(0.32f, 0.25f, 0.06f, 1f) : new Color(0.13f, 0.12f, 0.10f, 1f));
+            sr.rect(bx, subY, subW, subH);
+        }
+        sr.end();
+
+        sr.begin(ShapeRenderer.ShapeType.Line);
+        for (int i = 0; i < 3; i++) {
+            int bx = panelX + pad + i * (subW + pad);
+            boolean active = characterPage.ordinal() == i;
+            sr.setColor(active ? new Color(1f, 0.85f, 0.10f, 1f) : new Color(0.40f, 0.36f, 0.26f, 1f));
+            sr.rect(bx, subY, subW, subH);
+        }
+        sr.end();
+
+        batch.begin();
+        font.getData().setScale(0.72f);
+        String[] labels = {"Summary", "Quests", "Journal"};
+        for (int i = 0; i < 3; i++) {
+            int bx = panelX + pad + i * (subW + pad);
+            font.setColor(characterPage.ordinal() == i ? new Color(1f, 0.90f, 0.10f, 1f) : Color.WHITE);
+            font.draw(batch, labels[i], bx + 7, subY + 12);
+        }
+
+        int bodyTop = subY - 8;
+        if (characterPage == CharacterPage.SUMMARY) {
+            font.getData().setScale(0.8f);
+            font.setColor(Color.WHITE);
+            font.draw(batch, "Quest points: " + playerQuestPoints, panelX + pad, bodyTop);
+            font.draw(batch, "Completed quests: " + countCompletedQuests(), panelX + pad, bodyTop - 18);
+            font.draw(batch, "Total tracked quests: " + quests.size(), panelX + pad, bodyTop - 36);
+            font.setColor(0.8f, 0.75f, 0.65f, 1f);
+            font.getData().setScale(0.7f);
+            font.draw(batch, "Open Quests to see progress.", panelX + pad, bodyTop - 60);
+        } else if (characterPage == CharacterPage.QUEST_LIST) {
+            List<QuestView> list = sortedQuests();
+            int y = bodyTop;
+            font.getData().setScale(0.78f);
+            for (QuestView q : list) {
+                if (y < panelY + 18) break;
+                font.setColor(colorForQuest(q.status));
+                font.draw(batch, q.questName, panelX + pad, y);
+                y -= 16;
+            }
+            font.setColor(0.75f, 0.75f, 0.75f, 1f);
+            font.getData().setScale(0.65f);
+            font.draw(batch, "Red: not started  Yellow: in progress  Green: complete", panelX + pad, panelY + 10);
+        } else {
+            QuestView q = quests.get(selectedQuestId);
+            font.getData().setScale(0.80f);
+            if (q == null) {
+                font.setColor(0.8f, 0.75f, 0.65f, 1f);
+                font.draw(batch, "Select a quest from Quests.", panelX + pad, bodyTop);
+            } else {
+                font.setColor(colorForQuest(q.status));
+                font.draw(batch, q.questName, panelX + pad, bodyTop);
+                font.setColor(0.7f, 0.7f, 0.7f, 1f);
+                font.getData().setScale(0.68f);
+                font.draw(batch, q.description == null ? "" : q.description, panelX + pad, bodyTop - 16);
+
+                int y = bodyTop - 34;
+                for (QuestTaskView task : q.tasks) {
+                    if (y < panelY + 20) break;
+                    font.setColor(task.completed ? new Color(0.35f, 0.85f, 0.35f, 1f) : Color.WHITE);
+                    String progress = task.requiredCount > 1
+                        ? " (" + task.currentCount + "/" + task.requiredCount + ")"
+                        : (task.completed ? " (Done)" : "");
+                    font.draw(batch, "- " + task.description + progress, panelX + pad, y);
+                    y -= 14;
+                }
+
+                font.setColor(1f, 0.9f, 0.10f, 1f);
+                font.draw(batch, "Reward: " + q.questPointsReward + " Quest Point" + (q.questPointsReward == 1 ? "" : "s"),
+                    panelX + pad, panelY + 12);
+            }
+        }
+        font.getData().setScale(1f);
+        font.setColor(Color.WHITE);
+        batch.end();
+    }
+
+    private List<QuestView> sortedQuests() {
+        List<QuestView> list = new ArrayList<>(quests.values());
+        list.sort(Comparator.comparing(q -> q.questName));
+        return list;
+    }
+
+    private int countCompletedQuests() {
+        int done = 0;
+        for (QuestView q : quests.values()) {
+            if (q.status == QuestStatus.COMPLETED) done++;
+        }
+        return done;
+    }
+
+    private Color colorForQuest(QuestStatus status) {
+        return switch (status) {
+            case COMPLETED -> new Color(0.30f, 0.90f, 0.30f, 1f);
+            case IN_PROGRESS -> new Color(0.95f, 0.85f, 0.20f, 1f);
+            case NOT_STARTED -> new Color(0.92f, 0.33f, 0.33f, 1f);
+        };
+    }
+
     // -----------------------------------------------------------------------
     // Input handling
     // -----------------------------------------------------------------------
@@ -577,6 +767,36 @@ public class SidePanel {
                     if (mx >= bx && mx <= bx + btnW && my >= by && my <= by + btnH) {
                         combatStyle = i;
                         return i;
+                    }
+                }
+            }
+            case CHARACTER -> {
+                int pad = 8;
+                int subY = panelY + CONTENT_H - 34;
+                int subW = (PANEL_W - pad * 4) / 3;
+                int subH = 18;
+
+                for (int i = 0; i < 3; i++) {
+                    int bx = panelX + pad + i * (subW + pad);
+                    if (mx >= bx && mx <= bx + subW && my >= subY && my <= subY + subH) {
+                        characterPage = CharacterPage.values()[i];
+                        return -1;
+                    }
+                }
+
+                if (characterPage == CharacterPage.QUEST_LIST) {
+                    List<QuestView> list = sortedQuests();
+                    int y = subY - 8;
+                    for (QuestView q : list) {
+                        int rowTop = y;
+                        int rowBottom = y - 16;
+                        if (mx >= panelX + pad && mx <= panelX + PANEL_W - pad && my <= rowTop && my >= rowBottom) {
+                            selectedQuestId = q.questId;
+                            characterPage = CharacterPage.QUEST_JOURNAL;
+                            return -1;
+                        }
+                        y -= 16;
+                        if (y < panelY + 18) break;
                     }
                 }
             }
@@ -620,6 +840,14 @@ public class SidePanel {
 
     public void setCombatStyle(int style) {
         if (style >= 0 && style < 4) combatStyle = style;
+    }
+
+    public void setQuestState(QuestView questView, int totalQuestPoints) {
+        quests.put(questView.questId, questView);
+        playerQuestPoints = Math.max(0, totalQuestPoints);
+        if (selectedQuestId < 0) {
+            selectedQuestId = questView.questId;
+        }
     }
 
     // -----------------------------------------------------------------------

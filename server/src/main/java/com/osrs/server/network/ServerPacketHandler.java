@@ -55,6 +55,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
                 if (session.isAuthenticated() && DatabaseManager.isHealthy()) {
                     PlayerRepository.savePlayer(player);
                     PlayerRepository.saveInventory(player);
+                    PlayerRepository.saveQuestProgress(player, session.getQuestManager());
                     LOG.info("Saved player {} on disconnect", player.getName());
                 }
                 server.getWorld().getPlayers().remove(player.getId());
@@ -371,6 +372,10 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
         for (Quest quest : server.getQuestDefinitions().values()) {
             questManager.startQuest(quest);
         }
+
+        if (DatabaseManager.isHealthy()) {
+            PlayerRepository.loadQuestProgress(session.getPlayer(), questManager);
+        }
         session.setQuestManager(questManager);
     }
 
@@ -406,7 +411,8 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
     }
 
     private void sendQuestUpdate(ChannelHandlerContext ctx, Quest quest) {
-        if (quest == null) {
+        QuestManager questManager = session.getQuestManager();
+        if (quest == null || questManager == null) {
             return;
         }
 
@@ -414,14 +420,39 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
         int total = quest.tasks.size();
         boolean done = quest.allTasksCompleted();
 
+        NetworkProto.QuestUpdate.Builder update = NetworkProto.QuestUpdate.newBuilder()
+            .setQuestId(quest.id)
+            .setQuestName(quest.name)
+            .setTasksCompleted(completed)
+            .setTasksTotal(total)
+            .setCompleted(done)
+            .setQuestDescription(quest.description == null ? "" : quest.description)
+            .setMiniquest(quest.miniquest)
+            .setQuestPointsReward(quest.questPointsReward)
+            .setPlayerTotalQuestPoints(questManager.getTotalQuestPoints())
+            .setStatus(switch (quest.status) {
+                case COMPLETED -> NetworkProto.QuestStatus.QUEST_COMPLETED;
+                case IN_PROGRESS -> NetworkProto.QuestStatus.QUEST_IN_PROGRESS;
+                case NOT_STARTED -> NetworkProto.QuestStatus.QUEST_NOT_STARTED;
+            });
+
+        for (Quest.Task task : quest.tasks) {
+            int current = questManager.getTaskProgress(quest.id, task.id);
+            update.addTasks(NetworkProto.QuestTaskUpdate.newBuilder()
+                .setTaskId(task.id)
+                .setDescription(task.description == null ? task.id : task.description)
+                .setCurrentCount(current)
+                .setRequiredCount(Math.max(1, task.quantity))
+                .setCompleted(task.completed));
+        }
+
         ctx.writeAndFlush(NetworkProto.ServerMessage.newBuilder()
-            .setQuestUpdate(NetworkProto.QuestUpdate.newBuilder()
-                .setQuestId(quest.id)
-                .setQuestName(quest.name)
-                .setTasksCompleted(completed)
-                .setTasksTotal(total)
-                .setCompleted(done))
+            .setQuestUpdate(update)
             .build());
+
+        if (DatabaseManager.isHealthy() && session.getPlayer() != null) {
+            PlayerRepository.saveQuestProgress(session.getPlayer(), questManager);
+        }
     }
 
     private void closeDialogue(Player player) {

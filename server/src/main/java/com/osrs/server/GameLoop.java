@@ -185,6 +185,10 @@ public class GameLoop {
                 for (Player p : world.getPlayers().values()) {
                     PlayerRepository.savePlayer(p);
                     PlayerRepository.saveInventory(p);
+                    PlayerSession ps = getSessionForPlayer(p.getId());
+                    if (ps != null) {
+                        PlayerRepository.saveQuestProgress(p, ps.getQuestManager());
+                    }
                 }
                 LOG.info("Autosave complete — {} player(s) saved", world.getPlayers().size());
             }
@@ -576,7 +580,7 @@ public class GameLoop {
     }
 
     private void updateKillQuestObjectives(Player killer, int npcDefinitionId) {
-        PlayerSession killerSession = nettyServer.getSessions().get(killer.getId());
+        PlayerSession killerSession = getSessionForPlayer(killer.getId());
         if (killerSession == null || killerSession.getQuestManager() == null) {
             return;
         }
@@ -605,14 +609,52 @@ public class GameLoop {
             return;
         }
 
+        QuestManager questManager = session.getQuestManager();
+        if (questManager == null) {
+            return;
+        }
+
+        NetworkProto.QuestUpdate.Builder update = NetworkProto.QuestUpdate.newBuilder()
+            .setQuestId(quest.id)
+            .setQuestName(quest.name)
+            .setTasksCompleted(quest.getCompletedTaskCount())
+            .setTasksTotal(quest.tasks.size())
+            .setCompleted(quest.allTasksCompleted())
+            .setQuestDescription(quest.description == null ? "" : quest.description)
+            .setMiniquest(quest.miniquest)
+            .setQuestPointsReward(quest.questPointsReward)
+            .setPlayerTotalQuestPoints(questManager.getTotalQuestPoints())
+            .setStatus(switch (quest.status) {
+                case COMPLETED -> NetworkProto.QuestStatus.QUEST_COMPLETED;
+                case IN_PROGRESS -> NetworkProto.QuestStatus.QUEST_IN_PROGRESS;
+                case NOT_STARTED -> NetworkProto.QuestStatus.QUEST_NOT_STARTED;
+            });
+
+        for (Quest.Task task : quest.tasks) {
+            int current = questManager.getTaskProgress(quest.id, task.id);
+            update.addTasks(NetworkProto.QuestTaskUpdate.newBuilder()
+                .setTaskId(task.id)
+                .setDescription(task.description == null ? task.id : task.description)
+                .setCurrentCount(current)
+                .setRequiredCount(Math.max(1, task.quantity))
+                .setCompleted(task.completed));
+        }
+
         session.getChannel().writeAndFlush(NetworkProto.ServerMessage.newBuilder()
-            .setQuestUpdate(NetworkProto.QuestUpdate.newBuilder()
-                .setQuestId(quest.id)
-                .setQuestName(quest.name)
-                .setTasksCompleted(quest.getCompletedTaskCount())
-                .setTasksTotal(quest.tasks.size())
-                .setCompleted(quest.allTasksCompleted()))
+            .setQuestUpdate(update)
             .build());
+
+        if (DatabaseManager.isHealthy() && session.getPlayer() != null) {
+            PlayerRepository.saveQuestProgress(session.getPlayer(), questManager);
+        }
+    }
+
+    private PlayerSession getSessionForPlayer(int playerId) {
+        for (PlayerSession session : nettyServer.getSessions().values()) {
+            if (!session.isAuthenticated() || session.getPlayer() == null) continue;
+            if (session.getPlayer().getId() == playerId) return session;
+        }
+        return null;
     }
 
     /**

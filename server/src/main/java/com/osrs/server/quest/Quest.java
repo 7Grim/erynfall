@@ -9,6 +9,12 @@ import java.util.Map;
  * Represents a single quest with tasks and rewards.
  */
 public class Quest {
+
+    public enum QuestStatus {
+        NOT_STARTED,
+        IN_PROGRESS,
+        COMPLETED
+    }
     
     public enum TaskType {
         DIALOGUE,
@@ -43,6 +49,9 @@ public class Quest {
     public String description;
     public List<Task> tasks;
     public int totalRewardXp;
+    public int questPointsReward;
+    public boolean miniquest;
+    public QuestStatus status;
     public boolean completed;
     
     public Quest(int id, String name, String desc) {
@@ -51,6 +60,9 @@ public class Quest {
         this.description = desc;
         this.tasks = new ArrayList<>();
         this.totalRewardXp = 0;
+        this.questPointsReward = 0;
+        this.miniquest = false;
+        this.status = QuestStatus.NOT_STARTED;
         this.completed = false;
     }
     

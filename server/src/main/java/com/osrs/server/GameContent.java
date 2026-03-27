@@ -148,6 +148,8 @@ public class GameContent {
                 }
 
                 Quest quest = new Quest(id, name, description);
+                quest.questPointsReward = getInt(questMap, "quest_points", 0);
+                quest.miniquest = Boolean.TRUE.equals(questMap.get("miniquest"));
                 Object tasksObj = questMap.get("tasks");
                 if (tasksObj instanceof List<?> tasks) {
                     for (Object taskObj : tasks) {
@@ -156,7 +158,7 @@ public class GameContent {
 
                         String taskId = getString(taskMap, "id", "");
                         String typeStr = getString(taskMap, "type", "").toUpperCase();
-                        String taskDesc = taskId;
+                        String taskDesc = getString(taskMap, "description", taskId.replace('_', ' '));
                         int quantity = getInt(taskMap, "count", 1);
                         int rewardXp = getInt(taskMap, "reward_xp", 0);
                         int target = getInt(taskMap, "npc_id", getInt(taskMap, "item_id", 0));
