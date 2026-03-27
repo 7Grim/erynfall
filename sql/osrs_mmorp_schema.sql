@@ -316,6 +316,118 @@ CREATE INDEX idx_player_quest_tasks_player ON osrs.player_quest_tasks(player_id,
 GO
 
 -- ============================================================================
+-- TABLE 8C: ACCOUNTS (Email-based auth identity)
+-- ============================================================================
+
+DROP TABLE IF EXISTS osrs.accounts;
+GO
+
+CREATE TABLE osrs.accounts (
+  id INT IDENTITY(1,1) PRIMARY KEY,
+  email VARCHAR(320) NOT NULL,
+  password_hash VARCHAR(255) NOT NULL,
+  email_verified BIT NOT NULL DEFAULT 0,
+  status INT NOT NULL DEFAULT 1,
+  created_at DATETIME2 DEFAULT GETDATE(),
+  last_login_at DATETIME2,
+
+  UNIQUE (email)
+);
+GO
+
+CREATE INDEX idx_accounts_status ON osrs.accounts(status);
+GO
+
+-- ============================================================================
+-- TABLE 8D: CHARACTERS (One character per account for now)
+-- ============================================================================
+
+DROP TABLE IF EXISTS osrs.characters;
+GO
+
+CREATE TABLE osrs.characters (
+  id INT IDENTITY(1,1) PRIMARY KEY,
+  account_id INT NOT NULL REFERENCES osrs.accounts(id) ON DELETE CASCADE,
+  character_name VARCHAR(12) NOT NULL,
+  is_active BIT NOT NULL DEFAULT 1,
+  created_at DATETIME2 DEFAULT GETDATE(),
+
+  UNIQUE (character_name)
+);
+GO
+
+CREATE INDEX idx_characters_account ON osrs.characters(account_id, is_active);
+GO
+
+-- ============================================================================
+-- TABLE 8E: AUTH_REFRESH_TOKENS (Refresh token rotation/revoke)
+-- ============================================================================
+
+DROP TABLE IF EXISTS osrs.auth_refresh_tokens;
+GO
+
+CREATE TABLE osrs.auth_refresh_tokens (
+  id INT IDENTITY(1,1) PRIMARY KEY,
+  account_id INT NOT NULL REFERENCES osrs.accounts(id) ON DELETE CASCADE,
+  token_hash VARCHAR(255) NOT NULL,
+  expires_at DATETIME2 NOT NULL,
+  revoked_at DATETIME2,
+  created_at DATETIME2 DEFAULT GETDATE(),
+
+  UNIQUE (token_hash)
+);
+GO
+
+CREATE INDEX idx_auth_refresh_lookup ON osrs.auth_refresh_tokens(token_hash, revoked_at, expires_at);
+GO
+
+-- ============================================================================
+-- TABLE 8F: ACCOUNT_RECOVERY_TOKENS (Verify/reset flows)
+-- ============================================================================
+
+DROP TABLE IF EXISTS osrs.account_recovery_tokens;
+GO
+
+CREATE TABLE osrs.account_recovery_tokens (
+  id INT IDENTITY(1,1) PRIMARY KEY,
+  account_id INT NOT NULL REFERENCES osrs.accounts(id) ON DELETE CASCADE,
+  purpose VARCHAR(32) NOT NULL,
+  token_hash VARCHAR(255) NOT NULL,
+  expires_at DATETIME2 NOT NULL,
+  used_at DATETIME2,
+  created_at DATETIME2 DEFAULT GETDATE(),
+
+  UNIQUE (token_hash)
+);
+GO
+
+CREATE INDEX idx_recovery_lookup ON osrs.account_recovery_tokens(token_hash, used_at, expires_at);
+GO
+
+-- ============================================================================
+-- TABLE 8G: AUTH_AUDIT (Auth event stream)
+-- ============================================================================
+
+DROP TABLE IF EXISTS osrs.auth_audit;
+GO
+
+CREATE TABLE osrs.auth_audit (
+  id INT IDENTITY(1,1) PRIMARY KEY,
+  account_id INT NULL REFERENCES osrs.accounts(id) ON DELETE SET NULL,
+  event_type VARCHAR(64) NOT NULL,
+  success BIT NOT NULL,
+  ip_address VARCHAR(64),
+  user_agent VARCHAR(512),
+  details VARCHAR(1024),
+  created_at DATETIME2 DEFAULT GETDATE()
+);
+GO
+
+CREATE INDEX idx_auth_audit_account ON osrs.auth_audit(account_id, created_at);
+CREATE INDEX idx_auth_audit_type ON osrs.auth_audit(event_type, created_at);
+GO
+
+-- ============================================================================
 -- TABLE 9: GE_ORDERS (Grand Exchange buy/sell orders with matching index)
 -- ============================================================================
 
