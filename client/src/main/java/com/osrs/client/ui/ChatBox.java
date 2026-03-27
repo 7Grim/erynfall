@@ -41,9 +41,10 @@ public class ChatBox {
     // Layout constants
     // -----------------------------------------------------------------------
     public static final int BOX_W        = 518;   // matches OSRS chat box width
-    public static final int CONTENT_H    = 112;   // visible message area height
+    public static final int CONTENT_H    = 116;   // visible message area height
+    public static final int TAB_H        = 18;    // filter strip height
     public static final int INPUT_H      = 22;    // input bar height
-    public static final int TOTAL_H      = CONTENT_H + INPUT_H;
+    public static final int TOTAL_H      = CONTENT_H + TAB_H + INPUT_H;
     public static final int VISIBLE_LINES = 8;    // lines visible at once
     public static final int LINE_H       = 14;    // px per message line
     public static final int PAD_X        = 6;
@@ -74,11 +75,11 @@ public class ChatBox {
     public enum ViewFilter { ALL, GAME, PUBLIC }
 
     private static final DateTimeFormatter TS_FMT = DateTimeFormatter.ofPattern("HH:mm");
-    private static final Color TAB_ACTIVE = new Color(0.25f, 0.25f, 0.32f, 0.95f);
-    private static final Color TAB_IDLE = new Color(0.12f, 0.12f, 0.16f, 0.82f);
+    private static final Color TAB_ACTIVE = new Color(0.30f, 0.24f, 0.12f, 0.95f);
+    private static final Color TAB_IDLE = new Color(0.13f, 0.11f, 0.09f, 0.88f);
     private static final Color TS_COLOR = new Color(0.62f, 0.62f, 0.62f, 1f);
-    private static final int TAB_W = 42;
-    private static final int TAB_H = 13;
+    private static final int TAB_W = 52;
+    private static final int TAB_BTN_H = 14;
     private static final int TAB_GAP = 4;
 
     private static class ChatLine {
@@ -189,16 +190,20 @@ public class ChatBox {
         sr.begin(ShapeRenderer.ShapeType.Filled);
         sr.setColor(BG_COLOR);
         sr.rect(boxX, boxY, BOX_W, TOTAL_H);
-        // Separator line between content and input bar
+        // Separator line between content and tab strip
+        sr.setColor(SEP_COLOR);
+        sr.rect(boxX, boxY + INPUT_H + TAB_H - 1, BOX_W, 1);
+        // Separator line between tab strip and input bar
         sr.setColor(SEP_COLOR);
         sr.rect(boxX, boxY + INPUT_H - 1, BOX_W, 1);
 
         int tabStartX = tabStartX();
+        int tabY = boxY + INPUT_H + 2;
         for (int i = 0; i < 3; i++) {
             int x = tabStartX + i * (TAB_W + TAB_GAP);
             boolean active = viewFilter.ordinal() == i;
             sr.setColor(active ? TAB_ACTIVE : TAB_IDLE);
-            sr.rect(x, boxY + 4, TAB_W, TAB_H);
+            sr.rect(x, tabY, TAB_W, TAB_BTN_H);
         }
         sr.end();
 
@@ -212,7 +217,7 @@ public class ChatBox {
         int count = wrapped.size() - startIdx;
         for (int i = 0; i < count; i++) {
             WrappedLine line = wrapped.get(startIdx + i);
-            int lineY = boxY + INPUT_H + PAD_Y + i * LINE_H;
+            int lineY = boxY + INPUT_H + TAB_H + PAD_Y + i * LINE_H;
             float x = boxX + PAD_X;
 
             if (!line.continuation && line.timestamp != null && !line.timestamp.isEmpty()) {
@@ -246,16 +251,16 @@ public class ChatBox {
         if (chatActive) {
             String cursor = cursorVisible ? "|" : " ";
             font.setColor(INPUT_COLOR);
-            font.draw(batch, inputBuffer + cursor, boxX + PAD_X, boxY + INPUT_H - PAD_Y - 1);
+            font.draw(batch, inputBuffer + cursor, boxX + PAD_X, boxY + INPUT_H - PAD_Y - 3);
         } else {
             font.setColor(HINT_COLOR);
-            font.draw(batch, "Press Enter to Chat", boxX + PAD_X, boxY + INPUT_H - PAD_Y - 1);
+            font.draw(batch, "Press Enter to Chat", boxX + PAD_X, boxY + INPUT_H - PAD_Y - 3);
         }
 
         font.setColor(HINT_COLOR);
-        font.draw(batch, "All", tabStartX + 11, boxY + 14);
-        font.draw(batch, "Game", tabStartX + (TAB_W + TAB_GAP) + 8, boxY + 14);
-        font.draw(batch, "Public", tabStartX + 2 * (TAB_W + TAB_GAP) + 5, boxY + 14);
+        font.draw(batch, "All", tabStartX + 18, boxY + INPUT_H + 14);
+        font.draw(batch, "Game", tabStartX + (TAB_W + TAB_GAP) + 11, boxY + INPUT_H + 14);
+        font.draw(batch, "Public", tabStartX + 2 * (TAB_W + TAB_GAP) + 8, boxY + INPUT_H + 14);
 
         batch.end();
         font.setColor(Color.WHITE);
@@ -371,8 +376,8 @@ public class ChatBox {
         if (mouseY < 0 || mouseY > TOTAL_H || mouseX < 0 || mouseX > BOX_W) return false;
 
         int tabStartX = tabStartX();
-        int tabY = 4;
-        if (mouseY >= tabY && mouseY <= tabY + TAB_H) {
+        int tabY = INPUT_H + 2;
+        if (mouseY >= tabY && mouseY <= tabY + TAB_BTN_H) {
             for (int i = 0; i < 3; i++) {
                 int x = tabStartX + i * (TAB_W + TAB_GAP);
                 if (mouseX >= x && mouseX <= x + TAB_W) {
@@ -385,6 +390,6 @@ public class ChatBox {
     }
 
     private int tabStartX() {
-        return BOX_W - (TAB_W * 3 + TAB_GAP * 2 + 8);
+        return BOX_W - (TAB_W * 3 + TAB_GAP * 2 + 10);
     }
 }

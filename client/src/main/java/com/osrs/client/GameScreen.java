@@ -639,7 +639,7 @@ public class GameScreen extends ApplicationAdapter {
                 LOG.debug("Right-click tile ({},{})", tile[0], tile[1]);
                 List<ContextMenu.MenuItem> opts = generateContextMenu(tile[0], tile[1]);
                 if (!opts.isEmpty())
-                    contextMenu.open(mx, screenMy, opts);
+                    contextMenu.open(mx, screenMy, opts, w, h);
             }
         }
 
@@ -770,7 +770,7 @@ public class GameScreen extends ApplicationAdapter {
         }
         opts.add(new ContextMenu.MenuItem("Drop " + name, "inv_drop", slot));
         opts.add(new ContextMenu.MenuItem("Examine " + name, "inv_examine", slot));
-        contextMenu.open(mx, my, opts);
+        contextMenu.open(mx, my, opts, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
     }
 
     /** Player-initiated walk — cancels any pending approach. */
@@ -1235,29 +1235,47 @@ public class GameScreen extends ApplicationAdapter {
 
         int mx = contextMenu.getScreenX(), my = contextMenu.getScreenY();
         int n = items.size();
-        int totalH = ContextMenu.HEADER_HEIGHT + n * ContextMenu.ITEM_HEIGHT + 4;
-        int w = ContextMenu.MENU_WIDTH;
+        int totalH = contextMenu.getTotalHeight();
+        int w = contextMenu.getMenuWidth();
+        int mouseX = Gdx.input.getX();
+        int mouseY = Gdx.graphics.getHeight() - Gdx.input.getY();
+        int hovered = contextMenu.getHoveredItemIndex(mouseX, mouseY);
+        int itemsBottomY = my + ContextMenu.V_PAD;
+        int headerY = itemsBottomY + n * ContextMenu.ITEM_HEIGHT;
 
         shapeRenderer.setProjectionMatrix(screenProjection);
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
-        shapeRenderer.setColor(0.06f, 0.06f, 0.15f, 0.92f);
+        shapeRenderer.setColor(0.07f, 0.07f, 0.12f, 0.95f);
         shapeRenderer.rect(mx, my, w, totalH);
+
+        // Header strip
+        shapeRenderer.setColor(0.19f, 0.17f, 0.12f, 0.98f);
+        shapeRenderer.rect(mx + 1, headerY, w - 2, ContextMenu.HEADER_HEIGHT + ContextMenu.V_PAD - 1);
+
+        for (int i = 0; i < n; i++) {
+            if (i == hovered) {
+                int rowY = itemsBottomY + (n - 1 - i) * ContextMenu.ITEM_HEIGHT;
+                shapeRenderer.setColor(0.24f, 0.20f, 0.08f, 0.95f);
+                shapeRenderer.rect(mx + 2, rowY, w - 4, ContextMenu.ITEM_HEIGHT);
+            }
+        }
         shapeRenderer.end();
 
         shapeRenderer.begin(ShapeRenderer.ShapeType.Line);
         shapeRenderer.setColor(0.85f, 0.75f, 0.1f, 1f);
         shapeRenderer.rect(mx, my, w, totalH);
+        shapeRenderer.setColor(0.45f, 0.36f, 0.12f, 1f);
+        shapeRenderer.line(mx + 1, headerY, mx + w - 2, headerY);
         shapeRenderer.end();
 
         screenBatch.setProjectionMatrix(screenProjection);
         screenBatch.begin();
         font.setColor(1f, 0.85f, 0f, 1f);
-        font.draw(screenBatch, "Choose Option", mx + 5, my + n * ContextMenu.ITEM_HEIGHT + 14);
-        font.setColor(Color.WHITE);
+        font.draw(screenBatch, "Choose Option", mx + ContextMenu.H_PAD, headerY + 14);
         for (int i = 0; i < n; i++) {
-            font.setColor(Color.WHITE);
-            font.draw(screenBatch, items.get(i).label, mx + 5,
-                my + (n - 1 - i) * ContextMenu.ITEM_HEIGHT + 13);
+            font.setColor(i == hovered ? new Color(1f, 0.95f, 0.45f, 1f) : Color.WHITE);
+            font.draw(screenBatch, items.get(i).label, mx + ContextMenu.H_PAD,
+                itemsBottomY + (n - 1 - i) * ContextMenu.ITEM_HEIGHT + 14);
         }
         screenBatch.end();
         font.setColor(Color.WHITE);
