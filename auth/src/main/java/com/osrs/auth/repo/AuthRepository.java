@@ -1,5 +1,6 @@
 package com.osrs.auth.repo;
 
+import com.osrs.auth.config.AuthSettings;
 import com.osrs.auth.db.Db;
 import com.osrs.auth.model.AccountRecord;
 import com.osrs.auth.model.CharacterRecord;
@@ -16,15 +17,17 @@ import java.time.Instant;
 public class AuthRepository {
 
     private final Db db;
+    private final String schema;
 
-    public AuthRepository(Db db) {
+    public AuthRepository(Db db, AuthSettings settings) {
         this.db = db;
+        this.schema = settings.dbSchema();
     }
 
     public AccountRecord findAccountByEmail(String email) throws Exception {
         try (Connection conn = db.open()) {
             PreparedStatement ps = conn.prepareStatement(
-                "SELECT id, email, password_hash, email_verified, status FROM osrs.accounts WHERE LOWER(email)=LOWER(?)"
+                "SELECT id, email, password_hash, email_verified, status FROM " + table("accounts") + " WHERE LOWER(email)=LOWER(?)"
             );
             ps.setString(1, email);
             ResultSet rs = ps.executeQuery();
@@ -42,7 +45,7 @@ public class AuthRepository {
     public AccountRecord findAccountById(int id) throws Exception {
         try (Connection conn = db.open()) {
             PreparedStatement ps = conn.prepareStatement(
-                "SELECT id, email, password_hash, email_verified, status FROM osrs.accounts WHERE id=?"
+                "SELECT id, email, password_hash, email_verified, status FROM " + table("accounts") + " WHERE id=?"
             );
             ps.setInt(1, id);
             ResultSet rs = ps.executeQuery();
@@ -62,7 +65,7 @@ public class AuthRepository {
             conn.setAutoCommit(false);
 
             PreparedStatement ps = conn.prepareStatement(
-                "INSERT INTO osrs.accounts (email, password_hash, email_verified, status) VALUES (?, ?, ?, 1)",
+                "INSERT INTO " + table("accounts") + " (email, password_hash, email_verified, status) VALUES (?, ?, ?, 1)",
                 Statement.RETURN_GENERATED_KEYS
             );
             ps.setString(1, email);
@@ -89,7 +92,7 @@ public class AuthRepository {
 
             int accountId;
             PreparedStatement accountPs = conn.prepareStatement(
-                "INSERT INTO osrs.accounts (email, password_hash, email_verified, status) VALUES (?, ?, ?, 1)",
+                "INSERT INTO " + table("accounts") + " (email, password_hash, email_verified, status) VALUES (?, ?, ?, 1)",
                 Statement.RETURN_GENERATED_KEYS
             );
             accountPs.setString(1, email);
@@ -104,7 +107,7 @@ public class AuthRepository {
             accountId = accountKeys.getInt(1);
 
             PreparedStatement characterPs = conn.prepareStatement(
-                "INSERT INTO osrs.characters (account_id, character_name, is_active) VALUES (?, ?, 1)",
+                "INSERT INTO " + table("characters") + " (account_id, character_name, is_active) VALUES (?, ?, 1)",
                 Statement.RETURN_GENERATED_KEYS
             );
             characterPs.setInt(1, accountId);
@@ -129,7 +132,7 @@ public class AuthRepository {
         try (Connection conn = db.open()) {
             conn.setAutoCommit(false);
             PreparedStatement ps = conn.prepareStatement(
-                "INSERT INTO osrs.characters (account_id, character_name, is_active) VALUES (?, ?, 1)",
+                "INSERT INTO " + table("characters") + " (account_id, character_name, is_active) VALUES (?, ?, 1)",
                 Statement.RETURN_GENERATED_KEYS
             );
             ps.setInt(1, accountId);
@@ -151,7 +154,7 @@ public class AuthRepository {
         try (Connection conn = db.open()) {
             PreparedStatement ps = conn.prepareStatement(
                 "SELECT TOP 1 id, account_id, character_name, is_active " +
-                    "FROM osrs.characters WHERE account_id = ? AND is_active = 1 ORDER BY id"
+                    "FROM " + table("characters") + " WHERE account_id = ? AND is_active = 1 ORDER BY id"
             );
             ps.setInt(1, accountId);
             ResultSet rs = ps.executeQuery();
@@ -168,7 +171,7 @@ public class AuthRepository {
     public void storeRefreshToken(int accountId, String tokenHash, Instant expiresAt) throws Exception {
         try (Connection conn = db.open()) {
             PreparedStatement ps = conn.prepareStatement(
-                "INSERT INTO osrs.auth_refresh_tokens (account_id, token_hash, expires_at) VALUES (?, ?, ?)"
+                "INSERT INTO " + table("auth_refresh_tokens") + " (account_id, token_hash, expires_at) VALUES (?, ?, ?)"
             );
             ps.setInt(1, accountId);
             ps.setString(2, tokenHash);
@@ -180,7 +183,7 @@ public class AuthRepository {
     public Integer findRefreshTokenAccount(String tokenHash) throws Exception {
         try (Connection conn = db.open()) {
             PreparedStatement ps = conn.prepareStatement(
-                "SELECT account_id FROM osrs.auth_refresh_tokens " +
+                "SELECT account_id FROM " + table("auth_refresh_tokens") + " " +
                     "WHERE token_hash = ? AND revoked_at IS NULL AND expires_at > GETDATE()"
             );
             ps.setString(1, tokenHash);
@@ -193,7 +196,7 @@ public class AuthRepository {
     public void revokeRefreshToken(String tokenHash) throws Exception {
         try (Connection conn = db.open()) {
             PreparedStatement ps = conn.prepareStatement(
-                "UPDATE osrs.auth_refresh_tokens SET revoked_at = GETDATE() WHERE token_hash = ? AND revoked_at IS NULL"
+                "UPDATE " + table("auth_refresh_tokens") + " SET revoked_at = GETDATE() WHERE token_hash = ? AND revoked_at IS NULL"
             );
             ps.setString(1, tokenHash);
             ps.executeUpdate();
@@ -203,7 +206,7 @@ public class AuthRepository {
     public void revokeAllRefreshTokens(int accountId) throws Exception {
         try (Connection conn = db.open()) {
             PreparedStatement ps = conn.prepareStatement(
-                "UPDATE osrs.auth_refresh_tokens SET revoked_at = GETDATE() " +
+                "UPDATE " + table("auth_refresh_tokens") + " SET revoked_at = GETDATE() " +
                     "WHERE account_id = ? AND revoked_at IS NULL"
             );
             ps.setInt(1, accountId);
@@ -214,11 +217,15 @@ public class AuthRepository {
     public void touchLastLogin(int accountId) throws Exception {
         try (Connection conn = db.open()) {
             PreparedStatement ps = conn.prepareStatement(
-                "UPDATE osrs.accounts SET last_login_at = GETDATE() WHERE id = ?"
+                "UPDATE " + table("accounts") + " SET last_login_at = GETDATE() WHERE id = ?"
             );
             ps.setInt(1, accountId);
             ps.executeUpdate();
         }
+    }
+
+    private String table(String tableName) {
+        return schema + "." + tableName;
     }
 
     public record RegistrationRecord(AccountRecord account, CharacterRecord character) {
