@@ -14,6 +14,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Client-side Netty connection to game server.
@@ -28,7 +29,8 @@ public class NettyClient {
     private EventLoopGroup group;
     private Channel channel;
     private ClientPacketHandler handler;
-    private CountDownLatch connectedLatch = new CountDownLatch(1);
+    private volatile CountDownLatch handshakeLatch = new CountDownLatch(1);
+    private volatile NetworkProto.HandshakeResponse lastHandshakeResponse;
     
     public void connect() throws Exception {
         group = new NioEventLoopGroup();
@@ -57,11 +59,6 @@ public class NettyClient {
             ChannelFuture future = bootstrap.connect(HOST, PORT).sync();
             channel = future.channel();
             LOG.info("Connected to server at {}:{}", HOST, PORT);
-            
-            // Wait for connection acknowledgement
-            connectedLatch.await();
-            LOG.info("Server acknowledged connection");
-            
         } catch (Exception e) {
             LOG.error("Failed to connect to server", e);
             throw e;
@@ -77,6 +74,9 @@ public class NettyClient {
     }
     
     public void sendHandshake(String username, String password) {
+        lastHandshakeResponse = null;
+        handshakeLatch = new CountDownLatch(1);
+
         NetworkProto.ClientMessage msg = NetworkProto.ClientMessage.newBuilder()
             .setHandshake(NetworkProto.Handshake.newBuilder()
                 .setUsername(username)
@@ -84,6 +84,25 @@ public class NettyClient {
             .build();
         channel.writeAndFlush(msg);
         LOG.debug("Sent handshake: {}", username);
+    }
+
+    public void sendTokenHandshake(String accessToken) {
+        lastHandshakeResponse = null;
+        handshakeLatch = new CountDownLatch(1);
+
+        NetworkProto.ClientMessage msg = NetworkProto.ClientMessage.newBuilder()
+            .setHandshake(NetworkProto.Handshake.newBuilder()
+                .setAccessToken(accessToken))
+            .build();
+        channel.writeAndFlush(msg);
+        LOG.debug("Sent token handshake");
+    }
+
+    public NetworkProto.HandshakeResponse awaitHandshakeResponse(long timeoutMs) throws InterruptedException {
+        if (!handshakeLatch.await(timeoutMs, TimeUnit.MILLISECONDS)) {
+            return null;
+        }
+        return lastHandshakeResponse;
     }
 
     public void sendPlayerMovement(int x, int y, int facing) {
@@ -209,8 +228,9 @@ public class NettyClient {
         return channel != null && channel.isActive();
     }
     
-    public void setConnectedLatch() {
-        connectedLatch.countDown();
+    public void setHandshakeResponse(NetworkProto.HandshakeResponse response) {
+        lastHandshakeResponse = response;
+        handshakeLatch.countDown();
     }
     
     public ClientPacketHandler getHandler() {

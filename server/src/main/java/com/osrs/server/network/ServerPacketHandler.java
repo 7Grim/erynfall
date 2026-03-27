@@ -1,6 +1,8 @@
 package com.osrs.server.network;
 
 import com.osrs.protocol.NetworkProto;
+import com.osrs.server.auth.AuthTokenSettings;
+import com.osrs.server.auth.JwtAccessTokenVerifier;
 import com.osrs.server.database.DatabaseManager;
 import com.osrs.server.database.PlayerRepository;
 import com.osrs.server.quest.DialogueEngine;
@@ -16,6 +18,7 @@ import com.osrs.shared.Player;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
+import io.jsonwebtoken.JwtException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -29,10 +32,14 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
     private static final int TRANSIENT_PLAYER_ID_OFFSET = 900_000;
     
     private final NettyServer server;
+    private final AuthTokenSettings authTokenSettings;
+    private final JwtAccessTokenVerifier jwtAccessTokenVerifier;
     private PlayerSession session;
     
     public ServerPacketHandler(NettyServer server) {
         this.server = server;
+        this.authTokenSettings = new AuthTokenSettings();
+        this.jwtAccessTokenVerifier = new JwtAccessTokenVerifier(authTokenSettings);
     }
     
     @Override
@@ -40,9 +47,6 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
         // New client connected
         session = server.createSession(ctx.channel());
         LOG.info("Client connected from {}", ctx.channel().remoteAddress());
-        
-        // Send welcome message
-        sendHandshakeResponse(ctx, true, "Welcome to OSRS MMORP", 1);
     }
     
     @Override
@@ -92,6 +96,17 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
     }
     
     private void handleHandshake(ChannelHandlerContext ctx, NetworkProto.Handshake handshake) {
+        String accessToken = handshake.getAccessToken().trim();
+        if (!accessToken.isEmpty()) {
+            handleTokenHandshake(ctx, accessToken);
+            return;
+        }
+
+        if (!authTokenSettings.allowLegacyLogin()) {
+            sendHandshakeResponse(ctx, false, "Access token required.", 0);
+            return;
+        }
+
         String username = handshake.getUsername().trim();
         String password = handshake.getPassword();
         LOG.info("Handshake from session {}: username={}", session.getSessionId(), username);
@@ -151,6 +166,74 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
 
         sendInitialQuestState(ctx);
 
+        sendWorldState(ctx);
+    }
+
+    private void handleTokenHandshake(ChannelHandlerContext ctx, String accessToken) {
+        LOG.info("Token handshake from session {}", session.getSessionId());
+
+        if (!jwtAccessTokenVerifier.isConfigured()) {
+            LOG.error("Token login rejected — JWT_SIGNING_KEY not configured on game server");
+            sendHandshakeResponse(ctx, false, "Token auth not configured on server.", 0);
+            return;
+        }
+
+        if (!DatabaseManager.isHealthy()) {
+            sendHandshakeResponse(ctx, false, "Database unavailable.", 0);
+            return;
+        }
+
+        JwtAccessTokenVerifier.VerifiedAccessToken verified;
+        try {
+            verified = jwtAccessTokenVerifier.verify(accessToken);
+        } catch (JwtException | IllegalStateException ex) {
+            LOG.warn("Token handshake rejected for session {}: {}", session.getSessionId(), ex.getMessage());
+            sendHandshakeResponse(ctx, false, "Invalid or expired access token.", 0);
+            return;
+        }
+
+        PlayerRepository.AuthCharacter authCharacter = PlayerRepository.findActiveAuthCharacterById(
+            authTokenSettings.authDbSchema(),
+            verified.characterId()
+        );
+        if (authCharacter == null) {
+            sendHandshakeResponse(ctx, false, "Character is not available.", 0);
+            return;
+        }
+
+        if (authCharacter.accountId() != verified.accountId()) {
+            LOG.warn("Token handshake rejected — account mismatch for session {} (token sub={}, db account={})",
+                session.getSessionId(), verified.accountId(), authCharacter.accountId());
+            sendHandshakeResponse(ctx, false, "Invalid access token.", 0);
+            return;
+        }
+
+        String characterName = authCharacter.characterName();
+        Player player = PlayerRepository.loginOrRegisterTokenCharacter(characterName);
+        if (player == null) {
+            sendHandshakeResponse(ctx, false, "Unable to load character.", 0);
+            return;
+        }
+
+        PlayerRepository.loadInventory(player);
+
+        if (!server.getWorld().canWalkTo(player.getX(), player.getY())) {
+            LOG.warn("Player {} had out-of-bounds position ({},{}); resetting to spawn ({},{})",
+                characterName, player.getX(), player.getY(), server.getWorld().getSpawnX(), server.getWorld().getSpawnY());
+            player.setPosition(server.getWorld().getSpawnX(), server.getWorld().getSpawnY());
+        }
+
+        session.setPlayer(player);
+        session.setAuthenticated(true);
+        initializeQuestsForSession();
+        server.getWorld().getPlayers().put(player.getId(), player);
+
+        LOG.info("Token login successful for account {} character {} (entityId={})",
+            verified.accountId(), characterName, player.getId());
+
+        sendHandshakeResponse(ctx, true, "Welcome back, " + characterName + "!", player.getId());
+        sendAllSkillUpdates(ctx, player);
+        sendInitialQuestState(ctx);
         sendWorldState(ctx);
     }
 

@@ -11,7 +11,7 @@ server:
 database:
   url: "jdbc:sqlserver://erynfall.database.windows.net:1433;databaseName=erynfall;encrypt=true;trustServerCertificate=false;loginTimeout=60"
   user: "erynfalladmin"
-  password: ""  # Set DB_PASSWORD environment variable instead — never commit passwords
+  password: ""
   max_connections: 10
 
 network:

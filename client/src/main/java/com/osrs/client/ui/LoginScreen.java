@@ -2,6 +2,7 @@ package com.osrs.client.ui;
 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
+import com.badlogic.gdx.InputAdapter;
 import com.badlogic.gdx.ScreenAdapter;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
@@ -14,10 +15,10 @@ import com.osrs.client.ErynfallGame;
 /**
  * Login / registration screen shown before GameScreen.
  *
- * Layout: dark background, centred panel, two input fields (username / password),
+ * Layout: dark background, centred panel, two input fields (email / password),
  * Tab to switch fields, Enter to submit, error message line at bottom.
  *
- * Username rules: 1–12 chars, letters/numbers/spaces only.
+ * Email rules: valid email address.
  * Password: any chars, asterisked display.
  */
 public class LoginScreen extends ScreenAdapter {
@@ -26,6 +27,8 @@ public class LoginScreen extends ScreenAdapter {
     private static final int PANEL_H  = 200;
     private static final int FIELD_H  = 24;
     private static final int PAD      = 12;
+    private static final int EMAIL_MAX_LEN = 254;
+    private static final int PASSWORD_MAX_LEN = 128;
 
     private final ErynfallGame game;
 
@@ -35,16 +38,22 @@ public class LoginScreen extends ScreenAdapter {
     private Matrix4       proj;
 
     // Input state
-    private String usernameBuffer = "";
+    private String emailBuffer = "";
     private String passwordBuffer = "";
-    private boolean focusUsername = true;   // false = password field focused
+    private boolean focusEmail = true;   // false = password field focused
 
     private String errorMessage = "";
     private float   cursorBlink  = 0f;
     private boolean transitioning = false;  // set true when screen switch is in flight
+    private InputAdapter inputProcessor;
 
     public LoginScreen(ErynfallGame game) {
+        this(game, "");
+    }
+
+    public LoginScreen(ErynfallGame game, String initialErrorMessage) {
         this.game = game;
+        this.errorMessage = initialErrorMessage == null ? "" : initialErrorMessage;
     }
 
     @Override
@@ -53,6 +62,58 @@ public class LoginScreen extends ScreenAdapter {
         batch = new SpriteBatch();
         sr    = new ShapeRenderer();
         proj  = new Matrix4().setToOrtho2D(0, 0, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
+
+        inputProcessor = new InputAdapter() {
+            @Override
+            public boolean keyDown(int keycode) {
+                if (transitioning) {
+                    return true;
+                }
+
+                if (keycode == Input.Keys.ENTER) {
+                    submit();
+                    return true;
+                }
+
+                if (keycode == Input.Keys.TAB) {
+                    focusEmail = !focusEmail;
+                    return true;
+                }
+
+                if (keycode == Input.Keys.BACKSPACE) {
+                    if (focusEmail) {
+                        if (!emailBuffer.isEmpty()) {
+                            emailBuffer = emailBuffer.substring(0, emailBuffer.length() - 1);
+                        }
+                    } else {
+                        if (!passwordBuffer.isEmpty()) {
+                            passwordBuffer = passwordBuffer.substring(0, passwordBuffer.length() - 1);
+                        }
+                    }
+                    return true;
+                }
+
+                if (isPasteShortcut(keycode)) {
+                    pasteFromClipboard();
+                    return true;
+                }
+
+                return false;
+            }
+
+            @Override
+            public boolean keyTyped(char character) {
+                if (transitioning) {
+                    return true;
+                }
+                if (character < 32 || character == 127) {
+                    return false;
+                }
+                appendChar(character);
+                return true;
+            }
+        };
+        Gdx.input.setInputProcessor(inputProcessor);
     }
 
     @Override
@@ -61,9 +122,8 @@ public class LoginScreen extends ScreenAdapter {
         int h = Gdx.graphics.getHeight();
 
         cursorBlink = (cursorBlink + delta) % 1.0f;
-        handleInput();
 
-        // setScreen() was called inside handleInput() — our resources are now disposed; stop here.
+        // setScreen() was called from input callbacks — resources may already be disposed; stop here.
         if (transitioning) return;
 
         // Clear
@@ -88,26 +148,26 @@ public class LoginScreen extends ScreenAdapter {
 
         // Field positions (from panel bottom)
         int fieldW    = PANEL_W - PAD * 2;
-        int usernameY = panelY + PANEL_H - 70;
-        int passwordY = usernameY - 50;
+        int emailY = panelY + PANEL_H - 70;
+        int passwordY = emailY - 50;
 
         // Draw field backgrounds
         sr.begin(ShapeRenderer.ShapeType.Filled);
-        // Username field
-        Color userBg = focusUsername ? new Color(0.2f, 0.18f, 0.12f, 1f) : new Color(0.15f, 0.13f, 0.10f, 1f);
-        sr.setColor(userBg);
-        sr.rect(panelX + PAD, usernameY - FIELD_H, fieldW, FIELD_H);
+        // Email field
+        Color emailBg = focusEmail ? new Color(0.2f, 0.18f, 0.12f, 1f) : new Color(0.15f, 0.13f, 0.10f, 1f);
+        sr.setColor(emailBg);
+        sr.rect(panelX + PAD, emailY - FIELD_H, fieldW, FIELD_H);
         // Password field
-        Color passBg = !focusUsername ? new Color(0.2f, 0.18f, 0.12f, 1f) : new Color(0.15f, 0.13f, 0.10f, 1f);
+        Color passBg = !focusEmail ? new Color(0.2f, 0.18f, 0.12f, 1f) : new Color(0.15f, 0.13f, 0.10f, 1f);
         sr.setColor(passBg);
         sr.rect(panelX + PAD, passwordY - FIELD_H, fieldW, FIELD_H);
         sr.end();
 
         // Field borders
         sr.begin(ShapeRenderer.ShapeType.Line);
-        sr.setColor(focusUsername ? Color.YELLOW : Color.GRAY);
-        sr.rect(panelX + PAD, usernameY - FIELD_H, fieldW, FIELD_H);
-        sr.setColor(!focusUsername ? Color.YELLOW : Color.GRAY);
+        sr.setColor(focusEmail ? Color.YELLOW : Color.GRAY);
+        sr.rect(panelX + PAD, emailY - FIELD_H, fieldW, FIELD_H);
+        sr.setColor(!focusEmail ? Color.YELLOW : Color.GRAY);
         sr.rect(panelX + PAD, passwordY - FIELD_H, fieldW, FIELD_H);
         sr.end();
 
@@ -121,20 +181,20 @@ public class LoginScreen extends ScreenAdapter {
 
         // Labels
         font.setColor(Color.LIGHT_GRAY);
-        font.draw(batch, "Username:", panelX + PAD, usernameY + 2);
+        font.draw(batch, "Email:", panelX + PAD, emailY + 2);
         font.draw(batch, "Password:", panelX + PAD, passwordY + 2);
 
         // Field contents
         String cursor = cursorBlink < 0.5f ? "|" : "";
         font.setColor(Color.WHITE);
-        String userDisplay = usernameBuffer + (focusUsername ? cursor : "");
-        font.draw(batch, userDisplay, panelX + PAD + 4, usernameY - 4);
-        String passDisplay = "*".repeat(passwordBuffer.length()) + (!focusUsername ? cursor : "");
+        String emailDisplay = emailBuffer + (focusEmail ? cursor : "");
+        font.draw(batch, emailDisplay, panelX + PAD + 4, emailY - 4);
+        String passDisplay = "*".repeat(passwordBuffer.length()) + (!focusEmail ? cursor : "");
         font.draw(batch, passDisplay, panelX + PAD + 4, passwordY - 4);
 
         // Hint
         font.setColor(Color.GRAY);
-        font.draw(batch, "Tab: switch field   Enter: login / register", panelX + PAD, panelY + 30);
+        font.draw(batch, "Tab: switch field   Enter: login", panelX + PAD, panelY + 30);
 
         // Error message
         if (!errorMessage.isEmpty()) {
@@ -145,79 +205,58 @@ public class LoginScreen extends ScreenAdapter {
         batch.end();
     }
 
-    private void handleInput() {
-        // Enter: submit
-        if (Gdx.input.isKeyJustPressed(Input.Keys.ENTER)) {
-            submit();
-            return;
-        }
-
-        // Tab: switch focus
-        if (Gdx.input.isKeyJustPressed(Input.Keys.TAB)) {
-            focusUsername = !focusUsername;
-            return;
-        }
-
-        // Backspace
-        if (Gdx.input.isKeyJustPressed(Input.Keys.BACKSPACE)) {
-            if (focusUsername) {
-                if (!usernameBuffer.isEmpty())
-                    usernameBuffer = usernameBuffer.substring(0, usernameBuffer.length() - 1);
-            } else {
-                if (!passwordBuffer.isEmpty())
-                    passwordBuffer = passwordBuffer.substring(0, passwordBuffer.length() - 1);
-            }
-            return;
-        }
-
-        // Letters A-Z
-        for (int key = Input.Keys.A; key <= Input.Keys.Z; key++) {
-            if (Gdx.input.isKeyJustPressed(key)) {
-                char c = Input.Keys.toString(key).charAt(0);
-                if (!Gdx.input.isKeyPressed(Input.Keys.SHIFT_LEFT)
-                 && !Gdx.input.isKeyPressed(Input.Keys.SHIFT_RIGHT)) {
-                    c = Character.toLowerCase(c);
-                }
-                appendChar(c);
+    private void appendChar(char c) {
+        if (focusEmail) {
+            if (Character.isWhitespace(c)) {
                 return;
             }
-        }
-
-        // Digits 0-9 (key codes 7-16 in LibGDX)
-        for (int key = Input.Keys.NUM_0; key <= Input.Keys.NUM_9; key++) {
-            if (Gdx.input.isKeyJustPressed(key)) {
-                char c = (char) ('0' + (key - Input.Keys.NUM_0));
-                appendChar(c);
-                return;
+            if (emailBuffer.length() < EMAIL_MAX_LEN) {
+                emailBuffer += c;
             }
-        }
-
-        // Space (username only — OSRS allows spaces in display names)
-        if (Gdx.input.isKeyJustPressed(Input.Keys.SPACE) && focusUsername) {
-            appendChar(' ');
+        } else {
+            if (passwordBuffer.length() < PASSWORD_MAX_LEN) {
+                passwordBuffer += c;
+            }
         }
     }
 
-    private void appendChar(char c) {
-        if (focusUsername) {
-            if (usernameBuffer.length() < 12)
-                usernameBuffer += c;
-        } else {
-            if (passwordBuffer.length() < 64)
-                passwordBuffer += c;
+    private boolean isPasteShortcut(int keycode) {
+        boolean modifierPressed = Gdx.input.isKeyPressed(Input.Keys.CONTROL_LEFT)
+            || Gdx.input.isKeyPressed(Input.Keys.CONTROL_RIGHT)
+            || Gdx.input.isKeyPressed(Input.Keys.SYM);
+        return modifierPressed && keycode == Input.Keys.V;
+    }
+
+    private void pasteFromClipboard() {
+        String clipboard = Gdx.app.getClipboard().getContents();
+        if (clipboard == null || clipboard.isBlank()) {
+            return;
+        }
+        if (focusEmail) {
+            String cleaned = clipboard.replaceAll("\\s+", "");
+            int remaining = EMAIL_MAX_LEN - emailBuffer.length();
+            if (remaining > 0) {
+                emailBuffer += cleaned.substring(0, Math.min(cleaned.length(), remaining));
+            }
+            return;
+        }
+
+        int remaining = PASSWORD_MAX_LEN - passwordBuffer.length();
+        if (remaining > 0) {
+            passwordBuffer += clipboard.substring(0, Math.min(clipboard.length(), remaining));
         }
     }
 
     private void submit() {
-        String username = usernameBuffer.trim();
+        String email = emailBuffer.trim();
         String password = passwordBuffer;
 
-        if (username.isEmpty()) {
-            errorMessage = "Please enter a username.";
+        if (email.isEmpty()) {
+            errorMessage = "Please enter an email.";
             return;
         }
-        if (username.length() > 12) {
-            errorMessage = "Username must be 12 characters or less.";
+        if (!email.matches("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")) {
+            errorMessage = "Please enter a valid email address.";
             return;
         }
         if (password.isEmpty()) {
@@ -227,12 +266,15 @@ public class LoginScreen extends ScreenAdapter {
 
         errorMessage   = "";
         transitioning  = true;
-        game.startGame(username, password);
+        game.startGame(email, password);
         // Do NOT touch any fields after this line — hide()/dispose() has already run.
     }
 
     @Override
     public void hide() {
+        if (Gdx.input.getInputProcessor() == inputProcessor) {
+            Gdx.input.setInputProcessor(null);
+        }
         dispose();
     }
 

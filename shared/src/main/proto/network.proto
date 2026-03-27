@@ -9,6 +9,7 @@ option java_outer_classname = "NetworkProto";
 message Handshake {
     string username = 1;
     string password = 2;
+    string access_token = 3;
 }
 
 // HandshakeResponse: Server → Client

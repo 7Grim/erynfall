@@ -8,6 +8,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.sql.*;
+import java.util.UUID;
 
 /**
  * Handles all player persistence: create, load, save.
@@ -56,22 +57,8 @@ public class PlayerRepository {
             }
 
             // Credentials valid — build Player from DB row
-            int dbId  = rs.getInt("id");
-            int x     = rs.getInt("x");
-            int y     = rs.getInt("y");
-
-            int runtimeEntityId = toRuntimeEntityId(dbId);
-            Player player = new Player(runtimeEntityId, username, x, y);
-            player.setSkillXp(Player.SKILL_ATTACK,    rs.getLong("attack_xp"));
-            player.setSkillXp(Player.SKILL_STRENGTH,  rs.getLong("strength_xp"));
-            player.setSkillXp(Player.SKILL_DEFENCE,   rs.getLong("defence_xp"));
-            player.setSkillXp(Player.SKILL_HITPOINTS, rs.getLong("hitpoints_xp"));
-            player.setSkillXp(Player.SKILL_RANGED,    rs.getLong("ranged_xp"));
-            player.setSkillXp(Player.SKILL_MAGIC,     rs.getLong("magic_xp"));
-            // HP = hitpoints level
-            int hpLevel = player.getSkillLevel(Player.SKILL_HITPOINTS);
-            player.setHealth(hpLevel);
-            player.setMaxHealth(hpLevel);
+            Player player = mapPlayerFromRow(rs, username);
+            int dbId = rs.getInt("id");
 
             // Update last_login timestamp
             PreparedStatement upd = conn.prepareStatement(
@@ -81,11 +68,99 @@ public class PlayerRepository {
             upd.executeUpdate();
             conn.commit();
 
-            LOG.info("Login successful: {} (dbId={}, entityId={})", username, dbId, runtimeEntityId);
+            LOG.info("Login successful: {} (dbId={}, entityId={})", username, dbId, player.getId());
             return player;
 
         } catch (SQLException e) {
             LOG.error("DB error during login for {}", username, e);
+            return null;
+        }
+    }
+
+    public static Player loginOrRegisterTokenCharacter(String characterName) {
+        if (characterName == null || characterName.isBlank() || characterName.length() > 12) {
+            LOG.warn("Token login rejected — invalid character name: {}", characterName);
+            return null;
+        }
+
+        try (Connection conn = DatabaseManager.getConnection()) {
+            PreparedStatement ps = conn.prepareStatement(
+                "SELECT id, x, y, " +
+                    "attack_xp, strength_xp, defence_xp, hitpoints_xp, ranged_xp, magic_xp " +
+                    "FROM osrs.players WHERE LOWER(username) = LOWER(?)"
+            );
+            ps.setString(1, characterName);
+            ResultSet rs = ps.executeQuery();
+
+            if (rs.next()) {
+                Player player = mapPlayerFromRow(rs, characterName);
+                int dbId = rs.getInt("id");
+
+                PreparedStatement upd = conn.prepareStatement(
+                    "UPDATE osrs.players SET last_login = GETDATE() WHERE id = ?"
+                );
+                upd.setInt(1, dbId);
+                upd.executeUpdate();
+                conn.commit();
+
+                LOG.info("Token login successful: {} (dbId={}, entityId={})",
+                    characterName, dbId, player.getId());
+                return player;
+            }
+
+            String placeholderHash = BCrypt.withDefaults().hashToString(
+                BCRYPT_COST,
+                UUID.randomUUID().toString().toCharArray()
+            );
+            PreparedStatement ins = conn.prepareStatement(
+                "INSERT INTO osrs.players (username, password_hash, x, y, hitpoints_xp) VALUES (?, ?, 50, 50, 1154)",
+                Statement.RETURN_GENERATED_KEYS
+            );
+            ins.setString(1, characterName);
+            ins.setString(2, placeholderHash);
+            ins.executeUpdate();
+
+            ResultSet keys = ins.getGeneratedKeys();
+            if (!keys.next()) {
+                conn.rollback();
+                LOG.error("Token login registration created row but no id for {}", characterName);
+                return null;
+            }
+
+            int dbId = keys.getInt(1);
+            conn.commit();
+
+            int runtimeEntityId = toRuntimeEntityId(dbId);
+            LOG.info("Provisioned player row for token-auth character {} (dbId={}, entityId={})",
+                characterName, dbId, runtimeEntityId);
+            return new Player(runtimeEntityId, characterName, 50, 50);
+        } catch (SQLException e) {
+            LOG.error("DB error during token login for {}", characterName, e);
+            return null;
+        }
+    }
+
+    public static AuthCharacter findActiveAuthCharacterById(String authSchema, int characterId) {
+        if (authSchema == null || !authSchema.matches("[A-Za-z_][A-Za-z0-9_]*")) {
+            LOG.error("Invalid auth schema provided to token resolver: {}", authSchema);
+            return null;
+        }
+
+        try (Connection conn = DatabaseManager.getConnection()) {
+            PreparedStatement ps = conn.prepareStatement(
+                "SELECT c.account_id, c.character_name " +
+                    "FROM " + authSchema + ".characters c " +
+                    "INNER JOIN " + authSchema + ".accounts a ON a.id = c.account_id " +
+                    "WHERE c.id = ? AND c.is_active = 1 AND a.status = 1"
+            );
+            ps.setInt(1, characterId);
+            ResultSet rs = ps.executeQuery();
+            if (!rs.next()) {
+                return null;
+            }
+            return new AuthCharacter(rs.getInt("account_id"), rs.getString("character_name"));
+        } catch (SQLException e) {
+            LOG.error("Failed to resolve token-auth character id {} from schema {}", characterId, authSchema, e);
             return null;
         }
     }
@@ -382,5 +457,28 @@ public class PlayerRepository {
 
     private static int toRuntimeEntityId(int dbId) {
         return PLAYER_ENTITY_ID_OFFSET + dbId;
+    }
+
+    private static Player mapPlayerFromRow(ResultSet rs, String username) throws SQLException {
+        int dbId = rs.getInt("id");
+        int x = rs.getInt("x");
+        int y = rs.getInt("y");
+
+        int runtimeEntityId = toRuntimeEntityId(dbId);
+        Player player = new Player(runtimeEntityId, username, x, y);
+        player.setSkillXp(Player.SKILL_ATTACK, rs.getLong("attack_xp"));
+        player.setSkillXp(Player.SKILL_STRENGTH, rs.getLong("strength_xp"));
+        player.setSkillXp(Player.SKILL_DEFENCE, rs.getLong("defence_xp"));
+        player.setSkillXp(Player.SKILL_HITPOINTS, rs.getLong("hitpoints_xp"));
+        player.setSkillXp(Player.SKILL_RANGED, rs.getLong("ranged_xp"));
+        player.setSkillXp(Player.SKILL_MAGIC, rs.getLong("magic_xp"));
+
+        int hpLevel = player.getSkillLevel(Player.SKILL_HITPOINTS);
+        player.setHealth(hpLevel);
+        player.setMaxHealth(hpLevel);
+        return player;
+    }
+
+    public record AuthCharacter(int accountId, String characterName) {
     }
 }

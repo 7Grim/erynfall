@@ -31,6 +31,10 @@ public class ErynfallGame extends Game {
     }
 
     public void showLoginScreen() {
-        setScreen(new LoginScreen(this));
+        showLoginScreen("");
+    }
+
+    public void showLoginScreen(String errorMessage) {
+        setScreen(new LoginScreen(this, errorMessage));
     }
 }

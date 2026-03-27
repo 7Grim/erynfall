@@ -269,11 +269,13 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
     // -----------------------------------------------------------------------
 
     private void handleHandshakeResponse(NetworkProto.HandshakeResponse response) {
-        myPlayerId = response.getPlayerId();
+        if (response.getSuccess()) {
+            myPlayerId = response.getPlayerId();
+        }
         LOG.info("Handshake: playerId={} success={} msg={}",
             myPlayerId, response.getSuccess(), response.getMessage());
         this.lastHandshakeResponse = response;
-        client.setConnectedLatch();
+        client.setHandshakeResponse(response);
     }
 
     /**

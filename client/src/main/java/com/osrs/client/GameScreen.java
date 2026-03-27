@@ -12,6 +12,8 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.Matrix4;
 import com.badlogic.gdx.math.Vector3;
+import com.osrs.protocol.NetworkProto;
+import com.osrs.client.auth.AuthApiClient;
 import com.osrs.client.network.ClientPacketHandler;
 import com.osrs.client.network.NettyClient;
 import com.osrs.client.renderer.CoordinateConverter;
@@ -58,25 +60,25 @@ public class GameScreen extends ApplicationAdapter {
 
     // Credentials passed from LoginScreen (null = dev bypass, will use defaults)
     private final ErynfallGame game;
-    private final String loginUsername;
+    private final String loginEmail;
     private final String loginPassword;
     private boolean logoutRequested = false;
 
     public GameScreen() {
         this.game = null;
-        this.loginUsername = "TestPlayer";
+        this.loginEmail = "test1@example.com";
         this.loginPassword = "testpass";
     }
 
     public GameScreen(String username, String password) {
         this.game = null;
-        this.loginUsername = username;
+        this.loginEmail = username;
         this.loginPassword = password;
     }
 
     public GameScreen(ErynfallGame game, String username, String password) {
         this.game = game;
-        this.loginUsername = username;
+        this.loginEmail = username;
         this.loginPassword = password;
     }
 
@@ -191,6 +193,7 @@ public class GameScreen extends ApplicationAdapter {
     private final Map<Integer, Boolean> shownQuestComplete = new HashMap<>();
 
     private boolean initialized = false;
+    private boolean suppressInitialEnter = true;
 
     // -----------------------------------------------------------------------
     // Lifecycle
@@ -226,15 +229,59 @@ public class GameScreen extends ApplicationAdapter {
         levelUpOverlay = new LevelUpOverlay();
 
         try {
+            AuthApiClient authApiClient = new AuthApiClient();
+            AuthApiClient.LoginResult loginResult = authApiClient.login(loginEmail, loginPassword);
+            if (!loginResult.success()) {
+                failToLogin(loginResult.errorMessage().isBlank()
+                    ? "Unable to authenticate account."
+                    : loginResult.errorMessage());
+                return;
+            }
+            if (loginResult.accessToken().isBlank()) {
+                failToLogin("Auth login did not return an access token.");
+                return;
+            }
+
             nettyClient = new NettyClient();
             nettyClient.connect();
-            nettyClient.sendHandshake(loginUsername, loginPassword);
-            LOG.info("Connected to server as {}", loginUsername);
+            nettyClient.sendTokenHandshake(loginResult.accessToken());
+
+            NetworkProto.HandshakeResponse handshake = nettyClient.awaitHandshakeResponse(5000);
+            if (handshake == null) {
+                failToLogin("Login timed out. Please try again.");
+                return;
+            }
+            if (!handshake.getSuccess()) {
+                failToLogin(handshake.getMessage().isBlank()
+                    ? "Login failed."
+                    : handshake.getMessage());
+                return;
+            }
+
+            String connectedName = loginResult.characterName().isBlank() ? "(unknown)" : loginResult.characterName();
+            LOG.info("Connected to server as character {}", connectedName);
         } catch (Exception e) {
             LOG.error("Failed to connect to server", e);
+            failToLogin("Unable to connect to game server.");
+            return;
         }
 
         initialized = true;
+        suppressInitialEnter = true;
+    }
+
+    private void failToLogin(String message) {
+        initialized = false;
+        if (nettyClient != null) {
+            try {
+                nettyClient.disconnect();
+            } catch (Exception e) {
+                LOG.debug("Failed disconnect after login error", e);
+            }
+        }
+        if (game != null) {
+            Gdx.app.postRunnable(() -> game.showLoginScreen(message));
+        }
     }
 
     // -----------------------------------------------------------------------
@@ -583,7 +630,16 @@ public class GameScreen extends ApplicationAdapter {
         }
 
         // ── Chat input ────────────────────────────────────────────────────────
+        if (suppressInitialEnter) {
+            if (!Gdx.input.isKeyPressed(Input.Keys.ENTER)) {
+                suppressInitialEnter = false;
+            }
+        }
+
         if (Gdx.input.isKeyJustPressed(Input.Keys.ENTER)) {
+            if (suppressInitialEnter) {
+                return;
+            }
             if (!chatBox.isActive()) {
                 chatBox.setActive(true);
             } else {
