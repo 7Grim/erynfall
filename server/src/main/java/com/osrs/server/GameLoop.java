@@ -688,7 +688,7 @@ public class GameLoop {
         player.setCombatTarget(-1);
 
         // Notify the dying player (death screen + respawn coords)
-        nettyServer.sendToSession(player.getId(), NetworkProto.ServerMessage.newBuilder()
+        nettyServer.sendToPlayer(player.getId(), NetworkProto.ServerMessage.newBuilder()
             .setPlayerDeath(NetworkProto.PlayerDeath.newBuilder()
                 .setRespawnX(spawnX)
                 .setRespawnY(spawnY))
@@ -751,7 +751,7 @@ public class GameLoop {
         List<GroundItem> spawned = world.rollAndSpawnLoot(npc, killer, tickCount, random);
         for (GroundItem gi : spawned) {
             String name = world.getItemDef(gi.getItemId()).name;
-            nettyServer.sendToSession(killer.getId(), NetworkProto.ServerMessage.newBuilder()
+            nettyServer.sendToPlayer(killer.getId(), NetworkProto.ServerMessage.newBuilder()
                 .setGroundItemSpawn(NetworkProto.GroundItemSpawn.newBuilder()
                     .setGroundItemId(gi.getGroundItemId())
                     .setItemId(gi.getItemId())
@@ -838,7 +838,7 @@ public class GameLoop {
             LOG.info("Player {} leveled up skill {} → {}", player.getId(), skillIdx, newLevel);
         }
 
-        nettyServer.sendToSession(player.getId(), NetworkProto.ServerMessage.newBuilder()
+        nettyServer.sendToPlayer(player.getId(), NetworkProto.ServerMessage.newBuilder()
             .setSkillUpdate(NetworkProto.SkillUpdate.newBuilder()
                 .setSkillIndex(skillIdx)
                 .setNewLevel(newLevel)

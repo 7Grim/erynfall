@@ -150,4 +150,17 @@ public class NettyServer {
             session.getChannel().writeAndFlush(message);
         }
     }
+
+    /**
+     * Send a ServerMessage to the session owning a runtime player entity id.
+     */
+    public void sendToPlayer(int playerId, NetworkProto.ServerMessage message) {
+        for (PlayerSession session : sessions.values()) {
+            if (!session.isAuthenticated() || session.getPlayer() == null) continue;
+            if (session.getPlayer().getId() != playerId) continue;
+            if (!session.getChannel().isActive()) continue;
+            session.getChannel().writeAndFlush(message);
+            return;
+        }
+    }
 }

@@ -12,6 +12,8 @@ import com.badlogic.gdx.math.Matrix4;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 
 /**
  * OSRS-accurate public chat box.
@@ -69,27 +71,40 @@ public class ChatBox {
     // Message model
     // -----------------------------------------------------------------------
     public enum MessageType { PUBLIC, SYSTEM }
+    public enum ViewFilter { ALL, GAME, PUBLIC }
+
+    private static final DateTimeFormatter TS_FMT = DateTimeFormatter.ofPattern("HH:mm");
+    private static final Color TAB_ACTIVE = new Color(0.25f, 0.25f, 0.32f, 0.95f);
+    private static final Color TAB_IDLE = new Color(0.12f, 0.12f, 0.16f, 0.82f);
+    private static final Color TS_COLOR = new Color(0.62f, 0.62f, 0.62f, 1f);
+    private static final int TAB_W = 42;
+    private static final int TAB_H = 13;
+    private static final int TAB_GAP = 4;
 
     private static class ChatLine {
         final String      senderName;  // empty for SYSTEM
         final String      text;
         final MessageType type;
+        final String      timestamp;
 
         ChatLine(String senderName, String text, MessageType type) {
             this.senderName = senderName;
             this.text       = text;
             this.type       = type;
+            this.timestamp  = LocalTime.now().format(TS_FMT);
         }
     }
 
     private static class WrappedLine {
         final MessageType type;
+        final String timestamp;
         final String namePrefix;
         final String text;
         final boolean continuation;
 
-        WrappedLine(MessageType type, String namePrefix, String text, boolean continuation) {
+        WrappedLine(MessageType type, String timestamp, String namePrefix, String text, boolean continuation) {
             this.type = type;
+            this.timestamp = timestamp;
             this.namePrefix = namePrefix;
             this.text = text;
             this.continuation = continuation;
@@ -104,6 +119,7 @@ public class ChatBox {
     // -----------------------------------------------------------------------
     private boolean chatActive  = false;
     private String  inputBuffer = "";
+    private ViewFilter viewFilter = ViewFilter.ALL;
 
     // Cursor blink timer
     private float cursorTimer = 0f;
@@ -139,6 +155,7 @@ public class ChatBox {
     public boolean isActive()       { return chatActive; }
     public String  getInputBuffer() { return inputBuffer; }
     public void    setInputBuffer(String buf) { this.inputBuffer = buf; }
+    public ViewFilter getViewFilter() { return viewFilter; }
 
     // -----------------------------------------------------------------------
     // Update
@@ -175,6 +192,14 @@ public class ChatBox {
         // Separator line between content and input bar
         sr.setColor(SEP_COLOR);
         sr.rect(boxX, boxY + INPUT_H - 1, BOX_W, 1);
+
+        int tabStartX = tabStartX();
+        for (int i = 0; i < 3; i++) {
+            int x = tabStartX + i * (TAB_W + TAB_GAP);
+            boolean active = viewFilter.ordinal() == i;
+            sr.setColor(active ? TAB_ACTIVE : TAB_IDLE);
+            sr.rect(x, boxY + 4, TAB_W, TAB_H);
+        }
         sr.end();
 
         // ── Text ─────────────────────────────────────────────────────────────
@@ -188,12 +213,19 @@ public class ChatBox {
         for (int i = 0; i < count; i++) {
             WrappedLine line = wrapped.get(startIdx + i);
             int lineY = boxY + INPUT_H + PAD_Y + i * LINE_H;
+            float x = boxX + PAD_X;
+
+            if (!line.continuation && line.timestamp != null && !line.timestamp.isEmpty()) {
+                font.setColor(TS_COLOR);
+                String ts = "[" + line.timestamp + "] ";
+                font.draw(batch, ts, x, lineY);
+                x += new GlyphLayout(font, ts).width;
+            }
 
             if (line.type == MessageType.SYSTEM) {
                 font.setColor(SYS_COLOR);
-                font.draw(batch, line.text, boxX + PAD_X, lineY);
+                font.draw(batch, line.text, x, lineY);
             } else {
-                float x = boxX + PAD_X;
                 float textX = x;
                 if (!line.continuation && !line.namePrefix.isEmpty()) {
                     font.setColor(NAME_COLOR);
@@ -220,6 +252,11 @@ public class ChatBox {
             font.draw(batch, "Press Enter to Chat", boxX + PAD_X, boxY + INPUT_H - PAD_Y - 1);
         }
 
+        font.setColor(HINT_COLOR);
+        font.draw(batch, "All", tabStartX + 11, boxY + 14);
+        font.draw(batch, "Game", tabStartX + (TAB_W + TAB_GAP) + 8, boxY + 14);
+        font.draw(batch, "Public", tabStartX + 2 * (TAB_W + TAB_GAP) + 5, boxY + 14);
+
         batch.end();
         font.setColor(Color.WHITE);
     }
@@ -229,36 +266,52 @@ public class ChatBox {
         List<WrappedLine> out = new ArrayList<>();
 
         for (ChatLine line : lines) {
+            if (viewFilter == ViewFilter.GAME && line.type != MessageType.SYSTEM) {
+                continue;
+            }
+            if (viewFilter == ViewFilter.PUBLIC && line.type != MessageType.PUBLIC) {
+                continue;
+            }
+
+            String tsPrefix = "[" + line.timestamp + "] ";
+            float tsWidth = new GlyphLayout(font, tsPrefix).width;
+
             if (line.type == MessageType.SYSTEM) {
-                List<String> chunks = wrapText(font, line.text, totalWidth);
+                List<String> chunks = wrapText(font, line.text, Math.max(32f, totalWidth - tsWidth));
                 if (chunks.isEmpty()) chunks = List.of("");
-                for (String c : chunks) {
-                    out.add(new WrappedLine(MessageType.SYSTEM, "", c, false));
+                for (int i = 0; i < chunks.size(); i++) {
+                    out.add(new WrappedLine(
+                        MessageType.SYSTEM,
+                        i == 0 ? line.timestamp : "",
+                        "",
+                        chunks.get(i),
+                        i > 0
+                    ));
                 }
                 continue;
             }
 
             String namePrefix = line.senderName + ": ";
             float prefixWidth = new GlyphLayout(font, namePrefix).width;
-            float firstLineWidth = Math.max(24f, totalWidth - prefixWidth);
+            float firstLineWidth = Math.max(24f, totalWidth - tsWidth - prefixWidth);
 
-            List<String> chunks = wrapText(font, line.text, totalWidth);
+            List<String> chunks = wrapText(font, line.text, totalWidth - prefixWidth);
             if (chunks.isEmpty()) chunks = List.of("");
 
             // Rewrap first chunk with first-line reduced width so name and text fit.
             List<String> firstWrapped = wrapText(font, chunks.get(0), firstLineWidth);
             if (firstWrapped.isEmpty()) firstWrapped = List.of("");
 
-            out.add(new WrappedLine(MessageType.PUBLIC, namePrefix, firstWrapped.get(0), false));
+            out.add(new WrappedLine(MessageType.PUBLIC, line.timestamp, namePrefix, firstWrapped.get(0), false));
             for (int i = 1; i < firstWrapped.size(); i++) {
-                out.add(new WrappedLine(MessageType.PUBLIC, namePrefix, firstWrapped.get(i), true));
+                out.add(new WrappedLine(MessageType.PUBLIC, "", namePrefix, firstWrapped.get(i), true));
             }
 
             for (int i = 1; i < chunks.size(); i++) {
                 List<String> continuation = wrapText(font, chunks.get(i), totalWidth - prefixWidth);
                 if (continuation.isEmpty()) continuation = List.of("");
                 for (String c : continuation) {
-                    out.add(new WrappedLine(MessageType.PUBLIC, namePrefix, c, true));
+                    out.add(new WrappedLine(MessageType.PUBLIC, "", namePrefix, c, true));
                 }
             }
         }
@@ -309,5 +362,29 @@ public class ChatBox {
         }
 
         return linesOut;
+    }
+
+    /**
+     * Handle a click in chatbox-local coordinates. Returns true if click was consumed.
+     */
+    public boolean handleClick(int mouseX, int mouseY) {
+        if (mouseY < 0 || mouseY > TOTAL_H || mouseX < 0 || mouseX > BOX_W) return false;
+
+        int tabStartX = tabStartX();
+        int tabY = 4;
+        if (mouseY >= tabY && mouseY <= tabY + TAB_H) {
+            for (int i = 0; i < 3; i++) {
+                int x = tabStartX + i * (TAB_W + TAB_GAP);
+                if (mouseX >= x && mouseX <= x + TAB_W) {
+                    viewFilter = ViewFilter.values()[i];
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private int tabStartX() {
+        return BOX_W - (TAB_W * 3 + TAB_GAP * 2 + 8);
     }
 }

@@ -644,6 +644,12 @@ public class GameScreen extends ApplicationAdapter {
         }
 
         if (Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)) {
+            if (screenMy < ChatBox.TOTAL_H && mx >= 0 && mx < ChatBox.BOX_W) {
+                if (chatBox.handleClick(mx, screenMy)) {
+                    return;
+                }
+            }
+
             // Click on the chat box input area activates typing (OSRS behaviour)
             if (screenMy < ChatBox.TOTAL_H && mx >= 0 && mx < ChatBox.BOX_W) {
                 chatBox.setActive(true);

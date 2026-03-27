@@ -147,6 +147,7 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
     }
 
     private final ConcurrentLinkedQueue<XpDropEvent> pendingXpDrops = new ConcurrentLinkedQueue<>();
+    private boolean suppressSkillDropsUntilWorldState = true;
 
     /** Set when the server sends a PlayerDeath packet; cleared by GameScreen after showing death overlay. */
     private volatile boolean playerDead = false;
@@ -238,6 +239,7 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
             entityHealth.put(e.getId(), new int[]{e.getHealth(), e.getMaxHealth()});
         }
         LOG.info("WorldState received: {} entities loaded", worldState.getEntitiesCount());
+        suppressSkillDropsUntilWorldState = false;
     }
 
     /**
@@ -291,11 +293,15 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
         if (idx >= 0 && idx < skillLevels.length) {
             skillLevels[idx] = update.getNewLevel();
             long newTotalXp = update.getTotalXp();
-            long gained = newTotalXp - skillTotalXp[idx];
-            if (gained > 0) {
-                pendingXpDrops.add(new XpDropEvent(idx, gained));
+            if (suppressSkillDropsUntilWorldState) {
+                skillTotalXp[idx] = newTotalXp;
+            } else {
+                long gained = newTotalXp - skillTotalXp[idx];
+                if (gained > 0) {
+                    pendingXpDrops.add(new XpDropEvent(idx, gained));
+                }
+                skillTotalXp[idx] = newTotalXp;
             }
-            skillTotalXp[idx] = newTotalXp;
         }
         if (update.getLeveledUp()) {
             leveledUp = true;
