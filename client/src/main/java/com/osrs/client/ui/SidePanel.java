@@ -162,7 +162,10 @@ public class SidePanel {
         switch (activeTab) {
             case COMBAT    -> renderCombatTab(sr, batch, font, proj);
             case SKILLS    -> renderSkillsTab(sr, batch, font, proj, screenW, screenH, mouseX, mouseY);
-            case INVENTORY -> inventoryUI.render(sr, batch, font, panelX + 2, panelY, proj);
+            case INVENTORY -> {
+                int invX = panelX + (PANEL_W - inventoryUI.getPanelWidth()) / 2;
+                inventoryUI.render(sr, batch, font, invX, panelY, proj);
+            }
         }
     }
 
@@ -385,9 +388,9 @@ public class SidePanel {
         final int COLS   = 2;
         final int ROWS   = 3;
         final int PAD    = 6;
-        final int CELL_W = (PANEL_W - PAD * (COLS + 1)) / COLS;  // ~86 px
+        final int CELL_W = (PANEL_W - PAD * (COLS + 1)) / COLS;   // ~111 px
         final int CELL_H = (CONTENT_H - PAD * (ROWS + 1)) / ROWS; // ~96 px
-        final int ICON_SZ = 22;
+        final int ICON_SZ = 26;
 
         // Precompute cell origins
         int[] cellX = new int[6], cellY = new int[6];
@@ -404,9 +407,9 @@ public class SidePanel {
             // Cell background
             sr.setColor(0.11f, 0.10f, 0.08f, 1f);
             sr.rect(cx, cy, CELL_W, CELL_H);
-            // Skill icon
-            int iconX = cx + (CELL_W - ICON_SZ) / 2;
-            int iconY = cy + CELL_H - ICON_SZ - 8;
+            // Skill icon (left side of cell)
+            int iconX = cx + 12;
+            int iconY = cy + (CELL_H - ICON_SZ) / 2 + 4;
             Color ic  = SKILL_COLORS[i];
             sr.setColor(ic.r, ic.g, ic.b, 1f);
             sr.rect(iconX, iconY, ICON_SZ, ICON_SZ);
@@ -432,19 +435,16 @@ public class SidePanel {
         for (int i = 0; i < 6; i++) {
             int cx = cellX[i], cy = cellY[i];
 
-            // Skill name — small grey text below icon
-            font.getData().setScale(0.7f);
-            font.setColor(0.75f, 0.70f, 0.60f, 1f);
-            String name  = SKILL_NAMES[i];
-            float  nameW = name.length() * 5.8f;
-            font.draw(batch, name, cx + (CELL_W - nameW) / 2f, cy + CELL_H - 34);
-
-            // Level — large yellow number
-            font.getData().setScale(1.0f);
+            // Large yellow level, aligned OSRS-style to the right of icon.
+            font.getData().setScale(1.05f);
             font.setColor(1f, 0.85f, 0.10f, 1f);
             String lvl  = String.valueOf(skillLevels[i]);
-            float  lvlW = lvl.length() * 8f;
-            font.draw(batch, lvl, cx + (CELL_W - lvlW) / 2f, cy + 22);
+            font.draw(batch, lvl, cx + 48, cy + CELL_H / 2f + 8);
+
+            // Skill name below the level in muted text for readability.
+            font.getData().setScale(0.72f);
+            font.setColor(0.75f, 0.70f, 0.60f, 1f);
+            font.draw(batch, SKILL_NAMES[i], cx + 48, cy + CELL_H / 2f - 8);
         }
         font.getData().setScale(1f);
         font.setColor(Color.WHITE);

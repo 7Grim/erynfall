@@ -23,7 +23,7 @@ import java.util.List;
  *
  * OSRS verified details:
  *   - Text colour: yellow (#FFFF00)
- *   - Format: [icon] +N SkillName
+ *   - Format: [icon] +N
  *   - Float direction: upward at ~28 px/sec
  *   - Duration: ~3 seconds
  *   - Vanilla: no fade (drops scroll off top); we add a short fade
@@ -36,7 +36,7 @@ public class XpDropOverlay {
     /** When life fraction falls below this, fade out. */
     private static final float FADE_START  = 0.20f;
     /** Vertical spacing between stacked drops (pixels). */
-    private static final float ROW_H       = 18f;
+    private static final float ROW_H       = 16f;
     private static final int   ICON_SZ     = 12;
     private static final int   ICON_GAP    = 4;
 
@@ -131,7 +131,7 @@ public class XpDropOverlay {
         if (drops.isEmpty()) return;
 
         // Anchor: just left of the side panel, above the HUD area
-        float anchorX = sidePanelX - 160f;
+        float anchorX = sidePanelX - 84f;
         float anchorY = (float) sidePanelTotalH + 80f;
 
         Gdx.gl.glEnable(GL20.GL_BLEND);
@@ -158,7 +158,7 @@ public class XpDropOverlay {
             float dropY = anchorY + d.yOffset;
             if (dropY + ROW_H < 0 || dropY > screenH) continue; // skip off-screen
             float alpha = d.alpha();
-            String label = "+" + d.xpGained + " " + SKILL_NAMES[d.skillIndex];
+            String label = "+" + d.xpGained;
             font.setColor(1f, 1f, 0f, alpha);  // OSRS yellow #FFFF00
             font.draw(batch, label, anchorX + ICON_SZ + ICON_GAP, dropY + ICON_SZ + 2f);
         }

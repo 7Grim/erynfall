@@ -187,6 +187,15 @@ public class NettyClient {
         LOG.debug("Sent PublicChat: {}", text);
     }
 
+    public void sendExamineNpc(int npcId) {
+        NetworkProto.ClientMessage msg = NetworkProto.ClientMessage.newBuilder()
+            .setExamineNpc(NetworkProto.ExamineNpc.newBuilder()
+                .setNpcId(npcId))
+            .build();
+        channel.writeAndFlush(msg);
+        LOG.debug("Sent ExamineNpc: npc {}", npcId);
+    }
+
     public boolean isConnected() {
         return channel != null && channel.isActive();
     }

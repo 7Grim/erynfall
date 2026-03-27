@@ -25,6 +25,7 @@ public class World {
     private final Pathfinding pathfinding;
     private final Map<Integer, Player> players = new HashMap<>();
     private final Map<Integer, NPC> npcs = new HashMap<>();
+    private final Map<Integer, String> npcExamineTexts = new HashMap<>();
     private final Map<String, WorldData.LootTable> lootTables;
     private final WorldData worldData;
     private int nextEntityId = 1;
@@ -142,6 +143,7 @@ public class World {
             npc.setStrengthBonus(npcDef.strengthBonus);
             npc.setDefenceBonus(npcDef.defenceBonus);
             npcs.put(npcDef.id, npc);
+            npcExamineTexts.put(npcDef.id, npcDef.examine);
             LOG.debug("Spawned NPC: {} (id={}, level={}, pos=({}, {}))", 
                 npcDef.name, npcDef.id, npcDef.combatLevel, npcDef.x, npcDef.y);
         }
@@ -177,6 +179,16 @@ public class World {
      */
     public NPC getNPC(int npcId) {
         return npcs.get(npcId);
+    }
+
+    public String getNpcExamineText(int npcId) {
+        String text = npcExamineTexts.get(npcId);
+        if (text == null || text.isBlank()) {
+            NPC npc = npcs.get(npcId);
+            String name = npc != null ? npc.getName() : "creature";
+            return "It's a " + name + ".";
+        }
+        return text;
     }
     
     /**

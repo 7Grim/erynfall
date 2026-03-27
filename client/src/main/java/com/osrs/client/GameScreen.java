@@ -1125,25 +1125,27 @@ public class GameScreen extends ApplicationAdapter {
             case "inv_wield" -> { if (nettyClient != null) nettyClient.sendUseItem((Integer) item.target, "wield"); }
             case "inv_drop"  -> { if (nettyClient != null) nettyClient.sendDropItem((Integer) item.target); }
             case "inv_examine" -> LOG.info("Examine: {}", item.label);
-            case "examine_npc" -> examineNpc((Integer) item.target);
+            case "examine_npc" -> requestNpcExamine((Integer) item.target);
         }
     }
 
-    /** Show an examine message in the chat area — text sourced per NPC type. */
-    private void examineNpc(int npcId) {
+    /** Request server-authoritative NPC examine text. */
+    private void requestNpcExamine(int npcId) {
+        if (nettyClient != null) {
+            try {
+                nettyClient.sendExamineNpc(npcId);
+                return;
+            } catch (LinkageError e) {
+                // Compatibility guard: if client runtime is out of sync with shared proto,
+                // do not hard-crash the game loop on Examine.
+                LOG.error("ExamineNpc packet type missing at runtime; falling back to local examine text", e);
+            }
+        }
+
+        // Offline fallback keeps UI usable if networking is unavailable.
         ClientPacketHandler h = handler();
-        String name = (h != null) ? h.getEntityName(npcId) : "";
-        String text = switch (name) {
-            case "Rat"               -> "A small rat. It doesn't look very threatening.";
-            case "Giant Rat"         -> "A big, fat, and very ugly rat.";
-            case "Chicken"           -> "It's a chicken. It's looking at me funny.";
-            case "Cow"               -> "A dairy cow. Moo.";
-            case "Goblin"            -> "A vile little green creature.";
-            case "Tutorial Guide"    -> "He looks like he wants to help.";
-            case "Combat Instructor" -> "A seasoned warrior, ready to teach combat basics.";
-            default                  -> "It's a " + (name.isEmpty() ? "creature" : name) + ".";
-        };
-        chatBox.addSystemMessage(text);
+        String name = (h != null) ? h.getEntityName(npcId) : "creature";
+        chatBox.addSystemMessage("It's a " + (name == null || name.isEmpty() ? "creature" : name) + ".");
     }
 
     // -----------------------------------------------------------------------

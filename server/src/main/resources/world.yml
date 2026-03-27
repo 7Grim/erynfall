@@ -27,6 +27,7 @@ npcs:
     location: "tutorial_island"
     x: 52
     y: 48
+    examine: "The first person you should talk to on Tutorial Island."
     wander_radius: 0
     is_aggressive: false
 
@@ -38,6 +39,7 @@ npcs:
     location: "tutorial_island"
     x: 55
     y: 45
+    examine: "A seasoned fighter who teaches the basics of combat."
     wander_radius: 0
     is_aggressive: false
 
@@ -53,6 +55,7 @@ npcs:
     location: "tutorial_island"
     x: 47
     y: 47
+    examine: "A small rat. It doesn't look very threatening."
     wander_radius: 3
     is_aggressive: false
     loot_table: "rat_basic"
@@ -97,6 +100,7 @@ npcs:
     location: "tutorial_island"
     x: 44
     y: 50
+    examine: "A big, fat, and very ugly rat."
     wander_radius: 4
     is_aggressive: false
     loot_table: "giant_rat_basic"
@@ -127,6 +131,7 @@ npcs:
     location: "tutorial_island"
     x: 35
     y: 35
+    examine: "It's a chicken. It's looking at you funny."
     wander_radius: 5
     is_aggressive: false
     loot_table: "chicken_basic"
@@ -171,6 +176,7 @@ npcs:
     location: "tutorial_island"
     x: 65
     y: 63
+    examine: "A dairy cow."
     wander_radius: 6
     is_aggressive: false
     loot_table: "cow_basic"
@@ -201,6 +207,7 @@ npcs:
     location: "tutorial_island"
     x: 65
     y: 35
+    examine: "A vile little green creature."
     wander_radius: 5
     is_aggressive: false
     loot_table: "goblin_basic"

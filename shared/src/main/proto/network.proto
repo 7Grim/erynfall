@@ -236,6 +236,11 @@ message PublicChat {
     string text = 1;   // max 80 characters; server validates and rejects if empty/too long
 }
 
+// ExamineNpc: Client -> Server (request examine text in chat)
+message ExamineNpc {
+    int32 npc_id = 1;
+}
+
 // ChatBroadcast: Server → Client (public chat from a nearby player, broadcast to all in range)
 message ChatBroadcast {
     int32  sender_id   = 1;   // Entity ID of the sender (for overhead text placement)
@@ -268,6 +273,7 @@ message ClientMessage {
         SwapInventorySlots swap_inventory_slots = 10;
         SetCombatStyle set_combat_style = 11;
         PublicChat public_chat = 12;
+        ExamineNpc examine_npc = 13;
     }
 }
 

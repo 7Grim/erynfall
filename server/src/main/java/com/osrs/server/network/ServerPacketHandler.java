@@ -83,6 +83,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             case SWAP_INVENTORY_SLOTS -> handleSwapInventorySlots(ctx, packet.getSwapInventorySlots());
             case SET_COMBAT_STYLE    -> handleSetCombatStyle(packet.getSetCombatStyle());
             case PUBLIC_CHAT         -> handlePublicChat(ctx, packet.getPublicChat());
+            case EXAMINE_NPC         -> handleExamineNpc(ctx, packet.getExamineNpc());
             default -> LOG.warn("Unhandled payload case: {}", packet.getPayloadCase());
         }
     }
@@ -745,6 +746,19 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
         CombatStyle style = CombatStyle.fromIndex(req.getStyle());
         session.getPlayer().setCombatStyle(style);
         LOG.info("Player {} set combat style to {}", session.getPlayer().getId(), style.displayName);
+    }
+
+    private void handleExamineNpc(ChannelHandlerContext ctx, NetworkProto.ExamineNpc req) {
+        if (session.getPlayer() == null) return;
+
+        int npcId = req.getNpcId();
+        NPC npc = server.getWorld().getNPC(npcId);
+        if (npc == null) {
+            sendChatMessage(ctx, "You don't see anything interesting.", 0);
+            return;
+        }
+
+        sendChatMessage(ctx, server.getWorld().getNpcExamineText(npcId), 0);
     }
 
     /**

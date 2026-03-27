@@ -137,15 +137,17 @@ public class InventoryUI {
         // ----- Stack counts & names (batch text) -----
         batch.setProjectionMatrix(proj);
         batch.begin();
-        font.getData().setScale(0.75f);
+        font.getData().setScale(0.72f);
         for (int slot = 0; slot < SLOTS; slot++) {
             if (slot == dragSlot) continue;
             if (itemIds[slot] == 0) continue;
             float[] pos = slotPos(slot);
             if (quantities[slot] > 1) {
                 font.setColor(1f, 0.9f, 0.1f, 1f);
-                font.draw(batch, String.valueOf(quantities[slot]),
-                    pos[0] + 3, pos[1] + 12);
+                String qty = quantities[slot] > 99_999
+                    ? String.format("%dk", quantities[slot] / 1000)
+                    : String.valueOf(quantities[slot]);
+                font.draw(batch, qty, pos[0] + 3, pos[1] + 11);
             }
         }
 
@@ -294,6 +296,8 @@ public class InventoryUI {
 
     public boolean isDragging()  { return dragSlot >= 0; }
     public int     getDragSlot() { return dragSlot; }
+    public int     getPanelWidth() { return PANEL_W; }
+    public int     getPanelHeight() { return PANEL_H; }
 
     // -----------------------------------------------------------------------
     // Internal helpers
