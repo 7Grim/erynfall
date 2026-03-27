@@ -18,6 +18,20 @@ public class HealthController {
         this.databaseProbe = databaseProbe;
     }
 
+    @GetMapping("/health/live")
+    public ResponseEntity<Map<String, Object>> liveness() {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("service", "erynfall-auth");
+        body.put("time", Instant.now().toString());
+        body.put("status", "UP");
+        return ResponseEntity.ok(body);
+    }
+
+    @GetMapping("/health/ready")
+    public ResponseEntity<Map<String, Object>> readiness() {
+        return health();
+    }
+
     @GetMapping("/health")
     public ResponseEntity<Map<String, Object>> health() {
         DatabaseProbe.Result db = databaseProbe.check();
