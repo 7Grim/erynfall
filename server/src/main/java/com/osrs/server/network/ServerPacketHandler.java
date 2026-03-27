@@ -13,6 +13,7 @@ import com.osrs.shared.EquipmentSlot;
 import com.osrs.shared.ItemDefinition;
 import com.osrs.shared.NPC;
 import com.osrs.shared.Player;
+import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
 import org.slf4j.Logger;
@@ -85,6 +86,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             case SET_COMBAT_STYLE    -> handleSetCombatStyle(packet.getSetCombatStyle());
             case PUBLIC_CHAT         -> handlePublicChat(ctx, packet.getPublicChat());
             case EXAMINE_NPC         -> handleExamineNpc(ctx, packet.getExamineNpc());
+            case LOGOUT_REQUEST      -> handleLogoutRequest(ctx, packet.getLogoutRequest());
             default -> LOG.warn("Unhandled payload case: {}", packet.getPayloadCase());
         }
     }
@@ -790,6 +792,41 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
         }
 
         sendChatMessage(ctx, server.getWorld().getNpcExamineText(npcId), 0);
+    }
+
+    private void handleLogoutRequest(ChannelHandlerContext ctx, NetworkProto.LogoutRequest req) {
+        if (session == null || session.getPlayer() == null) {
+            ctx.writeAndFlush(NetworkProto.ServerMessage.newBuilder()
+                .setLogoutResponse(NetworkProto.LogoutResponse.newBuilder()
+                    .setSuccess(true)
+                    .setMessage("Goodbye."))
+                .build())
+                .addListener(ChannelFutureListener.CLOSE);
+            return;
+        }
+
+        Player player = session.getPlayer();
+        LOG.info("Logout requested by player {}", player.getName());
+
+        closeDialogue(player);
+        if (session.isAuthenticated() && DatabaseManager.isHealthy()) {
+            PlayerRepository.savePlayer(player);
+            PlayerRepository.saveInventory(player);
+            PlayerRepository.saveQuestProgress(player, session.getQuestManager());
+            LOG.info("Saved player {} on explicit logout", player.getName());
+        }
+
+        server.getWorld().getPlayers().remove(player.getId());
+        session.setAuthenticated(false);
+        session.setQuestManager(null);
+        session.setPlayer(null);
+
+        ctx.writeAndFlush(NetworkProto.ServerMessage.newBuilder()
+            .setLogoutResponse(NetworkProto.LogoutResponse.newBuilder()
+                .setSuccess(true)
+                .setMessage("You have been logged out."))
+            .build())
+            .addListener(ChannelFutureListener.CLOSE);
     }
 
     /**

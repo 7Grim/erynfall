@@ -57,15 +57,25 @@ public class GameScreen extends ApplicationAdapter {
     private static final int INTERACT_RANGE = 1;
 
     // Credentials passed from LoginScreen (null = dev bypass, will use defaults)
+    private final ErynfallGame game;
     private final String loginUsername;
     private final String loginPassword;
+    private boolean logoutRequested = false;
 
     public GameScreen() {
+        this.game = null;
         this.loginUsername = "TestPlayer";
         this.loginPassword = "testpass";
     }
 
     public GameScreen(String username, String password) {
+        this.game = null;
+        this.loginUsername = username;
+        this.loginPassword = password;
+    }
+
+    public GameScreen(ErynfallGame game, String username, String password) {
+        this.game = game;
         this.loginUsername = username;
         this.loginPassword = password;
     }
@@ -379,6 +389,12 @@ public class GameScreen extends ApplicationAdapter {
                 clearPendingAction();
                 pendingGroundItemId = -1;
             }
+        }
+
+        ClientPacketHandler.LogoutEvent logoutEvent = h.consumeLogoutEvent();
+        if (logoutEvent != null) {
+            handleLogoutEvent(logoutEvent);
+            return;
         }
 
         // Death detection — show overlay and snap to respawn
@@ -696,6 +712,9 @@ public class GameScreen extends ApplicationAdapter {
                 if (style >= 0 && nettyClient != null) {
                     nettyClient.sendSetCombatStyle(style);
                 }
+                if (sidePanel.consumeLogoutRequested()) {
+                    requestLogout();
+                }
             } else {
                 int[] tile = screenToTile(mx, my);
                 if (CoordinateConverter.isValidTile(tile[0], tile[1]))
@@ -757,6 +776,52 @@ public class GameScreen extends ApplicationAdapter {
             return;
         }
         nettyClient.sendDialogueResponse(dialogueUI.getOptions().get(index).optionId);
+    }
+
+    private void requestLogout() {
+        if (logoutRequested) return;
+        logoutRequested = true;
+        clearPendingAction();
+        pendingGroundItemId = -1;
+        chatBox.addSystemMessage("Logging out...");
+
+        if (nettyClient != null && nettyClient.isConnected()) {
+            nettyClient.sendLogoutRequest();
+            return;
+        }
+
+        // Offline fallback
+        if (game != null) {
+            Gdx.app.postRunnable(game::showLoginScreen);
+        } else {
+            Gdx.app.exit();
+        }
+    }
+
+    private void handleLogoutEvent(ClientPacketHandler.LogoutEvent event) {
+        if (!event.success) {
+            logoutRequested = false;
+            chatBox.addSystemMessage(
+                event.message == null || event.message.isBlank()
+                    ? "Unable to log out right now."
+                    : event.message
+            );
+            return;
+        }
+
+        if (nettyClient != null) {
+            try {
+                nettyClient.disconnect();
+            } catch (Exception e) {
+                LOG.debug("Disconnect after logout acknowledgement failed", e);
+            }
+        }
+
+        if (game != null) {
+            Gdx.app.postRunnable(game::showLoginScreen);
+        } else {
+            Gdx.app.exit();
+        }
     }
 
     /**

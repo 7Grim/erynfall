@@ -196,6 +196,15 @@ public class NettyClient {
         LOG.debug("Sent ExamineNpc: npc {}", npcId);
     }
 
+    public void sendLogoutRequest() {
+        NetworkProto.ClientMessage msg = NetworkProto.ClientMessage.newBuilder()
+            .setLogoutRequest(NetworkProto.LogoutRequest.newBuilder()
+                .setSequence(System.currentTimeMillis()))
+            .build();
+        channel.writeAndFlush(msg);
+        LOG.debug("Sent LogoutRequest");
+    }
+
     public boolean isConnected() {
         return channel != null && channel.isActive();
     }

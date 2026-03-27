@@ -292,6 +292,35 @@ public class PlayerRepository {
             }
 
             ins.executeBatch();
+
+            // Persist exact per-task counts for quantity objectives.
+            // This table is optional for older databases; failures should not block core save.
+            try {
+                PreparedStatement delTasks = conn.prepareStatement(
+                    "DELETE FROM osrs.player_quest_tasks WHERE player_id = ?"
+                );
+                delTasks.setInt(1, dbId);
+                delTasks.executeUpdate();
+
+                PreparedStatement insTask = conn.prepareStatement(
+                    "INSERT INTO osrs.player_quest_tasks (player_id, quest_id, task_id, progress_count) VALUES (?, ?, ?, ?)"
+                );
+                for (Quest quest : questManager.getQuests().values()) {
+                    for (Quest.Task task : quest.tasks) {
+                        int progress = questManager.getTaskProgress(quest.id, task.id);
+                        if (progress <= 0) continue;
+                        insTask.setInt(1, dbId);
+                        insTask.setInt(2, quest.id);
+                        insTask.setString(3, task.id);
+                        insTask.setInt(4, progress);
+                        insTask.addBatch();
+                    }
+                }
+                insTask.executeBatch();
+            } catch (SQLException taskSaveErr) {
+                LOG.debug("Quest task progress table unavailable; saved coarse quest progress only for {}", player.getName());
+            }
+
             conn.commit();
         } catch (SQLException e) {
             LOG.error("Failed to save quest progress for: {}", player.getName(), e);
@@ -316,6 +345,23 @@ public class PlayerRepository {
                 int status = rs.getInt("status");
                 int bitmask = rs.getInt("completed_objectives");
                 questManager.applyPersistedState(questId, status, bitmask);
+            }
+
+            try {
+                PreparedStatement taskPs = conn.prepareStatement(
+                    "SELECT quest_id, task_id, progress_count FROM osrs.player_quest_tasks WHERE player_id = ?"
+                );
+                taskPs.setInt(1, dbId);
+                ResultSet taskRs = taskPs.executeQuery();
+                while (taskRs.next()) {
+                    questManager.applyPersistedTaskProgress(
+                        taskRs.getInt("quest_id"),
+                        taskRs.getString("task_id"),
+                        taskRs.getInt("progress_count")
+                    );
+                }
+            } catch (SQLException taskLoadErr) {
+                LOG.debug("Quest task progress table unavailable; loaded coarse quest progress only for {}", player.getName());
             }
         } catch (SQLException e) {
             LOG.error("Failed to load quest progress for: {}", player.getName(), e);

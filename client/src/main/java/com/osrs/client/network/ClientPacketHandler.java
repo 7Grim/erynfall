@@ -161,6 +161,18 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
     private final ConcurrentLinkedQueue<QuestUpdateEvent> pendingQuestUpdates =
         new ConcurrentLinkedQueue<>();
 
+    public static class LogoutEvent {
+        public final boolean success;
+        public final String message;
+
+        public LogoutEvent(boolean success, String message) {
+            this.success = success;
+            this.message = message;
+        }
+    }
+
+    private volatile LogoutEvent pendingLogoutEvent;
+
     // -----------------------------------------------------------------------
     // Player state
     // -----------------------------------------------------------------------
@@ -247,6 +259,7 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
             case NPC_RESPAWN         -> handleNpcRespawn(packet.getNpcRespawn());
             case CHAT_MESSAGE        -> handleChatMessage(packet.getChatMessage());
             case CHAT_BROADCAST      -> handleChatBroadcast(packet.getChatBroadcast());  // public_chat from nearby player
+            case LOGOUT_RESPONSE     -> handleLogoutResponse(packet.getLogoutResponse());
             default -> LOG.debug("Unhandled server message: {}", packet.getPayloadCase());
         }
     }
@@ -392,6 +405,11 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
             update.getQuestId(), update.getTasksCompleted(), update.getTasksTotal(), update.getCompleted());
     }
 
+    private void handleLogoutResponse(NetworkProto.LogoutResponse response) {
+        pendingLogoutEvent = new LogoutEvent(response.getSuccess(), response.getMessage());
+        LOG.info("LogoutResponse success={} message='{}'", response.getSuccess(), response.getMessage());
+    }
+
     // -----------------------------------------------------------------------
     // Accessors for GameScreen (called from render thread)
     // -----------------------------------------------------------------------
@@ -471,6 +489,12 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
         QuestUpdateEvent e;
         while ((e = pendingQuestUpdates.poll()) != null) out.add(e);
         return out;
+    }
+
+    public LogoutEvent consumeLogoutEvent() {
+        LogoutEvent event = pendingLogoutEvent;
+        pendingLogoutEvent = null;
+        return event;
     }
 
     /** True if the player just died; GameScreen calls consumePlayerDeath() to acknowledge. */

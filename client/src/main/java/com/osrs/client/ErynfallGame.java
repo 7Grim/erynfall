@@ -14,12 +14,12 @@ public class ErynfallGame extends Game {
 
     @Override
     public void create() {
-        setScreen(new LoginScreen(this));
+        showLoginScreen();
     }
 
     /** Called by LoginScreen once credentials are confirmed. */
     public void startGame(String username, String password) {
-        GameScreen gs = new GameScreen(username, password);
+        GameScreen gs = new GameScreen(this, username, password);
         setScreen(new ScreenAdapter() {
             @Override public void show()                       { gs.create(); }
             @Override public void render(float delta)         { gs.render(); }
@@ -28,5 +28,9 @@ public class ErynfallGame extends Game {
             @Override public void resume()                    { gs.resume(); }
             @Override public void dispose()                   { gs.dispose(); }
         });
+    }
+
+    public void showLoginScreen() {
+        setScreen(new LoginScreen(this));
     }
 }

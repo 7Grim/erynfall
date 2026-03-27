@@ -295,6 +295,27 @@ CREATE INDEX idx_player_quests ON osrs.player_quests(player_id, quest_id);
 GO
 
 -- ============================================================================
+-- TABLE 8B: PLAYER_QUEST_TASKS (Exact per-task progress counts)
+-- ============================================================================
+
+DROP TABLE IF EXISTS osrs.player_quest_tasks;
+GO
+
+CREATE TABLE osrs.player_quest_tasks (
+  id INT IDENTITY(1,1) PRIMARY KEY,
+  player_id INT NOT NULL REFERENCES osrs.players(id) ON DELETE CASCADE,
+  quest_id INT NOT NULL,
+  task_id VARCHAR(64) NOT NULL,
+  progress_count INT NOT NULL DEFAULT 0,
+
+  UNIQUE (player_id, quest_id, task_id)
+);
+GO
+
+CREATE INDEX idx_player_quest_tasks_player ON osrs.player_quest_tasks(player_id, quest_id);
+GO
+
+-- ============================================================================
 -- TABLE 9: GE_ORDERS (Grand Exchange buy/sell orders with matching index)
 -- ============================================================================
 

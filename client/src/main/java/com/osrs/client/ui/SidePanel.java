@@ -169,6 +169,7 @@ public class SidePanel {
     private final Map<Integer, QuestView> quests = new HashMap<>();
     private int selectedQuestId = -1;
     private int playerQuestPoints = 0;
+    private boolean logoutRequested = false;
 
     private static final String[] STYLE_NAMES = {
         "Accurate", "Aggressive", "Defensive", "Controlled"
@@ -661,6 +662,29 @@ public class SidePanel {
             font.setColor(0.8f, 0.75f, 0.65f, 1f);
             font.getData().setScale(0.7f);
             font.draw(batch, "Open Quests to see progress.", panelX + pad, bodyTop - 60);
+
+            // Logout button
+            int bx = logoutButtonX();
+            int by = logoutButtonY();
+            int bw = logoutButtonW();
+            int bh = logoutButtonH();
+
+            batch.end();
+            sr.setProjectionMatrix(proj);
+            sr.begin(ShapeRenderer.ShapeType.Filled);
+            sr.setColor(0.22f, 0.10f, 0.08f, 1f);
+            sr.rect(bx, by, bw, bh);
+            sr.end();
+
+            sr.begin(ShapeRenderer.ShapeType.Line);
+            sr.setColor(0.85f, 0.35f, 0.25f, 1f);
+            sr.rect(bx, by, bw, bh);
+            sr.end();
+
+            batch.begin();
+            font.getData().setScale(0.75f);
+            font.setColor(1f, 0.8f, 0.6f, 1f);
+            font.draw(batch, "Logout", bx + 10, by + 14);
         } else if (characterPage == CharacterPage.QUEST_LIST) {
             List<QuestView> list = sortedQuests();
             int y = bodyTop;
@@ -799,6 +823,13 @@ public class SidePanel {
                         if (y < panelY + 18) break;
                     }
                 }
+
+                if (characterPage == CharacterPage.SUMMARY
+                    && mx >= logoutButtonX() && mx <= logoutButtonX() + logoutButtonW()
+                    && my >= logoutButtonY() && my <= logoutButtonY() + logoutButtonH()) {
+                    logoutRequested = true;
+                    return -1;
+                }
             }
             case INVENTORY -> inventoryUI.handleMouseDown(mx, my, 0);
             default -> { /* Skills tab: no clicks */ }
@@ -814,6 +845,11 @@ public class SidePanel {
 
     public boolean isInventoryTabActive() { return activeTab == Tab.INVENTORY; }
     public int     getPanelX()            { return panelX; }
+    public boolean consumeLogoutRequested() {
+        boolean out = logoutRequested;
+        logoutRequested = false;
+        return out;
+    }
 
     // -----------------------------------------------------------------------
     // Drag support (inventory)
@@ -858,4 +894,9 @@ public class SidePanel {
     public String getInventoryItemName(int slot)  { return inventoryUI.getName(slot); }
     public int    getInventoryItemFlags(int slot) { return inventoryUI.getFlags(slot); }
     public int    getCombatStyle()                { return combatStyle; }
+
+    private int logoutButtonX() { return panelX + 8; }
+    private int logoutButtonY() { return panelY + 8; }
+    private int logoutButtonW() { return 72; }
+    private int logoutButtonH() { return 20; }
 }

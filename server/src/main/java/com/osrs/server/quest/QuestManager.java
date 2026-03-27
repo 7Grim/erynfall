@@ -178,6 +178,24 @@ public class QuestManager {
         }
     }
 
+    /**
+     * Applies persisted per-task count progress.
+     */
+    public void applyPersistedTaskProgress(int questId, String taskId, int progressCount) {
+        Quest quest = quests.get(questId);
+        if (quest == null) return;
+
+        for (Quest.Task task : quest.tasks) {
+            if (!task.id.equals(taskId)) continue;
+
+            int clamped = Math.max(0, Math.min(task.quantity, progressCount));
+            taskProgress.put(taskKey(questId, taskId), clamped);
+            task.completed = clamped >= task.quantity;
+            recomputeQuestProgress(quest);
+            return;
+        }
+    }
+
     public int getCompletedObjectivesBitmask(int questId) {
         Quest quest = quests.get(questId);
         if (quest == null) return 0;
@@ -198,6 +216,28 @@ public class QuestManager {
             case IN_PROGRESS -> 1;
             case COMPLETED -> 2;
         };
+    }
+
+    private void recomputeQuestProgress(Quest quest) {
+        int completedCount = 0;
+        boolean anyProgress = false;
+        for (Quest.Task task : quest.tasks) {
+            int current = taskProgress.getOrDefault(taskKey(quest.id, task.id), 0);
+            if (current > 0) anyProgress = true;
+            if (task.completed) completedCount++;
+        }
+        questProgress.put(quest.id, completedCount);
+
+        if (quest.allTasksCompleted()) {
+            quest.completed = true;
+            quest.status = Quest.QuestStatus.COMPLETED;
+            return;
+        }
+
+        quest.completed = false;
+        if (anyProgress && quest.status == Quest.QuestStatus.NOT_STARTED) {
+            quest.status = Quest.QuestStatus.IN_PROGRESS;
+        }
     }
 
     private static String taskKey(int questId, String taskId) {
