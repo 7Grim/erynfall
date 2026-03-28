@@ -433,13 +433,14 @@ public class GameScreen extends ApplicationAdapter {
         defenceLevel  = h.getSkillLevel(2);
 
         // Sync full skill data to the Skills tab
-        int[]  lvls = new int[10];
-        long[] xps  = new long[10];
-        for (int i = 0; i < 10; i++) {
+        int[]  lvls = new int[23];
+        long[] xps  = new long[23];
+        for (int i = 0; i < 23; i++) {
             lvls[i] = h.getSkillLevel(i);
             xps[i]  = h.getSkillTotalXp(i);
         }
         sidePanel.setSkillData(lvls, xps);
+        sidePanel.setMember(h.isMember());
 
         // Sync inventory to the Inventory tab
         for (int i = 0; i < 28; i++) {
@@ -585,7 +586,12 @@ public class GameScreen extends ApplicationAdapter {
         }
 
         // XP drop events — show OSRS-style floating XP drops on the right side
-        String[] skillNames = {"Attack", "Strength", "Defence", "Hitpoints", "Ranged", "Magic"};
+        String[] skillNames = {
+            "Attack", "Strength", "Defence", "Hitpoints", "Ranged", "Magic",
+            "Prayer", "Woodcutting", "Fishing", "Cooking", "Mining", "Smithing", "Firemaking",
+            "Crafting", "Runecrafting", "Fletching", "Agility", "Herblore", "Thieving",
+            "Slayer", "Farming", "Hunter", "Construction"
+        };
         for (ClientPacketHandler.XpDropEvent xp : h.drainXpDrops()) {
             if (xp.skillIndex >= 0 && xp.skillIndex < skillNames.length) {
                 xpDropOverlay.addDrop(xp.skillIndex, xp.xpGained);

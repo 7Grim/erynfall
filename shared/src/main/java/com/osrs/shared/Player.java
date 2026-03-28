@@ -45,7 +45,22 @@ public class Player extends Entity {
     public static final int SKILL_WOODCUTTING = 7;
     public static final int SKILL_FISHING     = 8;
     public static final int SKILL_COOKING     = 9;
-    public static final int SKILL_COUNT       = 10;
+    public static final int SKILL_MINING       = 10;
+    public static final int SKILL_SMITHING     = 11;
+    public static final int SKILL_FIREMAKING   = 12;
+    public static final int SKILL_CRAFTING     = 13;
+    public static final int SKILL_RUNECRAFTING = 14;
+    public static final int SKILL_FLETCHING    = 15;
+    public static final int SKILL_AGILITY      = 16;
+    public static final int SKILL_HERBLORE     = 17;
+    public static final int SKILL_THIEVING     = 18;
+    public static final int SKILL_SLAYER       = 19;
+    public static final int SKILL_FARMING      = 20;
+    public static final int SKILL_HUNTER       = 21;
+    public static final int SKILL_CONSTRUCTION = 22;
+    public static final int SKILL_COUNT        = 23;
+
+    private boolean member = false;
 
     /** Total XP accumulated per skill. */
     private final long[] skillXp    = new long[SKILL_COUNT];
@@ -259,4 +274,7 @@ public class Player extends Entity {
     public void markSkillingActiveAnnounced() {
         this.skillingActiveAnnounced = true;
     }
+
+    public boolean isMember() { return member; }
+    public void setMember(boolean member) { this.member = member; }
 }

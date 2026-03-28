@@ -7,6 +7,7 @@ quests:
     miniquest: true
     quest_points: 1
     free_to_play: true
+    reward_skill_index: 3   # Hitpoints XP on completion
     tasks:
       - id: "speak_guide"
         type: "dialogue"
@@ -49,6 +50,12 @@ quests:
         description: "Equip training armour"
         item_id: 1115
         reward_xp: 50
+
+      - id: "return_to_guide"
+        type: "hand_in"
+        description: "Return to the Tutorial Guide to complete the tutorial"
+        npc_id: 1
+        reward_xp: 0
 
     # Quest completion reward
     total_reward_xp: 435

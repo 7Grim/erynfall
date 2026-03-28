@@ -148,11 +148,15 @@ public class SidePanel {
     }
 
     // Skills (synced from ClientPacketHandler each frame)
-    private final int[]  skillLevels = new int[6];
-    private final long[] skillXp     = new long[6];
+    private final int[]  skillLevels = new int[23];
+    private final long[] skillXp     = new long[23];
+    private boolean memberPlayer = false;
 
     private static final String[] SKILL_NAMES = {
-        "Attack", "Strength", "Defence", "Hitpoints", "Ranged", "Magic"
+        "Attack", "Strength", "Defence", "Hitpoints", "Ranged", "Magic",
+        "Prayer", "Woodcutting", "Fishing", "Cooking", "Mining", "Smithing", "Firemaking",
+        "Crafting", "Runecrafting", "Fletching", "Agility", "Herblore", "Thieving",
+        "Slayer", "Farming", "Hunter", "Construction"
     };
     private static final Color[] SKILL_COLORS = {
         new Color(0.80f, 0.20f, 0.20f, 1f),   // Attack    – red
@@ -161,6 +165,23 @@ public class SidePanel {
         new Color(0.55f, 0.85f, 0.25f, 1f),   // Hitpoints – green
         new Color(0.25f, 0.75f, 0.25f, 1f),   // Ranged    – lime
         new Color(0.45f, 0.30f, 0.90f, 1f),   // Magic     – purple
+        new Color(0.85f, 0.80f, 0.20f, 1f),   // Prayer    – gold
+        new Color(0.30f, 0.60f, 0.15f, 1f),   // Woodcutting – dark green
+        new Color(0.10f, 0.55f, 0.80f, 1f),   // Fishing   – cyan-blue
+        new Color(0.85f, 0.40f, 0.10f, 1f),   // Cooking   – orange-red
+        new Color(0.60f, 0.60f, 0.62f, 1f),   // Mining
+        new Color(0.70f, 0.50f, 0.20f, 1f),   // Smithing
+        new Color(0.95f, 0.55f, 0.05f, 1f),   // Firemaking
+        new Color(0.65f, 0.50f, 0.30f, 1f),   // Crafting
+        new Color(0.20f, 0.75f, 0.75f, 1f),   // Runecrafting
+        new Color(0.35f, 0.55f, 0.15f, 1f),   // Fletching
+        new Color(0.25f, 0.60f, 0.85f, 1f),   // Agility
+        new Color(0.15f, 0.75f, 0.25f, 1f),   // Herblore
+        new Color(0.55f, 0.15f, 0.65f, 1f),   // Thieving
+        new Color(0.70f, 0.10f, 0.10f, 1f),   // Slayer
+        new Color(0.40f, 0.65f, 0.15f, 1f),   // Farming
+        new Color(0.55f, 0.38f, 0.12f, 1f),   // Hunter
+        new Color(0.78f, 0.65f, 0.35f, 1f),   // Construction
     };
 
     // Combat style (0=Accurate 1=Aggressive 2=Defensive 3=Controlled)
@@ -439,29 +460,45 @@ public class SidePanel {
     // Hitpoints/Ranged/Magic on the right.
     // -----------------------------------------------------------------------
 
-    /** Maps our skill array index to the OSRS two-column grid position.
-     *  [col, row] — col 0 = left column, col 1 = right column. */
+    /** Maps our skill array index to [col, row] positions in the 3-column grid. */
     private static final int[][] SKILL_GRID_POS = {
-        {0, 0},  // Attack     — left col,  row 0
-        {0, 1},  // Strength   — left col,  row 1
-        {0, 2},  // Defence    — left col,  row 2
-        {1, 0},  // Hitpoints  — right col, row 0
-        {1, 1},  // Ranged     — right col, row 1
-        {1, 2},  // Magic      — right col, row 2
+        {0, 0},  // Attack
+        {0, 1},  // Strength
+        {0, 2},  // Defence
+        {1, 0},  // Hitpoints
+        {0, 3},  // Ranged
+        {0, 5},  // Magic
+        {0, 4},  // Prayer
+        {2, 5},  // Woodcutting
+        {2, 2},  // Fishing
+        {2, 3},  // Cooking
+        {2, 0},  // Mining
+        {2, 1},  // Smithing
+        {2, 4},  // Firemaking
+        {1, 4},  // Crafting
+        {0, 6},  // Runecrafting
+        {1, 5},  // Fletching
+        {1, 1},  // Agility
+        {1, 2},  // Herblore
+        {1, 3},  // Thieving
+        {1, 6},  // Slayer
+        {2, 6},  // Farming
+        {1, 7},  // Hunter
+        {0, 7},  // Construction
     };
 
     private void renderSkillsTab(ShapeRenderer sr, SpriteBatch batch, BitmapFont font, Matrix4 proj,
                                   int screenW, int screenH, int mouseX, int mouseY) {
-        final int COLS   = 2;
-        final int ROWS   = 3;
-        final int PAD    = 6;
-        final int CELL_W = (PANEL_W - PAD * (COLS + 1)) / COLS;   // ~111 px
-        final int CELL_H = (CONTENT_H - PAD * (ROWS + 1)) / ROWS; // ~96 px
-        final int ICON_SZ = 26;
+        final int COLS   = 3;
+        final int ROWS   = 8;
+        final int PAD    = 4;
+        final int CELL_W = (PANEL_W - PAD * (COLS + 1)) / COLS;
+        final int CELL_H = (CONTENT_H - PAD * (ROWS + 1)) / ROWS;
+        final int ICON_SZ = 14;
 
         // Precompute cell origins
-        int[] cellX = new int[6], cellY = new int[6];
-        for (int i = 0; i < 6; i++) {
+        int[] cellX = new int[23], cellY = new int[23];
+        for (int i = 0; i < 23; i++) {
             cellX[i] = panelX + PAD + SKILL_GRID_POS[i][0] * (CELL_W + PAD);
             cellY[i] = panelY + CONTENT_H - PAD - (SKILL_GRID_POS[i][1] + 1) * (CELL_H + PAD) + PAD;
         }
@@ -469,29 +506,40 @@ public class SidePanel {
         // ── Pass 1: all filled shapes (backgrounds + icons) ─────────────────
         sr.setProjectionMatrix(proj);
         sr.begin(ShapeRenderer.ShapeType.Filled);
-        for (int i = 0; i < 6; i++) {
+        for (int i = 0; i < 23; i++) {
             int cx = cellX[i], cy = cellY[i];
+            boolean membersLocked = i >= 15 && !memberPlayer;
             // Cell background
-            sr.setColor(0.11f, 0.10f, 0.08f, 1f);
+            if (membersLocked) {
+                sr.setColor(0.08f, 0.07f, 0.06f, 1f);
+            } else {
+                sr.setColor(0.11f, 0.10f, 0.08f, 1f);
+            }
             sr.rect(cx, cy, CELL_W, CELL_H);
             // Skill icon (left side of cell)
-            int iconX = cx + 12;
-            int iconY = cy + (CELL_H - ICON_SZ) / 2 + 4;
+            int iconX = cx + 7;
+            int iconY = cy + (CELL_H - ICON_SZ) / 2;
             Color ic  = SKILL_COLORS[i];
-            sr.setColor(ic.r, ic.g, ic.b, 1f);
+            if (membersLocked) {
+                sr.setColor(ic.r * 0.5f, ic.g * 0.5f, ic.b * 0.5f, 0.5f);
+            } else {
+                sr.setColor(ic.r, ic.g, ic.b, 1f);
+            }
             sr.rect(iconX, iconY, ICON_SZ, ICON_SZ);
             // Highlight edges
-            sr.setColor(Math.min(1f, ic.r + 0.35f), Math.min(1f, ic.g + 0.35f),
-                        Math.min(1f, ic.b + 0.35f), 0.65f);
-            sr.rect(iconX, iconY + ICON_SZ - 4, ICON_SZ, 4);
-            sr.rect(iconX, iconY, 4, ICON_SZ);
+            if (!membersLocked) {
+                sr.setColor(Math.min(1f, ic.r + 0.35f), Math.min(1f, ic.g + 0.35f),
+                            Math.min(1f, ic.b + 0.35f), 0.65f);
+                sr.rect(iconX, iconY + ICON_SZ - 2, ICON_SZ, 2);
+                sr.rect(iconX, iconY, 2, ICON_SZ);
+            }
         }
         sr.end();
 
         // ── Pass 2: all borders (Line mode) ─────────────────────────────────
         sr.begin(ShapeRenderer.ShapeType.Line);
         sr.setColor(0.48f, 0.40f, 0.18f, 1f);
-        for (int i = 0; i < 6; i++) {
+        for (int i = 0; i < 23; i++) {
             sr.rect(cellX[i], cellY[i], CELL_W, CELL_H);
         }
         sr.end();
@@ -499,26 +547,31 @@ public class SidePanel {
         // ── Pass 3: all text ─────────────────────────────────────────────────
         batch.setProjectionMatrix(proj);
         batch.begin();
-        for (int i = 0; i < 6; i++) {
+        for (int i = 0; i < 23; i++) {
             int cx = cellX[i], cy = cellY[i];
+            boolean membersLocked = i >= 15 && !memberPlayer;
 
-            // Large yellow level, aligned OSRS-style to the right of icon.
-            font.getData().setScale(1.05f);
-            font.setColor(1f, 0.85f, 0.10f, 1f);
+            font.getData().setScale(0.75f);
+            if (membersLocked) {
+                font.setColor(0.45f, 0.45f, 0.45f, 1f);
+            } else {
+                font.setColor(1f, 0.85f, 0.10f, 1f);
+            }
             String lvl  = String.valueOf(skillLevels[i]);
-            font.draw(batch, lvl, cx + 48, cy + CELL_H / 2f + 8);
+            font.draw(batch, lvl, cx + 25, cy + CELL_H / 2f + 4);
 
-            // Skill name below the level in muted text for readability.
-            font.getData().setScale(0.72f);
-            font.setColor(0.75f, 0.70f, 0.60f, 1f);
-            font.draw(batch, SKILL_NAMES[i], cx + 48, cy + CELL_H / 2f - 8);
+            if (membersLocked) {
+                font.getData().setScale(0.55f);
+                font.setColor(0.85f, 0.70f, 0.10f, 1f);
+                font.draw(batch, "M", cx + CELL_W - 10, cy + CELL_H - 2);
+            }
         }
         font.getData().setScale(1f);
         font.setColor(Color.WHITE);
         batch.end();
 
         // ── Tooltip: show XP info when mouse hovers a skill cell ─────────────
-        for (int i = 0; i < 6; i++) {
+        for (int i = 0; i < 23; i++) {
             if (mouseX >= cellX[i] && mouseX < cellX[i] + CELL_W
              && mouseY >= cellY[i] && mouseY < cellY[i] + CELL_H) {
                 renderSkillTooltip(sr, batch, font, proj, i, mouseX, mouseY, screenW, screenH);
@@ -585,7 +638,8 @@ public class SidePanel {
 
         // Skill name (gold, bold appearance via colour)
         font.setColor(1f, 0.85f, 0.10f, 1f);
-        font.draw(batch, SKILL_NAMES[skillIdx], tipX + T_PAD, tipY + TIP_H - T_PAD);
+        String skillName = SKILL_NAMES[skillIdx] + (skillIdx >= 15 ? " (Members)" : "");
+        font.draw(batch, skillName, tipX + T_PAD, tipY + TIP_H - T_PAD);
 
         // Current XP
         font.setColor(Color.WHITE);
@@ -873,6 +927,8 @@ public class SidePanel {
         System.arraycopy(levels, 0, skillLevels, 0, n);
         System.arraycopy(xp, 0, skillXp, 0, n);
     }
+
+    public void setMember(boolean isMember) { this.memberPlayer = isMember; }
 
     public void setCombatStyle(int style) {
         if (style >= 0 && style < 4) combatStyle = style;

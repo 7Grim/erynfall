@@ -237,6 +237,9 @@ public class PlayerRepository {
                         "attack_xp = ?, strength_xp = ?, defence_xp = ?, " +
                         "hitpoints_xp = ?, ranged_xp = ?, magic_xp = ?, " +
                         "prayer_xp = ?, woodcutting_xp = ?, fishing_xp = ?, cooking_xp = ?, " +
+                        "mining_xp = ?, smithing_xp = ?, firemaking_xp = ?, crafting_xp = ?, " +
+                        "runecrafting_xp = ?, fletching_xp = ?, agility_xp = ?, herblore_xp = ?, " +
+                        "thieving_xp = ?, slayer_xp = ?, farming_xp = ?, hunter_xp = ?, construction_xp = ?, " +
                         "prayer_points = ? " +
                         "WHERE LOWER(username) = LOWER(?)"
                 );
@@ -252,8 +255,21 @@ public class PlayerRepository {
                 ps.setLong(10, player.getSkillXp(Player.SKILL_WOODCUTTING));
                 ps.setLong(11, player.getSkillXp(Player.SKILL_FISHING));
                 ps.setLong(12, player.getSkillXp(Player.SKILL_COOKING));
-                ps.setInt(13, Math.max(1, player.getSkillLevel(Player.SKILL_PRAYER)));
-                ps.setString(14, player.getName());
+                ps.setLong(13, player.getSkillXp(Player.SKILL_MINING));
+                ps.setLong(14, player.getSkillXp(Player.SKILL_SMITHING));
+                ps.setLong(15, player.getSkillXp(Player.SKILL_FIREMAKING));
+                ps.setLong(16, player.getSkillXp(Player.SKILL_CRAFTING));
+                ps.setLong(17, player.getSkillXp(Player.SKILL_RUNECRAFTING));
+                ps.setLong(18, player.getSkillXp(Player.SKILL_FLETCHING));
+                ps.setLong(19, player.getSkillXp(Player.SKILL_AGILITY));
+                ps.setLong(20, player.getSkillXp(Player.SKILL_HERBLORE));
+                ps.setLong(21, player.getSkillXp(Player.SKILL_THIEVING));
+                ps.setLong(22, player.getSkillXp(Player.SKILL_SLAYER));
+                ps.setLong(23, player.getSkillXp(Player.SKILL_FARMING));
+                ps.setLong(24, player.getSkillXp(Player.SKILL_HUNTER));
+                ps.setLong(25, player.getSkillXp(Player.SKILL_CONSTRUCTION));
+                ps.setInt(26, Math.max(1, player.getSkillLevel(Player.SKILL_PRAYER)));
+                ps.setString(27, player.getName());
                 ps.executeUpdate();
             } catch (SQLException extendedErr) {
                 PreparedStatement ps = conn.prepareStatement(
@@ -516,6 +532,22 @@ public class PlayerRepository {
         player.setSkillXp(Player.SKILL_WOODCUTTING, safeGetLong(rs, "woodcutting_xp", 0L));
         player.setSkillXp(Player.SKILL_FISHING, safeGetLong(rs, "fishing_xp", 0L));
         player.setSkillXp(Player.SKILL_COOKING, safeGetLong(rs, "cooking_xp", 0L));
+        player.setSkillXp(Player.SKILL_MINING, safeGetLong(rs, "mining_xp", 0L));
+        player.setSkillXp(Player.SKILL_SMITHING, safeGetLong(rs, "smithing_xp", 0L));
+        player.setSkillXp(Player.SKILL_FIREMAKING, safeGetLong(rs, "firemaking_xp", 0L));
+        player.setSkillXp(Player.SKILL_CRAFTING, safeGetLong(rs, "crafting_xp", 0L));
+        player.setSkillXp(Player.SKILL_RUNECRAFTING, safeGetLong(rs, "runecrafting_xp", 0L));
+        player.setSkillXp(Player.SKILL_FLETCHING, safeGetLong(rs, "fletching_xp", 0L));
+        player.setSkillXp(Player.SKILL_AGILITY, safeGetLong(rs, "agility_xp", 0L));
+        player.setSkillXp(Player.SKILL_HERBLORE, safeGetLong(rs, "herblore_xp", 0L));
+        player.setSkillXp(Player.SKILL_THIEVING, safeGetLong(rs, "thieving_xp", 0L));
+        player.setSkillXp(Player.SKILL_SLAYER, safeGetLong(rs, "slayer_xp", 0L));
+        player.setSkillXp(Player.SKILL_FARMING, safeGetLong(rs, "farming_xp", 0L));
+        player.setSkillXp(Player.SKILL_HUNTER, safeGetLong(rs, "hunter_xp", 0L));
+        player.setSkillXp(Player.SKILL_CONSTRUCTION, safeGetLong(rs, "construction_xp", 0L));
+        boolean isMember = false;
+        try { isMember = rs.getBoolean("is_member"); } catch (SQLException ignored) {}
+        player.setMember(isMember);
 
         int hpLevel = player.getSkillLevel(Player.SKILL_HITPOINTS);
         player.setHealth(hpLevel);

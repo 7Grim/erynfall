@@ -200,8 +200,9 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
     private int playerHealth = 10;
     private int playerMaxHealth = 10;
     /** Skill levels by shared protocol index. */
-    private final int[]  skillLevels   = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
-    private final long[] skillTotalXp  = new long[10];
+    private final int[]  skillLevels   = {1,1,1,1,1,1,1,1,1,1, 1,1,1,1,1,1,1,1,1,1, 1,1,1};
+    private final long[] skillTotalXp  = new long[23];
+    private boolean localPlayerIsMember = false;
     private boolean leveledUp = false;
     private int leveledUpSkill = -1;
 
@@ -293,6 +294,7 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
         if (response.getSuccess()) {
             myPlayerId = response.getPlayerId();
         }
+        localPlayerIsMember = response.getIsMember();
         LOG.info("Handshake: playerId={} success={} msg={}",
             myPlayerId, response.getSuccess(), response.getMessage());
         this.lastHandshakeResponse = response;
@@ -548,6 +550,8 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
     public NetworkProto.HandshakeResponse getLastHandshakeResponse() {
         return lastHandshakeResponse;
     }
+
+    public boolean isMember() { return localPlayerIsMember; }
 
     private void handlePlayerDeath(NetworkProto.PlayerDeath death) {
         deathRespawnX = death.getRespawnX();

@@ -41,7 +41,10 @@ public class XpDropOverlay {
     private static final int   ICON_GAP    = 4;
 
     private static final String[] SKILL_NAMES = {
-        "Attack", "Strength", "Defence", "Hitpoints", "Ranged", "Magic"
+        "Attack", "Strength", "Defence", "Hitpoints", "Ranged", "Magic",
+        "Prayer", "Woodcutting", "Fishing", "Cooking", "Mining", "Smithing", "Firemaking",
+        "Crafting", "Runecrafting", "Fletching", "Agility", "Herblore", "Thieving",
+        "Slayer", "Farming", "Hunter", "Construction"
     };
 
     private static final Color[] SKILL_ICON_COLORS = {
@@ -51,6 +54,23 @@ public class XpDropOverlay {
         new Color(0.72f, 0.18f, 0.18f, 1f),  // Hitpoints — red
         new Color(0.12f, 0.52f, 0.18f, 1f),  // Ranged    — dark green
         new Color(0.28f, 0.20f, 0.75f, 1f),  // Magic     — indigo
+        new Color(0.85f, 0.80f, 0.20f, 1f),  // Prayer
+        new Color(0.30f, 0.60f, 0.15f, 1f),  // Woodcutting
+        new Color(0.10f, 0.55f, 0.80f, 1f),  // Fishing
+        new Color(0.85f, 0.40f, 0.10f, 1f),  // Cooking
+        new Color(0.60f, 0.60f, 0.62f, 1f),  // Mining
+        new Color(0.70f, 0.50f, 0.20f, 1f),  // Smithing
+        new Color(0.95f, 0.55f, 0.05f, 1f),  // Firemaking
+        new Color(0.65f, 0.50f, 0.30f, 1f),  // Crafting
+        new Color(0.20f, 0.75f, 0.75f, 1f),  // Runecrafting
+        new Color(0.35f, 0.55f, 0.15f, 1f),  // Fletching
+        new Color(0.25f, 0.60f, 0.85f, 1f),  // Agility
+        new Color(0.15f, 0.75f, 0.25f, 1f),  // Herblore
+        new Color(0.55f, 0.15f, 0.65f, 1f),  // Thieving
+        new Color(0.70f, 0.10f, 0.10f, 1f),  // Slayer
+        new Color(0.40f, 0.65f, 0.15f, 1f),  // Farming
+        new Color(0.55f, 0.38f, 0.12f, 1f),  // Hunter
+        new Color(0.78f, 0.65f, 0.35f, 1f),  // Construction
     };
 
     // -----------------------------------------------------------------------

@@ -342,6 +342,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             .setSuccess(success)
             .setMessage(message)
             .setPlayerId(playerId)
+            .setIsMember(success && session != null && session.getPlayer() != null && session.getPlayer().isMember())
             .build();
         NetworkProto.ServerMessage wrapped = NetworkProto.ServerMessage.newBuilder()
             .setHandshakeResponse(response)
@@ -479,6 +480,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
 
         LOG.info("Player {} started dialogue with NPC {} ({})", player.getId(), npc.getId(), npc.getName());
         updateDialogueQuestObjectives(ctx, npc.getId());
+        updateHandInQuestObjectives(ctx, npc.getId());
         sendDialoguePrompt(ctx, dialogue);
     }
 
@@ -629,9 +631,63 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
                     continue;
                 }
 
+                boolean wasComplete = (quest.status == Quest.QuestStatus.COMPLETED);
                 boolean completed = questManager.addTaskProgress(quest.id, task.id, 1);
                 if (completed) {
-                    sendQuestUpdate(ctx, questManager.getQuest(quest.id));
+                    Quest updatedQuest = questManager.getQuest(quest.id);
+                    sendQuestUpdate(ctx, updatedQuest);
+
+                    boolean isNowComplete = updatedQuest.allTasksCompleted()
+                        && updatedQuest.status == Quest.QuestStatus.COMPLETED;
+                    if (!wasComplete && isNowComplete) {
+                        if (updatedQuest.totalRewardXp > 0) {
+                            sendSkillUpdate(session.getPlayer(), updatedQuest.rewardSkillIndex, updatedQuest.totalRewardXp);
+                        }
+                        sendChatMessageToPlayer(ctx.channel(),
+                            "You have completed: " + updatedQuest.name + "! You earned "
+                                + updatedQuest.totalRewardXp + " XP.", 3);
+                        PlayerRepository.saveQuestProgress(
+                            session.getPlayer(), session.getQuestManager());
+                    }
+                }
+            }
+        }
+    }
+
+    private void updateHandInQuestObjectives(ChannelHandlerContext ctx, int npcId) {
+        QuestManager questManager = session.getQuestManager();
+        if (questManager == null) return;
+
+        for (Quest quest : questManager.getQuests().values()) {
+            for (Quest.Task task : quest.tasks) {
+                if (task.type != Quest.TaskType.HAND_IN
+                        || task.completed
+                        || task.targetEntityId != npcId) {
+                    continue;
+                }
+                boolean allOthersDone = quest.tasks.stream()
+                    .filter(t -> t.type != Quest.TaskType.HAND_IN)
+                    .allMatch(t -> t.completed);
+                if (!allOthersDone) continue;
+
+                boolean wasComplete = (quest.status == Quest.QuestStatus.COMPLETED);
+                boolean completed = questManager.addTaskProgress(quest.id, task.id, 1);
+                if (completed) {
+                    Quest updatedQuest = questManager.getQuest(quest.id);
+                    sendQuestUpdate(ctx, updatedQuest);
+                    boolean isNowComplete = updatedQuest.allTasksCompleted()
+                        && updatedQuest.status == Quest.QuestStatus.COMPLETED;
+                    if (!wasComplete && isNowComplete) {
+                        if (updatedQuest.totalRewardXp > 0) {
+                            sendSkillUpdate(session.getPlayer(),
+                                updatedQuest.rewardSkillIndex, updatedQuest.totalRewardXp);
+                        }
+                        sendChatMessageToPlayer(ctx.channel(),
+                            "You have completed: " + updatedQuest.name
+                                + "! You earned " + updatedQuest.totalRewardXp + " XP.", 3);
+                        PlayerRepository.saveQuestProgress(
+                            session.getPlayer(), session.getQuestManager());
+                    }
                 }
             }
         }
@@ -649,9 +705,23 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
                     continue;
                 }
 
+                boolean wasComplete = (quest.status == Quest.QuestStatus.COMPLETED);
                 questManager.addTaskProgress(quest.id, task.id, 1);
                 Quest updatedQuest = questManager.getQuest(quest.id);
                 sendQuestUpdate(session, updatedQuest);
+
+                boolean isNowComplete = updatedQuest.allTasksCompleted()
+                    && updatedQuest.status == Quest.QuestStatus.COMPLETED;
+                if (!wasComplete && isNowComplete) {
+                    if (updatedQuest.totalRewardXp > 0) {
+                        sendSkillUpdate(session.getPlayer(), updatedQuest.rewardSkillIndex, updatedQuest.totalRewardXp);
+                    }
+                    sendChatMessageToPlayer(session.getChannel(),
+                        "You have completed: " + updatedQuest.name + "! You earned "
+                            + updatedQuest.totalRewardXp + " XP.", 3);
+                    PlayerRepository.saveQuestProgress(
+                        session.getPlayer(), session.getQuestManager());
+                }
             }
         }
 
@@ -909,9 +979,31 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
 
     /** Send an OSRS-style game / error message only to this player's session. */
     private void sendChatMessage(ChannelHandlerContext ctx, String text, int type) {
-        ctx.writeAndFlush(NetworkProto.ServerMessage.newBuilder()
+        sendChatMessageToPlayer(ctx.channel(), text, type);
+    }
+
+    private void sendChatMessageToPlayer(io.netty.channel.Channel channel, String text, int type) {
+        channel.writeAndFlush(NetworkProto.ServerMessage.newBuilder()
             .setChatMessage(NetworkProto.ChatMessage.newBuilder()
                 .setText(text).setType(type))
+            .build());
+    }
+
+    private void sendSkillUpdate(Player player, int skillIdx, long xpAmount) {
+        if (player == null || session == null || session.getChannel() == null) {
+            return;
+        }
+
+        boolean leveledUp = player.addSkillXp(skillIdx, xpAmount);
+        int newLevel = player.getSkillLevel(skillIdx);
+        long totalXp = player.getSkillXp(skillIdx);
+
+        session.getChannel().writeAndFlush(NetworkProto.ServerMessage.newBuilder()
+            .setSkillUpdate(NetworkProto.SkillUpdate.newBuilder()
+                .setSkillIndex(skillIdx)
+                .setNewLevel(newLevel)
+                .setTotalXp(totalXp)
+                .setLeveledUp(leveledUp))
             .build());
     }
 

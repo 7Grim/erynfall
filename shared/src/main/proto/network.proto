@@ -17,6 +17,7 @@ message HandshakeResponse {
     bool success = 1;
     string message = 2;
     int32 player_id = 3;
+    bool is_member = 4;
 }
 
 // PlayerMovement: Client → Server
