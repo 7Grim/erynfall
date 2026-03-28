@@ -495,6 +495,13 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
 
         if (!tryStartSkilling(ctx, player, npc, request.getSkillingType(), true)) {
             sendChatMessage(ctx, "You can't do that with this target.", 1);
+            return;
+        }
+
+        if (request.getSkillingType() == NetworkProto.SkillingType.SKILLING_WOODCUTTING
+            && player.getSkillingAction() == SkillingAction.WOODCUTTING
+            && player.getSkillingTargetNpcId() == npc.getId()) {
+            updateGenericQuestObjectives(session, Quest.TaskType.ACTION, npc.getDefinitionId());
         }
     }
 
@@ -629,8 +636,35 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
         }
     }
 
-    private void sendQuestUpdate(ChannelHandlerContext ctx, Quest quest) {
+    private void updateGenericQuestObjectives(PlayerSession session, Quest.TaskType type, int targetId) {
+        if (session == null || session.getQuestManager() == null) {
+            return;
+        }
+
         QuestManager questManager = session.getQuestManager();
+        for (Quest quest : questManager.getQuests().values()) {
+            for (Quest.Task task : quest.tasks) {
+                if (task.type != type || task.completed || task.targetEntityId != targetId) {
+                    continue;
+                }
+
+                questManager.addTaskProgress(quest.id, task.id, 1);
+                Quest updatedQuest = questManager.getQuest(quest.id);
+                sendQuestUpdate(session, updatedQuest);
+            }
+        }
+
+        if (DatabaseManager.isHealthy() && session.getPlayer() != null) {
+            PlayerRepository.saveQuestProgress(session.getPlayer(), questManager);
+        }
+    }
+
+    private void sendQuestUpdate(ChannelHandlerContext ctx, Quest quest) {
+        sendQuestUpdate(session, quest);
+    }
+
+    private void sendQuestUpdate(PlayerSession session, Quest quest) {
+        QuestManager questManager = session == null ? null : session.getQuestManager();
         if (quest == null || questManager == null) {
             return;
         }
@@ -665,13 +699,9 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
                 .setCompleted(task.completed));
         }
 
-        ctx.writeAndFlush(NetworkProto.ServerMessage.newBuilder()
+        session.getChannel().writeAndFlush(NetworkProto.ServerMessage.newBuilder()
             .setQuestUpdate(update)
             .build());
-
-        if (DatabaseManager.isHealthy() && session.getPlayer() != null) {
-            PlayerRepository.saveQuestProgress(session.getPlayer(), questManager);
-        }
     }
 
     private void closeDialogue(Player player) {
@@ -842,6 +872,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             sendChatMessage(ctx, "Too late — it's gone!", 1);
             return;
         }
+        ItemDefinition def = server.getWorld().getItemDef(gi.getItemId());
 
         // OSRS-like pickup stance: player should stand on the item tile.
         if (player.getX() != gi.getX() || player.getY() != gi.getY()) {
@@ -853,7 +884,6 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
 
         // Inventory check up-front (early-out with OSRS message)
         if (player.isInventoryFull()) {
-            ItemDefinition def = server.getWorld().getItemDef(gi.getItemId());
             // Stackable items might still fit — check before rejecting
             boolean hasStack = false;
             if (def.stackable) {
@@ -873,6 +903,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
         server.getWorld().schedulePendingPickup(player, gi.getGroundItemId(), currentTick + 462, ctx);
         LOG.debug("Player {} scheduled pickup of ground item {} at tick {}",
             player.getId(), gi.getGroundItemId(), currentTick + 462);
+        updateGenericQuestObjectives(session, Quest.TaskType.COLLECT, def.id);
     }
 
     /** Send an OSRS-style game / error message only to this player's session. */
@@ -974,7 +1005,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             }
             LOG.info("Player {} buried bones (+{} prayer xp)", player.getId(), BONES_PRAYER_XP);
 
-        } else if (("wield".equals(action) || "wear".equals(action)) && def.equipable) {
+        } else if (("equip".equals(action) || "wield".equals(action) || "wear".equals(action)) && def.equipable) {
             int equipSlot = def.equipSlot;
             if (equipSlot < 0 || equipSlot >= EquipmentSlot.COUNT) return;
 
@@ -1006,6 +1037,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
                     .setFlags(newEquipDef.getFlags()))
                 .build());
             LOG.info("Player {} equipped {} into slot {}", player.getId(), def.name, equipSlot);
+            updateGenericQuestObjectives(session, Quest.TaskType.EQUIP, def.id);
         }
     }
 

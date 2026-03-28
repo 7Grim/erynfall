@@ -197,7 +197,11 @@ public class GameScreen extends ApplicationAdapter {
     /** questId -> whether completion message already shown. */
     private final Map<Integer, Boolean> shownQuestComplete = new HashMap<>();
 
-    private boolean initialized = false;
+    private enum AuthState { CONNECTING, FAILED, READY }
+
+    private volatile boolean initialized = false;
+    private volatile AuthState authState = AuthState.CONNECTING;
+    private volatile String authError = "";
     private boolean suppressInitialEnter = true;
 
     // -----------------------------------------------------------------------
@@ -208,6 +212,10 @@ public class GameScreen extends ApplicationAdapter {
     public void create() {
         LOG.info("GameScreen created – display {}x{}",
             Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
+
+        authState = AuthState.CONNECTING;
+        authError = "";
+        initialized = false;
 
         batch        = new SpriteBatch();
         screenBatch  = new SpriteBatch();
@@ -233,60 +241,62 @@ public class GameScreen extends ApplicationAdapter {
         xpDropOverlay  = new XpDropOverlay();
         levelUpOverlay = new LevelUpOverlay();
 
-        try {
-            AuthApiClient authApiClient = new AuthApiClient();
-            AuthApiClient.LoginResult loginResult = authApiClient.login(loginEmail, loginPassword);
-            if (!loginResult.success()) {
-                failToLogin(loginResult.errorMessage().isBlank()
-                    ? "Unable to authenticate account."
-                    : loginResult.errorMessage());
-                return;
-            }
-            if (loginResult.accessToken().isBlank()) {
-                failToLogin("Auth login did not return an access token.");
-                return;
-            }
-
-            nettyClient = new NettyClient();
-            nettyClient.connect();
-            nettyClient.sendTokenHandshake(loginResult.accessToken());
-
-            NetworkProto.HandshakeResponse handshake = nettyClient.awaitHandshakeResponse(5000);
-            if (handshake == null) {
-                failToLogin("Login timed out. Please try again.");
-                return;
-            }
-            if (!handshake.getSuccess()) {
-                failToLogin(handshake.getMessage().isBlank()
-                    ? "Login failed."
-                    : handshake.getMessage());
-                return;
-            }
-
-            String connectedName = loginResult.characterName().isBlank() ? "(unknown)" : loginResult.characterName();
-            LOG.info("Connected to server as character {}", connectedName);
-        } catch (Exception e) {
-            LOG.error("Failed to connect to server", e);
-            failToLogin("Unable to connect to game server.");
-            return;
-        }
-
-        initialized = true;
-        suppressInitialEnter = true;
-    }
-
-    private void failToLogin(String message) {
-        initialized = false;
-        if (nettyClient != null) {
+        Thread t = new Thread(() -> {
             try {
-                nettyClient.disconnect();
+                AuthApiClient authApiClient = new AuthApiClient();
+                AuthApiClient.LoginResult loginResult = authApiClient.login(loginEmail, loginPassword);
+                if (!loginResult.success()) {
+                    authError = loginResult.errorMessage().isBlank()
+                        ? "Unable to authenticate account."
+                        : loginResult.errorMessage();
+                    authState = AuthState.FAILED;
+                    return;
+                }
+                if (loginResult.accessToken().isBlank()) {
+                    authError = "Auth login did not return an access token.";
+                    authState = AuthState.FAILED;
+                    return;
+                }
+
+                nettyClient = new NettyClient();
+                nettyClient.connect();
+                nettyClient.sendTokenHandshake(loginResult.accessToken());
+
+                NetworkProto.HandshakeResponse handshake = nettyClient.awaitHandshakeResponse(5000);
+                if (handshake == null) {
+                    authError = "Login timed out. Please try again.";
+                    authState = AuthState.FAILED;
+                    return;
+                }
+                if (!handshake.getSuccess()) {
+                    authError = handshake.getMessage().isBlank()
+                        ? "Login failed."
+                        : handshake.getMessage();
+                    authState = AuthState.FAILED;
+                    return;
+                }
+
+                String connectedName = loginResult.characterName().isBlank() ? "(unknown)" : loginResult.characterName();
+                LOG.info("Connected to server as character {}", connectedName);
+                suppressInitialEnter = true;
+                initialized = true;
+                authState = AuthState.READY;
             } catch (Exception e) {
-                LOG.debug("Failed disconnect after login error", e);
+                LOG.error("Auth/connect failed", e);
+                authError = "Unable to connect to game server.";
+                authState = AuthState.FAILED;
             }
-        }
-        if (game != null) {
-            Gdx.app.postRunnable(() -> game.showLoginScreen(message));
-        }
+
+            if (authState == AuthState.FAILED && nettyClient != null) {
+                try {
+                    nettyClient.disconnect();
+                } catch (Exception e) {
+                    LOG.debug("Failed disconnect after login error", e);
+                }
+            }
+        }, "erynfall-auth-connect");
+        t.setDaemon(true);
+        t.start();
     }
 
     // -----------------------------------------------------------------------
@@ -295,9 +305,30 @@ public class GameScreen extends ApplicationAdapter {
 
     @Override
     public void render() {
+        if (authState == AuthState.FAILED) {
+            if (game != null) {
+                String error = authError;
+                authState = AuthState.CONNECTING;
+                Gdx.app.postRunnable(() -> game.showLoginScreen(error));
+            }
+            return;
+        }
+
+        if (!initialized) {
+            Gdx.gl.glClearColor(0.05f, 0.05f, 0.05f, 1f);
+            Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
+            screenBatch.setProjectionMatrix(screenProjection);
+            screenBatch.begin();
+            font.setColor(Color.LIGHT_GRAY);
+            font.draw(screenBatch, "Logging in...",
+                Gdx.graphics.getWidth() / 2f - 40,
+                Gdx.graphics.getHeight() / 2f);
+            screenBatch.end();
+            return;
+        }
+
         Gdx.gl.glClearColor(0.12f, 0.12f, 0.12f, 1f);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
-        if (!initialized) return;
 
         float delta = Gdx.graphics.getDeltaTime();
 

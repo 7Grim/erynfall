@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.InputStream;
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -12,6 +13,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.Map;
+import java.util.Properties;
 
 public class AuthApiClient {
 
@@ -83,13 +85,30 @@ public class AuthApiClient {
     }
 
     private static String resolveBaseUrl() {
+        // 1. System property (highest priority - for dev overrides)
         String configured = System.getProperty("AUTH_BASE_URL");
         if (configured == null || configured.isBlank()) {
             configured = System.getenv("AUTH_BASE_URL");
         }
+
+        // 2. Bundled properties file
+        if (configured == null || configured.isBlank()) {
+            try (InputStream is = AuthApiClient.class.getResourceAsStream("/auth.properties")) {
+                if (is != null) {
+                    Properties props = new Properties();
+                    props.load(is);
+                    configured = props.getProperty("auth.base.url");
+                }
+            } catch (Exception e) {
+                LOG.warn("Could not read auth.properties: {}", e.getMessage());
+            }
+        }
+
+        // 3. Hardcoded fallback
         if (configured == null || configured.isBlank()) {
             return "http://localhost:8080";
         }
+
         String trimmed = configured.trim();
         return trimmed.endsWith("/") ? trimmed.substring(0, trimmed.length() - 1) : trimmed;
     }
