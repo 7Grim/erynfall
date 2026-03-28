@@ -99,6 +99,51 @@ items:
     crush_attack: 2
     melee_strength: 4
 
+  - id: 1349
+    name: "Iron axe"
+    examine: "A woodcutting axe made of iron."
+    stackable: false
+    value: 56
+    slot: "WEAPON"
+    attack_bonus: 4
+    strength_bonus: 3
+
+  - id: 1353
+    name: "Steel axe"
+    examine: "A woodcutting axe made of steel."
+    stackable: false
+    value: 200
+    slot: "WEAPON"
+    attack_bonus: 7
+    strength_bonus: 5
+
+  - id: 1355
+    name: "Mithril axe"
+    examine: "A woodcutting axe made of mithril."
+    stackable: false
+    value: 520
+    slot: "WEAPON"
+    attack_bonus: 12
+    strength_bonus: 8
+
+  - id: 1357
+    name: "Adamant axe"
+    examine: "A woodcutting axe made of adamantite."
+    stackable: false
+    value: 1280
+    slot: "WEAPON"
+    attack_bonus: 16
+    strength_bonus: 11
+
+  - id: 1359
+    name: "Rune axe"
+    examine: "A woodcutting axe made of rune."
+    stackable: false
+    value: 6400
+    slot: "WEAPON"
+    attack_bonus: 22
+    strength_bonus: 15
+
   # ── Food ─────────────────────────────────────────────────────────────────
 
   - id: 315

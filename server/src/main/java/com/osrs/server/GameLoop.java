@@ -75,6 +75,15 @@ public class GameLoop {
 
     // Woodcutting (MVP first slice)
     private static final int BRONZE_AXE_ITEM_ID = 1351;
+    /** Axe tiers ordered best-to-worst. Each entry: {itemId, minWoodcuttingLevel}. */
+    private static final int[][] AXE_TIERS = {
+        {1359, 41},   // Rune axe
+        {1357, 35},   // Adamant axe
+        {1355, 31},   // Mithril axe
+        {1353, 11},   // Steel axe
+        {1349,  6},   // Iron axe
+        {1351,  1},   // Bronze axe
+    };
     private static final int NORMAL_TREE_LOG_ITEM_ID = 1511;
     private static final long NORMAL_TREE_XP = 25L;
     private static final int TREE_REGROW_TICKS = 640;
@@ -982,7 +991,8 @@ public class GameLoop {
             return;
         }
 
-        if (!hasUsableAxe(player)) {
+        int axeId = getBestUsableAxeId(player);
+        if (axeId < 0) {
             sendChatMessageToPlayer(session.getChannel(), "You need an axe to chop this tree.", 1);
             stopSkilling(player, session, "missing-tool");
             return;
@@ -1004,8 +1014,16 @@ public class GameLoop {
             return;
         }
 
+        int axeTierBonus = 0;
+        for (int t = 0; t < AXE_TIERS.length; t++) {
+            if (AXE_TIERS[AXE_TIERS.length - 1 - t][0] == axeId) {
+                axeTierBonus = t;
+                break;
+            }
+        }
         int wcLevel = Math.max(1, player.getSkillLevel(Player.SKILL_WOODCUTTING));
-        boolean success = random.nextDouble() < woodcutSuccessChance(wcLevel);
+        int successThreshold = Math.max(5, 50 - wcLevel - axeTierBonus * 3);
+        boolean success = random.nextInt(100) >= successThreshold;
         if (!success) {
             player.setSkillingNextAttemptTick(tickCount + nextWoodcutAttemptTicks(wcLevel));
             return;
@@ -1279,16 +1297,18 @@ public class GameLoop {
             .build());
     }
 
-    private boolean hasUsableAxe(Player player) {
-        if (player.getEquipment(EquipmentSlot.WEAPON) == BRONZE_AXE_ITEM_ID) {
-            return true;
-        }
-        for (int i = 0; i < 28; i++) {
-            if (player.getInventoryItemId(i) == BRONZE_AXE_ITEM_ID) {
-                return true;
+    private int getBestUsableAxeId(Player player) {
+        int wcLevel = Math.max(1, player.getSkillLevel(Player.SKILL_WOODCUTTING));
+        for (int[] tier : AXE_TIERS) {
+            int axeId  = tier[0];
+            int minLvl = tier[1];
+            if (wcLevel < minLvl) continue;
+            if (player.getEquipment(EquipmentSlot.WEAPON) == axeId) return axeId;
+            for (int i = 0; i < 28; i++) {
+                if (player.getInventoryItemId(i) == axeId) return axeId;
             }
         }
-        return false;
+        return -1;
     }
 
     private boolean hasSmallFishingNet(Player player) {

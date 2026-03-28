@@ -1198,6 +1198,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
     private void ensureStarterSkillingTools(Player player) {
         ensureStarterItem(player, BRONZE_AXE_ITEM_ID);
         ensureStarterItem(player, SMALL_FISHING_NET_ITEM_ID);
+        ensureStarterItem(player, 1115);  // Bronze full helm for equip_armor quest
     }
 
     private void ensureStarterItem(Player player, int itemId) {
