@@ -641,6 +641,21 @@ public class GameLoop {
         }
     }
 
+    private void updateSkillQuestObjectives(PlayerSession session,
+                                            Quest.TaskType type,
+                                            int targetId) {
+        if (session == null || session.getQuestManager() == null) return;
+        QuestManager questManager = session.getQuestManager();
+        for (Quest quest : questManager.getQuests().values()) {
+            for (Quest.Task task : quest.tasks) {
+                if (task.type != type || task.completed
+                        || task.targetEntityId != targetId) continue;
+                questManager.addTaskProgress(quest.id, task.id, 1);
+                sendQuestUpdate(session, questManager.getQuest(quest.id));
+            }
+        }
+    }
+
     private void sendQuestUpdate(PlayerSession session, Quest quest) {
         if (session == null || quest == null) {
             return;
@@ -1006,6 +1021,7 @@ public class GameLoop {
         player.setInventoryItem(slot, NORMAL_TREE_LOG_ITEM_ID, 1);
         sendInventorySlot(session.getChannel(), player, slot);
         sendChatMessageToPlayer(session.getChannel(), "You get some logs.", 0);
+        updateSkillQuestObjectives(session, Quest.TaskType.COLLECT, NORMAL_TREE_LOG_ITEM_ID);
         sendSkillUpdate(player, Player.SKILL_WOODCUTTING, NORMAL_TREE_XP);
 
         tree.setDead(true);
@@ -1120,6 +1136,7 @@ public class GameLoop {
             sendInventorySlot(session.getChannel(), player, rawSlot);
             sendChatMessageToPlayer(session.getChannel(), "You cook the shrimps.", 0);
             sendSkillUpdate(player, Player.SKILL_COOKING, COOKED_SHRIMPS_XP);
+            updateSkillQuestObjectives(session, Quest.TaskType.ACTION, fire.getDefinitionId());
         }
 
         player.setSkillingNextAttemptTick(tickCount + nextCookingAttemptTicks(cookingLevel));

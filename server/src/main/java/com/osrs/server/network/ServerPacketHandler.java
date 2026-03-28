@@ -504,11 +504,6 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             updateGenericQuestObjectives(session, Quest.TaskType.ACTION, npc.getDefinitionId());
         }
 
-        if (request.getSkillingType() == NetworkProto.SkillingType.SKILLING_COOKING
-            && player.getSkillingAction() == SkillingAction.COOKING
-            && player.getSkillingTargetNpcId() == npc.getId()) {
-            updateGenericQuestObjectives(session, Quest.TaskType.ACTION, npc.getDefinitionId());
-        }
     }
 
     private boolean tryStartSkilling(ChannelHandlerContext ctx,

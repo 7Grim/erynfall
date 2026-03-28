@@ -112,6 +112,7 @@ npcs:
     is_aggressive: false
 
   - id: 19
+    definition_id: 18
     name: "Fire"
     combat_level: 0
     max_hp: 1
