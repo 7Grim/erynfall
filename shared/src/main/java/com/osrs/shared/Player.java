@@ -25,6 +25,13 @@ public class Player extends Entity {
     // Dialogue state
     private int dialogueTarget = -1;
 
+    // Server-authoritative skilling action state
+    private SkillingAction skillingAction = SkillingAction.NONE;
+    private int skillingTargetNpcId = -1;
+    private long skillingNextAttemptTick = 0;
+    private long skillingNextMoveTick = 0;
+    private boolean skillingActiveAnnounced = false;
+
     // -----------------------------------------------------------------------
     // Skill indices: 0=Attack 1=Strength 2=Defence 3=Hitpoints 4=Ranged 5=Magic
     // -----------------------------------------------------------------------
@@ -34,7 +41,11 @@ public class Player extends Entity {
     public static final int SKILL_HITPOINTS = 3;
     public static final int SKILL_RANGED    = 4;
     public static final int SKILL_MAGIC     = 5;
-    public static final int SKILL_COUNT     = 6;
+    public static final int SKILL_PRAYER      = 6;
+    public static final int SKILL_WOODCUTTING = 7;
+    public static final int SKILL_FISHING     = 8;
+    public static final int SKILL_COOKING     = 9;
+    public static final int SKILL_COUNT       = 10;
 
     /** Total XP accumulated per skill. */
     private final long[] skillXp    = new long[SKILL_COUNT];
@@ -206,4 +217,46 @@ public class Player extends Entity {
     public int getDialogueTarget() { return dialogueTarget; }
     public void setDialogueTarget(int npcId) { this.dialogueTarget = npcId; }
     public boolean isInDialogue() { return dialogueTarget >= 0; }
+
+    // -----------------------------------------------------------------------
+    // Skilling action state
+    // -----------------------------------------------------------------------
+
+    public SkillingAction getSkillingAction() { return skillingAction; }
+    public int getSkillingTargetNpcId() { return skillingTargetNpcId; }
+    public long getSkillingNextAttemptTick() { return skillingNextAttemptTick; }
+    public long getSkillingNextMoveTick() { return skillingNextMoveTick; }
+    public boolean isSkillingActiveAnnounced() { return skillingActiveAnnounced; }
+
+    public boolean isSkilling() {
+        return skillingAction != SkillingAction.NONE && skillingTargetNpcId >= 0;
+    }
+
+    public void startSkillingAction(SkillingAction action, int targetNpcId, long nextAttemptTick) {
+        this.skillingAction = action == null ? SkillingAction.NONE : action;
+        this.skillingTargetNpcId = targetNpcId;
+        this.skillingNextAttemptTick = Math.max(0L, nextAttemptTick);
+        this.skillingNextMoveTick = 0L;
+        this.skillingActiveAnnounced = false;
+    }
+
+    public void setSkillingNextAttemptTick(long tick) {
+        this.skillingNextAttemptTick = Math.max(0L, tick);
+    }
+
+    public void setSkillingNextMoveTick(long tick) {
+        this.skillingNextMoveTick = Math.max(0L, tick);
+    }
+
+    public void clearSkillingAction() {
+        this.skillingAction = SkillingAction.NONE;
+        this.skillingTargetNpcId = -1;
+        this.skillingNextAttemptTick = 0L;
+        this.skillingNextMoveTick = 0L;
+        this.skillingActiveAnnounced = false;
+    }
+
+    public void markSkillingActiveAnnounced() {
+        this.skillingActiveAnnounced = true;
+    }
 }

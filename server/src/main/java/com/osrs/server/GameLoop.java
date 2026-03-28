@@ -12,8 +12,10 @@ import com.osrs.server.world.GroundItem;
 import com.osrs.server.world.World;
 import com.osrs.shared.ItemDefinition;
 import com.osrs.shared.CombatStyle;
+import com.osrs.shared.EquipmentSlot;
 import com.osrs.shared.NPC;
 import com.osrs.shared.Player;
+import com.osrs.shared.SkillingAction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -61,6 +63,7 @@ public class GameLoop {
     private static final int NPC_MOVE_SPEED   = 154;
     // NPC attack speed: 4 OSRS ticks = 2.4s = 615 server ticks
     private static final int NPC_ATTACK_SPEED = 615;
+
     // NPC de-aggro chase limit: wander_radius + 5 tiles beyond spawn
     private static final int NPC_CHASE_EXTRA  = 5;
 
@@ -69,6 +72,22 @@ public class GameLoop {
     private static final long PID_ROTATE_MIN = 15400L;
     private static final long PID_ROTATE_MAX = 23100L;
     private long nextPidRotateTick = 0;
+
+    // Woodcutting (MVP first slice)
+    private static final int BRONZE_AXE_ITEM_ID = 1351;
+    private static final int NORMAL_TREE_LOG_ITEM_ID = 1511;
+    private static final long NORMAL_TREE_XP = 25L;
+    private static final int TREE_REGROW_TICKS = 640;
+
+    // Fishing (MVP first slice)
+    private static final int SMALL_FISHING_NET_ITEM_ID = 303;
+    private static final int RAW_SHRIMPS_ITEM_ID = 317;
+    private static final long SHRIMPS_XP = 10L;
+
+    // Cooking (MVP first slice)
+    private static final int COOKED_SHRIMPS_ITEM_ID = 315;
+    private static final int BURNT_SHRIMPS_ITEM_ID = 7954;
+    private static final long COOKED_SHRIMPS_XP = 30L;
     
     public GameLoop(long tickIntervalNs, World world, NettyServer nettyServer) {
         this.tickIntervalNs = tickIntervalNs;
@@ -169,6 +188,7 @@ public class GameLoop {
             processCombat();
 
             // Stage 4: Skill progression (XP awards, level-ups)
+            processSkillingActions();
             updateSkills();
 
             // Stage 5: Loot generation — tick ground item visibility and despawn
@@ -249,10 +269,14 @@ public class GameLoop {
     }
 
     private void sendInventorySlot(io.netty.channel.ChannelHandlerContext ctx, Player player, int slot) {
+        sendInventorySlot(ctx.channel(), player, slot);
+    }
+
+    private void sendInventorySlot(io.netty.channel.Channel channel, Player player, int slot) {
         int itemId = player.getInventoryItemId(slot);
         int qty    = player.getInventoryQuantity(slot);
         ItemDefinition def = world.getItemDef(itemId);
-        ctx.writeAndFlush(NetworkProto.ServerMessage.newBuilder()
+        channel.writeAndFlush(NetworkProto.ServerMessage.newBuilder()
             .setInventoryUpdate(NetworkProto.InventoryUpdate.newBuilder()
                 .setSlot(slot)
                 .setItemId(itemId)
@@ -270,9 +294,22 @@ public class GameLoop {
     }
 
     private void sendChatMessageToPlayer(io.netty.channel.ChannelHandlerContext ctx, String text, int type) {
-        ctx.writeAndFlush(NetworkProto.ServerMessage.newBuilder()
+        sendChatMessageToPlayer(ctx.channel(), text, type);
+    }
+
+    private void sendChatMessageToPlayer(io.netty.channel.Channel channel, String text, int type) {
+        channel.writeAndFlush(NetworkProto.ServerMessage.newBuilder()
             .setChatMessage(NetworkProto.ChatMessage.newBuilder()
                 .setText(text).setType(type))
+            .build());
+    }
+
+    private void sendPositionCorrection(io.netty.channel.Channel channel, Player player) {
+        channel.writeAndFlush(NetworkProto.ServerMessage.newBuilder()
+            .setEntityUpdate(NetworkProto.EntityUpdate.newBuilder()
+                .setEntityId(player.getId())
+                .setX(player.getX())
+                .setY(player.getY()))
             .build());
     }
     
@@ -891,6 +928,359 @@ public class GameLoop {
 
     private void updateSkills() {
         // XP awards are now handled immediately in awardCombatXp()
+    }
+
+    private void processSkillingActions() {
+        for (Player player : world.getPlayers().values()) {
+            PlayerSession session = getSessionForPlayer(player.getId());
+            if (session == null) {
+                player.clearSkillingAction();
+                continue;
+            }
+
+            if (player.getSkillingAction() == SkillingAction.WOODCUTTING) {
+                processWoodcutting(player, session);
+            } else if (player.getSkillingAction() == SkillingAction.FISHING) {
+                processFishing(player, session);
+            } else if (player.getSkillingAction() == SkillingAction.COOKING) {
+                processCooking(player, session);
+            }
+        }
+    }
+
+    private void processWoodcutting(Player player, PlayerSession session) {
+        NPC tree = world.getNPC(player.getSkillingTargetNpcId());
+        if (tree == null || tree.isDead() || !"Tree".equalsIgnoreCase(tree.getName())) {
+            stopSkilling(player, session, "target-invalid");
+            return;
+        }
+
+        if (player.isInCombat()) {
+            sendChatMessageToPlayer(session.getChannel(), "You are too busy fighting.", 1);
+            stopSkilling(player, session, "combat");
+            return;
+        }
+
+        if (player.isInDialogue()) {
+            sendChatMessageToPlayer(session.getChannel(), "Finish your conversation first.", 1);
+            stopSkilling(player, session, "dialogue");
+            return;
+        }
+
+        if (!hasUsableAxe(player)) {
+            sendChatMessageToPlayer(session.getChannel(), "You need an axe to chop this tree.", 1);
+            stopSkilling(player, session, "missing-tool");
+            return;
+        }
+
+        if (!ensureInRangeOrStep(player, session, tree, "Woodcut")) {
+            return;
+        }
+
+        announceSkillingActive(player, session, "You swing your axe at the tree.");
+
+        if (player.isInventoryFull()) {
+            sendChatMessageToPlayer(session.getChannel(), "Your inventory is too full to hold any more logs.", 1);
+            stopSkilling(player, session, "inventory-full");
+            return;
+        }
+
+        if (tickCount < player.getSkillingNextAttemptTick()) {
+            return;
+        }
+
+        int wcLevel = Math.max(1, player.getSkillLevel(Player.SKILL_WOODCUTTING));
+        boolean success = random.nextDouble() < woodcutSuccessChance(wcLevel);
+        if (!success) {
+            player.setSkillingNextAttemptTick(tickCount + nextWoodcutAttemptTicks(wcLevel));
+            return;
+        }
+
+        int slot = player.getFirstEmptySlot();
+        if (slot < 0) {
+            sendChatMessageToPlayer(session.getChannel(), "Your inventory is too full to hold any more logs.", 1);
+            stopSkilling(player, session, "inventory-full");
+            return;
+        }
+
+        player.setInventoryItem(slot, NORMAL_TREE_LOG_ITEM_ID, 1);
+        sendInventorySlot(session.getChannel(), player, slot);
+        sendChatMessageToPlayer(session.getChannel(), "You get some logs.", 0);
+        sendSkillUpdate(player, Player.SKILL_WOODCUTTING, NORMAL_TREE_XP);
+
+        tree.setDead(true);
+        tree.setRespawnAtTick(tickCount + TREE_REGROW_TICKS);
+        nettyServer.broadcastToAll(NetworkProto.ServerMessage.newBuilder()
+            .setNpcDespawn(NetworkProto.NpcDespawn.newBuilder().setNpcId(tree.getId()))
+            .build());
+
+        stopSkilling(player, session, "success");
+    }
+
+    private void processFishing(Player player, PlayerSession session) {
+        NPC spot = world.getNPC(player.getSkillingTargetNpcId());
+        if (spot == null || spot.isDead() || !"Fishing spot".equalsIgnoreCase(spot.getName())) {
+            stopSkilling(player, session, "target-invalid");
+            return;
+        }
+
+        if (player.isInCombat()) {
+            sendChatMessageToPlayer(session.getChannel(), "You are too busy fighting.", 1);
+            stopSkilling(player, session, "combat");
+            return;
+        }
+
+        if (player.isInDialogue()) {
+            sendChatMessageToPlayer(session.getChannel(), "Finish your conversation first.", 1);
+            stopSkilling(player, session, "dialogue");
+            return;
+        }
+
+        if (!hasSmallFishingNet(player)) {
+            sendChatMessageToPlayer(session.getChannel(), "You need a small fishing net to fish here.", 1);
+            stopSkilling(player, session, "missing-tool");
+            return;
+        }
+
+        if (!ensureInRangeOrStep(player, session, spot, "Fishing")) {
+            return;
+        }
+
+        announceSkillingActive(player, session, "You cast out your net.");
+
+        if (player.isInventoryFull()) {
+            sendChatMessageToPlayer(session.getChannel(), "Your inventory is too full to hold any more fish.", 1);
+            stopSkilling(player, session, "inventory-full");
+            return;
+        }
+
+        if (tickCount < player.getSkillingNextAttemptTick()) {
+            return;
+        }
+
+        int fishingLevel = Math.max(1, player.getSkillLevel(Player.SKILL_FISHING));
+        boolean success = random.nextDouble() < fishingSuccessChance(fishingLevel);
+        if (!success) {
+            player.setSkillingNextAttemptTick(tickCount + nextFishingAttemptTicks(fishingLevel));
+            return;
+        }
+
+        int slot = player.getFirstEmptySlot();
+        if (slot < 0) {
+            sendChatMessageToPlayer(session.getChannel(), "Your inventory is too full to hold any more fish.", 1);
+            stopSkilling(player, session, "inventory-full");
+            return;
+        }
+
+        player.setInventoryItem(slot, RAW_SHRIMPS_ITEM_ID, 1);
+        sendInventorySlot(session.getChannel(), player, slot);
+        sendChatMessageToPlayer(session.getChannel(), "You catch some shrimps.", 0);
+        sendSkillUpdate(player, Player.SKILL_FISHING, SHRIMPS_XP);
+        player.setSkillingNextAttemptTick(tickCount + nextFishingAttemptTicks(fishingLevel));
+    }
+
+    private void processCooking(Player player, PlayerSession session) {
+        NPC fire = world.getNPC(player.getSkillingTargetNpcId());
+        if (fire == null || fire.isDead() || !"Fire".equalsIgnoreCase(fire.getName())) {
+            stopSkilling(player, session, "target-invalid");
+            return;
+        }
+
+        if (player.isInCombat()) {
+            sendChatMessageToPlayer(session.getChannel(), "You are too busy fighting.", 1);
+            stopSkilling(player, session, "combat");
+            return;
+        }
+
+        if (!ensureInRangeOrStep(player, session, fire, "Cooking")) {
+            return;
+        }
+
+        announceSkillingActive(player, session, "You start cooking the shrimps.");
+
+        if (tickCount < player.getSkillingNextAttemptTick()) {
+            return;
+        }
+
+        int rawSlot = findInventorySlot(player, RAW_SHRIMPS_ITEM_ID);
+        if (rawSlot < 0) {
+            sendChatMessageToPlayer(session.getChannel(), "You have no raw shrimps to cook.", 1);
+            stopSkilling(player, session, "no-input");
+            return;
+        }
+
+        int cookingLevel = Math.max(1, player.getSkillLevel(Player.SKILL_COOKING));
+        boolean burn = random.nextDouble() < shrimpBurnChance(cookingLevel);
+        if (burn) {
+            player.setInventoryItem(rawSlot, BURNT_SHRIMPS_ITEM_ID, 1);
+            sendInventorySlot(session.getChannel(), player, rawSlot);
+            sendChatMessageToPlayer(session.getChannel(), "You accidentally burn the shrimps.", 1);
+        } else {
+            player.setInventoryItem(rawSlot, COOKED_SHRIMPS_ITEM_ID, 1);
+            sendInventorySlot(session.getChannel(), player, rawSlot);
+            sendChatMessageToPlayer(session.getChannel(), "You cook the shrimps.", 0);
+            sendSkillUpdate(player, Player.SKILL_COOKING, COOKED_SHRIMPS_XP);
+        }
+
+        player.setSkillingNextAttemptTick(tickCount + nextCookingAttemptTicks(cookingLevel));
+    }
+
+    private double woodcutSuccessChance(int wcLevel) {
+        double chance = 0.22 + (wcLevel * 0.0075);
+        return Math.max(0.22, Math.min(0.85, chance));
+    }
+
+    private int nextWoodcutAttemptTicks(int wcLevel) {
+        int base = 220;
+        int speedBonus = Math.min(120, wcLevel * 2);
+        int interval = Math.max(80, base - speedBonus);
+        return interval + random.nextInt(35);
+    }
+
+    private double fishingSuccessChance(int fishingLevel) {
+        double chance = 0.30 + (fishingLevel * 0.0065);
+        return Math.max(0.30, Math.min(0.88, chance));
+    }
+
+    private int nextFishingAttemptTicks(int fishingLevel) {
+        int base = 220;
+        int speedBonus = Math.min(110, fishingLevel * 2);
+        int interval = Math.max(90, base - speedBonus);
+        return interval + random.nextInt(30);
+    }
+
+    private double shrimpBurnChance(int cookingLevel) {
+        double chance = 0.55 - (cookingLevel * 0.012);
+        return Math.max(0.06, Math.min(0.55, chance));
+    }
+
+    private int nextCookingAttemptTicks(int cookingLevel) {
+        int base = 170;
+        int speedBonus = Math.min(70, cookingLevel);
+        int interval = Math.max(90, base - speedBonus);
+        return interval;
+    }
+
+    private int findInventorySlot(Player player, int itemId) {
+        for (int i = 0; i < 28; i++) {
+            if (player.getInventoryItemId(i) == itemId) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    private int[] findClosestReachableAdjacentTile(Player player, NPC target) {
+        int bestX = -1;
+        int bestY = -1;
+        int bestDist = Integer.MAX_VALUE;
+
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dy = -1; dy <= 1; dy++) {
+                if (dx == 0 && dy == 0) {
+                    continue;
+                }
+
+                int tx = target.getX() + dx;
+                int ty = target.getY() + dy;
+                if (!world.canWalkTo(tx, ty)) {
+                    continue;
+                }
+                if (!world.canReach(player.getX(), player.getY(), tx, ty)) {
+                    continue;
+                }
+
+                int dist = Math.max(Math.abs(player.getX() - tx), Math.abs(player.getY() - ty));
+                if (dist < bestDist) {
+                    bestDist = dist;
+                    bestX = tx;
+                    bestY = ty;
+                }
+            }
+        }
+
+        return bestX < 0 ? null : new int[]{bestX, bestY};
+    }
+
+    private boolean ensureInRangeOrStep(Player player, PlayerSession session, NPC target, String context) {
+        int chebyshev = Math.max(Math.abs(player.getX() - target.getX()), Math.abs(player.getY() - target.getY()));
+        if (chebyshev <= 1) {
+            return true;
+        }
+
+        int[] adjacent = findClosestReachableAdjacentTile(player, target);
+        if (adjacent == null) {
+            sendChatMessageToPlayer(session.getChannel(), "I can't reach that!", 1);
+            stopSkilling(player, session, "unreachable");
+            LOG.debug("{} cancelled unreachable: player {} at ({},{}), target {} at ({},{})",
+                context, player.getId(), player.getX(), player.getY(), target.getId(), target.getX(), target.getY());
+        }
+        return false;
+    }
+
+    private void announceSkillingActive(Player player, PlayerSession session, String startMessage) {
+        if (player.isSkillingActiveAnnounced()) {
+            return;
+        }
+        player.markSkillingActiveAnnounced();
+        sendChatMessageToPlayer(session.getChannel(), startMessage, 0);
+        sendSkillingStateUpdate(session.getChannel(), toProtoSkillingType(player.getSkillingAction()),
+            NetworkProto.SkillingState.SKILLING_STATE_ACTIVE, player.getSkillingTargetNpcId(), "active");
+    }
+
+    private void stopSkilling(Player player, PlayerSession session, String reason) {
+        SkillingAction action = player.getSkillingAction();
+        int targetId = player.getSkillingTargetNpcId();
+        player.clearSkillingAction();
+        if (session != null && session.getChannel() != null && session.getChannel().isActive()
+            && action != SkillingAction.NONE) {
+            sendSkillingStateUpdate(session.getChannel(), toProtoSkillingType(action),
+                NetworkProto.SkillingState.SKILLING_STATE_STOPPED, targetId, reason);
+        }
+    }
+
+    private NetworkProto.SkillingType toProtoSkillingType(SkillingAction action) {
+        return switch (action) {
+            case WOODCUTTING -> NetworkProto.SkillingType.SKILLING_WOODCUTTING;
+            case FISHING -> NetworkProto.SkillingType.SKILLING_FISHING;
+            case COOKING -> NetworkProto.SkillingType.SKILLING_COOKING;
+            case NONE -> NetworkProto.SkillingType.SKILLING_NONE;
+        };
+    }
+
+    private void sendSkillingStateUpdate(io.netty.channel.Channel channel,
+                                         NetworkProto.SkillingType type,
+                                         NetworkProto.SkillingState state,
+                                         int targetNpcId,
+                                         String message) {
+        channel.writeAndFlush(NetworkProto.ServerMessage.newBuilder()
+            .setSkillingStateUpdate(NetworkProto.SkillingStateUpdate.newBuilder()
+                .setSkillingType(type)
+                .setState(state)
+                .setTargetNpcId(targetNpcId)
+                .setMessage(message == null ? "" : message))
+            .build());
+    }
+
+    private boolean hasUsableAxe(Player player) {
+        if (player.getEquipment(EquipmentSlot.WEAPON) == BRONZE_AXE_ITEM_ID) {
+            return true;
+        }
+        for (int i = 0; i < 28; i++) {
+            if (player.getInventoryItemId(i) == BRONZE_AXE_ITEM_ID) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean hasSmallFishingNet(Player player) {
+        for (int i = 0; i < 28; i++) {
+            if (player.getInventoryItemId(i) == SMALL_FISHING_NET_ITEM_ID) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public long getTickCount() {

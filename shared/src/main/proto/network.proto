@@ -153,6 +153,34 @@ message TalkToNpc {
     int64 sequence = 2;
 }
 
+enum SkillingType {
+    SKILLING_NONE = 0;
+    SKILLING_WOODCUTTING = 1;
+    SKILLING_FISHING = 2;
+    SKILLING_COOKING = 3;
+}
+
+enum SkillingState {
+    SKILLING_STATE_NONE = 0;
+    SKILLING_STATE_QUEUED = 1;
+    SKILLING_STATE_ACTIVE = 2;
+    SKILLING_STATE_STOPPED = 3;
+}
+
+message SkillingStateUpdate {
+    SkillingType skilling_type = 1;
+    SkillingState state = 2;
+    int32 target_npc_id = 3;
+    string message = 4;
+}
+
+// StartSkillingRequest: Client -> Server (begin resource action on target)
+message StartSkillingRequest {
+    int32 target_npc_id = 1;
+    SkillingType skilling_type = 2;
+    int64 sequence = 3;
+}
+
 // DialoguePrompt: Server → Client
 message DialoguePrompt {
     int32 npc_id = 1;
@@ -307,6 +335,7 @@ message ClientMessage {
         PublicChat public_chat = 12;
         ExamineNpc examine_npc = 13;
         LogoutRequest logout_request = 14;
+        StartSkillingRequest start_skilling = 15;
     }
 }
 
@@ -333,5 +362,6 @@ message ServerMessage {
         ChatMessage chat_message = 18;    // Game message shown in chat area
         ChatBroadcast chat_broadcast = 19; // Public chat from a nearby player
         LogoutResponse logout_response = 20;
+        SkillingStateUpdate skilling_state_update = 21;
     }
 }

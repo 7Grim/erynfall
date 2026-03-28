@@ -113,6 +113,11 @@ public class GameScreen extends ApplicationAdapter {
     private int   playerX = 50, playerY = 50;
     /** Walk destination tile; -1 when not walking. Visual interpolates toward this. */
     private int   walkDestX = -1, walkDestY = -1;
+    /** Planned tile-by-tile walking path (adjacent steps). */
+    private final Deque<int[]> walkPath = new ArrayDeque<>();
+    /** Last path step sent to server via PlayerMovement. */
+    private int lastStepSentX = Integer.MIN_VALUE;
+    private int lastStepSentY = Integer.MIN_VALUE;
     /** Smoothly interpolated render position. */
     private float visualX = 50f, visualY = 50f;
 
@@ -139,7 +144,7 @@ public class GameScreen extends ApplicationAdapter {
     // Approach-and-act state
     // -----------------------------------------------------------------------
     private int    pendingNpcId      = -1;
-    private String pendingAction     = null; // "attack" | "talk"
+    private String pendingAction     = null; // "attack" | "talk" | "chop"
     /** Seconds until we can resend talk/attack while in range. */
     private float  pendingActionRetryTimer = 0f;
     /** The walk-target tile we last submitted so we don't spam WalkTo. */
@@ -397,9 +402,9 @@ public class GameScreen extends ApplicationAdapter {
         defenceLevel  = h.getSkillLevel(2);
 
         // Sync full skill data to the Skills tab
-        int[]  lvls = new int[6];
-        long[] xps  = new long[6];
-        for (int i = 0; i < 6; i++) {
+        int[]  lvls = new int[10];
+        long[] xps  = new long[10];
+        for (int i = 0; i < 10; i++) {
             lvls[i] = h.getSkillLevel(i);
             xps[i]  = h.getSkillTotalXp(i);
         }
@@ -412,6 +417,43 @@ public class GameScreen extends ApplicationAdapter {
                 h.getInventoryQuantity(i),
                 h.getInventoryName(i),
                 h.getInventoryFlags(i));
+        }
+
+        // Authoritative local-player position correction from server.
+        // This is critical now that some interactions (e.g. skilling) can move
+        // the player server-side while approaching a target.
+        int myId = h.getMyPlayerId();
+        if (myId > 0) {
+            int[] serverPos = h.getEntityPosition(myId);
+            if (serverPos != null) {
+                int sx = serverPos[0];
+                int sy = serverPos[1];
+                int dx = Math.abs(sx - playerX);
+                int dy = Math.abs(sy - playerY);
+                boolean locallySteering = walkDestX >= 0 || pendingNpcId >= 0 || pendingGroundItemId >= 0;
+
+                if (!locallySteering) {
+                    playerX = sx;
+                    playerY = sy;
+                    walkPath.clear();
+                    lastStepSentX = Integer.MIN_VALUE;
+                    lastStepSentY = Integer.MIN_VALUE;
+                }
+                // While steering, only hard-correct on very large divergence.
+                if (!locallySteering || dx > 4 || dy > 4) {
+                    playerX = sx;
+                    playerY = sy;
+                    visualX = sx;
+                    visualY = sy;
+                    if (!locallySteering) {
+                        walkDestX = -1;
+                        walkDestY = -1;
+                        walkPath.clear();
+                        lastStepSentX = Integer.MIN_VALUE;
+                        lastStepSentY = Integer.MIN_VALUE;
+                    }
+                }
+            }
         }
 
         // Sync ground items
@@ -429,12 +471,50 @@ public class GameScreen extends ApplicationAdapter {
             LOG.debug("Client: removed visual for dead NPC {}", deadId);
         }
 
+        for (ClientPacketHandler.SkillingStateEvent skillingEvent : h.drainSkillingStateEvents()) {
+            if (pendingAction == null) {
+                continue;
+            }
+            NetworkProto.SkillingType pendingType = switch (pendingAction) {
+                case "chop" -> NetworkProto.SkillingType.SKILLING_WOODCUTTING;
+                case "fish" -> NetworkProto.SkillingType.SKILLING_FISHING;
+                case "cook_at" -> NetworkProto.SkillingType.SKILLING_COOKING;
+                default -> NetworkProto.SkillingType.SKILLING_NONE;
+            };
+            if (pendingType == skillingEvent.type && pendingNpcId == skillingEvent.targetNpcId
+                && (skillingEvent.state == NetworkProto.SkillingState.SKILLING_STATE_ACTIVE
+                || skillingEvent.state == NetworkProto.SkillingState.SKILLING_STATE_STOPPED)) {
+                clearPendingAction();
+            }
+        }
+
         // Server chat messages ("I can't reach that!", "Too late — it's gone!", etc.)
         for (String msg : h.drainServerChatMessages()) {
             chatBox.addSystemMessage(msg);
-            if ("I can't reach that!".equals(msg) || "Please step away before talking.".equals(msg)) {
+            if ("I can't reach that!".equals(msg)) {
                 clearPendingAction();
                 pendingGroundItemId = -1;
+                continue;
+            }
+
+            if ("Please step away before talking.".equals(msg)
+                || "You get some logs.".equals(msg)
+                || "You catch some shrimps.".equals(msg)
+                || "You start cooking the shrimps.".equals(msg)
+                || "You cook the shrimps.".equals(msg)
+                || "You accidentally burn the shrimps.".equals(msg)
+                || "This tree has been chopped down.".equals(msg)
+                || "There are no fish here right now.".equals(msg)
+                || "You are too busy fighting.".equals(msg)
+                || "Your inventory is too full to hold any more logs.".equals(msg)) {
+                clearPendingAction();
+            }
+
+            if ("You need an axe to chop this tree.".equals(msg)
+                || "You need a small fishing net to fish here.".equals(msg)
+                || "Your inventory is too full to hold any more fish.".equals(msg)
+                || "You have no raw shrimps to cook.".equals(msg)) {
+                clearPendingAction();
             }
         }
 
@@ -910,6 +990,7 @@ public class GameScreen extends ApplicationAdapter {
     private void showInventoryContextMenu(int slot, int mx, int my) {
         String name = sidePanel.getInventoryItemName(slot);
         if (name == null || name.isEmpty()) name = "Item";
+        int itemId = sidePanel.getInventoryItemId(slot);
         int itemFlags = sidePanel.getInventoryItemFlags(slot);
 
         List<ContextMenu.MenuItem> opts = new ArrayList<>();
@@ -921,6 +1002,9 @@ public class GameScreen extends ApplicationAdapter {
             // Equipable
             opts.add(new ContextMenu.MenuItem("Wield " + name, "inv_wield", slot));
         }
+        if (itemId == 526) {
+            opts.add(new ContextMenu.MenuItem("Bury " + name, "inv_bury", slot));
+        }
         opts.add(new ContextMenu.MenuItem("Drop " + name, "inv_drop", slot));
         opts.add(new ContextMenu.MenuItem("Examine " + name, "inv_examine", slot));
         contextMenu.open(mx, my, opts, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
@@ -929,15 +1013,39 @@ public class GameScreen extends ApplicationAdapter {
     /** Player-initiated walk — cancels any pending approach. */
     private void walkTo(int x, int y) {
         clearPendingAction();
-        walkDestX = x; walkDestY = y;
+        if (!planWalkPath(x, y)) {
+            chatBox.addSystemMessage("I can't reach that!");
+            return;
+        }
         if (nettyClient != null) nettyClient.sendWalkTo(x, y);
     }
 
     /** Auto-walk from approach logic — does NOT clear the pending action. */
     private void autoWalkTo(int x, int y) {
-        walkDestX = x; walkDestY = y;
+        if (!planWalkPath(x, y)) {
+            return;
+        }
         pendingWalkTargX = x; pendingWalkTargY = y;
         if (nettyClient != null) nettyClient.sendWalkTo(x, y);
+    }
+
+    private boolean planWalkPath(int targetX, int targetY) {
+        List<int[]> path = findPath(playerX, playerY, targetX, targetY);
+        if (path.isEmpty()) {
+            walkDestX = -1;
+            walkDestY = -1;
+            walkPath.clear();
+            lastStepSentX = Integer.MIN_VALUE;
+            lastStepSentY = Integer.MIN_VALUE;
+            return false;
+        }
+        walkDestX = targetX;
+        walkDestY = targetY;
+        walkPath.clear();
+        walkPath.addAll(path);
+        lastStepSentX = Integer.MIN_VALUE;
+        lastStepSentY = Integer.MIN_VALUE;
+        return true;
     }
 
     // -----------------------------------------------------------------------
@@ -945,45 +1053,61 @@ public class GameScreen extends ApplicationAdapter {
     // -----------------------------------------------------------------------
 
     private void updateMovement(float delta) {
-        // Move toward walk destination if one is set, otherwise stay at current tile
-        float targetX = (walkDestX >= 0) ? walkDestX : playerX;
-        float targetY = (walkDestY >= 0) ? walkDestY : playerY;
+        int[] nextStep = walkPath.peekFirst();
+        float targetX = (nextStep != null) ? nextStep[0] : playerX;
+        float targetY = (nextStep != null) ? nextStep[1] : playerY;
+
+        // Send the intended adjacent step as soon as we start moving toward it,
+        // so server-authoritative position advances even if render interpolation
+        // gets corrected or interrupted.
+        if (nextStep != null && nettyClient != null) {
+            int sx = nextStep[0];
+            int sy = nextStep[1];
+            if (sx != lastStepSentX || sy != lastStepSentY) {
+                nettyClient.sendPlayerMovement(sx, sy, 0);
+                lastStepSentX = sx;
+                lastStepSentY = sy;
+            }
+        }
 
         float dx = targetX - visualX, dy = targetY - visualY;
         float dist = (float) Math.sqrt(dx * dx + dy * dy);
 
         if (dist < 0.01f) {
             visualX = targetX; visualY = targetY;
-            if (walkDestX >= 0) {
-                // Arrived — commit destination as current tile, notify server
-                playerX = walkDestX; playerY = walkDestY;
-                walkDestX = -1; walkDestY = -1;
+            if (nextStep != null) {
+                playerX = nextStep[0];
+                playerY = nextStep[1];
+                walkPath.pollFirst();
                 if (nettyClient != null) nettyClient.sendPlayerMovement(playerX, playerY, 0);
+                if (walkPath.isEmpty()) {
+                    walkDestX = -1;
+                    walkDestY = -1;
+                    lastStepSentX = Integer.MIN_VALUE;
+                    lastStepSentY = Integer.MIN_VALUE;
+                }
             }
             return;
         }
 
-        // Snapshot current rounded tile before moving
-        int prevTileX = Math.round(visualX);
-        int prevTileY = Math.round(visualY);
-
         float step = TILES_PER_SECOND * delta;
         if (step >= dist) {
             visualX = targetX; visualY = targetY;
-            playerX = (int) Math.round(targetX);
-            playerY = (int) Math.round(targetY);
-            walkDestX = -1; walkDestY = -1;
-            if (nettyClient != null) nettyClient.sendPlayerMovement(playerX, playerY, 0);
+            if (nextStep != null) {
+                playerX = nextStep[0];
+                playerY = nextStep[1];
+                walkPath.pollFirst();
+                if (nettyClient != null) nettyClient.sendPlayerMovement(playerX, playerY, 0);
+                if (walkPath.isEmpty()) {
+                    walkDestX = -1;
+                    walkDestY = -1;
+                    lastStepSentX = Integer.MIN_VALUE;
+                    lastStepSentY = Integer.MIN_VALUE;
+                }
+            }
         } else {
             visualX += (dx / dist) * step;
             visualY += (dy / dist) * step;
-            // Advance logical tile whenever visual crosses a tile boundary
-            int newTileX = Math.round(visualX);
-            int newTileY = Math.round(visualY);
-            if (newTileX != prevTileX || newTileY != prevTileY) {
-                playerX = newTileX; playerY = newTileY;
-                if (nettyClient != null) nettyClient.sendPlayerMovement(playerX, playerY, 0);
-            }
         }
     }
 
@@ -997,6 +1121,7 @@ public class GameScreen extends ApplicationAdapter {
 
         pendingNpcId  = npcId;
         pendingAction = action;
+        pendingActionRetryTimer = 0f;
 
         if (isInRange(playerX, playerY, pos[0], pos[1])) {
             executePendingAction();
@@ -1018,6 +1143,7 @@ public class GameScreen extends ApplicationAdapter {
         if (pendingActionRetryTimer > 0f) {
             pendingActionRetryTimer = Math.max(0f, pendingActionRetryTimer - Gdx.graphics.getDeltaTime());
         }
+
         int[] pos = npcLogicalPosition(pendingNpcId);
         if (pos == null) { clearPendingAction(); return; }
 
@@ -1047,6 +1173,15 @@ public class GameScreen extends ApplicationAdapter {
                 nettyClient.sendTalkToNpc(pendingNpcId);
                 // Keep pending action alive until server actually opens dialogue,
                 // because a moving NPC can invalidate a single packet attempt.
+                pendingActionRetryTimer = 0.25f;
+            } else if ("chop".equals(pendingAction)) {
+                nettyClient.sendStartSkilling(pendingNpcId, NetworkProto.SkillingType.SKILLING_WOODCUTTING);
+                pendingActionRetryTimer = 0.25f;
+            } else if ("fish".equals(pendingAction)) {
+                nettyClient.sendStartSkilling(pendingNpcId, NetworkProto.SkillingType.SKILLING_FISHING);
+                pendingActionRetryTimer = 0.25f;
+            } else if ("cook_at".equals(pendingAction)) {
+                nettyClient.sendStartSkilling(pendingNpcId, NetworkProto.SkillingType.SKILLING_COOKING);
                 pendingActionRetryTimer = 0.25f;
             }
         }
@@ -1095,8 +1230,9 @@ public class GameScreen extends ApplicationAdapter {
 
         // Walk onto the item's tile (OSRS pickup stance)
         if (playerX != itemX || playerY != itemY) {
-            walkDestX = itemX; walkDestY = itemY;
-            if (nettyClient != null) nettyClient.sendWalkTo(itemX, itemY);
+            if (planWalkPath(itemX, itemY) && nettyClient != null) {
+                nettyClient.sendWalkTo(itemX, itemY);
+            }
         }
     }
 
@@ -1165,6 +1301,78 @@ public class GameScreen extends ApplicationAdapter {
             }
         }
         return false;
+    }
+
+    private List<int[]> findPath(int fromX, int fromY, int toX, int toY) {
+        if (!CoordinateConverter.isValidTile(fromX, fromY) || !CoordinateConverter.isValidTile(toX, toY)) {
+            return List.of();
+        }
+        if (!isWalkableClientTile(toX, toY)) {
+            return List.of();
+        }
+        if (fromX == toX && fromY == toY) {
+            return List.of();
+        }
+
+        int width = TutorialIslandMap.WIDTH;
+        int height = TutorialIslandMap.HEIGHT;
+        boolean[][] visited = new boolean[width][height];
+        int[][] prevX = new int[width][height];
+        int[][] prevY = new int[width][height];
+        for (int x = 0; x < width; x++) {
+            for (int y = 0; y < height; y++) {
+                prevX[x][y] = -1;
+                prevY[x][y] = -1;
+            }
+        }
+
+        Deque<int[]> queue = new ArrayDeque<>();
+        queue.add(new int[]{fromX, fromY});
+        visited[fromX][fromY] = true;
+
+        int[] dx = {0, 1, 0, -1, 1, 1, -1, -1};
+        int[] dy = {1, 0, -1, 0, 1, -1, 1, -1};
+        boolean found = false;
+
+        while (!queue.isEmpty()) {
+            int[] cur = queue.poll();
+            if (cur[0] == toX && cur[1] == toY) {
+                found = true;
+                break;
+            }
+            for (int i = 0; i < 8; i++) {
+                int nx = cur[0] + dx[i];
+                int ny = cur[1] + dy[i];
+                if (!CoordinateConverter.isValidTile(nx, ny)) continue;
+                if (visited[nx][ny]) continue;
+                if (!isWalkableClientTile(nx, ny)) continue;
+
+                visited[nx][ny] = true;
+                prevX[nx][ny] = cur[0];
+                prevY[nx][ny] = cur[1];
+                queue.add(new int[]{nx, ny});
+            }
+        }
+
+        if (!found) {
+            return List.of();
+        }
+
+        Deque<int[]> reversed = new ArrayDeque<>();
+        int cx = toX;
+        int cy = toY;
+        while (!(cx == fromX && cy == fromY)) {
+            reversed.push(new int[]{cx, cy});
+            int px = prevX[cx][cy];
+            int py = prevY[cx][cy];
+            if (px < 0 || py < 0) {
+                return List.of();
+            }
+            cx = px;
+            cy = py;
+        }
+
+        return new ArrayList<>(reversed);
     }
 
     private int[] closestAdjacentTile(int px, int py, int nx, int ny) {
@@ -1251,14 +1459,28 @@ public class GameScreen extends ApplicationAdapter {
                     // Yellow name with level suffix — OSRS style
                     String yellowName = "[#ffff00]" + rawName + "[]";
                     String levelSuffix = level > 0 ? " (level-" + level + ")" : "";
+                    boolean isTreeResource = "Tree".equalsIgnoreCase(rawName);
+                    boolean isFishingSpot = "Fishing spot".equalsIgnoreCase(rawName);
+                    boolean isFire = "Fire".equalsIgnoreCase(rawName);
 
                     if (level > 0) {
                         // Combat NPC: Attack is the primary option (top)
                         opts.add(new ContextMenu.MenuItem(
                             "Attack " + yellowName + levelSuffix, "attack", id));
                     }
-                    opts.add(new ContextMenu.MenuItem(
-                        "Talk-to " + yellowName, "talk", id));
+                    if (isTreeResource) {
+                        opts.add(new ContextMenu.MenuItem(
+                            "Chop down " + yellowName, "chop", id));
+                    } else if (isFishingSpot) {
+                        opts.add(new ContextMenu.MenuItem(
+                            "Net " + yellowName, "fish", id));
+                    } else if (isFire) {
+                        opts.add(new ContextMenu.MenuItem(
+                            "Cook-at " + yellowName, "cook_at", id));
+                    } else {
+                        opts.add(new ContextMenu.MenuItem(
+                            "Talk-to " + yellowName, "talk", id));
+                    }
                     opts.add(new ContextMenu.MenuItem(
                         "Examine " + yellowName, "examine_npc", id));
                 }
@@ -1273,9 +1495,13 @@ public class GameScreen extends ApplicationAdapter {
             case "walk"   -> { int[] t = (int[]) item.target; walkTo(t[0], t[1]); }
             case "attack" -> startApproach((Integer) item.target, "attack");
             case "talk"   -> startApproach((Integer) item.target, "talk");
+            case "chop"   -> startApproach((Integer) item.target, "chop");
+            case "fish"   -> startApproach((Integer) item.target, "fish");
+            case "cook_at" -> startApproach((Integer) item.target, "cook_at");
             case "take"   -> startGroundItemApproach((Integer) item.target);
             case "inv_eat"   -> { if (nettyClient != null) nettyClient.sendUseItem((Integer) item.target, "eat"); }
             case "inv_wield" -> { if (nettyClient != null) nettyClient.sendUseItem((Integer) item.target, "wield"); }
+            case "inv_bury"  -> { if (nettyClient != null) nettyClient.sendUseItem((Integer) item.target, "bury"); }
             case "inv_drop"  -> { if (nettyClient != null) nettyClient.sendDropItem((Integer) item.target); }
             case "inv_examine" -> LOG.info("Examine: {}", item.label);
             case "examine_npc" -> requestNpcExamine((Integer) item.target);

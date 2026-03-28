@@ -178,18 +178,102 @@ public class InventoryUI {
      */
     private void drawItemIcon(ShapeRenderer sr, float slotLeft, float slotBottom,
                                int itemId, int itemFlags) {
-        Color c = itemColor(itemId, itemFlags);
         float iconX = slotLeft   + 8;
         float iconY = slotBottom + 8;
         float iconW = 24f;
         float iconH = 24f;
-        sr.setColor(c);
+
+        // Base tile for all icons
+        sr.setColor(0.10f, 0.10f, 0.10f, 0.55f);
         sr.rect(iconX, iconY, iconW, iconH);
 
-        // Simple highlight (top-left corner lighter)
-        sr.setColor(c.r * 1.3f, c.g * 1.3f, c.b * 1.3f, 1f);
-        sr.rect(iconX, iconY + iconH - 4, iconW, 4);
-        sr.rect(iconX, iconY, 4, iconH);
+        switch (itemId) {
+            case 1511 -> drawLogsIcon(sr, iconX, iconY);
+            case 1351 -> drawAxeIcon(sr, iconX, iconY);
+            case 303 -> drawSmallNetIcon(sr, iconX, iconY);
+            case 317 -> drawRawShrimpsIcon(sr, iconX, iconY);
+            case 315 -> drawCookedShrimpsIcon(sr, iconX, iconY);
+            case 7954 -> drawBurntShrimpsIcon(sr, iconX, iconY);
+            case 526 -> drawBonesIcon(sr, iconX, iconY);
+            default -> drawGenericIcon(sr, iconX, iconY, itemColor(itemId, itemFlags));
+        }
+    }
+
+    private void drawGenericIcon(ShapeRenderer sr, float x, float y, Color c) {
+        sr.setColor(c);
+        sr.rect(x + 3, y + 3, 18, 18);
+        sr.setColor(c.r * 1.2f, c.g * 1.2f, c.b * 1.2f, 1f);
+        sr.rect(x + 3, y + 17, 18, 4);
+        sr.rect(x + 3, y + 3, 4, 18);
+    }
+
+    private void drawLogsIcon(ShapeRenderer sr, float x, float y) {
+        sr.setColor(0.48f, 0.28f, 0.14f, 1f);
+        sr.rect(x + 4, y + 5, 16, 4);
+        sr.rect(x + 3, y + 10, 18, 4);
+        sr.rect(x + 5, y + 15, 14, 4);
+        sr.setColor(0.66f, 0.45f, 0.28f, 1f);
+        sr.rect(x + 18, y + 5, 2, 4);
+        sr.rect(x + 19, y + 10, 2, 4);
+        sr.rect(x + 17, y + 15, 2, 4);
+    }
+
+    private void drawAxeIcon(ShapeRenderer sr, float x, float y) {
+        sr.setColor(0.58f, 0.36f, 0.18f, 1f);
+        sr.rect(x + 11, y + 4, 3, 16);
+        sr.setColor(0.75f, 0.78f, 0.82f, 1f);
+        sr.rect(x + 6, y + 14, 10, 5);
+        sr.setColor(0.55f, 0.59f, 0.64f, 1f);
+        sr.rect(x + 6, y + 12, 6, 2);
+    }
+
+    private void drawSmallNetIcon(ShapeRenderer sr, float x, float y) {
+        sr.setColor(0.70f, 0.62f, 0.45f, 1f);
+        sr.rect(x + 4, y + 4, 2, 16);
+        sr.setColor(0.82f, 0.76f, 0.60f, 1f);
+        sr.rect(x + 8, y + 6, 12, 2);
+        sr.rect(x + 8, y + 10, 12, 2);
+        sr.rect(x + 8, y + 14, 12, 2);
+        sr.rect(x + 10, y + 6, 2, 10);
+        sr.rect(x + 14, y + 6, 2, 10);
+        sr.rect(x + 18, y + 6, 2, 10);
+    }
+
+    private void drawRawShrimpsIcon(ShapeRenderer sr, float x, float y) {
+        sr.setColor(0.45f, 0.62f, 0.78f, 1f);
+        sr.rect(x + 5, y + 9, 13, 6);
+        sr.setColor(0.35f, 0.50f, 0.66f, 1f);
+        sr.rect(x + 3, y + 10, 3, 4);
+        sr.rect(x + 17, y + 10, 3, 4);
+        sr.setColor(0.92f, 0.95f, 0.98f, 1f);
+        sr.rect(x + 7, y + 12, 2, 1);
+    }
+
+    private void drawCookedShrimpsIcon(ShapeRenderer sr, float x, float y) {
+        sr.setColor(0.93f, 0.52f, 0.20f, 1f);
+        sr.rect(x + 5, y + 9, 13, 6);
+        sr.setColor(0.74f, 0.31f, 0.10f, 1f);
+        sr.rect(x + 3, y + 10, 3, 4);
+        sr.rect(x + 17, y + 10, 3, 4);
+        sr.setColor(1f, 0.75f, 0.40f, 1f);
+        sr.rect(x + 8, y + 12, 2, 1);
+    }
+
+    private void drawBurntShrimpsIcon(ShapeRenderer sr, float x, float y) {
+        sr.setColor(0.20f, 0.18f, 0.16f, 1f);
+        sr.rect(x + 5, y + 9, 13, 6);
+        sr.setColor(0.12f, 0.11f, 0.10f, 1f);
+        sr.rect(x + 3, y + 10, 3, 4);
+        sr.rect(x + 17, y + 10, 3, 4);
+    }
+
+    private void drawBonesIcon(ShapeRenderer sr, float x, float y) {
+        sr.setColor(0.86f, 0.80f, 0.66f, 1f);
+        sr.rect(x + 9, y + 6, 6, 12);
+        sr.rect(x + 6, y + 8, 3, 3);
+        sr.rect(x + 6, y + 13, 3, 3);
+        sr.rect(x + 15, y + 8, 3, 3);
+        sr.rect(x + 15, y + 13, 3, 3);
     }
 
     private Color itemColor(int itemId, int itemFlags) {

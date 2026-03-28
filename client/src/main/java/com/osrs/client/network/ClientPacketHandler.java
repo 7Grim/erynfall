@@ -173,15 +173,35 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
 
     private volatile LogoutEvent pendingLogoutEvent;
 
+    public static class SkillingStateEvent {
+        public final NetworkProto.SkillingType type;
+        public final NetworkProto.SkillingState state;
+        public final int targetNpcId;
+        public final String message;
+
+        public SkillingStateEvent(NetworkProto.SkillingType type,
+                                  NetworkProto.SkillingState state,
+                                  int targetNpcId,
+                                  String message) {
+            this.type = type;
+            this.state = state;
+            this.targetNpcId = targetNpcId;
+            this.message = message == null ? "" : message;
+        }
+    }
+
+    private final ConcurrentLinkedQueue<SkillingStateEvent> pendingSkillingStates =
+        new ConcurrentLinkedQueue<>();
+
     // -----------------------------------------------------------------------
     // Player state
     // -----------------------------------------------------------------------
 
     private int playerHealth = 10;
     private int playerMaxHealth = 10;
-    /** Skill levels: 0=Attack, 1=Strength, 2=Defence, 3=Hitpoints, 4=Ranged, 5=Magic */
-    private final int[]  skillLevels   = {1, 1, 1, 1, 1, 1};
-    private final long[] skillTotalXp  = new long[6];
+    /** Skill levels by shared protocol index. */
+    private final int[]  skillLevels   = {1, 1, 1, 1, 1, 1, 1, 1, 1, 1};
+    private final long[] skillTotalXp  = new long[10];
     private boolean leveledUp = false;
     private int leveledUpSkill = -1;
 
@@ -260,6 +280,7 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
             case CHAT_MESSAGE        -> handleChatMessage(packet.getChatMessage());
             case CHAT_BROADCAST      -> handleChatBroadcast(packet.getChatBroadcast());  // public_chat from nearby player
             case LOGOUT_RESPONSE     -> handleLogoutResponse(packet.getLogoutResponse());
+            case SKILLING_STATE_UPDATE -> handleSkillingStateUpdate(packet.getSkillingStateUpdate());
             default -> LOG.debug("Unhandled server message: {}", packet.getPayloadCase());
         }
     }
@@ -412,6 +433,17 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
         LOG.info("LogoutResponse success={} message='{}'", response.getSuccess(), response.getMessage());
     }
 
+    private void handleSkillingStateUpdate(NetworkProto.SkillingStateUpdate update) {
+        pendingSkillingStates.add(new SkillingStateEvent(
+            update.getSkillingType(),
+            update.getState(),
+            update.getTargetNpcId(),
+            update.getMessage()
+        ));
+        LOG.debug("SkillingState type={} state={} target={} message={}",
+            update.getSkillingType(), update.getState(), update.getTargetNpcId(), update.getMessage());
+    }
+
     // -----------------------------------------------------------------------
     // Accessors for GameScreen (called from render thread)
     // -----------------------------------------------------------------------
@@ -472,6 +504,14 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
         List<XpDropEvent> out = new ArrayList<>();
         XpDropEvent e;
         while ((e = pendingXpDrops.poll()) != null) out.add(e);
+        return out;
+    }
+
+    public List<SkillingStateEvent> drainSkillingStateEvents() {
+        if (pendingSkillingStates.isEmpty()) return List.of();
+        List<SkillingStateEvent> out = new ArrayList<>();
+        SkillingStateEvent e;
+        while ((e = pendingSkillingStates.poll()) != null) out.add(e);
         return out;
     }
 

@@ -57,6 +57,48 @@ items:
     equipable: false
     consumable: false
 
+  - id: 303
+    name: "Small fishing net"
+    examine: "Useful for catching shrimp."
+    stackable: false
+    equipable: false
+    consumable: false
+
+  - id: 317
+    name: "Raw shrimps"
+    examine: "I should cook these first."
+    stackable: false
+    equipable: false
+    consumable: false
+
+  - id: 7954
+    name: "Burnt shrimps"
+    examine: "Oops!"
+    stackable: false
+    equipable: false
+    consumable: false
+
+  - id: 1511
+    name: "Logs"
+    examine: "A set of logs."
+    stackable: false
+    equipable: false
+    consumable: false
+
+  - id: 1351
+    name: "Bronze axe"
+    examine: "A woodcutting axe made of bronze."
+    stackable: false
+    equipable: true
+    consumable: false
+    equip_slot: 4
+    weapon_type: "slash"
+    attack_range: 1
+    stab_attack: 5
+    slash_attack: 4
+    crush_attack: 2
+    melee_strength: 4
+
   # ── Food ─────────────────────────────────────────────────────────────────
 
   - id: 315

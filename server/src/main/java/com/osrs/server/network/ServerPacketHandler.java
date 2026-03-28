@@ -15,6 +15,7 @@ import com.osrs.shared.EquipmentSlot;
 import com.osrs.shared.ItemDefinition;
 import com.osrs.shared.NPC;
 import com.osrs.shared.Player;
+import com.osrs.shared.SkillingAction;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
@@ -30,6 +31,11 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
     private static final Logger LOG = LoggerFactory.getLogger(ServerPacketHandler.class);
     private static final int MAX_STEP = 1;
     private static final int TRANSIENT_PLAYER_ID_OFFSET = 900_000;
+    private static final int BRONZE_AXE_ITEM_ID = 1351;
+    private static final int SMALL_FISHING_NET_ITEM_ID = 303;
+    private static final int RAW_SHRIMPS_ITEM_ID = 317;
+    private static final int BONES_ITEM_ID = 526;
+    private static final long BONES_PRAYER_XP = 4L;
     
     private final NettyServer server;
     private final AuthTokenSettings authTokenSettings;
@@ -91,6 +97,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             case PUBLIC_CHAT         -> handlePublicChat(ctx, packet.getPublicChat());
             case EXAMINE_NPC         -> handleExamineNpc(ctx, packet.getExamineNpc());
             case LOGOUT_REQUEST      -> handleLogoutRequest(ctx, packet.getLogoutRequest());
+            case START_SKILLING      -> handleStartSkilling(ctx, packet.getStartSkilling());
             default -> LOG.warn("Unhandled payload case: {}", packet.getPayloadCase());
         }
     }
@@ -146,6 +153,8 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             );
         }
 
+        ensureStarterSkillingTools(player);
+
         // Heal legacy accounts whose persisted coordinates are outside this local map.
         if (!server.getWorld().canWalkTo(player.getX(), player.getY())) {
             LOG.warn("Player {} had out-of-bounds position ({},{}); resetting to spawn ({},{})",
@@ -163,6 +172,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
 
         // Send initial skill state so the client's skills tab is populated immediately
         sendAllSkillUpdates(ctx, player);
+        sendFullInventory(ctx, player);
 
         sendInitialQuestState(ctx);
 
@@ -216,6 +226,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
         }
 
         PlayerRepository.loadInventory(player);
+        ensureStarterSkillingTools(player);
 
         if (!server.getWorld().canWalkTo(player.getX(), player.getY())) {
             LOG.warn("Player {} had out-of-bounds position ({},{}); resetting to spawn ({},{})",
@@ -233,6 +244,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
 
         sendHandshakeResponse(ctx, true, "Welcome back, " + characterName + "!", player.getId());
         sendAllSkillUpdates(ctx, player);
+        sendFullInventory(ctx, player);
         sendInitialQuestState(ctx);
         sendWorldState(ctx);
     }
@@ -280,8 +292,22 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             closeDialogue(player);
         }
 
+        if (player.isSkilling() && (toX != fromX || toY != fromY)) {
+            player.clearSkillingAction();
+        }
+
         player.setPosition(toX, toY);
         player.setFacing(movement.getFacing());
+
+        // Broadcast authoritative player movement so all clients (including self)
+        // keep entity position state in sync and do not snap back to stale tiles.
+        server.broadcastToAll(NetworkProto.ServerMessage.newBuilder()
+            .setEntityUpdate(NetworkProto.EntityUpdate.newBuilder()
+                .setEntityId(player.getId())
+                .setX(toX)
+                .setY(toY)
+                .setFacing(movement.getFacing()))
+            .build());
         
         LOG.debug("Player {} moved to ({}, {})", 
             session.getSessionId(), movement.getX(), movement.getY());
@@ -338,6 +364,10 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
         if (target.getCombatLevel() <= 0) {
             sendChatMessage(ctx, "You can't attack them.", 1);
             return;
+        }
+
+        if (player.isSkilling()) {
+            player.clearSkillingAction();
         }
 
         if (player.isInDialogue()) {
@@ -408,6 +438,10 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             }
         }
 
+        if (tryStartSkilling(ctx, player, npc, NetworkProto.SkillingType.SKILLING_NONE, false)) {
+            return;
+        }
+
         // Verify proximity (talking requires adjacency)
         int chebyshev = Math.max(
             Math.abs(player.getX() - npc.getX()),
@@ -446,6 +480,106 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
         LOG.info("Player {} started dialogue with NPC {} ({})", player.getId(), npc.getId(), npc.getName());
         updateDialogueQuestObjectives(ctx, npc.getId());
         sendDialoguePrompt(ctx, dialogue);
+    }
+
+    private void handleStartSkilling(ChannelHandlerContext ctx, NetworkProto.StartSkillingRequest request) {
+        if (session.getPlayer() == null) {
+            return;
+        }
+        Player player = session.getPlayer();
+        NPC npc = server.getWorld().getNPC(request.getTargetNpcId());
+        if (npc == null) {
+            sendChatMessage(ctx, "I can't reach that!", 1);
+            return;
+        }
+
+        if (!tryStartSkilling(ctx, player, npc, request.getSkillingType(), true)) {
+            sendChatMessage(ctx, "You can't do that with this target.", 1);
+        }
+    }
+
+    private boolean tryStartSkilling(ChannelHandlerContext ctx,
+                                     Player player,
+                                     NPC npc,
+                                     NetworkProto.SkillingType requestedType,
+                                     boolean strictType) {
+        String npcName = npc.getName();
+
+        if ("Tree".equalsIgnoreCase(npcName)) {
+            if (strictType && requestedType != NetworkProto.SkillingType.SKILLING_WOODCUTTING) {
+                return false;
+            }
+            if (npc.isDead()) {
+                sendChatMessage(ctx, "This tree has been chopped down.", 1);
+                return true;
+            }
+            if (player.isInCombat()) {
+                sendChatMessage(ctx, "You are too busy fighting.", 1);
+                return true;
+            }
+            if (!hasUsableAxe(player)) {
+                sendChatMessage(ctx, "You need an axe to chop this tree.", 1);
+                return true;
+            }
+            if (!canReachAnyAdjacentTile(player, npc)) {
+                sendChatMessage(ctx, "I can't reach that!", 1);
+                return true;
+            }
+            player.startSkillingAction(SkillingAction.WOODCUTTING, npc.getId(), server.getCurrentTick() + 1);
+            sendSkillingStateUpdate(ctx, NetworkProto.SkillingType.SKILLING_WOODCUTTING,
+                NetworkProto.SkillingState.SKILLING_STATE_QUEUED, npc.getId(), "queued");
+            return true;
+        }
+
+        if ("Fishing spot".equalsIgnoreCase(npcName)) {
+            if (strictType && requestedType != NetworkProto.SkillingType.SKILLING_FISHING) {
+                return false;
+            }
+            if (npc.isDead()) {
+                sendChatMessage(ctx, "There are no fish here right now.", 1);
+                return true;
+            }
+            if (player.isInCombat()) {
+                sendChatMessage(ctx, "You are too busy fighting.", 1);
+                return true;
+            }
+            if (!hasSmallFishingNet(player)) {
+                sendChatMessage(ctx, "You need a small fishing net to fish here.", 1);
+                return true;
+            }
+            if (!canReachAnyAdjacentTile(player, npc)) {
+                sendChatMessage(ctx, "I can't reach that!", 1);
+                return true;
+            }
+            player.startSkillingAction(SkillingAction.FISHING, npc.getId(), server.getCurrentTick() + 1);
+            sendSkillingStateUpdate(ctx, NetworkProto.SkillingType.SKILLING_FISHING,
+                NetworkProto.SkillingState.SKILLING_STATE_QUEUED, npc.getId(), "queued");
+            return true;
+        }
+
+        if ("Fire".equalsIgnoreCase(npcName)) {
+            if (strictType && requestedType != NetworkProto.SkillingType.SKILLING_COOKING) {
+                return false;
+            }
+            if (player.isInCombat()) {
+                sendChatMessage(ctx, "You are too busy fighting.", 1);
+                return true;
+            }
+            if (!hasRawShrimps(player)) {
+                sendChatMessage(ctx, "You have no raw shrimps to cook.", 1);
+                return true;
+            }
+            if (!canReachAnyAdjacentTile(player, npc)) {
+                sendChatMessage(ctx, "I can't reach that!", 1);
+                return true;
+            }
+            player.startSkillingAction(SkillingAction.COOKING, npc.getId(), server.getCurrentTick() + 1);
+            sendSkillingStateUpdate(ctx, NetworkProto.SkillingType.SKILLING_COOKING,
+                NetworkProto.SkillingState.SKILLING_STATE_QUEUED, npc.getId(), "queued");
+            return true;
+        }
+
+        return false;
     }
 
     private void initializeQuestsForSession() {
@@ -579,6 +713,52 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             .build());
     }
 
+    private boolean canReachAnyAdjacentTile(Player player, NPC npc) {
+        World world = server.getWorld();
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dy = -1; dy <= 1; dy++) {
+                if (dx == 0 && dy == 0) continue;
+                int tx = npc.getX() + dx;
+                int ty = npc.getY() + dy;
+                if (!world.canWalkTo(tx, ty)) continue;
+                if (world.canReach(player.getX(), player.getY(), tx, ty)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private boolean hasUsableAxe(Player player) {
+        if (player.getEquipment(EquipmentSlot.WEAPON) == BRONZE_AXE_ITEM_ID) {
+            return true;
+        }
+        for (int i = 0; i < 28; i++) {
+            if (player.getInventoryItemId(i) == BRONZE_AXE_ITEM_ID) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean hasSmallFishingNet(Player player) {
+        for (int i = 0; i < 28; i++) {
+            if (player.getInventoryItemId(i) == SMALL_FISHING_NET_ITEM_ID) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean hasRawShrimps(Player player) {
+        for (int i = 0; i < 28; i++) {
+            if (player.getInventoryItemId(i) == RAW_SHRIMPS_ITEM_ID) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private void sendPositionCorrection(ChannelHandlerContext ctx, Player player) {
         ctx.writeAndFlush(NetworkProto.ServerMessage.newBuilder()
             .setEntityUpdate(NetworkProto.EntityUpdate.newBuilder()
@@ -603,6 +783,18 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
                 .setMaxHealth(npc.getMaxHealth())
                 .setCombatLevel(npc.getCombatLevel())
                 .setIsPlayer(false));
+        }
+
+        // Include self so client initializes to authoritative spawn tile immediately.
+        if (session.getPlayer() != null) {
+            com.osrs.shared.Player self = session.getPlayer();
+            wsBuilder.addEntities(NetworkProto.Entity.newBuilder()
+                .setId(self.getId())
+                .setName(self.getName())
+                .setX(self.getX())
+                .setY(self.getY())
+                .setCombatLevel(0)
+                .setIsPlayer(true));
         }
 
         // All other connected players (excluding self)
@@ -760,6 +952,27 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
                 .build());
             LOG.info("Player {} ate {} — healed {} HP (now {}/{})",
                 player.getId(), def.name, def.consumeHeal, newHp, player.getMaxHealth());
+
+        } else if ("bury".equals(action) && itemId == BONES_ITEM_ID) {
+            player.setInventoryItem(slot, 0, 0);
+            sendInventorySlot(ctx, player, slot);
+
+            boolean leveledUp = player.addSkillXp(Player.SKILL_PRAYER, BONES_PRAYER_XP);
+            int newLevel = player.getSkillLevel(Player.SKILL_PRAYER);
+            long totalXp = player.getSkillXp(Player.SKILL_PRAYER);
+            ctx.writeAndFlush(NetworkProto.ServerMessage.newBuilder()
+                .setSkillUpdate(NetworkProto.SkillUpdate.newBuilder()
+                    .setSkillIndex(Player.SKILL_PRAYER)
+                    .setNewLevel(newLevel)
+                    .setTotalXp(totalXp)
+                    .setLeveledUp(leveledUp))
+                .build());
+
+            sendChatMessage(ctx, "You bury the bones.", 0);
+            if (leveledUp) {
+                sendChatMessage(ctx, "Congratulations, you just advanced a Prayer level.", 2);
+            }
+            LOG.info("Player {} buried bones (+{} prayer xp)", player.getId(), BONES_PRAYER_XP);
 
         } else if (("wield".equals(action) || "wear".equals(action)) && def.equipable) {
             int equipSlot = def.equipSlot;
@@ -927,6 +1140,46 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
                 .setItemName(itemId > 0 ? def.name : "")
                 .setFlags(itemId > 0 ? def.getFlags() : 0))
             .build());
+    }
+
+    private void sendFullInventory(ChannelHandlerContext ctx, Player player) {
+        for (int slot = 0; slot < 28; slot++) {
+            sendInventorySlot(ctx, player, slot);
+        }
+    }
+
+    private void sendSkillingStateUpdate(ChannelHandlerContext ctx,
+                                         NetworkProto.SkillingType type,
+                                         NetworkProto.SkillingState state,
+                                         int targetNpcId,
+                                         String message) {
+        ctx.writeAndFlush(NetworkProto.ServerMessage.newBuilder()
+            .setSkillingStateUpdate(NetworkProto.SkillingStateUpdate.newBuilder()
+                .setSkillingType(type)
+                .setState(state)
+                .setTargetNpcId(targetNpcId)
+                .setMessage(message == null ? "" : message))
+            .build());
+    }
+
+    private void ensureStarterSkillingTools(Player player) {
+        ensureStarterItem(player, BRONZE_AXE_ITEM_ID);
+        ensureStarterItem(player, SMALL_FISHING_NET_ITEM_ID);
+    }
+
+    private void ensureStarterItem(Player player, int itemId) {
+        if (player.getEquipment(EquipmentSlot.WEAPON) == itemId) {
+            return;
+        }
+        for (int i = 0; i < 28; i++) {
+            if (player.getInventoryItemId(i) == itemId) {
+                return;
+            }
+        }
+        int empty = player.getFirstEmptySlot();
+        if (empty >= 0) {
+            player.setInventoryItem(empty, itemId, 1);
+        }
     }
 
     @Override

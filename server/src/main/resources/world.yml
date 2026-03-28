@@ -43,6 +43,87 @@ npcs:
     wander_radius: 0
     is_aggressive: false
 
+  # --- Resource nodes: Trees (woodcutting) ---
+  - id: 14
+    name: "Tree"
+    combat_level: 0
+    max_hp: 1
+    max_hit: 0
+    respawn_delay_ticks: 640
+    location: "tutorial_island"
+    x: 58
+    y: 50
+    examine: "A regular tree."
+    wander_radius: 0
+    is_aggressive: false
+
+  - id: 15
+    name: "Tree"
+    combat_level: 0
+    max_hp: 1
+    max_hit: 0
+    respawn_delay_ticks: 640
+    location: "tutorial_island"
+    x: 60
+    y: 52
+    examine: "A regular tree."
+    wander_radius: 0
+    is_aggressive: false
+
+  # --- Resource nodes: Fishing spots ---
+  - id: 16
+    name: "Fishing spot"
+    combat_level: 0
+    max_hp: 1
+    max_hit: 0
+    respawn_delay_ticks: 0
+    location: "tutorial_island"
+    x: 66
+    y: 57
+    examine: "I can try to catch some fish here."
+    wander_radius: 0
+    is_aggressive: false
+
+  - id: 17
+    name: "Fishing spot"
+    combat_level: 0
+    max_hp: 1
+    max_hit: 0
+    respawn_delay_ticks: 0
+    location: "tutorial_island"
+    x: 68
+    y: 58
+    examine: "I can try to catch some fish here."
+    wander_radius: 0
+    is_aggressive: false
+
+  # --- Resource nodes: Cooking fires ---
+  - id: 18
+    name: "Fire"
+    combat_level: 0
+    max_hp: 1
+    max_hit: 0
+    respawn_delay_ticks: 0
+    location: "tutorial_island"
+    x: 55
+    y: 52
+    examine: "A fire for cooking food."
+    wander_radius: 0
+    is_aggressive: false
+
+  - id: 19
+    name: "Fire"
+    combat_level: 0
+    max_hp: 1
+    max_hit: 0
+    respawn_delay_ticks: 0
+    location: "tutorial_island"
+    x: 57
+    y: 52
+    examine: "A fire for cooking food."
+    wander_radius: 0
+    is_aggressive: false
+
   # --- Rats (level 1) — weakest enemy, cannot deal damage (max_hit: 0) ---
   # OSRS: Rat — Combat 1, HP 2, Max hit 0, Respawn 2 OSRS ticks (308 server ticks)
   - id: 3

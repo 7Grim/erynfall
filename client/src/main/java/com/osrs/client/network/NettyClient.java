@@ -140,6 +140,17 @@ public class NettyClient {
         LOG.debug("Sent TalkToNpc: npc {}", npcId);
     }
 
+    public void sendStartSkilling(int npcId, NetworkProto.SkillingType skillingType) {
+        NetworkProto.ClientMessage msg = NetworkProto.ClientMessage.newBuilder()
+            .setStartSkilling(NetworkProto.StartSkillingRequest.newBuilder()
+                .setTargetNpcId(npcId)
+                .setSkillingType(skillingType)
+                .setSequence(System.currentTimeMillis()))
+            .build();
+        channel.writeAndFlush(msg);
+        LOG.debug("Sent StartSkilling: npc={} type={}", npcId, skillingType);
+    }
+
     public void sendDialogueResponse(int optionId) {
         NetworkProto.ClientMessage msg = NetworkProto.ClientMessage.newBuilder()
             .setDialogueResponse(NetworkProto.DialogueResponse.newBuilder()

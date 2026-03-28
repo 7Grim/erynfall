@@ -37,8 +37,7 @@ public class PlayerRepository {
     public static Player login(String username, String plainPassword, int assignedId) {
         try (Connection conn = DatabaseManager.getConnection()) {
             PreparedStatement ps = conn.prepareStatement(
-                "SELECT id, password_hash, x, y, " +
-                "attack_xp, strength_xp, defence_xp, hitpoints_xp, ranged_xp, magic_xp " +
+                "SELECT * " +
                 "FROM osrs.players WHERE LOWER(username) = LOWER(?)"
             );
             ps.setString(1, username);
@@ -85,8 +84,7 @@ public class PlayerRepository {
 
         try (Connection conn = DatabaseManager.getConnection()) {
             PreparedStatement ps = conn.prepareStatement(
-                "SELECT id, x, y, " +
-                    "attack_xp, strength_xp, defence_xp, hitpoints_xp, ranged_xp, magic_xp " +
+                "SELECT * " +
                     "FROM osrs.players WHERE LOWER(username) = LOWER(?)"
             );
             ps.setString(1, characterName);
@@ -232,23 +230,51 @@ public class PlayerRepository {
      */
     public static void savePlayer(Player player) {
         try (Connection conn = DatabaseManager.getConnection()) {
-            PreparedStatement ps = conn.prepareStatement(
-                "UPDATE osrs.players SET " +
-                "x = ?, y = ?, last_logout = GETDATE(), " +
-                "attack_xp = ?, strength_xp = ?, defence_xp = ?, " +
-                "hitpoints_xp = ?, ranged_xp = ?, magic_xp = ? " +
-                "WHERE LOWER(username) = LOWER(?)"
-            );
-            ps.setInt   (1, player.getX());
-            ps.setInt   (2, player.getY());
-            ps.setLong  (3, player.getSkillXp(Player.SKILL_ATTACK));
-            ps.setLong  (4, player.getSkillXp(Player.SKILL_STRENGTH));
-            ps.setLong  (5, player.getSkillXp(Player.SKILL_DEFENCE));
-            ps.setLong  (6, player.getSkillXp(Player.SKILL_HITPOINTS));
-            ps.setLong  (7, player.getSkillXp(Player.SKILL_RANGED));
-            ps.setLong  (8, player.getSkillXp(Player.SKILL_MAGIC));
-            ps.setString(9, player.getName());
-            ps.executeUpdate();
+            try {
+                PreparedStatement ps = conn.prepareStatement(
+                    "UPDATE osrs.players SET " +
+                        "x = ?, y = ?, last_logout = GETDATE(), " +
+                        "attack_xp = ?, strength_xp = ?, defence_xp = ?, " +
+                        "hitpoints_xp = ?, ranged_xp = ?, magic_xp = ?, " +
+                        "prayer_xp = ?, woodcutting_xp = ?, fishing_xp = ?, cooking_xp = ?, " +
+                        "prayer_points = ? " +
+                        "WHERE LOWER(username) = LOWER(?)"
+                );
+                ps.setInt(1, player.getX());
+                ps.setInt(2, player.getY());
+                ps.setLong(3, player.getSkillXp(Player.SKILL_ATTACK));
+                ps.setLong(4, player.getSkillXp(Player.SKILL_STRENGTH));
+                ps.setLong(5, player.getSkillXp(Player.SKILL_DEFENCE));
+                ps.setLong(6, player.getSkillXp(Player.SKILL_HITPOINTS));
+                ps.setLong(7, player.getSkillXp(Player.SKILL_RANGED));
+                ps.setLong(8, player.getSkillXp(Player.SKILL_MAGIC));
+                ps.setLong(9, player.getSkillXp(Player.SKILL_PRAYER));
+                ps.setLong(10, player.getSkillXp(Player.SKILL_WOODCUTTING));
+                ps.setLong(11, player.getSkillXp(Player.SKILL_FISHING));
+                ps.setLong(12, player.getSkillXp(Player.SKILL_COOKING));
+                ps.setInt(13, Math.max(1, player.getSkillLevel(Player.SKILL_PRAYER)));
+                ps.setString(14, player.getName());
+                ps.executeUpdate();
+            } catch (SQLException extendedErr) {
+                PreparedStatement ps = conn.prepareStatement(
+                    "UPDATE osrs.players SET " +
+                        "x = ?, y = ?, last_logout = GETDATE(), " +
+                        "attack_xp = ?, strength_xp = ?, defence_xp = ?, " +
+                        "hitpoints_xp = ?, ranged_xp = ?, magic_xp = ? " +
+                        "WHERE LOWER(username) = LOWER(?)"
+                );
+                ps.setInt(1, player.getX());
+                ps.setInt(2, player.getY());
+                ps.setLong(3, player.getSkillXp(Player.SKILL_ATTACK));
+                ps.setLong(4, player.getSkillXp(Player.SKILL_STRENGTH));
+                ps.setLong(5, player.getSkillXp(Player.SKILL_DEFENCE));
+                ps.setLong(6, player.getSkillXp(Player.SKILL_HITPOINTS));
+                ps.setLong(7, player.getSkillXp(Player.SKILL_RANGED));
+                ps.setLong(8, player.getSkillXp(Player.SKILL_MAGIC));
+                ps.setString(9, player.getName());
+                ps.executeUpdate();
+                LOG.debug("Extended skill columns unavailable; saved legacy skills for {}", player.getName());
+            }
             conn.commit();
         } catch (SQLException e) {
             LOG.error("Failed to save player: {}", player.getName(), e);
@@ -278,18 +304,32 @@ public class PlayerRepository {
             del.executeUpdate();
 
             // Re-insert occupied slots
+            PreparedStatement ensureItem = conn.prepareStatement(
+                "IF NOT EXISTS (SELECT 1 FROM osrs.items WHERE id = ?) " +
+                    "INSERT INTO osrs.items (id, name, examine_text, stackable, weight_kg, tradeable, high_alchemy_value, low_alchemy_value) " +
+                    "VALUES (?, ?, ?, ?, 0, 1, 0, 0)"
+            );
             PreparedStatement ins = conn.prepareStatement(
                 "INSERT INTO osrs.inventory (player_id, slot_index, item_id, quantity) VALUES (?, ?, ?, ?)"
             );
             for (int slot = 0; slot < 28; slot++) {
                 int itemId = player.getInventoryItemId(slot);
                 if (itemId == 0) continue;
+
+                ensureItem.setInt(1, itemId);
+                ensureItem.setInt(2, itemId);
+                ensureItem.setString(3, defaultItemName(itemId));
+                ensureItem.setString(4, defaultItemExamine(itemId));
+                ensureItem.setBoolean(5, defaultStackable(itemId));
+                ensureItem.addBatch();
+
                 ins.setInt(1, dbId);
                 ins.setInt(2, slot);
                 ins.setInt(3, itemId);
                 ins.setInt(4, player.getInventoryQuantity(slot));
                 ins.addBatch();
             }
+            ensureItem.executeBatch();
             ins.executeBatch();
             conn.commit();
         } catch (SQLException e) {
@@ -472,11 +512,55 @@ public class PlayerRepository {
         player.setSkillXp(Player.SKILL_HITPOINTS, rs.getLong("hitpoints_xp"));
         player.setSkillXp(Player.SKILL_RANGED, rs.getLong("ranged_xp"));
         player.setSkillXp(Player.SKILL_MAGIC, rs.getLong("magic_xp"));
+        player.setSkillXp(Player.SKILL_PRAYER, safeGetLong(rs, "prayer_xp", 0L));
+        player.setSkillXp(Player.SKILL_WOODCUTTING, safeGetLong(rs, "woodcutting_xp", 0L));
+        player.setSkillXp(Player.SKILL_FISHING, safeGetLong(rs, "fishing_xp", 0L));
+        player.setSkillXp(Player.SKILL_COOKING, safeGetLong(rs, "cooking_xp", 0L));
 
         int hpLevel = player.getSkillLevel(Player.SKILL_HITPOINTS);
         player.setHealth(hpLevel);
         player.setMaxHealth(hpLevel);
         return player;
+    }
+
+    private static long safeGetLong(ResultSet rs, String column, long defaultValue) {
+        try {
+            return rs.getLong(column);
+        } catch (SQLException ignored) {
+            return defaultValue;
+        }
+    }
+
+    private static String defaultItemName(int itemId) {
+        return switch (itemId) {
+            case 1351 -> "Bronze axe";
+            case 1511 -> "Logs";
+            case 303 -> "Small fishing net";
+            case 317 -> "Raw shrimps";
+            case 315 -> "Shrimps";
+            case 7954 -> "Burnt shrimps";
+            case 526 -> "Bones";
+            case 2134 -> "Raw rat meat";
+            default -> "Item " + itemId;
+        };
+    }
+
+    private static String defaultItemExamine(int itemId) {
+        return switch (itemId) {
+            case 1351 -> "A woodcutting axe made of bronze.";
+            case 1511 -> "A set of logs.";
+            case 303 -> "Useful for catching shrimp.";
+            case 317 -> "I should cook these first.";
+            case 315 -> "A nicely cooked shrimp.";
+            case 7954 -> "Oops!";
+            case 526 -> "These are bones.";
+            case 2134 -> "Raw rat meat.";
+            default -> "An item.";
+        };
+    }
+
+    private static boolean defaultStackable(int itemId) {
+        return itemId == 526;
     }
 
     public record AuthCharacter(int accountId, String characterName) {

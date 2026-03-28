@@ -207,6 +207,9 @@ public class IsometricRenderer {
             case "Chicken"           -> drawChicken(sx, sy);
             case "Cow"               -> drawCow(sx, sy);
             case "Goblin"            -> drawGoblin(sx, sy);
+            case "Tree"              -> drawTree(sx, sy);
+            case "Fishing spot"      -> drawFishingSpot(sx, sy);
+            case "Fire"              -> drawFire(sx, sy);
             default                  -> drawRat(sx, sy);
         }
         sr.end();
@@ -447,6 +450,42 @@ public class IsometricRenderer {
         // Weapon stub (club/sword held to side)
         sr.setColor(0.55f, 0.55f, 0.58f, 1f);
         sr.rect(sx + 5, sy - 2, 2, 9);
+    }
+
+    /**
+     * Tree resource node used by Woodcutting.
+     */
+    private void drawTree(float sx, float sy) {
+        // Trunk
+        sr.setColor(0.42f, 0.25f, 0.12f, 1f);
+        sr.rect(sx - 4, sy - 6, 8, 14);
+
+        // Leaves (simple layered canopy)
+        sr.setColor(0.12f, 0.45f, 0.16f, 1f);
+        sr.rect(sx - 14, sy + 4, 28, 8);
+        sr.rect(sx - 11, sy + 11, 22, 7);
+        sr.rect(sx - 7, sy + 17, 14, 6);
+
+        sr.setColor(0.20f, 0.60f, 0.24f, 1f);
+        sr.rect(sx - 10, sy + 6, 20, 5);
+    }
+
+    private void drawFishingSpot(float sx, float sy) {
+        sr.setColor(0.10f, 0.45f, 0.75f, 1f);
+        sr.rect(sx - 10, sy - 5, 20, 8);
+        sr.setColor(0.70f, 0.90f, 1f, 0.9f);
+        sr.rect(sx - 6, sy + 1, 12, 2);
+        sr.setColor(0.95f, 0.95f, 0.95f, 1f);
+        sr.rect(sx - 2, sy + 4, 4, 2);
+    }
+
+    private void drawFire(float sx, float sy) {
+        sr.setColor(0.40f, 0.22f, 0.08f, 1f);
+        sr.rect(sx - 8, sy - 5, 16, 4);
+        sr.setColor(0.95f, 0.45f, 0.05f, 1f);
+        sr.rect(sx - 4, sy - 1, 8, 6);
+        sr.setColor(1.00f, 0.80f, 0.25f, 1f);
+        sr.rect(sx - 2, sy + 1, 4, 4);
     }
 
     // -----------------------------------------------------------------------
