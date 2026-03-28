@@ -32,7 +32,7 @@ quests:
       - id: "collect_logs"
         type: "collect"
         description: "Collect 10 logs"
-        item_id: 101
+        item_id: 1511
         count: 10
         reward_xp: 100
         
@@ -40,13 +40,14 @@ quests:
         type: "action"
         description: "Cook 5 food items"
         action: "cook_logs"
+        npc_id: 18
         count: 5
         reward_xp: 100
         
       - id: "equip_armor"
         type: "equip"
         description: "Equip training armour"
-        item_id: 201
+        item_id: 1115
         reward_xp: 50
 
     # Quest completion reward
