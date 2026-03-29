@@ -36,7 +36,14 @@ quests:
         item_id: 1511
         count: 10
         reward_xp: 100
-        
+
+      - id: "catch_fish"
+        type: "collect"
+        description: "Catch 5 raw shrimps at the fishing spot"
+        item_id: 317
+        count: 5
+        reward_xp: 50
+
       - id: "cook_food"
         type: "action"
         description: "Cook 5 food items"
@@ -58,7 +65,7 @@ quests:
         reward_xp: 0
 
     # Quest completion reward
-    total_reward_xp: 435
+    total_reward_xp: 485
     total_reward_gold: 0
     
     # Skill requirements (none for tutorial)

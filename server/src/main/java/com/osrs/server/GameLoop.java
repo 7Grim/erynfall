@@ -638,9 +638,23 @@ public class GameLoop {
                     continue;
                 }
 
+                boolean wasComplete = (quest.status == Quest.QuestStatus.COMPLETED);
                 boolean finished = questManager.addTaskProgress(quest.id, task.id, 1);
                 Quest updated = questManager.getQuest(quest.id);
                 sendQuestUpdate(killerSession, updated);
+
+                boolean isNowComplete = updated.allTasksCompleted()
+                    && updated.status == Quest.QuestStatus.COMPLETED;
+                if (!wasComplete && isNowComplete) {
+                    if (updated.totalRewardXp > 0) {
+                        sendSkillUpdate(killer, updated.rewardSkillIndex, updated.totalRewardXp);
+                    }
+                    sendChatMessageToPlayer(killerSession.getChannel(),
+                        "You have completed: " + updated.name + "! You earned "
+                            + updated.totalRewardXp + " XP.", 3);
+                    PlayerRepository.saveQuestProgress(
+                        killerSession.getPlayer(), killerSession.getQuestManager());
+                }
 
                 if (finished) {
                     LOG.info("Player {} completed kill objective '{}' for quest {}",
@@ -1109,6 +1123,7 @@ public class GameLoop {
         player.setInventoryItem(slot, RAW_SHRIMPS_ITEM_ID, 1);
         sendInventorySlot(session.getChannel(), player, slot);
         sendChatMessageToPlayer(session.getChannel(), "You catch some shrimps.", 0);
+        updateSkillQuestObjectives(session, Quest.TaskType.COLLECT, RAW_SHRIMPS_ITEM_ID);
         sendSkillUpdate(player, Player.SKILL_FISHING, SHRIMPS_XP);
         player.setSkillingNextAttemptTick(tickCount + nextFishingAttemptTicks(fishingLevel));
     }
