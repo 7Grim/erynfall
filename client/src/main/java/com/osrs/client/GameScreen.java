@@ -64,6 +64,7 @@ public class GameScreen extends ApplicationAdapter {
     private final String loginEmail;
     private final String loginPassword;
     private boolean logoutRequested = false;
+    private boolean logoutMenuVisible = false;
 
     public GameScreen() {
         this.game = null;
@@ -418,6 +419,7 @@ public class GameScreen extends ApplicationAdapter {
             sidePanel.getPanelX(), SidePanel.TOTAL_H + SidePanel.MARGIN);
         if (contextMenu.isVisible()) renderContextMenu();
         if (deathScreenTimer > 0) renderDeathScreen(delta);
+        renderLogoutMenu();
 
         Gdx.gl.glDisable(GL20.GL_BLEND);
     }
@@ -873,6 +875,10 @@ public class GameScreen extends ApplicationAdapter {
 
         if (Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)) {
             inventoryMouseDownSlot = -1;
+            if (logoutMenuVisible) {
+                handleLogoutMenuClick(mx, screenMy);
+                return;
+            }
             if (screenMy < ChatBox.TOTAL_H && mx >= 0 && mx < ChatBox.BOX_W) {
                 if (chatBox.handleClick(mx, screenMy)) {
                     return;
@@ -934,10 +940,18 @@ public class GameScreen extends ApplicationAdapter {
         }
 
         if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
-            contextMenu.close();
-            if (selectedInventorySlot >= 0) {
-                selectedInventorySlot = -1;
-                sidePanel.setSelectedInventorySlot(-1);
+            if (logoutMenuVisible) {
+                logoutMenuVisible = false;
+            } else {
+                boolean dismissed = contextMenu.isVisible() || selectedInventorySlot >= 0;
+                contextMenu.close();
+                if (selectedInventorySlot >= 0) {
+                    selectedInventorySlot = -1;
+                    sidePanel.setSelectedInventorySlot(-1);
+                }
+                if (!dismissed) {
+                    logoutMenuVisible = true;
+                }
             }
         }
     }
@@ -1833,6 +1847,93 @@ public class GameScreen extends ApplicationAdapter {
         }
         screenBatch.end();
         font.setColor(Color.WHITE);
+    }
+
+    private void renderLogoutMenu() {
+        if (!logoutMenuVisible) return;
+        int sw = Gdx.graphics.getWidth();
+        int sh = Gdx.graphics.getHeight();
+
+        // Semi-transparent backdrop
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        shapeRenderer.setProjectionMatrix(screenProjection);
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+        shapeRenderer.setColor(0f, 0f, 0f, 0.55f);
+        shapeRenderer.rect(0, 0, sw, sh);
+
+        // Modal box - centred on world area (exclude side panel)
+        int worldW = sw - SidePanel.PANEL_W;
+        int mw = 220, mh = 100;
+        int mx = (worldW - mw) / 2;
+        int my = (sh - mh) / 2;
+        shapeRenderer.setColor(0.12f, 0.10f, 0.08f, 1f);
+        shapeRenderer.rect(mx, my, mw, mh);
+        shapeRenderer.end();
+
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Line);
+        shapeRenderer.setColor(0.65f, 0.52f, 0.18f, 1f);
+        shapeRenderer.rect(mx, my, mw, mh);
+        shapeRenderer.end();
+
+        // Buttons
+        int btnW = 82, btnH = 24;
+        int logBtnX = mx + mw / 2 - btnW - 6;
+        int canBtnX = mx + mw / 2 + 6;
+        int btnY = my + 14;
+
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+        shapeRenderer.setColor(0.35f, 0.08f, 0.06f, 1f); // logout: dark red
+        shapeRenderer.rect(logBtnX, btnY, btnW, btnH);
+        shapeRenderer.setColor(0.14f, 0.18f, 0.14f, 1f); // cancel: dark grey-green
+        shapeRenderer.rect(canBtnX, btnY, btnW, btnH);
+        shapeRenderer.end();
+
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Line);
+        shapeRenderer.setColor(0.80f, 0.25f, 0.18f, 1f);
+        shapeRenderer.rect(logBtnX, btnY, btnW, btnH);
+        shapeRenderer.setColor(0.30f, 0.55f, 0.30f, 1f);
+        shapeRenderer.rect(canBtnX, btnY, btnW, btnH);
+        shapeRenderer.end();
+
+        // Text - use the existing screenBatch + font setup
+        screenBatch.setProjectionMatrix(screenProjection);
+        screenBatch.begin();
+        font.getData().setScale(0.82f);
+        font.setColor(1f, 0.88f, 0.52f, 1f);
+        font.draw(screenBatch, "Game Menu", mx + 68, my + mh - 10);
+        font.getData().setScale(0.74f);
+        font.setColor(1f, 0.72f, 0.55f, 1f);
+        font.draw(screenBatch, "Logout", logBtnX + 18, btnY + 15);
+        font.setColor(0.78f, 0.90f, 0.72f, 1f);
+        font.draw(screenBatch, "Cancel", canBtnX + 18, btnY + 15);
+        font.getData().setScale(1f);
+        font.setColor(Color.WHITE);
+        screenBatch.end();
+    }
+
+    private void handleLogoutMenuClick(int screenMx, int screenMy) {
+        int sw = Gdx.graphics.getWidth();
+        int sh = Gdx.graphics.getHeight();
+        int worldW = sw - SidePanel.PANEL_W;
+        int mw = 220, mh = 100;
+        int mx = (worldW - mw) / 2;
+        int my = (sh - mh) / 2;
+        int btnW = 82, btnH = 24;
+        int logBtnX = mx + mw / 2 - btnW - 6;
+        int canBtnX = mx + mw / 2 + 6;
+        int btnY = my + 14;
+
+        if (screenMx >= logBtnX && screenMx < logBtnX + btnW
+                && screenMy >= btnY && screenMy < btnY + btnH) {
+            logoutMenuVisible = false;
+            requestLogout();
+        } else if (screenMx >= canBtnX && screenMx < canBtnX + btnW
+                && screenMy >= btnY && screenMy < btnY + btnH) {
+            logoutMenuVisible = false;
+        } else if (screenMx < mx || screenMx > mx + mw
+                || screenMy < my || screenMy > my + mh) {
+            logoutMenuVisible = false; // click outside modal
+        }
     }
 
     private void renderDialogueOverlay(int mouseX, int mouseY) {
