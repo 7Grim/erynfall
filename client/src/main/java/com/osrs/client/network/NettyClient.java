@@ -22,8 +22,24 @@ import java.util.concurrent.TimeUnit;
 public class NettyClient {
     
     private static final Logger LOG = LoggerFactory.getLogger(NettyClient.class);
-    private static final String HOST = "localhost";
+    private static final String HOST = resolveHost();
     private static final int PORT = 43594;
+
+    private static String resolveHost() {
+        String h = System.getProperty("GAME_SERVER_HOST");
+        if (h != null && !h.isBlank()) return h.trim();
+        h = System.getenv("GAME_SERVER_HOST");
+        if (h != null && !h.isBlank()) return h.trim();
+        try (java.io.InputStream is = NettyClient.class.getResourceAsStream("/auth.properties")) {
+            if (is != null) {
+                java.util.Properties props = new java.util.Properties();
+                props.load(is);
+                String fromFile = props.getProperty("game.server.host");
+                if (fromFile != null && !fromFile.isBlank()) return fromFile.trim();
+            }
+        } catch (Exception ignored) {}
+        return "localhost";
+    }
     private static final int MAX_FRAME_LENGTH = 1024 * 64;
     
     private EventLoopGroup group;
