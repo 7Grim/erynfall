@@ -1,4 +1,4 @@
-# OSRS MMORP
+# Erynfall MMORP
 
 Old School RuneScape-inspired MMORP in Java 21. 
 
