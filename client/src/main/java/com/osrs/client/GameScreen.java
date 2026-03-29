@@ -24,6 +24,7 @@ import com.osrs.client.ui.CombatUI;
 import com.osrs.client.ui.ContextMenu;
 import com.osrs.client.ui.DialogueUI;
 import com.osrs.client.ui.LevelUpOverlay;
+import com.osrs.client.ui.MiniMap;
 import com.osrs.client.ui.SidePanel;
 import com.osrs.client.ui.XpDropOverlay;
 import org.slf4j.Logger;
@@ -102,6 +103,7 @@ public class GameScreen extends ApplicationAdapter {
     private SidePanel    sidePanel;
     private DialogueUI   dialogueUI;
     private ChatBox      chatBox;
+    private MiniMap      miniMap;
     private XpDropOverlay xpDropOverlay;
     private LevelUpOverlay levelUpOverlay;
     private int[][]      tileMap;
@@ -239,6 +241,7 @@ public class GameScreen extends ApplicationAdapter {
         combatUI   = new CombatUI();
         sidePanel  = new SidePanel();
         dialogueUI = new DialogueUI();
+        miniMap = new MiniMap();
         chatBox        = new ChatBox();
         xpDropOverlay  = new XpDropOverlay();
         levelUpOverlay = new LevelUpOverlay();
@@ -403,6 +406,8 @@ public class GameScreen extends ApplicationAdapter {
         int mouseScreenY = h - Gdx.input.getY();
         sidePanel.render(shapeRenderer, screenBatch, font, w, h, screenProjection,
                          mouseScreenX, mouseScreenY);
+        miniMap.render(shapeRenderer, screenBatch, font, screenProjection,
+            w, h, playerX, playerY, tileMap, handler());
         if (dialogueUI.isVisible()) {
             renderDialogueOverlay(mouseScreenX, mouseScreenY);
         } else {

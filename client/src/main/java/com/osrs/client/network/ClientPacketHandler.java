@@ -498,6 +498,18 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
         return null;
     }
 
+    /**
+     * Returns a snapshot list of {tileX, tileY} for all known ground items.
+     * Used by MiniMap for dot rendering.
+     */
+    public List<int[]> getGroundItemPositions() {
+        List<int[]> out = new ArrayList<>();
+        for (int[] data : groundItems.values()) {
+            out.add(new int[]{ data[2], data[3] });
+        }
+        return out;
+    }
+
     // Returns an NPC entity ID at the given tile, or null if none.
     public Integer getNpcAt(int tileX, int tileY) {
         for (Map.Entry<Integer, int[]> entry : entityPositions.entrySet()) {
