@@ -163,6 +163,8 @@ public class GameScreen extends ApplicationAdapter {
     private int    pendingGroundItemId = -1;
     /** World tile the item is on (cached so we can still pathfind if map updates). */
     private int    pendingGroundItemX  = -1, pendingGroundItemY = -1;
+    private int selectedInventorySlot = -1;  // use-mode: slot waiting for "use on" target
+    private int inventoryMouseDownSlot = -1; // tracks which slot was pressed down
 
     // -----------------------------------------------------------------------
     // Pickup animation
@@ -865,6 +867,7 @@ public class GameScreen extends ApplicationAdapter {
         }
 
         if (Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)) {
+            inventoryMouseDownSlot = -1;
             if (screenMy < ChatBox.TOTAL_H && mx >= 0 && mx < ChatBox.BOX_W) {
                 if (chatBox.handleClick(mx, screenMy)) {
                     return;
@@ -881,6 +884,15 @@ public class GameScreen extends ApplicationAdapter {
                 if (clicked != null) handleContextMenuAction(clicked);
                 contextMenu.close();
             } else if (sidePanel.isOverPanel(mx, screenMy)) {
+                if (sidePanel.isInventoryTabActive()) {
+                    int slot = sidePanel.getInventorySlotAt(mx, screenMy);
+                    inventoryMouseDownSlot = slot;
+                    if (selectedInventorySlot >= 0
+                            && (slot < 0 || sidePanel.getInventoryItemId(slot) <= 0)) {
+                        selectedInventorySlot = -1;
+                        sidePanel.setSelectedInventorySlot(-1);
+                    }
+                }
                 int style = sidePanel.handleLeftClick(mx, screenMy);
                 if (style >= 0 && nettyClient != null) {
                     nettyClient.sendSetCombatStyle(style);
@@ -889,6 +901,10 @@ public class GameScreen extends ApplicationAdapter {
                     requestLogout();
                 }
             } else {
+                if (selectedInventorySlot >= 0) {
+                    selectedInventorySlot = -1;
+                    sidePanel.setSelectedInventorySlot(-1);
+                }
                 int[] tile = screenToTile(mx, my);
                 if (CoordinateConverter.isValidTile(tile[0], tile[1]))
                     walkTo(tile[0], tile[1]);
@@ -900,10 +916,22 @@ public class GameScreen extends ApplicationAdapter {
             int[] swap = sidePanel.handleInventoryMouseUp(mx, screenMy);
             if (swap != null && nettyClient != null) {
                 nettyClient.sendSwapInventorySlots(swap[0], swap[1]);
+            } else if (swap == null && inventoryMouseDownSlot >= 0) {
+                int releaseSlot = sidePanel.getInventorySlotAt(mx, screenMy);
+                if (releaseSlot == inventoryMouseDownSlot) {
+                    handleInventoryPrimaryAction(inventoryMouseDownSlot);
+                }
             }
+            inventoryMouseDownSlot = -1;
         }
 
-        if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) contextMenu.close();
+        if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
+            contextMenu.close();
+            if (selectedInventorySlot >= 0) {
+                selectedInventorySlot = -1;
+                sidePanel.setSelectedInventorySlot(-1);
+            }
+        }
     }
 
     private void handleDialogueInput() {
@@ -1042,12 +1070,53 @@ public class GameScreen extends ApplicationAdapter {
         if (itemId == 526) {
             opts.add(new ContextMenu.MenuItem("Bury " + name, "inv_bury", slot));
         }
-        if (itemId == 1511) {
-            opts.add(new ContextMenu.MenuItem("Light Fire", "inv_light_fire", slot));
+        if (itemId == 590) {
+            opts.add(new ContextMenu.MenuItem("Use " + name, "inv_use", slot));
         }
         opts.add(new ContextMenu.MenuItem("Drop " + name, "inv_drop", slot));
         opts.add(new ContextMenu.MenuItem("Examine " + name, "inv_examine", slot));
         contextMenu.open(mx, my, opts, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
+    }
+
+    /**
+     * Fires the left-click primary action for a given inventory slot.
+     * Called on mouse UP when the user clicked (not dragged) an item.
+     * Use-mode is checked first — a second click in use-mode sends UseItemOnItem.
+     */
+    private void handleInventoryPrimaryAction(int slot) {
+        int itemId    = sidePanel.getInventoryItemId(slot);
+        int itemFlags = sidePanel.getInventoryItemFlags(slot);
+        if (itemId <= 0) return;
+
+        if (selectedInventorySlot >= 0) {
+            if (slot != selectedInventorySlot && nettyClient != null) {
+                nettyClient.sendUseItemOnItem(selectedInventorySlot, slot);
+            }
+            selectedInventorySlot = -1;
+            sidePanel.setSelectedInventorySlot(-1);
+            return;
+        }
+
+        if (itemId == 526) {
+            if (nettyClient != null) nettyClient.sendUseItem(slot, "bury");
+            return;
+        }
+
+        if ((itemFlags & 0x2) != 0) {
+            if (nettyClient != null) nettyClient.sendUseItem(slot, "eat");
+            return;
+        }
+
+        if ((itemFlags & 0x1) != 0) {
+            if (nettyClient != null) nettyClient.sendUseItem(slot, "wield");
+            return;
+        }
+
+        if (itemId == 590) {
+            selectedInventorySlot = slot;
+            sidePanel.setSelectedInventorySlot(slot);
+            return;
+        }
     }
 
     /** Player-initiated walk — cancels any pending approach. */
@@ -1542,7 +1611,10 @@ public class GameScreen extends ApplicationAdapter {
             case "inv_eat"   -> { if (nettyClient != null) nettyClient.sendUseItem((Integer) item.target, "eat"); }
             case "inv_wield" -> { if (nettyClient != null) nettyClient.sendUseItem((Integer) item.target, "wield"); }
             case "inv_bury"  -> { if (nettyClient != null) nettyClient.sendUseItem((Integer) item.target, "bury"); }
-            case "inv_light_fire" -> { if (nettyClient != null) nettyClient.sendUseItem((Integer) item.target, "light_fire"); }
+            case "inv_use" -> {
+                selectedInventorySlot = (Integer) item.target;
+                sidePanel.setSelectedInventorySlot(selectedInventorySlot);
+            }
             case "inv_drop"  -> { if (nettyClient != null) nettyClient.sendDropItem((Integer) item.target); }
             case "inv_examine" -> LOG.info("Examine: {}", item.label);
             case "examine_npc" -> requestNpcExamine((Integer) item.target);

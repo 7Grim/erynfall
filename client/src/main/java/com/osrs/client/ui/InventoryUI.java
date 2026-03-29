@@ -38,6 +38,7 @@ public class InventoryUI {
 
     // Drag state
     private int dragSlot   = -1;
+    private int selectedSlot = -1;
     private int dragMouseX = 0;
     private int dragMouseY = 0;
 
@@ -123,6 +124,16 @@ public class InventoryUI {
             sr.rect(pos[0], pos[1], SLOT_SIZE, SLOT_SIZE);
         }
         sr.end();
+
+        // Use-mode highlight: double-border in gold around selected slot
+        if (selectedSlot >= 0 && selectedSlot < SLOTS) {
+            sr.begin(ShapeRenderer.ShapeType.Line);
+            sr.setColor(1f, 0.85f, 0.1f, 1f);
+            float[] sel = slotPos(selectedSlot);
+            sr.rect(sel[0] + 1, sel[1] + 1, SLOT_SIZE - 2, SLOT_SIZE - 2);
+            sr.rect(sel[0] + 2, sel[1] + 2, SLOT_SIZE - 4, SLOT_SIZE - 4);
+            sr.end();
+        }
 
         // ----- Item icons (coloured squares inside each slot) -----
         sr.begin(ShapeRenderer.ShapeType.Filled);
@@ -377,6 +388,7 @@ public class InventoryUI {
     public int    getQuantity(int slot) { return (slot >= 0 && slot < SLOTS) ? quantities[slot] : 0; }
     public String getName(int slot)     { return (slot >= 0 && slot < SLOTS) ? names[slot]      : ""; }
     public int    getFlags(int slot)    { return (slot >= 0 && slot < SLOTS) ? flags[slot]      : 0; }
+    public void setSelectedSlot(int slot) { this.selectedSlot = slot; }
 
     public boolean isDragging()  { return dragSlot >= 0; }
     public int     getDragSlot() { return dragSlot; }

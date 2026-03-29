@@ -256,6 +256,13 @@ message UseItem {
     int64 sequence = 3;
 }
 
+// UseItemOnItem: Client → Server (use one inventory item on another)
+message UseItemOnItem {
+    int32 source_slot = 1;
+    int32 target_slot = 2;
+    int64 sequence    = 3;
+}
+
 // SwapInventorySlots: Client → Server (drag-and-drop rearrange)
 message SwapInventorySlots {
     int32 from_slot = 1;
@@ -337,6 +344,7 @@ message ClientMessage {
         ExamineNpc examine_npc = 13;
         LogoutRequest logout_request = 14;
         StartSkillingRequest start_skilling = 15;
+        UseItemOnItem use_item_on_item = 16;
     }
 }
 

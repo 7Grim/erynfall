@@ -95,6 +95,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             case PICKUP_ITEM -> handlePickupItem(ctx, packet.getPickupItem());
             case DROP_ITEM -> handleDropItem(ctx, packet.getDropItem());
             case USE_ITEM -> handleUseItem(ctx, packet.getUseItem());
+            case USE_ITEM_ON_ITEM -> handleUseItemOnItem(ctx, packet.getUseItemOnItem());
             case SWAP_INVENTORY_SLOTS -> handleSwapInventorySlots(ctx, packet.getSwapInventorySlots());
             case SET_COMBAT_STYLE    -> handleSetCombatStyle(packet.getSetCombatStyle());
             case PUBLIC_CHAT         -> handlePublicChat(ctx, packet.getPublicChat());
@@ -1102,37 +1103,6 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             LOG.info("Player {} buried bones (+{} prayer xp)", player.getId(), BONES_PRAYER_XP);
             updateGenericQuestObjectives(session, Quest.TaskType.ACTION, BONES_ITEM_ID);
 
-        } else if ("light_fire".equals(action) && itemId == LOGS_ITEM_ID) {
-            boolean hasTinderbox = false;
-            for (int i = 0; i < 28; i++) {
-                if (player.getInventoryItemId(i) == TINDERBOX_ITEM_ID) {
-                    hasTinderbox = true;
-                    break;
-                }
-            }
-            if (!hasTinderbox) {
-                sendChatMessage(ctx, "You need a tinderbox to light a fire.", 0);
-                return;
-            }
-            player.setInventoryItem(slot, 0, 0);
-            sendInventorySlot(ctx, player, slot);
-            boolean leveledUp = player.addSkillXp(Player.SKILL_FIREMAKING, FIREMAKING_LOG_XP);
-            int newLevel = player.getSkillLevel(Player.SKILL_FIREMAKING);
-            long totalXp = player.getSkillXp(Player.SKILL_FIREMAKING);
-            ctx.writeAndFlush(NetworkProto.ServerMessage.newBuilder()
-                .setSkillUpdate(NetworkProto.SkillUpdate.newBuilder()
-                    .setSkillIndex(Player.SKILL_FIREMAKING)
-                    .setNewLevel(newLevel)
-                    .setTotalXp(totalXp)
-                    .setLeveledUp(leveledUp))
-                .build());
-            sendChatMessage(ctx, "You light a fire.", 0);
-            if (leveledUp) {
-                sendChatMessage(ctx, "Congratulations, you just advanced a Firemaking level.", 2);
-            }
-            updateGenericQuestObjectives(session, Quest.TaskType.ACTION, LOGS_ITEM_ID);
-            LOG.info("Player {} lit a fire (+{} firemaking xp)", player.getId(), FIREMAKING_LOG_XP);
-
         } else if (("equip".equals(action) || "wield".equals(action) || "wear".equals(action)) && def.equipable) {
             int equipSlot = def.equipSlot;
             if (equipSlot < 0 || equipSlot >= EquipmentSlot.COUNT) return;
@@ -1188,6 +1158,42 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
         sendInventorySlot(ctx, player, from);
         sendInventorySlot(ctx, player, to);
         LOG.debug("Player {} swapped inventory slots {} ↔ {}", player.getId(), from, to);
+    }
+
+    private void handleUseItemOnItem(ChannelHandlerContext ctx, NetworkProto.UseItemOnItem req) {
+        if (session.getPlayer() == null) return;
+        Player player = session.getPlayer();
+
+        int srcSlot = req.getSourceSlot();
+        int tgtSlot = req.getTargetSlot();
+        if (srcSlot < 0 || srcSlot >= 28 || tgtSlot < 0 || tgtSlot >= 28 || srcSlot == tgtSlot) return;
+
+        int srcItem = player.getInventoryItemId(srcSlot);
+        int tgtItem = player.getInventoryItemId(tgtSlot);
+
+        boolean isFiremaking = (srcItem == TINDERBOX_ITEM_ID && tgtItem == LOGS_ITEM_ID)
+                             || (srcItem == LOGS_ITEM_ID    && tgtItem == TINDERBOX_ITEM_ID);
+        if (isFiremaking) {
+            int logsSlot = (srcItem == LOGS_ITEM_ID) ? srcSlot : tgtSlot;
+            player.setInventoryItem(logsSlot, 0, 0);
+            sendInventorySlot(ctx, player, logsSlot);
+
+            boolean leveledUp = player.addSkillXp(Player.SKILL_FIREMAKING, FIREMAKING_LOG_XP);
+            int  newLevel = player.getSkillLevel(Player.SKILL_FIREMAKING);
+            long totalXp  = player.getSkillXp(Player.SKILL_FIREMAKING);
+            ctx.writeAndFlush(NetworkProto.ServerMessage.newBuilder()
+                .setSkillUpdate(NetworkProto.SkillUpdate.newBuilder()
+                    .setSkillIndex(Player.SKILL_FIREMAKING)
+                    .setNewLevel(newLevel).setTotalXp(totalXp).setLeveledUp(leveledUp))
+                .build());
+            sendChatMessage(ctx, "You light a fire.", 0);
+            if (leveledUp) sendChatMessage(ctx, "Congratulations, you just advanced a Firemaking level.", 2);
+            updateGenericQuestObjectives(session, Quest.TaskType.ACTION, LOGS_ITEM_ID);
+            LOG.info("Player {} lit a fire (+{} firemaking xp)", player.getId(), FIREMAKING_LOG_XP);
+            return;
+        }
+
+        sendChatMessage(ctx, "Nothing interesting happens.", 0);
     }
 
     /**

@@ -188,6 +188,17 @@ public class NettyClient {
         LOG.debug("Sent UseItem: slot={} action={}", inventorySlot, action);
     }
 
+    public void sendUseItemOnItem(int sourceSlot, int targetSlot) {
+        NetworkProto.ClientMessage msg = NetworkProto.ClientMessage.newBuilder()
+            .setUseItemOnItem(NetworkProto.UseItemOnItem.newBuilder()
+                .setSourceSlot(sourceSlot)
+                .setTargetSlot(targetSlot)
+                .setSequence(System.currentTimeMillis()))
+            .build();
+        channel.writeAndFlush(msg);
+        LOG.debug("Sent UseItemOnItem: src={} tgt={}", sourceSlot, targetSlot);
+    }
+
     public void sendSetCombatStyle(int styleIndex) {
         NetworkProto.ClientMessage msg = NetworkProto.ClientMessage.newBuilder()
             .setSetCombatStyle(NetworkProto.SetCombatStyle.newBuilder()
