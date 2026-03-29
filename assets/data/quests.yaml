@@ -58,6 +58,20 @@ quests:
         item_id: 1115
         reward_xp: 50
 
+      - id: "bury_bones"
+        type: "action"
+        description: "Bury 5 bones"
+        item_id: 526
+        count: 5
+        reward_xp: 25
+
+      - id: "light_fire"
+        type: "action"
+        description: "Light a fire using your tinderbox"
+        item_id: 1511
+        count: 1
+        reward_xp: 40
+
       - id: "return_to_guide"
         type: "hand_in"
         description: "Return to the Tutorial Guide to complete the tutorial"
@@ -65,7 +79,7 @@ quests:
         reward_xp: 0
 
     # Quest completion reward
-    total_reward_xp: 485
+    total_reward_xp: 550
     total_reward_gold: 0
     
     # Skill requirements (none for tutorial)

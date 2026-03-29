@@ -85,6 +85,12 @@ items:
     equipable: false
     consumable: false
 
+  - id: 590
+    name: "Tinderbox"
+    examine: "Useful for lighting fires."
+    stackable: false
+    value: 1
+
   - id: 1351
     name: "Bronze axe"
     examine: "A woodcutting axe made of bronze."

@@ -35,7 +35,10 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
     private static final int SMALL_FISHING_NET_ITEM_ID = 303;
     private static final int RAW_SHRIMPS_ITEM_ID = 317;
     private static final int BONES_ITEM_ID = 526;
+    private static final int  TINDERBOX_ITEM_ID   = 590;
+    private static final int  LOGS_ITEM_ID        = 1511;
     private static final long BONES_PRAYER_XP = 4L;
+    private static final long FIREMAKING_LOG_XP   = 40L;
     
     private final NettyServer server;
     private final AuthTokenSettings authTokenSettings;
@@ -1097,6 +1100,38 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
                 sendChatMessage(ctx, "Congratulations, you just advanced a Prayer level.", 2);
             }
             LOG.info("Player {} buried bones (+{} prayer xp)", player.getId(), BONES_PRAYER_XP);
+            updateGenericQuestObjectives(session, Quest.TaskType.ACTION, BONES_ITEM_ID);
+
+        } else if ("light_fire".equals(action) && itemId == LOGS_ITEM_ID) {
+            boolean hasTinderbox = false;
+            for (int i = 0; i < 28; i++) {
+                if (player.getInventoryItemId(i) == TINDERBOX_ITEM_ID) {
+                    hasTinderbox = true;
+                    break;
+                }
+            }
+            if (!hasTinderbox) {
+                sendChatMessage(ctx, "You need a tinderbox to light a fire.", 0);
+                return;
+            }
+            player.setInventoryItem(slot, 0, 0);
+            sendInventorySlot(ctx, player, slot);
+            boolean leveledUp = player.addSkillXp(Player.SKILL_FIREMAKING, FIREMAKING_LOG_XP);
+            int newLevel = player.getSkillLevel(Player.SKILL_FIREMAKING);
+            long totalXp = player.getSkillXp(Player.SKILL_FIREMAKING);
+            ctx.writeAndFlush(NetworkProto.ServerMessage.newBuilder()
+                .setSkillUpdate(NetworkProto.SkillUpdate.newBuilder()
+                    .setSkillIndex(Player.SKILL_FIREMAKING)
+                    .setNewLevel(newLevel)
+                    .setTotalXp(totalXp)
+                    .setLeveledUp(leveledUp))
+                .build());
+            sendChatMessage(ctx, "You light a fire.", 0);
+            if (leveledUp) {
+                sendChatMessage(ctx, "Congratulations, you just advanced a Firemaking level.", 2);
+            }
+            updateGenericQuestObjectives(session, Quest.TaskType.ACTION, LOGS_ITEM_ID);
+            LOG.info("Player {} lit a fire (+{} firemaking xp)", player.getId(), FIREMAKING_LOG_XP);
 
         } else if (("equip".equals(action) || "wield".equals(action) || "wear".equals(action)) && def.equipable) {
             int equipSlot = def.equipSlot;
@@ -1290,6 +1325,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
     private void ensureStarterSkillingTools(Player player) {
         ensureStarterItem(player, BRONZE_AXE_ITEM_ID);
         ensureStarterItem(player, SMALL_FISHING_NET_ITEM_ID);
+        ensureStarterItem(player, TINDERBOX_ITEM_ID);
         ensureStarterItem(player, 1115);  // Bronze full helm for equip_armor quest
     }
 

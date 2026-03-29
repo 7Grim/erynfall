@@ -1042,6 +1042,9 @@ public class GameScreen extends ApplicationAdapter {
         if (itemId == 526) {
             opts.add(new ContextMenu.MenuItem("Bury " + name, "inv_bury", slot));
         }
+        if (itemId == 1511) {
+            opts.add(new ContextMenu.MenuItem("Light Fire", "inv_light_fire", slot));
+        }
         opts.add(new ContextMenu.MenuItem("Drop " + name, "inv_drop", slot));
         opts.add(new ContextMenu.MenuItem("Examine " + name, "inv_examine", slot));
         contextMenu.open(mx, my, opts, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
@@ -1539,6 +1542,7 @@ public class GameScreen extends ApplicationAdapter {
             case "inv_eat"   -> { if (nettyClient != null) nettyClient.sendUseItem((Integer) item.target, "eat"); }
             case "inv_wield" -> { if (nettyClient != null) nettyClient.sendUseItem((Integer) item.target, "wield"); }
             case "inv_bury"  -> { if (nettyClient != null) nettyClient.sendUseItem((Integer) item.target, "bury"); }
+            case "inv_light_fire" -> { if (nettyClient != null) nettyClient.sendUseItem((Integer) item.target, "light_fire"); }
             case "inv_drop"  -> { if (nettyClient != null) nettyClient.sendDropItem((Integer) item.target); }
             case "inv_examine" -> LOG.info("Examine: {}", item.label);
             case "examine_npc" -> requestNpcExamine((Integer) item.target);
