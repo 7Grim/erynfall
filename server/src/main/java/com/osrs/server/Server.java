@@ -2,10 +2,15 @@ package com.osrs.server;
 
 import com.osrs.server.config.ServerConfig;
 import com.osrs.server.database.DatabaseManager;
+import com.osrs.server.database.PlayerRepository;
 import com.osrs.server.network.NettyServer;
+import com.osrs.server.network.PlayerSession;
 import com.osrs.server.world.World;
+import com.osrs.shared.Player;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.ArrayList;
 
 /**
  * Main server entry point.
@@ -110,7 +115,30 @@ public class Server {
                 gameLoop.stop();
                 LOG.info("✓ Game loop stopped");
             }
-            
+
+            // Persist all connected players while DB is still open.
+            // Must happen AFTER the game loop stops (no new XP awards) and
+            // BEFORE nettyServer.stop() + database.shutdown().
+            if (nettyServer != null && DatabaseManager.isHealthy()) {
+                int saved = 0;
+                for (PlayerSession session : new ArrayList<>(nettyServer.getSessions().values())) {
+                    if (!session.isAuthenticated()) continue;
+                    Player player = session.getPlayer();
+                    if (player == null) continue;
+                    try {
+                        PlayerRepository.savePlayer(player);
+                        PlayerRepository.saveInventory(player);
+                        if (session.getQuestManager() != null) {
+                            PlayerRepository.saveQuestProgress(player, session.getQuestManager());
+                        }
+                        saved++;
+                    } catch (Exception e) {
+                        LOG.error("Failed to save player {} during shutdown", player.getName(), e);
+                    }
+                }
+                LOG.info("✓ Shutdown save — {} player(s) persisted", saved);
+            }
+
             if (nettyServer != null) {
                 nettyServer.stop();
                 LOG.info("✓ Netty server stopped");

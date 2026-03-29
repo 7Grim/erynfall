@@ -1149,7 +1149,14 @@ public class GameScreen extends ApplicationAdapter {
     }
 
     private boolean planWalkPath(int targetX, int targetY) {
-        List<int[]> path = findPath(playerX, playerY, targetX, targetY);
+        // If a speculative step is already in-flight, plan from the server's current
+        // position (lastStepSentX/Y) rather than playerX/playerY, which lags one tile
+        // behind. Prepend the in-flight tile so ongoing visual animation is not disrupted.
+        boolean speculativeInFlight = lastStepSentX != Integer.MIN_VALUE;
+        int fromX = speculativeInFlight ? lastStepSentX : playerX;
+        int fromY = speculativeInFlight ? lastStepSentY : playerY;
+
+        List<int[]> path = findPath(fromX, fromY, targetX, targetY);
         if (path.isEmpty()) {
             walkDestX = -1;
             walkDestY = -1;
@@ -1161,6 +1168,11 @@ public class GameScreen extends ApplicationAdapter {
         walkDestX = targetX;
         walkDestY = targetY;
         walkPath.clear();
+        // Keep the in-flight step at the head so the running visual animation
+        // finishes naturally before the newly planned steps begin.
+        if (speculativeInFlight) {
+            walkPath.add(new int[]{lastStepSentX, lastStepSentY});
+        }
         walkPath.addAll(path);
         lastStepSentX = Integer.MIN_VALUE;
         lastStepSentY = Integer.MIN_VALUE;
