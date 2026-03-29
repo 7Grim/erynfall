@@ -4,7 +4,7 @@ dialogues:
   dialogue_tutorial_intro:
     npc_id: 1
     npc_name: "Tutorial Guide"
-    npc_says: "Welcome to Tutorial Island, adventurer! I am here to teach you the basics of RuneScape."
+    npc_says: "Welcome to Tutorial Island! Head west to find trees for woodcutting, south to find a fishing spot and cooking fire, or east to the combat area. When you have completed all the tasks, return to me."
     options:
       - option_id: 1
         text: "Tell me about combat"
@@ -77,4 +77,31 @@ dialogues:
     options:
       - option_id: 1
         text: "I'll do it"
+        next_dialogue: null
+
+  dialogue_fishing_spot:
+    npc_id: 4
+    npc_name: "Fishing Spot"
+    npc_says: "The water here is full of shrimps. Use a small fishing net to catch them. You can start fishing by right-clicking me."
+    options:
+      - option_id: 1
+        text: "Thanks, I'll try fishing."
+        next_dialogue: null
+
+  dialogue_oak_tree:
+    npc_id: 5
+    npc_name: "Oak Tree"
+    npc_says: "This sturdy oak can be chopped down for logs. You'll need an axe."
+    options:
+      - option_id: 1
+        text: "I'll get chopping."
+        next_dialogue: null
+
+  dialogue_cooking_fire:
+    npc_id: 18
+    npc_name: "Cooking Fire"
+    npc_says: "This fire burns hot enough to cook your food. Use a raw fish on the fire to cook it."
+    options:
+      - option_id: 1
+        text: "Good to know."
         next_dialogue: null
