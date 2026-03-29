@@ -393,6 +393,8 @@ loot_tables:
     always:
       - item_id: 1000   # Rat's tail
         quantity: 1
+      - item_id: 526    # Bones
+        quantity: 1
     common:
       - item_id: 995    # Coins (1–3)
         quantity: 1
