@@ -674,8 +674,25 @@ public class GameLoop {
             for (Quest.Task task : quest.tasks) {
                 if (task.type != type || task.completed
                         || task.targetEntityId != targetId) continue;
+
+                boolean wasComplete = (quest.status == Quest.QuestStatus.COMPLETED);
                 questManager.addTaskProgress(quest.id, task.id, 1);
-                sendQuestUpdate(session, questManager.getQuest(quest.id));
+                Quest updated = questManager.getQuest(quest.id);
+                sendQuestUpdate(session, updated);
+
+                boolean isNowComplete = updated.allTasksCompleted()
+                    && updated.status == Quest.QuestStatus.COMPLETED;
+                if (!wasComplete && isNowComplete) {
+                    if (updated.totalRewardXp > 0) {
+                        sendSkillUpdate(session.getPlayer(),
+                            updated.rewardSkillIndex, updated.totalRewardXp);
+                    }
+                    sendChatMessageToPlayer(session.getChannel(),
+                        "You have completed: " + updated.name + "! You earned "
+                            + updated.totalRewardXp + " XP.", 3);
+                    PlayerRepository.saveQuestProgress(
+                        session.getPlayer(), session.getQuestManager());
+                }
             }
         }
     }

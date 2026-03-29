@@ -391,9 +391,9 @@ loot_tables:
   # OSRS: Rat's tail (always, used in Witch's Potion quest), no bones
   rat_basic:
     always:
-      - item_id: 1000   # Rat's tail
-        quantity: 1
       - item_id: 526    # Bones
+        quantity: 1
+      - item_id: 1000   # Rat's tail
         quantity: 1
     common:
       - item_id: 995    # Coins (1–3)
