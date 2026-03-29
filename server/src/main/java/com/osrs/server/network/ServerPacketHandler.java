@@ -69,6 +69,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
                 if (session.isAuthenticated() && DatabaseManager.isHealthy()) {
                     PlayerRepository.savePlayer(player);
                     PlayerRepository.saveInventory(player);
+                    PlayerRepository.saveEquipment(player);
                     PlayerRepository.saveQuestProgress(player, session.getQuestManager());
                     LOG.info("Saved player {} on disconnect", player.getName());
                 }
@@ -177,6 +178,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
         // Send initial skill state so the client's skills tab is populated immediately
         sendAllSkillUpdates(ctx, player);
         sendFullInventory(ctx, player);
+        sendFullEquipment(ctx, player);
 
         sendInitialQuestState(ctx);
 
@@ -249,8 +251,25 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
         sendHandshakeResponse(ctx, true, "Welcome back, " + characterName + "!", player.getId());
         sendAllSkillUpdates(ctx, player);
         sendFullInventory(ctx, player);
+        sendFullEquipment(ctx, player);
         sendInitialQuestState(ctx);
         sendWorldState(ctx);
+    }
+
+    private void sendFullEquipment(ChannelHandlerContext ctx, Player player) {
+        for (int slot = 0; slot < EquipmentSlot.COUNT; slot++) {
+            int eqId = player.getEquipment(slot);
+            if (eqId <= 0) continue;
+            ItemDefinition eqDef = server.getWorld().getItemDef(eqId);
+            if (eqDef == null) continue;
+            ctx.writeAndFlush(NetworkProto.ServerMessage.newBuilder()
+                .setEquipmentUpdate(NetworkProto.EquipmentUpdate.newBuilder()
+                    .setSlot(slot)
+                    .setItemId(eqId)
+                    .setItemName(eqDef.name)
+                    .setFlags(eqDef.getFlags()))
+                .build());
+        }
     }
 
     /** Sends a SkillUpdate (leveled_up=false) for every skill — used on login to sync client. */
@@ -1104,6 +1123,17 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             updateGenericQuestObjectives(session, Quest.TaskType.ACTION, BONES_ITEM_ID);
 
         } else if (("equip".equals(action) || "wield".equals(action) || "wear".equals(action)) && def.equipable) {
+            if (player.getSkillLevel(Player.SKILL_DEFENCE) < def.defenceReq) {
+                sendChatMessage(ctx, "You need a Defence level of " + def.defenceReq
+                    + " to wear this.", 0);
+                return;
+            }
+            if (def.equipSlot == EquipmentSlot.WEAPON
+                    && player.getSkillLevel(Player.SKILL_ATTACK) < def.attackReq) {
+                sendChatMessage(ctx, "You need an Attack level of " + def.attackReq
+                    + " to wield this.", 0);
+                return;
+            }
             int equipSlot = def.equipSlot;
             if (equipSlot < 0 || equipSlot >= EquipmentSlot.COUNT) return;
 

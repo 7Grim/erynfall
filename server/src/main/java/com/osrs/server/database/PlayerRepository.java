@@ -3,6 +3,7 @@ package com.osrs.server.database;
 import at.favre.lib.crypto.bcrypt.BCrypt;
 import com.osrs.server.quest.Quest;
 import com.osrs.server.quest.QuestManager;
+import com.osrs.shared.EquipmentSlot;
 import com.osrs.shared.Player;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -379,6 +380,49 @@ public class PlayerRepository {
         }
     }
 
+    public static void saveEquipment(Player player) {
+        if (!DatabaseManager.isHealthy()) return;
+        String sql = "UPDATE osrs.players SET " +
+            "equip_head=?, equip_cape=?, equip_neck=?, equip_ammo=?, equip_weapon=?," +
+            "equip_shield=?, equip_body=?, equip_legs=?, equip_hands=?, equip_feet=?, equip_ring=?" +
+            " WHERE id=?";
+        try (Connection con = DatabaseManager.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            int dbId = getDbIdByUsername(con, player.getName());
+            if (dbId < 0) return;
+            ps.setInt(1,  player.getEquipment(EquipmentSlot.HEAD));
+            ps.setInt(2,  player.getEquipment(EquipmentSlot.CAPE));
+            ps.setInt(3,  player.getEquipment(EquipmentSlot.NECK));
+            ps.setInt(4,  player.getEquipment(EquipmentSlot.AMMO));
+            ps.setInt(5,  player.getEquipment(EquipmentSlot.WEAPON));
+            ps.setInt(6,  player.getEquipment(EquipmentSlot.SHIELD));
+            ps.setInt(7,  player.getEquipment(EquipmentSlot.BODY));
+            ps.setInt(8,  player.getEquipment(EquipmentSlot.LEGS));
+            ps.setInt(9,  player.getEquipment(EquipmentSlot.HANDS));
+            ps.setInt(10, player.getEquipment(EquipmentSlot.FEET));
+            ps.setInt(11, player.getEquipment(EquipmentSlot.RING));
+            ps.setInt(12, dbId);
+            ps.executeUpdate();
+            con.commit();
+        } catch (Exception e) {
+            LOG.error("Failed to save equipment for player {}", player.getId(), e);
+        }
+    }
+
+    public static void loadEquipment(Player player, ResultSet rs) throws SQLException {
+        player.setEquipment(EquipmentSlot.HEAD,   safeGetInt(rs, "equip_head",   0));
+        player.setEquipment(EquipmentSlot.CAPE,   safeGetInt(rs, "equip_cape",   0));
+        player.setEquipment(EquipmentSlot.NECK,   safeGetInt(rs, "equip_neck",   0));
+        player.setEquipment(EquipmentSlot.AMMO,   safeGetInt(rs, "equip_ammo",   0));
+        player.setEquipment(EquipmentSlot.WEAPON, safeGetInt(rs, "equip_weapon", 0));
+        player.setEquipment(EquipmentSlot.SHIELD, safeGetInt(rs, "equip_shield", 0));
+        player.setEquipment(EquipmentSlot.BODY,   safeGetInt(rs, "equip_body",   0));
+        player.setEquipment(EquipmentSlot.LEGS,   safeGetInt(rs, "equip_legs",   0));
+        player.setEquipment(EquipmentSlot.HANDS,  safeGetInt(rs, "equip_hands",  0));
+        player.setEquipment(EquipmentSlot.FEET,   safeGetInt(rs, "equip_feet",   0));
+        player.setEquipment(EquipmentSlot.RING,   safeGetInt(rs, "equip_ring",   0));
+    }
+
     public static void saveQuestProgress(Player player, QuestManager questManager) {
         if (questManager == null) return;
 
@@ -545,6 +589,7 @@ public class PlayerRepository {
         player.setSkillXp(Player.SKILL_FARMING, safeGetLong(rs, "farming_xp", 0L));
         player.setSkillXp(Player.SKILL_HUNTER, safeGetLong(rs, "hunter_xp", 0L));
         player.setSkillXp(Player.SKILL_CONSTRUCTION, safeGetLong(rs, "construction_xp", 0L));
+        loadEquipment(player, rs);
         boolean isMember = false;
         try { isMember = rs.getBoolean("is_member"); } catch (SQLException ignored) {}
         player.setMember(isMember);
@@ -561,6 +606,10 @@ public class PlayerRepository {
         } catch (SQLException ignored) {
             return defaultValue;
         }
+    }
+
+    private static int safeGetInt(ResultSet rs, String col, int def) {
+        try { return rs.getInt(col); } catch (SQLException e) { return def; }
     }
 
     private static String defaultItemName(int itemId) {

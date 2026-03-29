@@ -460,6 +460,12 @@ public class GameScreen extends ApplicationAdapter {
                 h.getInventoryFlags(i));
         }
 
+        for (int slot = 0; slot < 11; slot++) {
+            sidePanel.setEquipmentSlot(slot,
+                h.getEquipmentItemId(slot),
+                h.getEquipmentName(slot));
+        }
+
         // Authoritative local-player position correction from server.
         // This is critical now that some interactions (e.g. skilling) can move
         // the player server-side while approaching a target.

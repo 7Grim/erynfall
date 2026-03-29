@@ -141,7 +141,7 @@ public class InventoryUI {
             if (slot == dragSlot) continue;
             if (itemIds[slot] == 0) continue;
             float[] pos = slotPos(slot);
-            drawItemIcon(sr, pos[0], pos[1], itemIds[slot], flags[slot]);
+            drawItemIcon(sr, pos[0], pos[1], itemIds[slot], flags[slot], names[slot]);
         }
         sr.end();
 
@@ -178,7 +178,7 @@ public class InventoryUI {
             float fx = dragMouseX - SLOT_SIZE / 2f;
             float fy = dragMouseY - SLOT_SIZE / 2f;
             sr.rect(fx, fy, SLOT_SIZE, SLOT_SIZE);
-            drawItemIcon(sr, fx, fy, itemIds[dragSlot], flags[dragSlot]);
+            drawItemIcon(sr, fx, fy, itemIds[dragSlot], flags[dragSlot], names[dragSlot]);
             sr.end();
         }
     }
@@ -188,7 +188,7 @@ public class InventoryUI {
      * Icon occupies the central 24×24 area of a 40×40 slot.
      */
     private void drawItemIcon(ShapeRenderer sr, float slotLeft, float slotBottom,
-                               int itemId, int itemFlags) {
+                               int itemId, int itemFlags, String itemName) {
         float iconX = slotLeft   + 8;
         float iconY = slotBottom + 8;
         float iconW = 24f;
@@ -206,7 +206,7 @@ public class InventoryUI {
             case 315 -> drawCookedShrimpsIcon(sr, iconX, iconY);
             case 7954 -> drawBurntShrimpsIcon(sr, iconX, iconY);
             case 526 -> drawBonesIcon(sr, iconX, iconY);
-            default -> drawGenericIcon(sr, iconX, iconY, itemColor(itemId, itemFlags));
+            default -> drawGenericIcon(sr, iconX, iconY, itemColor(itemId, itemFlags, itemName));
         }
     }
 
@@ -287,12 +287,23 @@ public class InventoryUI {
         sr.rect(x + 15, y + 13, 3, 3);
     }
 
-    private Color itemColor(int itemId, int itemFlags) {
-        if (itemId == 995) return new Color(1f, 0.9f, 0.1f, 1f);           // Coins: yellow
-        if ((itemFlags & 0x1) != 0) return new Color(0.75f, 0.78f, 0.82f, 1f); // Equipable: steel blue-grey
-        if ((itemFlags & 0x2) != 0) return new Color(1f, 0.6f, 0.2f, 1f);  // Consumable: orange
-        if (itemId == 526)  return new Color(0.85f, 0.75f, 0.55f, 1f);     // Bones: tan
-        return new Color(0.65f, 0.55f, 0.45f, 1f);                         // Default: brownish
+    private Color itemColor(int itemId, int itemFlags, String name) {
+        if (itemId == 995) return new Color(1f, 0.90f, 0.10f, 1f);   // coins
+        if ((itemFlags & 0x2) != 0) return new Color(1f, 0.60f, 0.20f, 1f); // food
+        if ((itemFlags & 0x1) != 0) {                                 // equipable
+            String n = name == null ? "" : name.toLowerCase();
+            if (n.contains("dragon"))  return new Color(0.80f, 0.18f, 0.10f, 1f); // deep red
+            if (n.contains("rune"))    return new Color(0.10f, 0.62f, 0.85f, 1f); // teal-blue
+            if (n.contains("adamant")) return new Color(0.15f, 0.58f, 0.28f, 1f); // green
+            if (n.contains("mithril")) return new Color(0.35f, 0.48f, 0.82f, 1f); // blue
+            if (n.contains("black"))   return new Color(0.22f, 0.20f, 0.25f, 1f); // dark
+            if (n.contains("steel"))   return new Color(0.60f, 0.62f, 0.72f, 1f); // steel-blue
+            if (n.contains("iron"))    return new Color(0.52f, 0.52f, 0.54f, 1f); // grey
+            if (n.contains("bronze"))  return new Color(0.72f, 0.42f, 0.10f, 1f); // bronze
+            return new Color(0.75f, 0.78f, 0.82f, 1f); // default equipable
+        }
+        if (itemId == 526) return new Color(0.85f, 0.75f, 0.55f, 1f);
+        return new Color(0.65f, 0.55f, 0.45f, 1f);
     }
 
     // -----------------------------------------------------------------------

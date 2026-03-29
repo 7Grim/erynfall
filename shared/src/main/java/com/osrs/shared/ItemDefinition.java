@@ -56,6 +56,10 @@ public class ItemDefinition {
     /** Magic damage bonus in whole-percentage points (e.g. 10 = +10%). */
     public int magicDamage;
     public int prayer;
+    /** Minimum Defence level required to wear this item. */
+    public int defenceReq = 1;
+    /** Minimum Attack level required to wield this weapon. */
+    public int attackReq  = 1;
 
     // -----------------------------------------------------------------------
     // Utility

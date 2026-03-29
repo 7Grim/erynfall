@@ -109,46 +109,71 @@ items:
     name: "Iron axe"
     examine: "A woodcutting axe made of iron."
     stackable: false
-    value: 56
-    slot: "WEAPON"
-    attack_bonus: 4
-    strength_bonus: 3
+    equipable: true
+    consumable: false
+    equip_slot: 4
+    weapon_type: "slash"
+    attack_range: 1
+    stab_attack: -2
+    slash_attack: 6
+    melee_strength: 5
+    attack_req: 1
 
   - id: 1353
     name: "Steel axe"
     examine: "A woodcutting axe made of steel."
     stackable: false
-    value: 200
-    slot: "WEAPON"
-    attack_bonus: 7
-    strength_bonus: 5
+    equipable: true
+    consumable: false
+    equip_slot: 4
+    weapon_type: "slash"
+    attack_range: 1
+    stab_attack: -2
+    slash_attack: 10
+    melee_strength: 7
+    attack_req: 5
 
   - id: 1355
     name: "Mithril axe"
     examine: "A woodcutting axe made of mithril."
     stackable: false
-    value: 520
-    slot: "WEAPON"
-    attack_bonus: 12
-    strength_bonus: 8
+    equipable: true
+    consumable: false
+    equip_slot: 4
+    weapon_type: "slash"
+    attack_range: 1
+    stab_attack: -2
+    slash_attack: 16
+    melee_strength: 12
+    attack_req: 20
 
   - id: 1357
     name: "Adamant axe"
     examine: "A woodcutting axe made of adamantite."
     stackable: false
-    value: 1280
-    slot: "WEAPON"
-    attack_bonus: 16
-    strength_bonus: 11
+    equipable: true
+    consumable: false
+    equip_slot: 4
+    weapon_type: "slash"
+    attack_range: 1
+    stab_attack: -2
+    slash_attack: 22
+    melee_strength: 17
+    attack_req: 30
 
   - id: 1359
     name: "Rune axe"
     examine: "A woodcutting axe made of rune."
     stackable: false
-    value: 6400
-    slot: "WEAPON"
-    attack_bonus: 22
-    strength_bonus: 15
+    equipable: true
+    consumable: false
+    equip_slot: 4
+    weapon_type: "slash"
+    attack_range: 1
+    stab_attack: -2
+    slash_attack: 32
+    melee_strength: 24
+    attack_req: 40
 
   # ── Food ─────────────────────────────────────────────────────────────────
 
@@ -297,3 +322,558 @@ items:
     crush_defence: 11
     magic_defence: -2
     ranged_defence: 11
+
+  # ── Scimitars (iron through dragon) ──────────────────────────────────────
+  # Source: https://oldschool.runescape.wiki/w/Scimitar
+
+  - id: 1323
+    name: "Iron scimitar"
+    examine: "A finely balanced iron scimitar."
+    stackable: false
+    equipable: true
+    consumable: false
+    equip_slot: 4
+    weapon_type: "slash"
+    attack_range: 1
+    stab_attack: -2
+    slash_attack: 22
+    crush_attack: -2
+    melee_strength: 21
+    attack_req: 1
+
+  - id: 1325
+    name: "Steel scimitar"
+    examine: "A finely balanced steel scimitar."
+    stackable: false
+    equipable: true
+    consumable: false
+    equip_slot: 4
+    weapon_type: "slash"
+    attack_range: 1
+    stab_attack: -2
+    slash_attack: 29
+    crush_attack: -2
+    melee_strength: 28
+    attack_req: 5
+
+  - id: 1327
+    name: "Black scimitar"
+    examine: "A finely balanced black scimitar."
+    stackable: false
+    equipable: true
+    consumable: false
+    equip_slot: 4
+    weapon_type: "slash"
+    attack_range: 1
+    stab_attack: -2
+    slash_attack: 35
+    crush_attack: -2
+    melee_strength: 35
+    attack_req: 10
+
+  - id: 1329
+    name: "Mithril scimitar"
+    examine: "A finely balanced mithril scimitar."
+    stackable: false
+    equipable: true
+    consumable: false
+    equip_slot: 4
+    weapon_type: "slash"
+    attack_range: 1
+    stab_attack: -2
+    slash_attack: 40
+    crush_attack: -2
+    melee_strength: 40
+    attack_req: 20
+
+  - id: 1331
+    name: "Adamant scimitar"
+    examine: "A finely balanced adamant scimitar."
+    stackable: false
+    equipable: true
+    consumable: false
+    equip_slot: 4
+    weapon_type: "slash"
+    attack_range: 1
+    stab_attack: -2
+    slash_attack: 47
+    crush_attack: -2
+    melee_strength: 46
+    attack_req: 30
+
+  - id: 1333
+    name: "Rune scimitar"
+    examine: "A finely balanced rune scimitar."
+    stackable: false
+    equipable: true
+    consumable: false
+    equip_slot: 4
+    weapon_type: "slash"
+    attack_range: 1
+    stab_attack: -2
+    slash_attack: 45
+    crush_attack: -2
+    melee_strength: 67
+    attack_req: 40
+
+  - id: 4587
+    name: "Dragon scimitar"
+    examine: "A vicious, curved sword."
+    stackable: false
+    equipable: true
+    consumable: false
+    equip_slot: 4
+    weapon_type: "slash"
+    attack_range: 1
+    stab_attack: -4
+    slash_attack: 67
+    crush_attack: -4
+    melee_strength: 66
+    attack_req: 60
+
+  # ── Full helms (iron through dragon) ─────────────────────────────────────
+  # Source: https://oldschool.runescape.wiki/w/Full_helm
+
+  - id: 1153
+    name: "Iron full helm"
+    examine: "A full helmet of iron."
+    stackable: false
+    equipable: true
+    consumable: false
+    equip_slot: 0
+    stab_defence: 5
+    slash_defence: 6
+    crush_defence: 5
+    magic_defence: -1
+    ranged_defence: 6
+    defence_req: 1
+
+  - id: 1157
+    name: "Steel full helm"
+    examine: "A full helmet of steel."
+    stackable: false
+    equipable: true
+    consumable: false
+    equip_slot: 0
+    stab_defence: 9
+    slash_defence: 11
+    crush_defence: 9
+    magic_defence: -1
+    ranged_defence: 11
+    defence_req: 5
+
+  - id: 1159
+    name: "Black full helm"
+    examine: "A full helmet of black metal."
+    stackable: false
+    equipable: true
+    consumable: false
+    equip_slot: 0
+    stab_defence: 11
+    slash_defence: 14
+    crush_defence: 11
+    magic_defence: -1
+    ranged_defence: 14
+    defence_req: 10
+
+  - id: 1163
+    name: "Mithril full helm"
+    examine: "A full helmet of mithril."
+    stackable: false
+    equipable: true
+    consumable: false
+    equip_slot: 0
+    stab_defence: 14
+    slash_defence: 17
+    crush_defence: 14
+    magic_defence: -1
+    ranged_defence: 17
+    defence_req: 20
+
+  - id: 1161
+    name: "Adamant full helm"
+    examine: "A full helmet of adamantite."
+    stackable: false
+    equipable: true
+    consumable: false
+    equip_slot: 0
+    stab_defence: 19
+    slash_defence: 23
+    crush_defence: 19
+    magic_defence: -1
+    ranged_defence: 23
+    defence_req: 30
+
+  - id: 1165
+    name: "Rune full helm"
+    examine: "A full helmet of rune."
+    stackable: false
+    equipable: true
+    consumable: false
+    equip_slot: 0
+    stab_defence: 26
+    slash_defence: 32
+    crush_defence: 26
+    magic_defence: -1
+    ranged_defence: 32
+    defence_req: 40
+
+  - id: 11335
+    name: "Dragon full helm"
+    examine: "A full helmet of dragon metal."
+    stackable: false
+    equipable: true
+    consumable: false
+    equip_slot: 0
+    stab_defence: 44
+    slash_defence: 48
+    crush_defence: 44
+    magic_defence: -1
+    ranged_defence: 48
+    defence_req: 60
+
+  # ── Platebodies (iron through dragon) ────────────────────────────────────
+  # Note: iron platebody uses id 2000 - OSRS id 1115 conflicts with bronze full helm in this game.
+
+  - id: 2000
+    name: "Iron platebody"
+    examine: "Solid iron armour."
+    stackable: false
+    equipable: true
+    consumable: false
+    equip_slot: 6
+    magic_attack: -6
+    ranged_attack: -15
+    stab_defence: 29
+    slash_defence: 28
+    crush_defence: 26
+    magic_defence: -6
+    ranged_defence: 29
+    prayer: -1
+    defence_req: 1
+
+  - id: 1085
+    name: "Steel platebody"
+    examine: "Solid steel armour."
+    stackable: false
+    equipable: true
+    consumable: false
+    equip_slot: 6
+    magic_attack: -6
+    ranged_attack: -15
+    stab_defence: 44
+    slash_defence: 42
+    crush_defence: 40
+    magic_defence: -6
+    ranged_defence: 44
+    defence_req: 5
+
+  - id: 1125
+    name: "Black platebody"
+    examine: "Solid black metal armour."
+    stackable: false
+    equipable: true
+    consumable: false
+    equip_slot: 6
+    magic_attack: -6
+    ranged_attack: -15
+    stab_defence: 52
+    slash_defence: 49
+    crush_defence: 47
+    magic_defence: -6
+    ranged_defence: 52
+    defence_req: 10
+
+  - id: 1129
+    name: "Mithril platebody"
+    examine: "Solid mithril armour."
+    stackable: false
+    equipable: true
+    consumable: false
+    equip_slot: 6
+    magic_attack: -6
+    ranged_attack: -15
+    stab_defence: 63
+    slash_defence: 61
+    crush_defence: 58
+    magic_defence: -6
+    ranged_defence: 63
+    defence_req: 20
+
+  - id: 1133
+    name: "Adamant platebody"
+    examine: "Solid adamantite armour."
+    stackable: false
+    equipable: true
+    consumable: false
+    equip_slot: 6
+    magic_attack: -6
+    ranged_attack: -15
+    stab_defence: 81
+    slash_defence: 79
+    crush_defence: 76
+    magic_defence: -6
+    ranged_defence: 81
+    defence_req: 30
+
+  - id: 1127
+    name: "Rune platebody"
+    examine: "Solid rune armour."
+    stackable: false
+    equipable: true
+    consumable: false
+    equip_slot: 6
+    magic_attack: -6
+    ranged_attack: -15
+    stab_defence: 99
+    slash_defence: 97
+    crush_defence: 94
+    magic_defence: -6
+    ranged_defence: 99
+    prayer: -1
+    defence_req: 40
+
+  - id: 3140
+    name: "Dragon chainbody"
+    examine: "An extremely strong chainbody."
+    stackable: false
+    equipable: true
+    consumable: false
+    equip_slot: 6
+    magic_attack: -6
+    ranged_attack: -15
+    stab_defence: 82
+    slash_defence: 80
+    crush_defence: 72
+    magic_defence: -6
+    ranged_defence: 80
+    defence_req: 60
+
+  # ── Platelegs (iron through dragon) ──────────────────────────────────────
+
+  - id: 1069
+    name: "Iron platelegs"
+    examine: "These should protect my legs."
+    stackable: false
+    equipable: true
+    consumable: false
+    equip_slot: 7
+    magic_attack: -2
+    ranged_attack: -7
+    stab_defence: 19
+    slash_defence: 22
+    crush_defence: 19
+    magic_defence: -2
+    ranged_defence: 19
+    defence_req: 1
+
+  - id: 1071
+    name: "Steel platelegs"
+    examine: "These should protect my legs."
+    stackable: false
+    equipable: true
+    consumable: false
+    equip_slot: 7
+    magic_attack: -2
+    ranged_attack: -7
+    stab_defence: 29
+    slash_defence: 34
+    crush_defence: 29
+    magic_defence: -2
+    ranged_defence: 29
+    defence_req: 5
+
+  - id: 1073
+    name: "Black platelegs"
+    examine: "These should protect my legs."
+    stackable: false
+    equipable: true
+    consumable: false
+    equip_slot: 7
+    magic_attack: -2
+    ranged_attack: -7
+    stab_defence: 34
+    slash_defence: 40
+    crush_defence: 34
+    magic_defence: -2
+    ranged_defence: 34
+    defence_req: 10
+
+  - id: 1075
+    name: "Mithril platelegs"
+    examine: "These should protect my legs."
+    stackable: false
+    equipable: true
+    consumable: false
+    equip_slot: 7
+    magic_attack: -2
+    ranged_attack: -7
+    stab_defence: 41
+    slash_defence: 49
+    crush_defence: 41
+    magic_defence: -2
+    ranged_defence: 41
+    defence_req: 20
+
+  - id: 1077
+    name: "Adamant platelegs"
+    examine: "These should protect my legs."
+    stackable: false
+    equipable: true
+    consumable: false
+    equip_slot: 7
+    magic_attack: -2
+    ranged_attack: -7
+    stab_defence: 53
+    slash_defence: 63
+    crush_defence: 53
+    magic_defence: -2
+    ranged_defence: 53
+    defence_req: 30
+
+  - id: 1079
+    name: "Rune platelegs"
+    examine: "These should protect my legs."
+    stackable: false
+    equipable: true
+    consumable: false
+    equip_slot: 7
+    magic_attack: -2
+    ranged_attack: -7
+    stab_defence: 65
+    slash_defence: 77
+    crush_defence: 65
+    magic_defence: -2
+    ranged_defence: 65
+    defence_req: 40
+
+  - id: 4087
+    name: "Dragon platelegs"
+    examine: "These should protect my legs."
+    stackable: false
+    equipable: true
+    consumable: false
+    equip_slot: 7
+    magic_attack: -2
+    ranged_attack: -7
+    stab_defence: 81
+    slash_defence: 92
+    crush_defence: 81
+    magic_defence: -2
+    ranged_defence: 81
+    defence_req: 60
+
+  # ── Sq shields (bronze through dragon) ───────────────────────────────────
+  # Bronze sq shield uses id 1175 - OSRS id 1173 conflicts with Wooden shield in this game.
+
+  - id: 1175
+    name: "Bronze sq shield"
+    examine: "A sturdy square shield."
+    stackable: false
+    equipable: true
+    consumable: false
+    equip_slot: 5
+    stab_defence: 7
+    slash_defence: 8
+    crush_defence: 6
+    magic_defence: -1
+    ranged_defence: 7
+    defence_req: 1
+
+  - id: 1177
+    name: "Iron sq shield"
+    examine: "A sturdy square shield."
+    stackable: false
+    equipable: true
+    consumable: false
+    equip_slot: 5
+    stab_defence: 13
+    slash_defence: 15
+    crush_defence: 11
+    magic_defence: -1
+    ranged_defence: 13
+    defence_req: 1
+
+  - id: 1193
+    name: "Steel sq shield"
+    examine: "A sturdy square shield."
+    stackable: false
+    equipable: true
+    consumable: false
+    equip_slot: 5
+    stab_defence: 21
+    slash_defence: 24
+    crush_defence: 18
+    magic_defence: -1
+    ranged_defence: 21
+    defence_req: 5
+
+  - id: 1195
+    name: "Black sq shield"
+    examine: "A sturdy square shield."
+    stackable: false
+    equipable: true
+    consumable: false
+    equip_slot: 5
+    stab_defence: 26
+    slash_defence: 29
+    crush_defence: 22
+    magic_defence: -1
+    ranged_defence: 26
+    defence_req: 10
+
+  - id: 1197
+    name: "Mithril sq shield"
+    examine: "A sturdy square shield."
+    stackable: false
+    equipable: true
+    consumable: false
+    equip_slot: 5
+    stab_defence: 30
+    slash_defence: 35
+    crush_defence: 26
+    magic_defence: -1
+    ranged_defence: 30
+    defence_req: 20
+
+  - id: 1199
+    name: "Adamant sq shield"
+    examine: "A sturdy square shield."
+    stackable: false
+    equipable: true
+    consumable: false
+    equip_slot: 5
+    stab_defence: 37
+    slash_defence: 43
+    crush_defence: 32
+    magic_defence: -1
+    ranged_defence: 37
+    defence_req: 30
+
+  - id: 1185
+    name: "Rune sq shield"
+    examine: "A sturdy square shield."
+    stackable: false
+    equipable: true
+    consumable: false
+    equip_slot: 5
+    stab_defence: 46
+    slash_defence: 54
+    crush_defence: 40
+    magic_defence: -1
+    ranged_defence: 46
+    defence_req: 40
+
+  - id: 11286
+    name: "Dragon sq shield"
+    examine: "An extremely strong square shield."
+    stackable: false
+    equipable: true
+    consumable: false
+    equip_slot: 5
+    stab_defence: 60
+    slash_defence: 65
+    crush_defence: 52
+    magic_defence: -1
+    ranged_defence: 60
+    defence_req: 60

@@ -214,6 +214,7 @@ public class GameLoop {
                 for (Player p : world.getPlayers().values()) {
                     PlayerRepository.savePlayer(p);
                     PlayerRepository.saveInventory(p);
+                    PlayerRepository.saveEquipment(p);
                     PlayerSession ps = getSessionForPlayer(p.getId());
                     if (ps != null) {
                         PlayerRepository.saveQuestProgress(p, ps.getQuestManager());

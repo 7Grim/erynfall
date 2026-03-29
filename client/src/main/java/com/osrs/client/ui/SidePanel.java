@@ -100,7 +100,7 @@ public class SidePanel {
     private enum CharacterPage {
         SUMMARY,
         QUEST_LIST,
-        QUEST_JOURNAL
+        GEAR
     }
 
     public enum QuestStatus {
@@ -150,7 +150,13 @@ public class SidePanel {
     // Skills (synced from ClientPacketHandler each frame)
     private final int[]  skillLevels = new int[23];
     private final long[] skillXp     = new long[23];
+    private final int[]    equippedIds   = new int[11];
+    private final String[] equippedNames = new String[11];
     private boolean memberPlayer = false;
+
+    private static final String[] SLOT_LABELS = {
+        "Head","Cape","Neck","Ammo","Weapon","Shield","Body","Legs","Hands","Feet","Ring"
+    };
 
     private static final String[] SKILL_NAMES = {
         "Attack", "Strength", "Defence", "Hitpoints", "Ranged", "Magic",
@@ -699,7 +705,7 @@ public class SidePanel {
 
         batch.begin();
         font.getData().setScale(0.72f);
-        String[] labels = {"Summary", "Quests", "Journal"};
+        String[] labels = {"Summary", "Quests", "Gear"};
         for (int i = 0; i < 3; i++) {
             int bx = panelX + pad + i * (subW + pad);
             font.setColor(characterPage.ordinal() == i ? new Color(1f, 0.90f, 0.10f, 1f) : Color.WHITE);
@@ -752,33 +758,17 @@ public class SidePanel {
             font.setColor(0.75f, 0.75f, 0.75f, 1f);
             font.getData().setScale(0.65f);
             font.draw(batch, "Red: not started  Yellow: in progress  Green: complete", panelX + pad, panelY + 10);
-        } else {
-            QuestView q = quests.get(selectedQuestId);
-            font.getData().setScale(0.80f);
-            if (q == null) {
-                font.setColor(0.8f, 0.75f, 0.65f, 1f);
-                font.draw(batch, "Select a quest from Quests.", panelX + pad, bodyTop);
-            } else {
-                font.setColor(colorForQuest(q.status));
-                font.draw(batch, q.questName, panelX + pad, bodyTop);
-                font.setColor(0.7f, 0.7f, 0.7f, 1f);
-                font.getData().setScale(0.68f);
-                font.draw(batch, q.description == null ? "" : q.description, panelX + pad, bodyTop - 16);
-
-                int y = bodyTop - 34;
-                for (QuestTaskView task : q.tasks) {
-                    if (y < panelY + 20) break;
-                    font.setColor(task.completed ? new Color(0.35f, 0.85f, 0.35f, 1f) : Color.WHITE);
-                    String progress = task.requiredCount > 1
-                        ? " (" + task.currentCount + "/" + task.requiredCount + ")"
-                        : (task.completed ? " (Done)" : "");
-                    font.draw(batch, "- " + task.description + progress, panelX + pad, y);
-                    y -= 14;
-                }
-
-                font.setColor(1f, 0.9f, 0.10f, 1f);
-                font.draw(batch, "Reward: " + q.questPointsReward + " Quest Point" + (q.questPointsReward == 1 ? "" : "s"),
-                    panelX + pad, panelY + 12);
+        } else if (characterPage == CharacterPage.GEAR) {
+            int lineH = 16;
+            int startY = bodyTop;
+            font.getData().setScale(0.72f);
+            for (int i = 0; i < 11; i++) {
+                String label = SLOT_LABELS[i] + ": ";
+                String item  = (equippedIds[i] > 0) ? equippedNames[i] : "(empty)";
+                font.setColor(0.75f, 0.68f, 0.45f, 1f);
+                font.draw(batch, label, panelX + pad, startY - i * lineH);
+                font.setColor(equippedIds[i] > 0 ? Color.WHITE : new Color(0.45f, 0.45f, 0.45f, 1f));
+                font.draw(batch, item, panelX + pad + 52, startY - i * lineH);
             }
         }
         font.getData().setScale(1f);
@@ -870,7 +860,6 @@ public class SidePanel {
                         int rowBottom = y - 16;
                         if (mx >= panelX + pad && mx <= panelX + PANEL_W - pad && my <= rowTop && my >= rowBottom) {
                             selectedQuestId = q.questId;
-                            characterPage = CharacterPage.QUEST_JOURNAL;
                             return -1;
                         }
                         y -= 16;
@@ -928,6 +917,13 @@ public class SidePanel {
         int n = Math.min(levels.length, skillLevels.length);
         System.arraycopy(levels, 0, skillLevels, 0, n);
         System.arraycopy(xp, 0, skillXp, 0, n);
+    }
+
+    public void setEquipmentSlot(int slot, int itemId, String name) {
+        if (slot >= 0 && slot < 11) {
+            equippedIds[slot] = itemId;
+            equippedNames[slot] = name != null ? name : "";
+        }
     }
 
     public void setMember(boolean isMember) { this.memberPlayer = isMember; }

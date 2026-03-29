@@ -60,6 +60,8 @@ public class ItemLoader {
             def.rangedStrength  = getInt(raw, "ranged_strength", 0);
             def.magicDamage     = getInt(raw, "magic_damage",    0);
             def.prayer          = getInt(raw, "prayer",          0);
+            def.defenceReq      = getInt(raw, "defence_req", 1);
+            def.attackReq       = getInt(raw, "attack_req",  1);
 
             if (def.id > 0) items.put(def.id, def);
         }
