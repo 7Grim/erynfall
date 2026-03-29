@@ -1,0 +1,84 @@
+name: Deploy Game Server
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'server/**'
+      - 'shared/**'
+      - 'assets/**'
+      - '.github/workflows/deploy-server.yml'
+
+# Prevent concurrent deploys
+concurrency:
+  group: deploy-server
+  cancel-in-progress: false
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # needed to create GitHub Releases
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Build server JAR
+        run: mvn -pl shared,server -DskipTests --no-transfer-progress package
+
+      - name: Get short commit SHA
+        id: sha
+        run: echo "short=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release with JAR
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: server-${{ steps.sha.outputs.short }}
+          name: "Server ${{ steps.sha.outputs.short }}"
+          body: "Automated build from ${{ github.sha }}"
+          files: server/target/osrs-server-*.jar
+          # Keep only recent releases — older ones auto-deleted by the cleanup job
+          make_latest: true
+
+      - name: Trigger deploy on Azure VM
+        env:
+          SSH_KEY: ${{ secrets.AZURE_VM_SSH_KEY }}
+          VM_HOST: ${{ secrets.AZURE_VM_HOST }}
+          VM_USER: ${{ secrets.AZURE_VM_USER }}
+          GITHUB_REPO: ${{ github.repository }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "$SSH_KEY" > /tmp/deploy_key
+          chmod 600 /tmp/deploy_key
+
+          # Pass the GITHUB_TOKEN so the VM can download the release asset
+          # (needed if repo is private)
+          ssh -i /tmp/deploy_key \
+              -o StrictHostKeyChecking=no \
+              $VM_USER@$VM_HOST \
+              "GITHUB_TOKEN='$GITHUB_TOKEN' GITHUB_REPO='$GITHUB_REPO' /opt/erynfall/deploy.sh"
+
+          rm /tmp/deploy_key
+
+      - name: Verify server started
+        env:
+          SSH_KEY: ${{ secrets.AZURE_VM_SSH_KEY }}
+          VM_HOST: ${{ secrets.AZURE_VM_HOST }}
+          VM_USER: ${{ secrets.AZURE_VM_USER }}
+        run: |
+          echo "$SSH_KEY" > /tmp/deploy_key
+          chmod 600 /tmp/deploy_key
+          sleep 10
+          ssh -i /tmp/deploy_key \
+              -o StrictHostKeyChecking=no \
+              $VM_USER@$VM_HOST \
+              "sudo journalctl -u erynfall --since '30 seconds ago' --no-pager | tail -20"
+          rm /tmp/deploy_key

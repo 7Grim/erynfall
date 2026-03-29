@@ -37,3 +37,7 @@ Thumbs.db
 local.properties
 .env.server.local
 .env.client.local
+
+# Claude Code
+.claude/worktrees/
+.claude/plans/
