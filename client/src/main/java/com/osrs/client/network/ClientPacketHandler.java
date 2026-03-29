@@ -487,6 +487,63 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
         return entityCombatLevels.getOrDefault(entityId, 0);
     }
 
+    // Returns the ground item ID at the given tile, or null if none.
+    public Integer getGroundItemAt(int tileX, int tileY) {
+        for (Map.Entry<Integer, int[]> entry : groundItems.entrySet()) {
+            int[] item = entry.getValue();
+            if (item[2] == tileX && item[3] == tileY) {
+                return entry.getKey();
+            }
+        }
+        return null;
+    }
+
+    // Returns an NPC entity ID at the given tile, or null if none.
+    public Integer getNpcAt(int tileX, int tileY) {
+        for (Map.Entry<Integer, int[]> entry : entityPositions.entrySet()) {
+            int id = entry.getKey();
+            if (isPlayer(id)) continue;
+            if (isResourceNpc(id)) continue;
+            int[] pos = entry.getValue();
+            if (pos[0] == tileX && pos[1] == tileY) {
+                return id;
+            }
+        }
+        return null;
+    }
+
+    // Returns true if an NPC is hostile (attacks player on sight / is a combat target).
+    public boolean isNpcHostile(int npcId) {
+        return getEntityCombatLevel(npcId) > 0;
+    }
+
+    // Returns a resource NPC ID at the tile if it is a skilling target, null otherwise.
+    public Integer getResourceNpcAt(int tileX, int tileY) {
+        for (Map.Entry<Integer, int[]> entry : entityPositions.entrySet()) {
+            int id = entry.getKey();
+            if (isPlayer(id)) continue;
+            if (!isResourceNpc(id)) continue;
+            int[] pos = entry.getValue();
+            if (pos[0] == tileX && pos[1] == tileY) {
+                return id;
+            }
+        }
+        return null;
+    }
+
+    // Returns the primary skilling action string for a resource NPC ("chop", "fish", "cook_at").
+    public String getResourcePrimarySkill(int npcId) {
+        String name = getEntityName(npcId);
+        if ("Tree".equalsIgnoreCase(name)) return "chop";
+        if ("Fishing spot".equalsIgnoreCase(name)) return "fish";
+        if ("Fire".equalsIgnoreCase(name)) return "cook_at";
+        return null;
+    }
+
+    private boolean isResourceNpc(int npcId) {
+        return getResourcePrimarySkill(npcId) != null;
+    }
+
     public int getMyPlayerId()    { return myPlayerId; }
     public int getPlayerHealth()  { return playerHealth; }
     public int getPlayerMaxHealth() { return playerMaxHealth; }

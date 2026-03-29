@@ -906,8 +906,11 @@ public class GameScreen extends ApplicationAdapter {
                     sidePanel.setSelectedInventorySlot(-1);
                 }
                 int[] tile = screenToTile(mx, my);
-                if (CoordinateConverter.isValidTile(tile[0], tile[1]))
-                    walkTo(tile[0], tile[1]);
+                if (CoordinateConverter.isValidTile(tile[0], tile[1])) {
+                    if (!handleWorldLeftClick(tile[0], tile[1])) {
+                        walkTo(tile[0], tile[1]);
+                    }
+                }
             }
         }
 
@@ -1638,6 +1641,44 @@ public class GameScreen extends ApplicationAdapter {
         ClientPacketHandler h = handler();
         String name = (h != null) ? h.getEntityName(npcId) : "creature";
         chatBox.addSystemMessage("It's a " + (name == null || name.isEmpty() ? "creature" : name) + ".");
+    }
+
+    /**
+     * Handles a left-click on a world tile by executing the primary context action.
+     * Returns true if a primary action was found and initiated (suppress plain walk).
+     * Returns false if no entity/item at tile — caller should plain-walk.
+     */
+    private boolean handleWorldLeftClick(int tileX, int tileY) {
+        ClientPacketHandler h = handler();
+        if (h == null) return false;
+
+        Integer groundItemId = h.getGroundItemAt(tileX, tileY);
+        if (groundItemId != null) {
+            startGroundItemApproach(groundItemId);
+            return true;
+        }
+
+        Integer npcId = h.getNpcAt(tileX, tileY);
+        if (npcId != null) {
+            boolean isHostile = h.isNpcHostile(npcId);
+            if (isHostile) {
+                startApproach(npcId, "attack");
+            } else {
+                startApproach(npcId, "talk");
+            }
+            return true;
+        }
+
+        Integer resourceNpcId = h.getResourceNpcAt(tileX, tileY);
+        if (resourceNpcId != null) {
+            String primarySkill = h.getResourcePrimarySkill(resourceNpcId);
+            if (primarySkill != null) {
+                startApproach(resourceNpcId, primarySkill);
+                return true;
+            }
+        }
+
+        return false;
     }
 
     // -----------------------------------------------------------------------
