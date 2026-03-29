@@ -188,6 +188,14 @@ public class NettyClient {
         LOG.debug("Sent UseItem: slot={} action={}", inventorySlot, action);
     }
 
+    public void sendUnequipItem(int equipmentSlot) {
+        if (channel == null || !channel.isActive()) return;
+        channel.writeAndFlush(NetworkProto.ClientMessage.newBuilder()
+            .setUnequipItem(NetworkProto.UnequipItem.newBuilder()
+                .setEquipmentSlot(equipmentSlot))
+            .build());
+    }
+
     public void sendUseItemOnItem(int sourceSlot, int targetSlot) {
         NetworkProto.ClientMessage msg = NetworkProto.ClientMessage.newBuilder()
             .setUseItemOnItem(NetworkProto.UseItemOnItem.newBuilder()

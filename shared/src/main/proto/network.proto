@@ -263,6 +263,11 @@ message UseItemOnItem {
     int64 sequence    = 3;
 }
 
+// Client → Server: remove item from equipment slot, return to inventory
+message UnequipItem {
+    int32 equipment_slot = 1;
+}
+
 // SwapInventorySlots: Client → Server (drag-and-drop rearrange)
 message SwapInventorySlots {
     int32 from_slot = 1;
@@ -326,6 +331,24 @@ message SkillUpdate {
     bool leveled_up = 4;
 }
 
+// Server → Client: full equipment bonus snapshot (sent after every equip/unequip)
+message EquipmentBonuses {
+    int32 stab_attack     = 1;
+    int32 slash_attack    = 2;
+    int32 crush_attack    = 3;
+    int32 magic_attack    = 4;
+    int32 ranged_attack   = 5;
+    int32 stab_defence    = 6;
+    int32 slash_defence   = 7;
+    int32 crush_defence   = 8;
+    int32 magic_defence   = 9;
+    int32 ranged_defence  = 10;
+    int32 melee_strength  = 11;
+    int32 ranged_strength = 12;
+    int32 magic_damage    = 13;
+    int32 prayer          = 14;
+}
+
 // ClientMessage: wrapper for all client → server messages
 message ClientMessage {
     oneof payload {
@@ -345,6 +368,7 @@ message ClientMessage {
         LogoutRequest logout_request = 14;
         StartSkillingRequest start_skilling = 15;
         UseItemOnItem use_item_on_item = 16;
+        UnequipItem unequip_item = 17;
     }
 }
 
@@ -372,5 +396,6 @@ message ServerMessage {
         ChatBroadcast chat_broadcast = 19; // Public chat from a nearby player
         LogoutResponse logout_response = 20;
         SkillingStateUpdate skilling_state_update = 21;
+        EquipmentBonuses equipment_bonuses = 22;
     }
 }

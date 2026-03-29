@@ -465,6 +465,7 @@ public class GameScreen extends ApplicationAdapter {
                 h.getEquipmentItemId(slot),
                 h.getEquipmentName(slot));
         }
+        sidePanel.setEquipBonuses(h.getEquipBonuses());
 
         // Authoritative local-player position correction from server.
         // This is critical now that some interactions (e.g. skilling) can move
@@ -910,9 +911,13 @@ public class GameScreen extends ApplicationAdapter {
                         sidePanel.setSelectedInventorySlot(-1);
                     }
                 }
-                int style = sidePanel.handleLeftClick(mx, screenMy);
-                if (style >= 0 && nettyClient != null) {
-                    nettyClient.sendSetCombatStyle(style);
+                int click = sidePanel.handleLeftClick(mx, screenMy);
+                if (click >= 0) {
+                    sidePanel.setCombatStyle(click);
+                    if (nettyClient != null) nettyClient.sendSetCombatStyle(click);
+                } else if (click <= -100) {
+                    int equipSlot = -(click + 100);   // recovers slot index 0-10
+                    if (nettyClient != null) nettyClient.sendUnequipItem(equipSlot);
                 }
                 if (sidePanel.consumeLogoutRequested()) {
                     requestLogout();
@@ -989,8 +994,14 @@ public class GameScreen extends ApplicationAdapter {
             } else if (!dialogueUI.isOverDialogue(mx, screenMy)) {
                 dialogueUI.close();
                 if (sidePanel.isOverPanel(mx, screenMy)) {
-                    int style = sidePanel.handleLeftClick(mx, screenMy);
-                    if (style >= 0 && nettyClient != null) nettyClient.sendSetCombatStyle(style);
+                    int click = sidePanel.handleLeftClick(mx, screenMy);
+                    if (click >= 0) {
+                        sidePanel.setCombatStyle(click);
+                        if (nettyClient != null) nettyClient.sendSetCombatStyle(click);
+                    } else if (click <= -100) {
+                        int equipSlot = -(click + 100);   // recovers slot index 0-10
+                        if (nettyClient != null) nettyClient.sendUnequipItem(equipSlot);
+                    }
                     if (sidePanel.consumeLogoutRequested()) requestLogout();
                 } else {
                     int[] tile = screenToTile(mx, rawMy);

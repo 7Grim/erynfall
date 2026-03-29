@@ -152,6 +152,8 @@ public class SidePanel {
     private final long[] skillXp     = new long[23];
     private final int[]    equippedIds   = new int[11];
     private final String[] equippedNames = new String[11];
+    private int[]   equipBonuses  = new int[14]; // indices 0-13: stab_attack...prayer
+    private boolean gearShowStats = false;        // false=slot grid, true=bonus stats
     private boolean memberPlayer = false;
 
     private static final String[] SLOT_LABELS = {
@@ -759,16 +761,157 @@ public class SidePanel {
             font.getData().setScale(0.65f);
             font.draw(batch, "Red: not started  Yellow: in progress  Green: complete", panelX + pad, panelY + 10);
         } else if (characterPage == CharacterPage.GEAR) {
-            int lineH = 16;
-            int startY = bodyTop;
-            font.getData().setScale(0.72f);
-            for (int i = 0; i < 11; i++) {
-                String label = SLOT_LABELS[i] + ": ";
-                String item  = (equippedIds[i] > 0) ? equippedNames[i] : "(empty)";
-                font.setColor(0.75f, 0.68f, 0.45f, 1f);
-                font.draw(batch, label, panelX + pad, startY - i * lineH);
-                font.setColor(equippedIds[i] > 0 ? Color.WHITE : new Color(0.45f, 0.45f, 0.45f, 1f));
-                font.draw(batch, item, panelX + pad + 52, startY - i * lineH);
+            final int SLOT_SIZE = 36;
+            final int toggleY   = panelY + 22;
+            final int toggleH   = 14;
+            final int half      = PANEL_W / 2;
+
+            // -- Slots / Stats toggle --
+            batch.end();
+            sr.setProjectionMatrix(proj);
+            sr.begin(ShapeRenderer.ShapeType.Filled);
+            sr.setColor(!gearShowStats
+                ? new Color(0.32f, 0.25f, 0.06f, 1f)
+                : new Color(0.13f, 0.12f, 0.10f, 1f));
+            sr.rect(panelX, toggleY, half - 1, toggleH);
+            sr.setColor(gearShowStats
+                ? new Color(0.32f, 0.25f, 0.06f, 1f)
+                : new Color(0.13f, 0.12f, 0.10f, 1f));
+            sr.rect(panelX + half, toggleY, half, toggleH);
+            sr.end();
+            sr.begin(ShapeRenderer.ShapeType.Line);
+            sr.setColor(new Color(0.40f, 0.36f, 0.26f, 1f));
+            sr.rect(panelX, toggleY, half - 1, toggleH);
+            sr.rect(panelX + half, toggleY, half, toggleH);
+            sr.end();
+            batch.setProjectionMatrix(proj);
+            batch.begin();
+            font.getData().setScale(0.65f);
+            font.setColor(!gearShowStats ? new Color(1f, 0.90f, 0.10f, 1f) : Color.WHITE);
+            font.draw(batch, "Equipment", panelX + 18, toggleY + 11);
+            font.setColor(gearShowStats ? new Color(1f, 0.90f, 0.10f, 1f) : Color.WHITE);
+            font.draw(batch, "Bonuses", panelX + half + 22, toggleY + 11);
+
+            if (!gearShowStats) {
+                // -- Visual slot grid --
+                String[] slotAbbrev = {
+                    "Head","Cape","Neck","Ammo","Weapon","Shield",
+                    "Body","Legs","Hands","Feet","Ring"
+                };
+                int[][] slotPos = getGearSlotPositions();
+
+                batch.end();
+                sr.begin(ShapeRenderer.ShapeType.Filled);
+                for (int i = 0; i < 11; i++) {
+                    int sx = slotPos[i][0], sy = slotPos[i][1];
+                    boolean filled = equippedIds[i] > 0;
+                    sr.setColor(filled
+                        ? new Color(0.18f, 0.15f, 0.09f, 1f)
+                        : new Color(0.10f, 0.09f, 0.07f, 1f));
+                    sr.rect(sx, sy, SLOT_SIZE, SLOT_SIZE);
+                    if (filled) {
+                        // tier-colour swatch in centre of slot
+                        Color ic = itemTierColor(equippedNames[i]);
+                        sr.setColor(ic);
+                        sr.rect(sx + 13, sy + 13, 10, 10);
+                    }
+                }
+                sr.end();
+                sr.begin(ShapeRenderer.ShapeType.Line);
+                for (int i = 0; i < 11; i++) {
+                    int sx = slotPos[i][0], sy = slotPos[i][1];
+                    boolean filled = equippedIds[i] > 0;
+                    sr.setColor(filled
+                        ? new Color(0.80f, 0.65f, 0.20f, 1f)
+                        : new Color(0.35f, 0.32f, 0.22f, 1f));
+                    sr.rect(sx, sy, SLOT_SIZE, SLOT_SIZE);
+                }
+                sr.end();
+                batch.setProjectionMatrix(proj);
+                batch.begin();
+                font.getData().setScale(0.58f);
+                for (int i = 0; i < 11; i++) {
+                    int sx = slotPos[i][0], sy = slotPos[i][1];
+                    if (equippedIds[i] > 0) {
+                        font.setColor(Color.WHITE);
+                        String n = equippedNames[i];
+                        if (n.length() > 11) n = n.substring(0, 11);
+                        font.draw(batch, n, sx + 2, sy + 10);
+                    } else {
+                        font.setColor(new Color(0.40f, 0.38f, 0.28f, 1f));
+                        font.draw(batch, slotAbbrev[i], sx + 3, sy + 22);
+                    }
+                }
+                font.getData().setScale(0.58f);
+                font.setColor(new Color(0.60f, 0.55f, 0.35f, 1f));
+                font.draw(batch, "Click slot to unequip", panelX + 8, panelY + 14);
+
+            } else {
+                // -- Bonus stats view --
+                int sy2 = bodyTop - 4;
+                final int LH = 14;
+                final int col2 = panelX + 8 + 108;
+
+                batch.end();
+                batch.setProjectionMatrix(proj);
+                batch.begin();
+                String[] atkLbls   = {"Stab",   "Slash",  "Crush",  "Magic",  "Ranged"};
+                String[] defLbls   = {"Stab",   "Slash",  "Crush",  "Magic",  "Ranged"};
+                String[] otherLbls = {"Melee Str", "Range Str", "Magic Dmg", "Prayer"};
+                int[] atkIdx   = {0, 1, 2, 3, 4};
+                int[] defIdx   = {5, 6, 7, 8, 9};
+                int[] otherIdx = {10, 11, 12, 13};
+
+                // Attack bonuses
+                font.getData().setScale(0.68f);
+                font.setColor(new Color(1f, 0.75f, 0.20f, 1f));
+                font.draw(batch, "Attack Bonuses", panelX + 8, sy2);
+                sy2 -= LH;
+                font.getData().setScale(0.63f);
+                for (int i = 0; i < 5; i++) {
+                    int v = equipBonuses[atkIdx[i]];
+                    font.setColor(new Color(0.75f, 0.70f, 0.50f, 1f));
+                    font.draw(batch, atkLbls[i], panelX + 8, sy2);
+                    font.setColor(v >= 0
+                        ? new Color(0.40f, 0.85f, 0.40f, 1f)
+                        : new Color(0.85f, 0.40f, 0.40f, 1f));
+                    font.draw(batch, (v >= 0 ? "+" : "") + v, col2, sy2);
+                    sy2 -= LH;
+                }
+                sy2 -= 4;
+                // Defence bonuses
+                font.getData().setScale(0.68f);
+                font.setColor(new Color(1f, 0.75f, 0.20f, 1f));
+                font.draw(batch, "Defence Bonuses", panelX + 8, sy2);
+                sy2 -= LH;
+                font.getData().setScale(0.63f);
+                for (int i = 0; i < 5; i++) {
+                    int v = equipBonuses[defIdx[i]];
+                    font.setColor(new Color(0.75f, 0.70f, 0.50f, 1f));
+                    font.draw(batch, defLbls[i], panelX + 8, sy2);
+                    font.setColor(v >= 0
+                        ? new Color(0.40f, 0.85f, 0.40f, 1f)
+                        : new Color(0.85f, 0.40f, 0.40f, 1f));
+                    font.draw(batch, (v >= 0 ? "+" : "") + v, col2, sy2);
+                    sy2 -= LH;
+                }
+                sy2 -= 4;
+                // Other bonuses
+                font.getData().setScale(0.68f);
+                font.setColor(new Color(1f, 0.75f, 0.20f, 1f));
+                font.draw(batch, "Other Bonuses", panelX + 8, sy2);
+                sy2 -= LH;
+                font.getData().setScale(0.63f);
+                for (int i = 0; i < 4; i++) {
+                    int v = equipBonuses[otherIdx[i]];
+                    font.setColor(new Color(0.75f, 0.70f, 0.50f, 1f));
+                    font.draw(batch, otherLbls[i], panelX + 8, sy2);
+                    font.setColor(v >= 0
+                        ? new Color(0.40f, 0.85f, 0.40f, 1f)
+                        : new Color(0.85f, 0.40f, 0.40f, 1f));
+                    font.draw(batch, (v >= 0 ? "+" : "") + v, col2, sy2);
+                    sy2 -= LH;
+                }
             }
         }
         font.getData().setScale(1f);
@@ -852,6 +995,28 @@ public class SidePanel {
                     }
                 }
 
+                if (characterPage == CharacterPage.GEAR) {
+                    // Slots/Stats toggle at bottom of content (y = panelY+22, h=14)
+                    int toggleY = panelY + 22;
+                    int toggleH = 14;
+                    int half = PANEL_W / 2;
+                    if (my >= toggleY && my <= toggleY + toggleH) {
+                        gearShowStats = mx >= panelX + half;
+                        return -1;
+                    }
+                    // Equipment slot click (slot grid only)
+                    if (!gearShowStats) {
+                        int[][] slotPos = getGearSlotPositions();
+                        final int SLOT_SIZE = 36;
+                        for (int i = 0; i < 11; i++) {
+                            int sx = slotPos[i][0], sy = slotPos[i][1];
+                            if (mx >= sx && mx <= sx + SLOT_SIZE && my >= sy && my <= sy + SLOT_SIZE) {
+                                return -(100 + i);  // special signal to GameScreen; slot index = -(ret+100)
+                            }
+                        }
+                    }
+                }
+
                 if (characterPage == CharacterPage.QUEST_LIST) {
                     List<QuestView> list = sortedQuests();
                     int y = subY - 8;
@@ -926,6 +1091,11 @@ public class SidePanel {
         }
     }
 
+    public void setEquipBonuses(int[] bonuses) {
+        if (bonuses != null && bonuses.length == 14)
+            System.arraycopy(bonuses, 0, this.equipBonuses, 0, 14);
+    }
+
     public void setMember(boolean isMember) { this.memberPlayer = isMember; }
 
     public void setCombatStyle(int style) {
@@ -953,4 +1123,53 @@ public class SidePanel {
     private int logoutButtonY() { return panelY + 8; }
     private int logoutButtonW() { return 72; }
     private int logoutButtonH() { return 20; }
+
+    /**
+     * Returns screen [x, y] (bottom-left corner of each 36x36 slot box) for all
+     * 11 equipment slots in EquipmentSlot order (HEAD=0 ... RING=10).
+     * Mirrors the OSRS worn-equipment layout.
+     */
+    private int[][] getGearSlotPositions() {
+        final int SLOT_SIZE = 36;
+        final int GAP       = 8;
+        final int leftX     = panelX + 8;
+        final int centerX   = panelX + (PANEL_W - SLOT_SIZE) / 2;  // 102
+        final int rightX    = panelX + PANEL_W - SLOT_SIZE - 8;    // 196
+
+        // bodyTop = panelY + CONTENT_H - 34 - 8 (matches renderCharacterTab's bodyTop)
+        int bt    = panelY + CONTENT_H - 42;
+        int row0Y = bt - SLOT_SIZE;                       // HEAD / CAPE / NECK
+        int row1Y = row0Y - SLOT_SIZE - GAP;              // AMMO (right col only)
+        int row2Y = row1Y - SLOT_SIZE - GAP;              // WEAPON / BODY / SHIELD
+        int row3Y = row2Y - SLOT_SIZE - GAP;              // LEGS (centre only)
+        int row4Y = row3Y - SLOT_SIZE - GAP;              // HANDS / FEET / RING
+
+        return new int[][] {
+            {centerX, row0Y},   // 0 HEAD
+            {leftX,   row0Y},   // 1 CAPE
+            {rightX,  row0Y},   // 2 NECK
+            {rightX,  row1Y},   // 3 AMMO
+            {leftX,   row2Y},   // 4 WEAPON
+            {rightX,  row2Y},   // 5 SHIELD
+            {centerX, row2Y},   // 6 BODY
+            {centerX, row3Y},   // 7 LEGS
+            {leftX,   row4Y},   // 8 HANDS
+            {centerX, row4Y},   // 9 FEET
+            {rightX,  row4Y},   // 10 RING
+        };
+    }
+
+    private Color itemTierColor(String name) {
+        if (name == null || name.isEmpty()) return new Color(0.75f, 0.78f, 0.82f, 1f);
+        String n = name.toLowerCase();
+        if (n.contains("dragon"))  return new Color(0.80f, 0.18f, 0.10f, 1f);
+        if (n.contains("rune"))    return new Color(0.10f, 0.62f, 0.85f, 1f);
+        if (n.contains("adamant")) return new Color(0.15f, 0.58f, 0.28f, 1f);
+        if (n.contains("mithril")) return new Color(0.35f, 0.48f, 0.82f, 1f);
+        if (n.contains("black"))   return new Color(0.22f, 0.20f, 0.25f, 1f);
+        if (n.contains("steel"))   return new Color(0.60f, 0.62f, 0.72f, 1f);
+        if (n.contains("iron"))    return new Color(0.52f, 0.52f, 0.54f, 1f);
+        if (n.contains("bronze"))  return new Color(0.72f, 0.42f, 0.10f, 1f);
+        return new Color(0.75f, 0.78f, 0.82f, 1f);
+    }
 }

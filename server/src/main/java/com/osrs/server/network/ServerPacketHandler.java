@@ -1,6 +1,7 @@
 package com.osrs.server.network;
 
 import com.osrs.protocol.NetworkProto;
+import com.osrs.server.combat.EquipmentBonusCalculator;
 import com.osrs.server.auth.AuthTokenSettings;
 import com.osrs.server.auth.JwtAccessTokenVerifier;
 import com.osrs.server.database.DatabaseManager;
@@ -96,6 +97,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             case PICKUP_ITEM -> handlePickupItem(ctx, packet.getPickupItem());
             case DROP_ITEM -> handleDropItem(ctx, packet.getDropItem());
             case USE_ITEM -> handleUseItem(ctx, packet.getUseItem());
+            case UNEQUIP_ITEM -> handleUnequipItem(ctx, packet.getUnequipItem());
             case USE_ITEM_ON_ITEM -> handleUseItemOnItem(ctx, packet.getUseItemOnItem());
             case SWAP_INVENTORY_SLOTS -> handleSwapInventorySlots(ctx, packet.getSwapInventorySlots());
             case SET_COMBAT_STYLE    -> handleSetCombatStyle(packet.getSetCombatStyle());
@@ -270,6 +272,29 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
                     .setFlags(eqDef.getFlags()))
                 .build());
         }
+        sendEquipmentBonuses(ctx, player);
+    }
+
+    private void sendEquipmentBonuses(ChannelHandlerContext ctx, Player player) {
+        EquipmentBonusCalculator.BonusSet b =
+            EquipmentBonusCalculator.calculate(player, server.getWorld().getItemDefs());
+        ctx.writeAndFlush(NetworkProto.ServerMessage.newBuilder()
+            .setEquipmentBonuses(NetworkProto.EquipmentBonuses.newBuilder()
+                .setStabAttack(b.stabAttack)
+                .setSlashAttack(b.slashAttack)
+                .setCrushAttack(b.crushAttack)
+                .setMagicAttack(b.magicAttack)
+                .setRangedAttack(b.rangedAttack)
+                .setStabDefence(b.stabDefence)
+                .setSlashDefence(b.slashDefence)
+                .setCrushDefence(b.crushDefence)
+                .setMagicDefence(b.magicDefence)
+                .setRangedDefence(b.rangedDefence)
+                .setMeleeStrength(b.meleeStrength)
+                .setRangedStrength(b.rangedStrength)
+                .setMagicDamage(b.magicDamage)
+                .setPrayer(b.prayer))
+            .build());
     }
 
     /** Sends a SkillUpdate (leveled_up=false) for every skill — used on login to sync client. */
@@ -1166,7 +1191,45 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
                 .build());
             LOG.info("Player {} equipped {} into slot {}", player.getId(), def.name, equipSlot);
             updateGenericQuestObjectives(session, Quest.TaskType.EQUIP, def.id);
+            sendEquipmentBonuses(ctx, player);
         }
+    }
+
+    private void handleUnequipItem(ChannelHandlerContext ctx, NetworkProto.UnequipItem req) {
+        if (session.getPlayer() == null) return;
+        Player player = session.getPlayer();
+
+        int equipSlot = req.getEquipmentSlot();
+        if (equipSlot < 0 || equipSlot >= EquipmentSlot.COUNT) return;
+
+        int itemId = player.getEquipment(equipSlot);
+        if (itemId == 0) return;
+
+        // Find an empty inventory slot
+        int invSlot = -1;
+        for (int i = 0; i < 28; i++) {
+            if (player.getInventoryItemId(i) == 0) { invSlot = i; break; }
+        }
+        if (invSlot == -1) {
+            sendChatMessage(ctx, "Your inventory is too full to unequip that.", 0);
+            return;
+        }
+
+        // Move item: equipment slot -> inventory
+        player.setEquipment(equipSlot, 0);
+        player.setInventoryItem(invSlot, itemId, 1);
+
+        if (equipSlot == EquipmentSlot.WEAPON) {
+            player.setWeaponAttackRange(1);
+        }
+
+        sendInventorySlot(ctx, player, invSlot);
+        ctx.writeAndFlush(NetworkProto.ServerMessage.newBuilder()
+            .setEquipmentUpdate(NetworkProto.EquipmentUpdate.newBuilder()
+                .setSlot(equipSlot).setItemId(0).setItemName("").setFlags(0))
+            .build());
+        sendEquipmentBonuses(ctx, player);
+        LOG.info("Player {} unequipped slot {} (itemId={})", player.getId(), equipSlot, itemId);
     }
 
     private void handleSwapInventorySlots(ChannelHandlerContext ctx, NetworkProto.SwapInventorySlots req) {

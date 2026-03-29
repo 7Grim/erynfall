@@ -237,6 +237,7 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
     // -----------------------------------------------------------------------
     private final int[]    equipmentItemIds = new int[11];
     private final String[] equipmentNames   = new String[11];
+    private final int[] equipBonuses = new int[14]; // indices 0-13: stab_attack...prayer
 
     // -----------------------------------------------------------------------
     // Ground items: groundItemId → int[]{itemId, quantity, x, y}
@@ -274,6 +275,7 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
             case PLAYER_DEATH        -> handlePlayerDeath(packet.getPlayerDeath());
             case INVENTORY_UPDATE    -> handleInventoryUpdate(packet.getInventoryUpdate());
             case EQUIPMENT_UPDATE    -> handleEquipmentUpdate(packet.getEquipmentUpdate());
+            case EQUIPMENT_BONUSES   -> handleEquipmentBonuses(packet.getEquipmentBonuses());
             case GROUND_ITEM_SPAWN   -> handleGroundItemSpawn(packet.getGroundItemSpawn());
             case GROUND_ITEM_DESPAWN -> handleGroundItemDespawn(packet.getGroundItemDespawn());
             case NPC_DESPAWN         -> handleNpcDespawn(packet.getNpcDespawn());
@@ -648,6 +650,23 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
         LOG.debug("EquipmentUpdate slot={} itemId={} name={}", slot, update.getItemId(), update.getItemName());
     }
 
+    private void handleEquipmentBonuses(NetworkProto.EquipmentBonuses msg) {
+        equipBonuses[0]  = msg.getStabAttack();
+        equipBonuses[1]  = msg.getSlashAttack();
+        equipBonuses[2]  = msg.getCrushAttack();
+        equipBonuses[3]  = msg.getMagicAttack();
+        equipBonuses[4]  = msg.getRangedAttack();
+        equipBonuses[5]  = msg.getStabDefence();
+        equipBonuses[6]  = msg.getSlashDefence();
+        equipBonuses[7]  = msg.getCrushDefence();
+        equipBonuses[8]  = msg.getMagicDefence();
+        equipBonuses[9]  = msg.getRangedDefence();
+        equipBonuses[10] = msg.getMeleeStrength();
+        equipBonuses[11] = msg.getRangedStrength();
+        equipBonuses[12] = msg.getMagicDamage();
+        equipBonuses[13] = msg.getPrayer();
+    }
+
     private void handleGroundItemSpawn(NetworkProto.GroundItemSpawn spawn) {
         groundItems.put(spawn.getGroundItemId(),
             new int[]{spawn.getItemId(), spawn.getQuantity(), spawn.getX(), spawn.getY()});
@@ -764,6 +783,7 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
 
     public int    getEquipmentItemId(int slot)   { return (slot >= 0 && slot < 11) ? equipmentItemIds[slot] : 0; }
     public String getEquipmentName(int slot)     { return (slot >= 0 && slot < 11) ? equipmentNames[slot]   : ""; }
+    public int[] getEquipBonuses() { return equipBonuses; }
 
     /** Snapshot of all ground items — safe to read on the render thread. */
     public Map<Integer, int[]>  getGroundItems()     { return groundItems; }
