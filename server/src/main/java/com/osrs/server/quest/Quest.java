@@ -21,7 +21,8 @@ public class Quest {
         KILL,
         COLLECT,
         ACTION,
-        EQUIP
+        EQUIP,
+        HAND_IN        // ← new: fires only when all other quest tasks are complete
     }
     
     public static class Task {
@@ -49,6 +50,7 @@ public class Quest {
     public String description;
     public List<Task> tasks;
     public int totalRewardXp;
+    public int rewardSkillIndex = 3;  // default = Hitpoints (SKILL_HITPOINTS = 3)
     public int questPointsReward;
     public boolean miniquest;
     public QuestStatus status;

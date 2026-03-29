@@ -150,6 +150,7 @@ public class GameContent {
                 Quest quest = new Quest(id, name, description);
                 quest.questPointsReward = getInt(questMap, "quest_points", 0);
                 quest.miniquest = Boolean.TRUE.equals(questMap.get("miniquest"));
+                quest.rewardSkillIndex = getInt(questMap, "reward_skill_index", 3);
                 Object tasksObj = questMap.get("tasks");
                 if (tasksObj instanceof List<?> tasks) {
                     for (Object taskObj : tasks) {
@@ -157,7 +158,7 @@ public class GameContent {
                         Map<String, Object> taskMap = (Map<String, Object>) taskMapRaw;
 
                         String taskId = getString(taskMap, "id", "");
-                        String typeStr = getString(taskMap, "type", "").toUpperCase();
+                        String typeStr = getString(taskMap, "type", "").toLowerCase();
                         String taskDesc = getString(taskMap, "description", taskId.replace('_', ' '));
                         int quantity = getInt(taskMap, "count", 1);
                         int rewardXp = getInt(taskMap, "reward_xp", 0);
@@ -165,7 +166,15 @@ public class GameContent {
 
                         Quest.TaskType taskType;
                         try {
-                            taskType = Quest.TaskType.valueOf(typeStr);
+                            taskType = switch (typeStr) {
+                                case "dialogue" -> Quest.TaskType.DIALOGUE;
+                                case "kill" -> Quest.TaskType.KILL;
+                                case "collect" -> Quest.TaskType.COLLECT;
+                                case "action" -> Quest.TaskType.ACTION;
+                                case "equip" -> Quest.TaskType.EQUIP;
+                                case "hand_in" -> Quest.TaskType.HAND_IN;
+                                default -> throw new IllegalArgumentException();
+                            };
                         } catch (IllegalArgumentException e) {
                             LOG.warn("Skipping task '{}' in quest {} due to unknown type '{}'", taskId, id, typeStr);
                             continue;
