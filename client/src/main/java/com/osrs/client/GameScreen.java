@@ -938,39 +938,41 @@ public class GameScreen extends ApplicationAdapter {
     }
 
     private void handleDialogueInput() {
-        if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_1)) {
-            submitDialogueOptionByIndex(0);
+        // Escape: dismiss dialogue without selecting an option
+        if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
+            dialogueUI.close();
             return;
         }
-        if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_2)) {
-            submitDialogueOptionByIndex(1);
-            return;
-        }
-        if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_3)) {
-            submitDialogueOptionByIndex(2);
-            return;
-        }
-        if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_4)) {
-            submitDialogueOptionByIndex(3);
-            return;
-        }
-        if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_5)) {
-            submitDialogueOptionByIndex(4);
-            return;
-        }
+
+        if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_1)) { submitDialogueOptionByIndex(0); return; }
+        if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_2)) { submitDialogueOptionByIndex(1); return; }
+        if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_3)) { submitDialogueOptionByIndex(2); return; }
+        if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_4)) { submitDialogueOptionByIndex(3); return; }
+        if (Gdx.input.isKeyJustPressed(Input.Keys.NUM_5)) { submitDialogueOptionByIndex(4); return; }
 
         // OSRS-style continue shortcut; for option prompts we map Space to option 1.
-        if (Gdx.input.isKeyJustPressed(Input.Keys.SPACE)) {
-            submitDialogueOptionByIndex(0);
-            return;
-        }
+        if (Gdx.input.isKeyJustPressed(Input.Keys.SPACE)) { submitDialogueOptionByIndex(0); return; }
 
         if (Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)) {
-            int mx = Gdx.input.getX();
-            int my = Gdx.graphics.getHeight() - Gdx.input.getY();
-            DialogueUI.DialogueOption selected = dialogueUI.getSelectedOption(mx, my);
+            int mx      = Gdx.input.getX();
+            int rawMy   = Gdx.input.getY();
+            int screenMy = Gdx.graphics.getHeight() - rawMy;
+
+            DialogueUI.DialogueOption selected = dialogueUI.getSelectedOption(mx, screenMy);
             if (selected != null && nettyClient != null) {
                 nettyClient.sendDialogueResponse(selected.optionId);
+            } else if (!dialogueUI.isOverDialogue(mx, screenMy)) {
+                dialogueUI.close();
+                if (sidePanel.isOverPanel(mx, screenMy)) {
+                    int style = sidePanel.handleLeftClick(mx, screenMy);
+                    if (style >= 0 && nettyClient != null) nettyClient.sendSetCombatStyle(style);
+                    if (sidePanel.consumeLogoutRequested()) requestLogout();
+                } else {
+                    int[] tile = screenToTile(mx, rawMy);
+                    if (CoordinateConverter.isValidTile(tile[0], tile[1])) {
+                        walkTo(tile[0], tile[1]);
+                    }
+                }
             }
         }
     }

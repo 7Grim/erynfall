@@ -79,6 +79,12 @@ public class DialogueUI {
     public boolean isVisible() {
         return visible;
     }
+
+    /** Returns true if (mouseX, mouseY) is within the dialogue panel area. */
+    public boolean isOverDialogue(int mouseX, int mouseY) {
+        return mouseX >= PANEL_X && mouseX < PANEL_X + PANEL_WIDTH
+            && mouseY >= PANEL_Y && mouseY < PANEL_Y + PANEL_HEIGHT;
+    }
     
     public String getNpcText() {
         return npcText;
