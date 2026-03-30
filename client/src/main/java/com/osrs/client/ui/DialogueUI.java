@@ -184,11 +184,11 @@ public class DialogueUI {
         }
 
         int optionX = PANEL_X + H_PADDING;
-        int optionY = PANEL_Y + ChatBox.INPUT_H + CONTENT_TOP_PADDING;
+        int firstOptionY = PANEL_Y + PANEL_HEIGHT - 8 - CONTENT_TOP_PADDING - OPTION_HEIGHT;
         int optionW = PANEL_WIDTH - (H_PADDING * 2);
 
         for (int i = 0; i < options.size(); i++) {
-            int y = optionY + i * (OPTION_HEIGHT + OPTION_GAP);
+            int y = firstOptionY - i * (OPTION_HEIGHT + OPTION_GAP);
 
             boolean inX = mouseX >= optionX && mouseX < optionX + optionW;
             boolean inY = mouseY >= y && mouseY < y + OPTION_HEIGHT;
@@ -223,7 +223,8 @@ public class DialogueUI {
         if (!visible || currentPhase == DialoguePhase.CLOSED) return;
 
         int optionX = PANEL_X + H_PADDING;
-        int optionY = PANEL_Y + ChatBox.INPUT_H + CONTENT_TOP_PADDING;
+        // Option i=0 sits just below the header; options go downward (decreasing Y).
+        int firstOptionY = PANEL_Y + PANEL_HEIGHT - 8 - CONTENT_TOP_PADDING - OPTION_HEIGHT;
         int optionW = PANEL_WIDTH - (H_PADDING * 2);
 
         sr.setProjectionMatrix(proj);
@@ -246,7 +247,7 @@ public class DialogueUI {
             int hovered = getHoveredOptionIndex(mouseX, mouseY);
             sr.begin(ShapeRenderer.ShapeType.Filled);
             for (int i = 0; i < options.size(); i++) {
-                int y = optionY + i * (OPTION_HEIGHT + OPTION_GAP);
+                int y = firstOptionY - i * (OPTION_HEIGHT + OPTION_GAP);
                 sr.setColor(i == hovered ? OPTION_HOVER_BG_COLOR : OPTION_BG_COLOR);
                 sr.rect(optionX, y, optionW, OPTION_HEIGHT);
             }
@@ -275,9 +276,9 @@ public class DialogueUI {
 
             int hovered = getHoveredOptionIndex(mouseX, mouseY);
             for (int i = 0; i < options.size(); i++) {
-                int y = optionY + i * (OPTION_HEIGHT + OPTION_GAP);
+                int y = firstOptionY - i * (OPTION_HEIGHT + OPTION_GAP);
                 font.setColor(i == hovered ? OPTION_HOVER_TEXT_COLOR : OPTION_TEXT_COLOR);
-                font.draw(batch, options.get(i).text, optionX + 8, y + 14);
+                font.draw(batch, (i + 1) + ". " + options.get(i).text, optionX + 8, y + 14);
             }
 
             if (hasBackButton) {
@@ -371,7 +372,8 @@ public class DialogueUI {
     }
 
     private int backButtonY() {
-        return PANEL_Y + ChatBox.INPUT_H + CONTENT_TOP_PADDING
-            + options.size() * (OPTION_HEIGHT + OPTION_GAP);
+        // Back sits below the last numbered option (option index = options.size()-1).
+        int firstOptionY = PANEL_Y + PANEL_HEIGHT - 8 - CONTENT_TOP_PADDING - OPTION_HEIGHT;
+        return firstOptionY - options.size() * (OPTION_HEIGHT + OPTION_GAP);
     }
 }
