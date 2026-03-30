@@ -211,13 +211,14 @@ public class ChatBox {
         batch.setProjectionMatrix(proj);
         batch.begin();
 
-        // Render up to VISIBLE_LINES from the bottom of wrapped output.
+        // Render up to VISIBLE_LINES with newest at the bottom (OSRS behavior).
         List<WrappedLine> wrapped = buildWrappedLines(font);
-        int startIdx = Math.max(0, wrapped.size() - VISIBLE_LINES);
+        int visibleCount = Math.min(VISIBLE_LINES, wrapped.size());
+        int startIdx = Math.max(0, wrapped.size() - visibleCount);
         int count = wrapped.size() - startIdx;
-        for (int i = 0; i < count; i++) {
+        for (int i = count - 1; i >= 0; i--) {
             WrappedLine line = wrapped.get(startIdx + i);
-            int lineY = boxY + INPUT_H + TAB_H + PAD_Y + i * LINE_H;
+            int lineY = boxY + INPUT_H + TAB_H + PAD_Y + (count - 1 - i) * LINE_H;
             float x = boxX + PAD_X;
 
             if (!line.continuation && line.timestamp != null && !line.timestamp.isEmpty()) {

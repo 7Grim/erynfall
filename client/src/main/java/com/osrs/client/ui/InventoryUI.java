@@ -384,15 +384,17 @@ public class InventoryUI {
         if (rx < 0 || ry < 0) return -1;
 
         int col = rx / (SLOT_SIZE + SLOT_GAP);
-        int row = ry / (SLOT_SIZE + SLOT_GAP);
-        if (col >= COLS || row >= ROWS) return -1;
+        int rowFromBottom = ry / (SLOT_SIZE + SLOT_GAP);
+        if (col >= COLS || rowFromBottom >= ROWS) return -1;
 
         // Check that the click is within the slot area (not the gap)
         int localX = rx - col * (SLOT_SIZE + SLOT_GAP);
-        int localY = ry - row * (SLOT_SIZE + SLOT_GAP);
+        int localY = ry - rowFromBottom * (SLOT_SIZE + SLOT_GAP);
         if (localX >= SLOT_SIZE || localY >= SLOT_SIZE) return -1;
 
-        return row * COLS + col;
+        // Inventory indices are read top-left -> bottom-right.
+        int rowFromTop = (ROWS - 1) - rowFromBottom;
+        return rowFromTop * COLS + col;
     }
 
     /** Returns true if (mx, my) is over the inventory panel. */
@@ -477,12 +479,14 @@ public class InventoryUI {
 
     /**
      * Bottom-left corner of a slot in screen space (Y=0 at bottom).
+     * Slot indexing follows top-left -> bottom-right reading order.
      */
     private float[] slotPos(int slot) {
         int col = slot % COLS;
-        int row = slot / COLS;
+        int rowFromTop = slot / COLS;
+        int rowFromBottom = (ROWS - 1) - rowFromTop;
         float x = panelX + PANEL_PAD + SLOT_GAP + col * (SLOT_SIZE + SLOT_GAP);
-        float y = panelY + PANEL_PAD + SLOT_GAP + row * (SLOT_SIZE + SLOT_GAP);
+        float y = panelY + PANEL_PAD + SLOT_GAP + rowFromBottom * (SLOT_SIZE + SLOT_GAP);
         return new float[]{x, y};
     }
 }
