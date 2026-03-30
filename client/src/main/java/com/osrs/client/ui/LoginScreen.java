@@ -3,6 +3,7 @@ package com.osrs.client.ui;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
 import com.badlogic.gdx.InputAdapter;
+import com.badlogic.gdx.Preferences;
 import com.badlogic.gdx.ScreenAdapter;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
@@ -113,6 +114,15 @@ public class LoginScreen extends ScreenAdapter {
                 return true;
             }
         };
+
+        // Pre-fill email from last successful login
+        Preferences prefs = Gdx.app.getPreferences("erynfall-login");
+        String savedEmail = prefs.getString("email", "");
+        if (!savedEmail.isBlank()) {
+            emailBuffer = savedEmail;
+            focusEmail  = false;  // saved email pre-filled -- jump cursor to password field
+        }
+
         Gdx.input.setInputProcessor(inputProcessor);
     }
 
@@ -264,8 +274,12 @@ public class LoginScreen extends ScreenAdapter {
             return;
         }
 
-        errorMessage   = "";
-        transitioning  = true;
+        errorMessage  = "";
+        transitioning = true;
+        // Persist email for next login; never persist password
+        Preferences prefs = Gdx.app.getPreferences("erynfall-login");
+        prefs.putString("email", email);
+        prefs.flush();
         game.startGame(email, password);
         // Do NOT touch any fields after this line — hide()/dispose() has already run.
     }
