@@ -570,6 +570,10 @@ public class GameScreen extends ApplicationAdapter {
         // Server chat messages ("I can't reach that!", "Too late — it's gone!", etc.)
         for (String msg : h.drainServerChatMessages()) {
             chatBox.addSystemMessage(msg);
+            // Any server response to a talk attempt means the server handled it — stop retrying.
+            if ("talk".equals(pendingAction)) {
+                clearPendingAction();
+            }
             if ("I can't reach that!".equals(msg)) {
                 clearPendingAction();
                 pendingGroundItemId = -1;
@@ -1360,10 +1364,10 @@ public class GameScreen extends ApplicationAdapter {
     }
 
     private void executePendingAction() {
-        LOG.info("In range of NPC {} — executing '{}'", pendingNpcId, pendingAction);
         if (pendingActionRetryTimer > 0f) {
             return;
         }
+        LOG.info("In range of NPC {} — executing '{}'", pendingNpcId, pendingAction);
         if (nettyClient != null) {
             if ("attack".equals(pendingAction)) {
                 nettyClient.sendAttack(pendingNpcId);
