@@ -56,6 +56,8 @@ public class ItemDefinition {
     /** Magic damage bonus in whole-percentage points (e.g. 10 = +10%). */
     public int magicDamage;
     public int prayer;
+    /** OSRS store sell price — used to rank items for the keep-on-death rule. */
+    public int storeValue = 1;
     /** Minimum Defence level required to wear this item. */
     public int defenceReq = 1;
     /** Minimum Attack level required to wield this weapon. */

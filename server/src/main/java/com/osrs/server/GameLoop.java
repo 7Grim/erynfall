@@ -22,9 +22,11 @@ import org.slf4j.LoggerFactory;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.Set;
 
 /**
  * 256-tick game loop running on a dedicated thread.
@@ -816,6 +818,61 @@ public class GameLoop {
     private void respawnPlayer(Player player) {
         int spawnX = world.getSpawnX();
         int spawnY = world.getSpawnY();
+
+        // --- OSRS death drop: keep 3 most valuable items, drop the rest ---
+        int deathX = player.getX();
+        int deathY = player.getY();
+
+        // Collect occupied slots as [slot, itemId, qty, storeValue]
+        List<int[]> occupied = new ArrayList<>();
+        for (int s = 0; s < 28; s++) {
+            int itemId = player.getInventoryItemId(s);
+            if (itemId == 0) continue;
+            int qty = player.getInventoryQuantity(s);
+            ItemDefinition def = world.getItemDef(itemId);
+            occupied.add(new int[]{s, itemId, qty, def != null ? def.storeValue : 1});
+        }
+
+        // Sort descending by storeValue; tie-break ascending by slot index
+        occupied.sort((a, b) -> a[3] != b[3] ? b[3] - a[3] : a[0] - b[0]);
+
+        // Top 3 slots are kept
+        Set<Integer> keptSlots = new HashSet<>();
+        for (int i = 0; i < Math.min(3, occupied.size()); i++) {
+            keptSlots.add(occupied.get(i)[0]);
+        }
+
+        // Drop everything else as immediately-public ground items
+        for (int[] entry : occupied) {
+            int slot   = entry[0];
+            int itemId = entry[1];
+            int qty    = entry[2];
+            if (keptSlots.contains(slot)) continue;
+
+            // ownerPlayerId = -1 -> public immediately (no owner-only window)
+            GroundItem gi = world.spawnGroundItem(itemId, qty, deathX, deathY, -1, tickCount);
+            ItemDefinition def = world.getItemDef(itemId);
+            String name = def != null ? def.name : "Item";
+            nettyServer.broadcastToAll(NetworkProto.ServerMessage.newBuilder()
+                .setGroundItemSpawn(NetworkProto.GroundItemSpawn.newBuilder()
+                    .setGroundItemId(gi.getGroundItemId())
+                    .setItemId(gi.getItemId())
+                    .setQuantity(gi.getQuantity())
+                    .setX(gi.getX()).setY(gi.getY())
+                    .setItemName(name))
+                .build());
+
+            // Clear slot and notify the dying player's client
+            player.setInventoryItem(slot, 0, 0);
+            nettyServer.sendToPlayer(player.getId(), NetworkProto.ServerMessage.newBuilder()
+                .setInventoryUpdate(NetworkProto.InventoryUpdate.newBuilder()
+                    .setSlot(slot)
+                    .setItemId(0)
+                    .setQuantity(0)
+                    .setItemName("")
+                    .setFlags(0))
+                .build());
+        }
 
         // Reset state
         player.setHealth(player.getMaxHealth());
