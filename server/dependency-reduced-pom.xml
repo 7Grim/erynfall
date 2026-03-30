@@ -10,6 +10,14 @@
   <name>OSRS Server</name>
   <description>Game server with 256-tick loop</description>
   <build>
+    <resources>
+      <resource>
+        <directory>src/main/resources</directory>
+      </resource>
+      <resource>
+        <directory>../assets/data</directory>
+      </resource>
+    </resources>
     <plugins>
       <plugin>
         <artifactId>maven-shade-plugin</artifactId>

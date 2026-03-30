@@ -45,6 +45,9 @@ mvn test -pl server -Dtest=CombatEngineTest#testHitRollDeterministic
 # Run server/client
 mvn -pl server exec:java -Dexec.mainClass="com.osrs.server.Server"
 mvn -pl client exec:java -Dexec.mainClass="com.osrs.client.Client"
+
+# Run auth service
+mvn -pl auth spring-boot:run
 ```
 
 Single-test examples:
@@ -63,6 +66,7 @@ These rules reflect existing code in `client/src/main/java`, `server/src/main/ja
 - Prefer explicit imports; avoid wildcard imports in new code.
 - Order imports by group: project (`com.osrs...`), third-party (`io.netty`, `org.slf4j`, `com.badlogic.gdx`), then JDK (`java...`).
 - Keep imports stable and remove unused imports before finishing.
+- Avoid static imports; use fully-qualified names instead.
 
 ### Formatting
 - Use 4 spaces for indentation, no tabs.
@@ -70,6 +74,7 @@ These rules reflect existing code in `client/src/main/java`, `server/src/main/ja
 - Keep one statement per line unless concise getter/setter style is already used in the file.
 - Preserve existing section separators and spacing style in larger classes.
 - Keep lines reasonably readable; split fluent builders/chained calls across lines.
+- Field ordering: static constants → instance fields → constructors → methods.
 
 ### Naming
 - Classes/interfaces/enums: `PascalCase`.
@@ -122,6 +127,7 @@ These rules reflect existing code in `client/src/main/java`, `server/src/main/ja
 ### Comments and Documentation
 - Comment the reason/constraint, not obvious mechanics.
 - Keep high-value Javadocs on public APIs and non-trivial logic.
+- Use `@Override` annotation consistently when overriding methods.
 - When adding systems/protocol/config files, update docs (`docs/ARCHITECTURE.md`, `docs/PROGRESS.md`) as appropriate.
 
 ## Testing Guidance for Agents
