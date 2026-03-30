@@ -82,7 +82,10 @@ public class DialogueUI {
         } else if (!this.options.isEmpty()) {
             this.currentPhase = DialoguePhase.PLAYER_CHOOSING;
         } else {
+            // Nothing to show — do not open.
             this.currentPhase = DialoguePhase.CLOSED;
+            this.visible = false;
+            return;
         }
         this.visible = true;
     }
@@ -270,9 +273,9 @@ public class DialogueUI {
             font.setColor(HEADER_COLOR);
             font.draw(batch, "Choose Option", PANEL_X + 8, PANEL_Y + PANEL_HEIGHT - 8);
 
+            int hovered = getHoveredOptionIndex(mouseX, mouseY);
             for (int i = 0; i < options.size(); i++) {
                 int y = optionY + i * (OPTION_HEIGHT + OPTION_GAP);
-                int hovered = getHoveredOptionIndex(mouseX, mouseY);
                 font.setColor(i == hovered ? OPTION_HOVER_TEXT_COLOR : OPTION_TEXT_COLOR);
                 font.draw(batch, options.get(i).text, optionX + 8, y + 14);
             }

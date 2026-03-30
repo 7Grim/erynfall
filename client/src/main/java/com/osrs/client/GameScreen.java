@@ -1076,12 +1076,18 @@ public class GameScreen extends ApplicationAdapter {
             int screenMy = Gdx.graphics.getHeight() - rawMy;
 
             DialogueUI.DialogueOption selected = dialogueUI.getSelectedOption(mx, screenMy);
-            if (selected != null && nettyClient != null) {
-                if (selected.optionId < 0 && dialogueUI.hasBackButton()) {
-                    nettyClient.sendDialogueResponse(-1);
-                } else if (selected.optionId >= 0) {
-                    nettyClient.sendDialogueResponse(selected.optionId);
+            if (selected != null) {
+                // Send response to server (if connected)
+                if (nettyClient != null) {
+                    if (selected.optionId < 0 && dialogueUI.hasBackButton()) {
+                        nettyClient.sendDialogueResponse(-1);
+                    } else if (selected.optionId >= 0) {
+                        nettyClient.sendDialogueResponse(selected.optionId);
+                    }
                 }
+                // Always close: server reopens with new DialoguePromptEvent if needed.
+                // This is OSRS-accurate: dialogue closes on selection, server drives next state.
+                dialogueUI.close();
             } else if (!dialogueUI.isOverDialogue(mx, screenMy)) {
                 dialogueUI.close();
                 if (sidePanel.isOverPanel(mx, screenMy)) {
@@ -1112,6 +1118,8 @@ public class GameScreen extends ApplicationAdapter {
             return;
         }
         nettyClient.sendDialogueResponse(dialogueUI.getOptions().get(index).optionId);
+        // Always close after sending; server reopens if there is more dialogue.
+        dialogueUI.close();
     }
 
     private void requestLogout() {
