@@ -193,8 +193,31 @@ public class GameScreen extends ApplicationAdapter {
         float timer;  // counts down from 3.0 to 0
         OverheadText(String t) { this.text = t; this.timer = 3.0f; }
     }
+
+    private static class ClickMarker {
+        final int tileX;
+        final int tileY;
+        final boolean isAction;
+        private float age = 0f;
+        private static final float LIFETIME = 0.45f;
+
+        ClickMarker(int tileX, int tileY, boolean isAction) {
+            this.tileX = tileX;
+            this.tileY = tileY;
+            this.isAction = isAction;
+        }
+
+        void update(float delta) { age += delta; }
+        boolean expired() { return age >= LIFETIME; }
+        float alpha() {
+            float a = 1f - (age / LIFETIME);
+            return Math.max(0f, Math.min(1f, a));
+        }
+        float rotationRad() { return age * 7f; }
+    }
     /** entityId → active overhead text (null / absent = no text shown). */
     private final Map<Integer, OverheadText> overheadTexts = new HashMap<>();
+    private final List<ClickMarker> clickMarkers = new ArrayList<>();
     /** Entity ID used for the local player's overhead text. */
     private int localPlayerId = -1;
     /** questId -> last displayed task completion count. */
@@ -344,6 +367,7 @@ public class GameScreen extends ApplicationAdapter {
         processGroundItemApproach();
         updateMovement(delta);
         updateNpcVisuals(delta);
+        updateClickMarkers(delta);
         if (pickupAnimationTimer > 0) pickupAnimationTimer = Math.max(0f, pickupAnimationTimer - delta);
 
         // Camera follows player visual position
@@ -393,6 +417,7 @@ public class GameScreen extends ApplicationAdapter {
         xpDropOverlay.update(delta);
         levelUpOverlay.update(delta);
         renderOverheadText(delta);
+        renderClickMarkers();
 
         // --- Screen-space UI ---
         Gdx.gl.glEnable(GL20.GL_BLEND);
@@ -740,6 +765,10 @@ public class GameScreen extends ApplicationAdapter {
         }
     }
 
+    private void updateClickMarkers(float delta) {
+        clickMarkers.removeIf(m -> { m.update(delta); return m.expired(); });
+    }
+
     // -----------------------------------------------------------------------
     // Input
     // -----------------------------------------------------------------------
@@ -929,9 +958,11 @@ public class GameScreen extends ApplicationAdapter {
                 }
                 int[] tile = screenToTile(mx, my);
                 if (CoordinateConverter.isValidTile(tile[0], tile[1])) {
-                    if (!handleWorldLeftClick(tile[0], tile[1])) {
+                    boolean didAction = handleWorldLeftClick(tile[0], tile[1]);
+                    if (!didAction) {
                         walkTo(tile[0], tile[1]);
                     }
+                    clickMarkers.add(new ClickMarker(tile[0], tile[1], didAction));
                 }
             }
         }
@@ -1808,6 +1839,60 @@ public class GameScreen extends ApplicationAdapter {
         batch.end();
         font.setColor(Color.WHITE);
         Gdx.gl.glDisable(GL20.GL_BLEND);
+    }
+
+    private void renderClickMarkers() {
+        if (clickMarkers.isEmpty()) return;
+
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
+
+        shapeRenderer.setProjectionMatrix(camera.combined);
+        shapeRenderer.begin(com.badlogic.gdx.graphics.glutils.ShapeRenderer.ShapeType.Filled);
+
+        for (ClickMarker m : clickMarkers) {
+            if (m.expired()) continue;
+
+            float alpha = m.alpha();
+            float sx    = renderer.worldToScreenX(m.tileX, m.tileY);
+            float sy    = renderer.worldToScreenY(m.tileX, m.tileY);
+            float rot   = m.rotationRad();
+
+            if (m.isAction) {
+                shapeRenderer.setColor(1f, 0.18f, 0.18f, alpha); // OSRS red
+            } else {
+                shapeRenderer.setColor(1f, 1f, 0f, alpha);        // OSRS yellow
+            }
+
+            // 4-pointed star: 4 diamond arms, each a filled triangle
+            float outerR = 9f;
+            float innerR = 3.5f;
+            float wingW  = 2.5f;
+
+            for (int i = 0; i < 4; i++) {
+                float arm  = rot + i * com.badlogic.gdx.math.MathUtils.PI / 2f;
+                float perp = arm + com.badlogic.gdx.math.MathUtils.PI / 2f;
+
+                float cosArm  = com.badlogic.gdx.math.MathUtils.cos(arm);
+                float sinArm  = com.badlogic.gdx.math.MathUtils.sin(arm);
+                float cosPerp = com.badlogic.gdx.math.MathUtils.cos(perp);
+                float sinPerp = com.badlogic.gdx.math.MathUtils.sin(perp);
+
+                // Tip of this arm
+                float tipX = sx + cosArm * outerR;
+                float tipY = sy + sinArm * outerR;
+
+                // Two base vertices (at innerR, spread perpendicular by wingW)
+                float b1x = sx + cosArm * innerR + cosPerp * wingW;
+                float b1y = sy + sinArm * innerR + sinPerp * wingW;
+                float b2x = sx + cosArm * innerR - cosPerp * wingW;
+                float b2y = sy + sinArm * innerR - sinPerp * wingW;
+
+                shapeRenderer.triangle(tipX, tipY, b1x, b1y, b2x, b2y);
+            }
+        }
+
+        shapeRenderer.end();
     }
 
     // -----------------------------------------------------------------------
