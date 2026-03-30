@@ -8,6 +8,7 @@ import com.badlogic.gdx.ScreenAdapter;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
+import com.badlogic.gdx.graphics.g2d.GlyphLayout;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.Matrix4;
@@ -24,11 +25,12 @@ import com.osrs.client.ErynfallGame;
  */
 public class LoginScreen extends ScreenAdapter {
 
-    private static final int PANEL_W  = 320;
-    private static final int PANEL_H  = 200;
-    private static final int FIELD_H  = 24;
-    private static final int PAD      = 12;
-    private static final int EMAIL_MAX_LEN = 254;
+    private static final int PANEL_W         = 400;
+    private static final int PANEL_H         = 290;
+    private static final int FIELD_H         = 28;
+    private static final int BUTTON_H        = 34;
+    private static final int PAD             = 16;
+    private static final int EMAIL_MAX_LEN    = 254;
     private static final int PASSWORD_MAX_LEN = 128;
 
     private final ErynfallGame game;
@@ -113,6 +115,28 @@ public class LoginScreen extends ScreenAdapter {
                 appendChar(character);
                 return true;
             }
+
+            @Override
+            public boolean touchDown(int screenX, int screenY, int pointer, int button) {
+                if (button != Input.Buttons.LEFT || transitioning) return false;
+                int w = Gdx.graphics.getWidth(), h = Gdx.graphics.getHeight();
+                int pX = (w - PANEL_W) / 2;
+                int pY = (h - PANEL_H) / 2;
+                int flippedY = h - screenY;           // LibGDX Y=0 is at bottom
+                int fieldW   = PANEL_W - PAD * 2;
+                int efBottom = pY + PANEL_H - 100;    // email field rect bottom -- must match render()
+                int pfBottom = pY + PANEL_H - 160;    // password field rect bottom -- must match render()
+                boolean inX  = screenX >= pX + PAD && screenX <= pX + PAD + fieldW;
+                if (inX && flippedY >= efBottom && flippedY <= efBottom + FIELD_H) {
+                    focusEmail = true;
+                    return true;
+                }
+                if (inX && flippedY >= pfBottom && flippedY <= pfBottom + FIELD_H) {
+                    focusEmail = false;
+                    return true;
+                }
+                return false;
+            }
         };
 
         // Pre-fill email from last successful login
@@ -128,91 +152,164 @@ public class LoginScreen extends ScreenAdapter {
 
     @Override
     public void render(float delta) {
-        int w = Gdx.graphics.getWidth();
-        int h = Gdx.graphics.getHeight();
-
-        cursorBlink = (cursorBlink + delta) % 1.0f;
-
-        // setScreen() was called from input callbacks — resources may already be disposed; stop here.
         if (transitioning) return;
 
-        // Clear
-        Gdx.gl.glClearColor(0.05f, 0.05f, 0.05f, 1f);
+        int w = Gdx.graphics.getWidth();
+        int h = Gdx.graphics.getHeight();
+        cursorBlink = (cursorBlink + delta) % 1.0f;
+
+        // Update projection for current size
+        proj.setToOrtho2D(0, 0, w, h);
+
+        // -- Background --
+        Gdx.gl.glClearColor(0.04f, 0.04f, 0.06f, 1f);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 
         int panelX = (w - PANEL_W) / 2;
         int panelY = (h - PANEL_H) / 2;
+        int fieldW = PANEL_W - PAD * 2;
+        int fx     = panelX + PAD;           // field rect X
 
-        // Background panel
+        // Field rect bottoms (Y of the bottom-left corner of each field rect)
+        int efBottom = panelY + PANEL_H - 100;   // email field
+        int pfBottom = panelY + PANEL_H - 160;   // password field
+        int btnY     = panelY + 70;              // login button
+
         sr.setProjectionMatrix(proj);
+
+        // -- Panel background --
         sr.begin(ShapeRenderer.ShapeType.Filled);
-        sr.setColor(0.12f, 0.10f, 0.08f, 1f);
+        sr.setColor(0.10f, 0.08f, 0.05f, 1f);
         sr.rect(panelX, panelY, PANEL_W, PANEL_H);
         sr.end();
 
-        // Panel border
-        sr.begin(ShapeRenderer.ShapeType.Line);
-        sr.setColor(0.6f, 0.55f, 0.2f, 1f);  // OSRS gold border
-        sr.rect(panelX, panelY, PANEL_W, PANEL_H);
+        // -- Double gold border (outer dark gold, inner bright gold) --
+        sr.begin(ShapeRenderer.ShapeType.Filled);
+        // Outer border -- dark gold, 2px
+        sr.setColor(0.38f, 0.32f, 0.13f, 1f);
+        sr.rect(panelX,              panelY,              PANEL_W, 2);
+        sr.rect(panelX,              panelY + PANEL_H - 2, PANEL_W, 2);
+        sr.rect(panelX,              panelY,              2,       PANEL_H);
+        sr.rect(panelX + PANEL_W - 2, panelY,             2,       PANEL_H);
+        // Inner border -- bright OSRS gold, 1px inset
+        sr.setColor(0.72f, 0.62f, 0.26f, 1f);
+        sr.rect(panelX + 2,              panelY + 2,              PANEL_W - 4, 1);
+        sr.rect(panelX + 2,              panelY + PANEL_H - 3,    PANEL_W - 4, 1);
+        sr.rect(panelX + 2,              panelY + 2,              1,           PANEL_H - 4);
+        sr.rect(panelX + PANEL_W - 3,   panelY + 2,              1,           PANEL_H - 4);
         sr.end();
 
-        // Field positions (from panel bottom)
-        int fieldW    = PANEL_W - PAD * 2;
-        int emailY = panelY + PANEL_H - 70;
-        int passwordY = emailY - 50;
+        // -- Separator line below title area --
+        sr.begin(ShapeRenderer.ShapeType.Filled);
+        sr.setColor(0.38f, 0.32f, 0.13f, 1f);
+        sr.rect(panelX + PAD, panelY + PANEL_H - 40, PANEL_W - PAD * 2, 1);
+        sr.end();
 
-        // Draw field backgrounds
+        // -- Input field backgrounds with inset bevel --
         sr.begin(ShapeRenderer.ShapeType.Filled);
         // Email field
-        Color emailBg = focusEmail ? new Color(0.2f, 0.18f, 0.12f, 1f) : new Color(0.15f, 0.13f, 0.10f, 1f);
-        sr.setColor(emailBg);
-        sr.rect(panelX + PAD, emailY - FIELD_H, fieldW, FIELD_H);
+        float[] emailBg = focusEmail
+            ? new float[]{0.16f, 0.13f, 0.08f}
+            : new float[]{0.09f, 0.07f, 0.04f};
+        sr.setColor(emailBg[0], emailBg[1], emailBg[2], 1f);
+        sr.rect(fx, efBottom, fieldW, FIELD_H);
         // Password field
-        Color passBg = !focusEmail ? new Color(0.2f, 0.18f, 0.12f, 1f) : new Color(0.15f, 0.13f, 0.10f, 1f);
-        sr.setColor(passBg);
-        sr.rect(panelX + PAD, passwordY - FIELD_H, fieldW, FIELD_H);
+        float[] passBg = !focusEmail
+            ? new float[]{0.16f, 0.13f, 0.08f}
+            : new float[]{0.09f, 0.07f, 0.04f};
+        sr.setColor(passBg[0], passBg[1], passBg[2], 1f);
+        sr.rect(fx, pfBottom, fieldW, FIELD_H);
         sr.end();
 
-        // Field borders
-        sr.begin(ShapeRenderer.ShapeType.Line);
-        sr.setColor(focusEmail ? Color.YELLOW : Color.GRAY);
-        sr.rect(panelX + PAD, emailY - FIELD_H, fieldW, FIELD_H);
-        sr.setColor(!focusEmail ? Color.YELLOW : Color.GRAY);
-        sr.rect(panelX + PAD, passwordY - FIELD_H, fieldW, FIELD_H);
+        // -- Field inset bevel borders --
+        sr.begin(ShapeRenderer.ShapeType.Filled);
+        // Email inset: dark top+left edges (shadow), lighter bottom+right (highlight)
+        sr.setColor(0.05f, 0.04f, 0.02f, 1f);
+        sr.rect(fx, efBottom + FIELD_H - 1, fieldW, 1);  // top
+        sr.rect(fx, efBottom,               1,      FIELD_H); // left
+        sr.setColor(0.36f, 0.30f, 0.16f, 1f);
+        sr.rect(fx, efBottom, fieldW, 1);                 // bottom
+        sr.rect(fx + fieldW - 1, efBottom, 1, FIELD_H);  // right
+        // Email active glow (gold top edge when focused)
+        if (focusEmail) {
+            sr.setColor(0.72f, 0.62f, 0.26f, 1f);
+            sr.rect(fx + 1, efBottom + FIELD_H - 1, fieldW - 2, 1);
+        }
+        // Password inset
+        sr.setColor(0.05f, 0.04f, 0.02f, 1f);
+        sr.rect(fx, pfBottom + FIELD_H - 1, fieldW, 1);
+        sr.rect(fx, pfBottom,               1,      FIELD_H);
+        sr.setColor(0.36f, 0.30f, 0.16f, 1f);
+        sr.rect(fx, pfBottom, fieldW, 1);
+        sr.rect(fx + fieldW - 1, pfBottom, 1, FIELD_H);
+        if (!focusEmail) {
+            sr.setColor(0.72f, 0.62f, 0.26f, 1f);
+            sr.rect(fx + 1, pfBottom + FIELD_H - 1, fieldW - 2, 1);
+        }
         sr.end();
 
-        // Text
+        // -- Login button (OSRS raised brown) --
+        sr.begin(ShapeRenderer.ShapeType.Filled);
+        sr.setColor(0.42f, 0.35f, 0.20f, 1f);          // button body
+        sr.rect(fx, btnY, fieldW, BUTTON_H);
+        sr.setColor(0.60f, 0.52f, 0.30f, 1f);          // top highlight
+        sr.rect(fx, btnY + BUTTON_H - 1, fieldW, 1);
+        sr.rect(fx, btnY, 1, BUTTON_H);                // left highlight
+        sr.setColor(0.22f, 0.18f, 0.10f, 1f);          // bottom shadow
+        sr.rect(fx, btnY, fieldW, 1);
+        sr.rect(fx + fieldW - 1, btnY, 1, BUTTON_H);   // right shadow
+        sr.end();
+
+        // -- Text --
         batch.setProjectionMatrix(proj);
         batch.begin();
 
-        // Title
-        font.setColor(new Color(0.9f, 0.8f, 0.2f, 1f));  // OSRS gold
-        font.draw(batch, "Erynfall Login", panelX + PAD, panelY + PANEL_H - PAD - 4);
+        // Title -- "Erynfall" in OSRS orange-gold, above the panel
+        font.setColor(0.98f, 0.75f, 0.15f, 1f);
+        GlyphLayout titleLayout = new GlyphLayout(font, "Erynfall");
+        font.draw(batch, "Erynfall",
+            panelX + (PANEL_W - titleLayout.width) / 2f,
+            panelY + PANEL_H - 14);
 
-        // Labels
-        font.setColor(Color.LIGHT_GRAY);
-        font.draw(batch, "Email:", panelX + PAD, emailY + 2);
-        font.draw(batch, "Password:", panelX + PAD, passwordY + 2);
+        // Subtitle inside panel
+        font.setColor(0.55f, 0.50f, 0.38f, 1f);
+        GlyphLayout subLayout = new GlyphLayout(font, "Login to your account");
+        font.draw(batch, "Login to your account",
+            panelX + (PANEL_W - subLayout.width) / 2f,
+            panelY + PANEL_H - 28);
 
-        // Field contents
-        String cursor = cursorBlink < 0.5f ? "|" : "";
-        font.setColor(Color.WHITE);
+        // Field labels (above each field)
+        font.setColor(0.78f, 0.72f, 0.58f, 1f);
+        font.draw(batch, "Email address:", fx, efBottom + FIELD_H + 14);
+        font.draw(batch, "Password:", fx, pfBottom + FIELD_H + 14);
+
+        // Field text contents
+        String cursor = cursorBlink < 0.5f ? "|" : " ";
+        font.setColor(1f, 1f, 1f, 1f);
         String emailDisplay = emailBuffer + (focusEmail ? cursor : "");
-        font.draw(batch, emailDisplay, panelX + PAD + 4, emailY - 4);
-        String passDisplay = "*".repeat(passwordBuffer.length()) + (!focusEmail ? cursor : "");
-        font.draw(batch, passDisplay, panelX + PAD + 4, passwordY - 4);
+        font.draw(batch, emailDisplay, fx + 6, efBottom + FIELD_H - 8);
+        String passDisplay  = "*".repeat(passwordBuffer.length()) + (!focusEmail ? cursor : "");
+        font.draw(batch, passDisplay, fx + 6, pfBottom + FIELD_H - 8);
 
-        // Hint
-        font.setColor(Color.GRAY);
-        font.draw(batch, "Tab: switch field   Enter: login", panelX + PAD, panelY + 30);
+        // Login button label -- centred
+        font.setColor(0.98f, 0.94f, 0.80f, 1f);
+        GlyphLayout btnLayout = new GlyphLayout(font, "Login");
+        font.draw(batch, "Login",
+            fx + (fieldW - btnLayout.width) / 2f,
+            btnY + (BUTTON_H + btnLayout.height) / 2f);
 
         // Error message
         if (!errorMessage.isEmpty()) {
-            font.setColor(Color.RED);
-            font.draw(batch, errorMessage, panelX + PAD, panelY + 16);
+            font.setColor(0.95f, 0.28f, 0.22f, 1f);
+            font.draw(batch, errorMessage, fx, panelY + 48);
         }
 
+        // Hint -- muted, at bottom of panel
+        font.setColor(0.40f, 0.37f, 0.28f, 1f);
+        font.draw(batch, "Tab  |  Click to focus  |  Enter to login", fx, panelY + 22);
+
         batch.end();
+        font.setColor(Color.WHITE);
     }
 
     private void appendChar(char c) {
