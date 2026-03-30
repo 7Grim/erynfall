@@ -135,7 +135,11 @@ public class IsometricRenderer {
      * Accepts float coords for smooth interpolated movement.
      */
     public void renderPlayer(float playerX, float playerY) {
-        renderPlayer(playerX, playerY, false);
+        renderPlayer(playerX, playerY, false, null);
+    }
+
+    public void renderPlayer(float playerX, float playerY, boolean pickingUp) {
+        renderPlayer(playerX, playerY, pickingUp, null);
     }
 
     /**
@@ -145,7 +149,7 @@ public class IsometricRenderer {
      *                   shifts the body down and bends the torso to suggest
      *                   kneeling to pick up an item (OSRS take animation).
      */
-    public void renderPlayer(float playerX, float playerY, boolean pickingUp) {
+    public void renderPlayer(float playerX, float playerY, boolean pickingUp, String pendingAction) {
         float sx = worldToScreenX(playerX, playerY);
         float sy = worldToScreenY(playerX, playerY);
 
@@ -179,6 +183,23 @@ public class IsometricRenderer {
         if (pickingUp) {
             sr.setColor(SKIN);
             sr.rect(sx - 6, sy - 6, 3, 6);  // left arm reaching down
+        }
+
+        // Skilling arm poses
+        if ("chop".equals(pendingAction)) {
+            // Right arm raised -- axe-swing overhead
+            sr.setColor(SKIN);
+            sr.rect(sx + 5, bodyY + bodyH, 3, 7);   // upper arm raised
+            // Axe head: small brown rectangle at tip of arm
+            sr.setColor(0.40f, 0.26f, 0.10f, 1f);
+            sr.rect(sx + 4, bodyY + bodyH + 7, 5, 3);
+        } else if ("fish".equals(pendingAction)) {
+            // Right arm extended forward -- rod cast
+            sr.setColor(SKIN);
+            sr.rect(sx + 5, bodyY + 2, 3, 6);       // upper arm out to side
+            // Rod: thin tan line at angle
+            sr.setColor(0.75f, 0.60f, 0.35f, 1f);
+            sr.rect(sx + 8, bodyY + 3, 2, 8);       // vertical rod shaft
         }
 
         sr.end();
@@ -500,11 +521,17 @@ public class IsometricRenderer {
         float sx = worldToScreenX(tileX, tileY);
         float sy = worldToScreenY(tileX, tileY) + 4f;  // slightly above ground
 
-        Color c = itemId == 995
-            ? Color.YELLOW
-            : itemId == 526
-                ? new Color(0.85f, 0.75f, 0.55f, 1f)
-                : new Color(0.8f, 0.5f, 0.2f, 1f);
+        final Color c;
+        switch (itemId) {
+            case 995  -> c = Color.YELLOW;                           // Coins -- gold
+            case 526  -> c = new Color(0.88f, 0.80f, 0.62f, 1f);   // Bones -- off-white tan
+            case 314  -> c = new Color(0.88f, 0.90f, 0.96f, 1f);   // Feathers -- pale silver-white
+            case 1000 -> c = new Color(0.50f, 0.18f, 0.18f, 1f);   // Rat's tail -- dark maroon
+            case 2134 -> c = new Color(0.80f, 0.28f, 0.28f, 1f);   // Raw rat meat -- raw-meat red
+            case 2138 -> c = new Color(0.90f, 0.65f, 0.58f, 1f);   // Raw chicken -- pale flesh pink
+            case 2142 -> c = new Color(0.42f, 0.26f, 0.10f, 1f);   // Cowhide -- dark leather brown
+            default   -> c = new Color(0.80f, 0.50f, 0.20f, 1f);   // generic brown
+        }
 
         sr.begin(ShapeRenderer.ShapeType.Filled);
         sr.setColor(c);

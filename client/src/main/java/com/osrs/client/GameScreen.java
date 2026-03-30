@@ -406,7 +406,7 @@ public class GameScreen extends ApplicationAdapter {
         }
 
         // Player (pickup animation plays for 1.8 s after item is clicked)
-        renderer.renderPlayer(visualX, visualY, pickupAnimationTimer > 0);
+        renderer.renderPlayer(visualX, visualY, pickupAnimationTimer > 0, pendingAction);
 
         // Hitsplats
         combatUI.update(delta);

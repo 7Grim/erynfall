@@ -748,18 +748,82 @@ public class SidePanel {
             font.setColor(1f, 0.8f, 0.6f, 1f);
             font.draw(batch, "Logout", bx + 10, by + 14);
         } else if (characterPage == CharacterPage.QUEST_LIST) {
-            List<QuestView> list = sortedQuests();
-            int y = bodyTop;
-            font.getData().setScale(0.78f);
-            for (QuestView q : list) {
-                if (y < panelY + 18) break;
-                font.setColor(colorForQuest(q.status));
-                font.draw(batch, q.questName, panelX + pad, y);
+            QuestView sel = selectedQuestId != -1 ? quests.get(selectedQuestId) : null;
+            if (sel == null) {
+                // -- Quest list --
+                List<QuestView> list = sortedQuests();
+                int y = bodyTop;
+                font.getData().setScale(0.78f);
+                for (QuestView q : list) {
+                    if (y < panelY + 18) break;
+                    font.setColor(colorForQuest(q.status));
+                    font.draw(batch, q.questName, panelX + pad, y);
+                    y -= 16;
+                }
+                font.setColor(0.75f, 0.75f, 0.75f, 1f);
+                font.getData().setScale(0.65f);
+                font.draw(batch, "Red: not started  Yellow: in progress  Green: complete", panelX + pad, panelY + 10);
+            } else {
+                // -- Quest detail --
+                int y = bodyTop;
+
+                // Back button
+                font.getData().setScale(0.75f);
+                font.setColor(0.85f, 0.75f, 0.40f, 1f);
+                font.draw(batch, "< Back", panelX + pad, y);
+                y -= 22;
+
+                // Quest name
+                font.getData().setScale(0.85f);
+                font.setColor(colorForQuest(sel.status));
+                font.draw(batch, sel.questName, panelX + pad, y);
+                y -= 20;
+
+                // Description (up to 2 lines, ~32 chars each)
+                font.getData().setScale(0.70f);
+                font.setColor(0.85f, 0.82f, 0.72f, 1f);
+                String desc = sel.description != null ? sel.description : "";
+                if (desc.length() > 32) {
+                    int cut = desc.lastIndexOf(' ', 32);
+                    if (cut < 1) cut = 32;
+                    font.draw(batch, desc.substring(0, cut), panelX + pad, y);
+                    y -= 14;
+                    String rest = desc.substring(cut).trim();
+                    if (!rest.isEmpty() && y >= panelY + 18) {
+                        String line2 = rest.length() > 32 ? rest.substring(0, 32) + "..." : rest;
+                        font.draw(batch, line2, panelX + pad, y);
+                        y -= 14;
+                    }
+                } else if (!desc.isEmpty()) {
+                    font.draw(batch, desc, panelX + pad, y);
+                    y -= 14;
+                }
+
+                // Tasks header
+                y -= 4;
+                font.getData().setScale(0.72f);
+                font.setColor(0.90f, 0.85f, 0.55f, 1f);
+                font.draw(batch, "Tasks:", panelX + pad, y);
                 y -= 16;
+
+                // Task rows
+                for (QuestTaskView t : sel.tasks) {
+                    if (y < panelY + 18) break;
+                    String prefix = t.completed ? "[x] " : "[ ] ";
+                    String progress = t.requiredCount > 1
+                        ? " (" + t.currentCount + "/" + t.requiredCount + ")" : "";
+                    font.setColor(t.completed
+                        ? new Color(0.45f, 0.85f, 0.45f, 1f) : Color.WHITE);
+                    font.draw(batch, prefix + t.description + progress, panelX + pad, y);
+                    y -= 16;
+                }
+
+                // Quest point reward at bottom
+                font.getData().setScale(0.65f);
+                font.setColor(0.75f, 0.75f, 0.75f, 1f);
+                font.draw(batch, "Reward: " + sel.questPointsReward + " Quest Point(s)",
+                    panelX + pad, panelY + 10);
             }
-            font.setColor(0.75f, 0.75f, 0.75f, 1f);
-            font.getData().setScale(0.65f);
-            font.draw(batch, "Red: not started  Yellow: in progress  Green: complete", panelX + pad, panelY + 10);
         } else if (characterPage == CharacterPage.GEAR) {
             final int SLOT_SIZE = 36;
             final int toggleY   = panelY + 22;
@@ -1018,17 +1082,24 @@ public class SidePanel {
                 }
 
                 if (characterPage == CharacterPage.QUEST_LIST) {
-                    List<QuestView> list = sortedQuests();
-                    int y = subY - 8;
-                    for (QuestView q : list) {
-                        int rowTop = y;
-                        int rowBottom = y - 16;
-                        if (mx >= panelX + pad && mx <= panelX + PANEL_W - pad && my <= rowTop && my >= rowBottom) {
-                            selectedQuestId = q.questId;
-                            return -1;
+                    int y = subY - 8;   // = bodyTop
+                    if (selectedQuestId != -1) {
+                        // Back button occupies the first row of bodyTop
+                        if (mx >= panelX + pad && mx <= panelX + PANEL_W - pad
+                                && my <= y && my >= y - 16) {
+                            selectedQuestId = -1;
                         }
-                        y -= 16;
-                        if (y < panelY + 18) break;
+                    } else {
+                        List<QuestView> list = sortedQuests();
+                        for (QuestView q : list) {
+                            if (mx >= panelX + pad && mx <= panelX + PANEL_W - pad
+                                    && my <= y && my >= y - 16) {
+                                selectedQuestId = q.questId;
+                                return -1;
+                            }
+                            y -= 16;
+                            if (y < panelY + 18) break;
+                        }
                     }
                 }
 
