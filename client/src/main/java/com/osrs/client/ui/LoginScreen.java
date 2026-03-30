@@ -124,9 +124,17 @@ public class LoginScreen extends ScreenAdapter {
                 int pY = (h - PANEL_H) / 2;
                 int flippedY = h - screenY;           // LibGDX Y=0 is at bottom
                 int fieldW   = PANEL_W - PAD * 2;
+                int btnY     = pY + 70;               // login button rect bottom -- must match render()
                 int efBottom = pY + PANEL_H - 100;    // email field rect bottom -- must match render()
                 int pfBottom = pY + PANEL_H - 160;    // password field rect bottom -- must match render()
                 boolean inX  = screenX >= pX + PAD && screenX <= pX + PAD + fieldW;
+
+                // Click login button
+                if (inX && flippedY >= btnY && flippedY <= btnY + BUTTON_H) {
+                    submit();
+                    return true;
+                }
+
                 if (inX && flippedY >= efBottom && flippedY <= efBottom + FIELD_H) {
                     focusEmail = true;
                     return true;
