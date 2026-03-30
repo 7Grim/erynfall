@@ -127,7 +127,9 @@ public class GameScreen extends ApplicationAdapter {
     // HUD (updated from server each frame)
     private int playerHealth = 10, playerMaxHealth = 10;
     private int playerPrayer = 0,  playerMaxPrayer = 0;
-    private int playerRunEnergy = 0; // 0–100; wired up when run-energy system is added
+    private int playerRunEnergy = 100; // 0–100; full energy on login
+    private boolean isRunning    = false;
+    private float   runRestoreAcc = 0f; // accumulates delta time for energy restore
     private int attackLevel = 1, strengthLevel = 1, defenceLevel = 1;
 
     // -----------------------------------------------------------------------
@@ -368,6 +370,7 @@ public class GameScreen extends ApplicationAdapter {
         processApproach();
         processGroundItemApproach();
         updateMovement(delta);
+        updateRunEnergy(delta);
         updateNpcVisuals(delta);
         updateClickMarkers(delta);
         if (pickupAnimationTimer > 0) pickupAnimationTimer = Math.max(0f, pickupAnimationTimer - delta);
@@ -923,6 +926,15 @@ public class GameScreen extends ApplicationAdapter {
 
         if (Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)) {
             inventoryMouseDownSlot = -1;
+            // OSRS run: clicking the run energy orb toggles run on/off
+            {
+                int rnCy = h - 180;
+                if (Math.hypot(mx - 35, screenMy - rnCy) <= 22) {
+                    isRunning = !isRunning;
+                    if (playerRunEnergy <= 0) isRunning = false; // can't enable at 0 energy
+                    return;
+                }
+            }
             if (logoutMenuVisible) {
                 handleLogoutMenuClick(mx, screenMy);
                 return;
@@ -1285,6 +1297,7 @@ public class GameScreen extends ApplicationAdapter {
                 playerX = nextStep[0];
                 playerY = nextStep[1];
                 walkPath.pollFirst();
+                if (isRunning) consumeRunEnergyStep();
                 if (nettyClient != null) nettyClient.sendPlayerMovement(playerX, playerY, 0);
                 if (walkPath.isEmpty()) {
                     walkDestX = -1;
@@ -1296,13 +1309,15 @@ public class GameScreen extends ApplicationAdapter {
             return;
         }
 
-        float step = TILES_PER_SECOND * delta;
+        float tps   = (isRunning && playerRunEnergy > 0) ? TILES_PER_SECOND * 2f : TILES_PER_SECOND;
+        float step  = tps * delta;
         if (step >= dist) {
             visualX = targetX; visualY = targetY;
             if (nextStep != null) {
                 playerX = nextStep[0];
                 playerY = nextStep[1];
                 walkPath.pollFirst();
+                if (isRunning) consumeRunEnergyStep();
                 if (nettyClient != null) nettyClient.sendPlayerMovement(playerX, playerY, 0);
                 if (walkPath.isEmpty()) {
                     walkDestX = -1;
@@ -1314,6 +1329,30 @@ public class GameScreen extends ApplicationAdapter {
         } else {
             visualX += (dx / dist) * step;
             visualY += (dy / dist) * step;
+        }
+    }
+
+    /** Drain 1 energy unit when the player completes a run step. Auto-disables run at 0. */
+    private void consumeRunEnergyStep() {
+        playerRunEnergy = Math.max(0, playerRunEnergy - 1);
+        if (playerRunEnergy <= 0) {
+            isRunning = false;
+        }
+    }
+
+    /**
+     * Restores run energy over time when not running.
+     * Rate: 1 unit per 4 seconds (≈ OSRS Agility level 1 restore rate on 0–100 scale).
+     */
+    private void updateRunEnergy(float delta) {
+        if (isRunning || playerRunEnergy >= 100) {
+            if (isRunning) runRestoreAcc = 0f;
+            return;
+        }
+        runRestoreAcc += delta;
+        if (runRestoreAcc >= 4.0f) {
+            runRestoreAcc -= 4.0f;
+            playerRunEnergy = Math.min(100, playerRunEnergy + 1);
         }
     }
 
@@ -2352,7 +2391,12 @@ public class GameScreen extends ApplicationAdapter {
                 90f - prRatio * 360f, prRatio * 360f, 32);
         }
         if (rnRatio > 0.01f) {
-            shapeRenderer.setColor(0.60f, 0.90f, 0.18f, 1f);
+            // Bright yellow when run is active (OSRS run orb lights up yellow)
+            if (isRunning) {
+                shapeRenderer.setColor(1.00f, 0.85f, 0.00f, 1f);
+            } else {
+                shapeRenderer.setColor(0.60f, 0.90f, 0.18f, 1f);
+            }
             shapeRenderer.arc(ORB_CX, RN_CY, ORB_R - 3,
                 90f - rnRatio * 360f, rnRatio * 360f, 32);
         }
@@ -2364,7 +2408,14 @@ public class GameScreen extends ApplicationAdapter {
         shapeRenderer.circle(ORB_CX, HP_CY, ORB_R);
         shapeRenderer.setColor(0.42f, 0.62f, 1.00f, 1f);
         shapeRenderer.circle(ORB_CX, PR_CY, ORB_R);
-        shapeRenderer.setColor(0.72f, 1.00f, 0.42f, 1f);
+        if (isRunning) {
+            // Outer gold glow ring + bright yellow inner ring when run is active
+            shapeRenderer.setColor(1.00f, 0.70f, 0.00f, 1f);
+            shapeRenderer.circle(ORB_CX, RN_CY, ORB_R + 3);
+            shapeRenderer.setColor(1.00f, 0.95f, 0.20f, 1f);
+        } else {
+            shapeRenderer.setColor(0.72f, 1.00f, 0.42f, 1f);
+        }
         shapeRenderer.circle(ORB_CX, RN_CY, ORB_R);
         shapeRenderer.end();
 
@@ -2386,7 +2437,11 @@ public class GameScreen extends ApplicationAdapter {
 
         // Run energy value
         gl.setText(font, String.valueOf(playerRunEnergy));
-        font.setColor(0.82f, 1.00f, 0.68f, 1f);
+        if (isRunning) {
+            font.setColor(1.00f, 0.95f, 0.20f, 1f); // bright yellow text when active
+        } else {
+            font.setColor(0.82f, 1.00f, 0.68f, 1f);
+        }
         font.draw(screenBatch, gl, ORB_CX - gl.width / 2f, RN_CY + gl.height / 2f);
 
         // Small labels below each orb
