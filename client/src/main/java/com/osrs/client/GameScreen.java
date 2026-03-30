@@ -2130,58 +2130,94 @@ public class GameScreen extends ApplicationAdapter {
         int sw = Gdx.graphics.getWidth();
         int sh = Gdx.graphics.getHeight();
 
-        // Semi-transparent backdrop
+        // OSRS-style dark backdrop (matching login screen aesthetic)
         Gdx.gl.glEnable(GL20.GL_BLEND);
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
         shapeRenderer.setProjectionMatrix(screenProjection);
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
-        shapeRenderer.setColor(0f, 0f, 0f, 0.55f);
+        shapeRenderer.setColor(0.08f, 0.06f, 0.08f, 0.85f);
         shapeRenderer.rect(0, 0, sw, sh);
 
-        // Modal box - centred on world area (exclude side panel)
-        int worldW = sw - SidePanel.PANEL_W;
+        // Modal box - centred on full screen
         int mw = 220, mh = 100;
-        int mx = (worldW - mw) / 2;
+        int mx = (sw - mw) / 2;
         int my = (sh - mh) / 2;
         shapeRenderer.setColor(0.12f, 0.10f, 0.08f, 1f);
         shapeRenderer.rect(mx, my, mw, mh);
-        shapeRenderer.end();
 
-        shapeRenderer.begin(ShapeRenderer.ShapeType.Line);
-        shapeRenderer.setColor(0.65f, 0.52f, 0.18f, 1f);
-        shapeRenderer.rect(mx, my, mw, mh);
-        shapeRenderer.end();
+        // Double gold border (filled 1-2px strips for consistent thickness)
+        // Inner border
+        shapeRenderer.setColor(0.75f, 0.60f, 0.10f, 1f);
+        shapeRenderer.rect(mx, my, mw, 1);
+        shapeRenderer.rect(mx, my + mh - 1, mw, 1);
+        shapeRenderer.rect(mx, my, 1, mh);
+        shapeRenderer.rect(mx + mw - 1, my, 1, mh);
+        // Outer border (2px offset)
+        shapeRenderer.rect(mx - 2, my - 2, mw + 4, 1);
+        shapeRenderer.rect(mx - 2, my + mh + 1, mw + 4, 1);
+        shapeRenderer.rect(mx - 2, my - 2, 1, mh + 4);
+        shapeRenderer.rect(mx + mw + 1, my - 2, 1, mh + 4);
 
-        // Buttons
-        int btnW = 82, btnH = 24;
-        int logBtnX = mx + mw / 2 - btnW - 6;
-        int canBtnX = mx + mw / 2 + 6;
+        // Buttons - raised bevel style matching login screen
+        int btnW = 90, btnH = 26;
+        int logBtnX = mx + mw / 2 - btnW - 10;
+        int canBtnX = mx + mw / 2 + 10;
         int btnY = my + 14;
 
-        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
-        shapeRenderer.setColor(0.35f, 0.08f, 0.06f, 1f); // logout: dark red
+        // Button backgrounds
+        shapeRenderer.setColor(0.20f, 0.16f, 0.08f, 1f);
         shapeRenderer.rect(logBtnX, btnY, btnW, btnH);
-        shapeRenderer.setColor(0.14f, 0.18f, 0.14f, 1f); // cancel: dark grey-green
         shapeRenderer.rect(canBtnX, btnY, btnW, btnH);
-        shapeRenderer.end();
 
-        shapeRenderer.begin(ShapeRenderer.ShapeType.Line);
-        shapeRenderer.setColor(0.80f, 0.25f, 0.18f, 1f);
-        shapeRenderer.rect(logBtnX, btnY, btnW, btnH);
-        shapeRenderer.setColor(0.30f, 0.55f, 0.30f, 1f);
-        shapeRenderer.rect(canBtnX, btnY, btnW, btnH);
+        // Gold button borders
+        shapeRenderer.setColor(0.75f, 0.60f, 0.10f, 1f);
+        shapeRenderer.rect(logBtnX, btnY, btnW, 1);
+        shapeRenderer.rect(logBtnX, btnY + btnH - 1, btnW, 1);
+        shapeRenderer.rect(logBtnX, btnY, 1, btnH);
+        shapeRenderer.rect(logBtnX + btnW - 1, btnY, 1, btnH);
+
+        shapeRenderer.rect(canBtnX, btnY, btnW, 1);
+        shapeRenderer.rect(canBtnX, btnY + btnH - 1, btnW, 1);
+        shapeRenderer.rect(canBtnX, btnY, 1, btnH);
+        shapeRenderer.rect(canBtnX + btnW - 1, btnY, 1, btnH);
+
+        // Raised bevel highlights/shadows
+        shapeRenderer.setColor(0.60f, 0.52f, 0.30f, 1f); // top/left highlight
+        shapeRenderer.rect(logBtnX + 1, btnY + btnH - 2, btnW - 2, 1);
+        shapeRenderer.rect(logBtnX + 1, btnY + 1, 1, btnH - 2);
+        shapeRenderer.rect(canBtnX + 1, btnY + btnH - 2, btnW - 2, 1);
+        shapeRenderer.rect(canBtnX + 1, btnY + 1, 1, btnH - 2);
+
+        shapeRenderer.setColor(0.08f, 0.04f, 0.04f, 0.45f); // bottom/right shadow
+        shapeRenderer.rect(logBtnX + 1, btnY + 1, btnW - 2, 1);
+        shapeRenderer.rect(logBtnX + btnW - 2, btnY + 1, 1, btnH - 2);
+        shapeRenderer.rect(canBtnX + 1, btnY + 1, btnW - 2, 1);
+        shapeRenderer.rect(canBtnX + btnW - 2, btnY + 1, 1, btnH - 2);
+
+        // Focus outline for the logout button (matching login screen click-to-focus style)
+        if (logoutMenuVisible && logoutRequested) {
+            shapeRenderer.setColor(0.95f, 0.85f, 0.40f, 1f);
+            shapeRenderer.rect(logBtnX - 3, btnY - 3, btnW + 6, 1);
+            shapeRenderer.rect(logBtnX - 3, btnY + btnH + 2, btnW + 6, 1);
+            shapeRenderer.rect(logBtnX - 3, btnY - 3, 1, btnH + 6);
+            shapeRenderer.rect(logBtnX + btnW + 2, btnY - 3, 1, btnH + 6);
+        }
         shapeRenderer.end();
 
         // Text - use the existing screenBatch + font setup
         screenBatch.setProjectionMatrix(screenProjection);
         screenBatch.begin();
-        font.getData().setScale(0.82f);
+        // Title - consistent with login screen
+        font.getData().setScale(0.85f);
         font.setColor(1f, 0.88f, 0.52f, 1f);
         font.draw(screenBatch, "Game Menu", mx + 68, my + mh - 10);
-        font.getData().setScale(0.74f);
+
+        // Button labels - consistent sizing with login screen
+        font.getData().setScale(0.78f);
         font.setColor(1f, 0.72f, 0.55f, 1f);
-        font.draw(screenBatch, "Logout", logBtnX + 18, btnY + 15);
-        font.setColor(0.78f, 0.90f, 0.72f, 1f);
-        font.draw(screenBatch, "Cancel", canBtnX + 18, btnY + 15);
+        font.draw(screenBatch, "Logout", logBtnX + 20, btnY + 16);
+        font.setColor(1f, 0.72f, 0.55f, 1f);
+        font.draw(screenBatch, "Cancel", canBtnX + 20, btnY + 16);
         font.getData().setScale(1f);
         font.setColor(Color.WHITE);
         screenBatch.end();
@@ -2190,13 +2226,12 @@ public class GameScreen extends ApplicationAdapter {
     private void handleLogoutMenuClick(int screenMx, int screenMy) {
         int sw = Gdx.graphics.getWidth();
         int sh = Gdx.graphics.getHeight();
-        int worldW = sw - SidePanel.PANEL_W;
         int mw = 220, mh = 100;
-        int mx = (worldW - mw) / 2;
+        int mx = (sw - mw) / 2;
         int my = (sh - mh) / 2;
-        int btnW = 82, btnH = 24;
-        int logBtnX = mx + mw / 2 - btnW - 6;
-        int canBtnX = mx + mw / 2 + 6;
+        int btnW = 90, btnH = 26;
+        int logBtnX = mx + mw / 2 - btnW - 10;
+        int canBtnX = mx + mw / 2 + 10;
         int btnY = my + 14;
 
         if (screenMx >= logBtnX && screenMx < logBtnX + btnW
