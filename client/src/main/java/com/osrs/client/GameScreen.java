@@ -126,6 +126,8 @@ public class GameScreen extends ApplicationAdapter {
 
     // HUD (updated from server each frame)
     private int playerHealth = 10, playerMaxHealth = 10;
+    private int playerPrayer = 0,  playerMaxPrayer = 0;
+    private int playerRunEnergy = 0; // 0–100; wired up when run-energy system is added
     private int attackLevel = 1, strengthLevel = 1, defenceLevel = 1;
 
     // -----------------------------------------------------------------------
@@ -2308,24 +2310,104 @@ public class GameScreen extends ApplicationAdapter {
 
     private void renderHUD() {
         int w = Gdx.graphics.getWidth(), h = Gdx.graphics.getHeight();
-        int maxHp = Math.max(playerMaxHealth, 1);
+
+        // Orb geometry -- vertical column, top-left, clear of the minimap (top-right)
+        final int ORB_R  = 22;
+        final int ORB_CX = 35;
+        final int HP_CY  = h - 50;
+        final int PR_CY  = h - 115;
+        final int RN_CY  = h - 180;
+
+        // Ratios clamped [0,1]
+        float hpRatio = playerMaxHealth  > 0 ? Math.min(1f, (float) playerHealth    / playerMaxHealth)  : 0f;
+        float prRatio = playerMaxPrayer  > 0 ? Math.min(1f, (float) playerPrayer    / playerMaxPrayer)  : 0f;
+        float rnRatio = Math.min(1f, playerRunEnergy / 100f);
 
         shapeRenderer.setProjectionMatrix(screenProjection);
+
+        // -- Pass 1: dark background circles --
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
-        shapeRenderer.setColor(0.25f, 0f, 0f, 0.85f);
-        shapeRenderer.rect(10, h - 18, 120, 10);
-        shapeRenderer.setColor(0.85f, 0.05f, 0.05f, 1f);
-        shapeRenderer.rect(10, h - 18, 120f * playerHealth / maxHp, 10);
+        shapeRenderer.setColor(0.10f, 0.06f, 0.06f, 0.92f);
+        shapeRenderer.circle(ORB_CX, HP_CY, ORB_R);
+        shapeRenderer.setColor(0.06f, 0.06f, 0.14f, 0.92f);
+        shapeRenderer.circle(ORB_CX, PR_CY, ORB_R);
+        shapeRenderer.setColor(0.07f, 0.10f, 0.04f, 0.92f);
+        shapeRenderer.circle(ORB_CX, RN_CY, ORB_R);
         shapeRenderer.end();
 
+        // -- Pass 2: colored fill -- arc sector, clock-sweep from 12 o'clock --
+        // arc(x, y, radius, startDeg, sweepDeg, segments)
+        // startDeg = 90 - ratio*360  (adjusts start so the filled sector
+        //            sweeps clockwise from the top as the ratio grows)
+        // sweepDeg = ratio * 360     (counter-clockwise, positive)
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+        if (hpRatio > 0.01f) {
+            shapeRenderer.setColor(0.75f, 0.10f, 0.10f, 1f);
+            shapeRenderer.arc(ORB_CX, HP_CY, ORB_R - 3,
+                90f - hpRatio * 360f, hpRatio * 360f, 32);
+        }
+        if (prRatio > 0.01f) {
+            shapeRenderer.setColor(0.18f, 0.42f, 0.90f, 1f);
+            shapeRenderer.arc(ORB_CX, PR_CY, ORB_R - 3,
+                90f - prRatio * 360f, prRatio * 360f, 32);
+        }
+        if (rnRatio > 0.01f) {
+            shapeRenderer.setColor(0.60f, 0.90f, 0.18f, 1f);
+            shapeRenderer.arc(ORB_CX, RN_CY, ORB_R - 3,
+                90f - rnRatio * 360f, rnRatio * 360f, 32);
+        }
+        shapeRenderer.end();
+
+        // -- Pass 3: bright outline rings --
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Line);
+        shapeRenderer.setColor(0.90f, 0.38f, 0.38f, 1f);
+        shapeRenderer.circle(ORB_CX, HP_CY, ORB_R);
+        shapeRenderer.setColor(0.42f, 0.62f, 1.00f, 1f);
+        shapeRenderer.circle(ORB_CX, PR_CY, ORB_R);
+        shapeRenderer.setColor(0.72f, 1.00f, 0.42f, 1f);
+        shapeRenderer.circle(ORB_CX, RN_CY, ORB_R);
+        shapeRenderer.end();
+
+        // -- Pass 4: numbers and labels --
         screenBatch.setProjectionMatrix(screenProjection);
         screenBatch.begin();
-        font.setColor(1f, 0.9f, 0.9f, 1f);
-        font.draw(screenBatch, String.format("HP %d/%d", playerHealth, maxHp), 136, h - 9);
+
+        font.getData().setScale(0.88f);
+
+        // HP value centered in orb
+        GlyphLayout gl = new GlyphLayout(font, String.valueOf(playerHealth));
+        font.setColor(1.00f, 0.82f, 0.82f, 1f);
+        font.draw(screenBatch, gl, ORB_CX - gl.width / 2f, HP_CY + gl.height / 2f);
+
+        // Prayer value
+        gl.setText(font, String.valueOf(playerPrayer));
+        font.setColor(0.72f, 0.85f, 1.00f, 1f);
+        font.draw(screenBatch, gl, ORB_CX - gl.width / 2f, PR_CY + gl.height / 2f);
+
+        // Run energy value
+        gl.setText(font, String.valueOf(playerRunEnergy));
+        font.setColor(0.82f, 1.00f, 0.68f, 1f);
+        font.draw(screenBatch, gl, ORB_CX - gl.width / 2f, RN_CY + gl.height / 2f);
+
+        // Small labels below each orb
+        font.getData().setScale(0.58f);
+        font.setColor(0.52f, 0.52f, 0.52f, 0.85f);
+        GlyphLayout lbl = new GlyphLayout(font, "HP");
+        font.draw(screenBatch, lbl, ORB_CX - lbl.width / 2f, HP_CY - ORB_R + 4);
+        lbl.setText(font, "Pray");
+        font.draw(screenBatch, lbl, ORB_CX - lbl.width / 2f, PR_CY - ORB_R + 4);
+        lbl.setText(font, "Run");
+        font.draw(screenBatch, lbl, ORB_CX - lbl.width / 2f, RN_CY - ORB_R + 4);
+
+        // Coordinates debug text -- bottom-right, unchanged
+        font.getData().setScale(1f);
         font.setColor(0.6f, 0.6f, 0.6f, 0.8f);
         font.draw(screenBatch, String.format("(%d,%d)", playerX, playerY), w - 70, 15);
+
         screenBatch.end();
+        // Always reset font to defaults after HUD draw
         font.setColor(Color.WHITE);
+        font.getData().setScale(1f);
     }
 
     // -----------------------------------------------------------------------
