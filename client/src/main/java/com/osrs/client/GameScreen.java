@@ -1171,6 +1171,7 @@ public class GameScreen extends ApplicationAdapter {
 
         if (itemId == 526) {
             if (nettyClient != null) nettyClient.sendUseItem(slot, "bury");
+            pickupAnimationTimer = PICKUP_ANIM_DURATION;
             return;
         }
 
@@ -1694,7 +1695,7 @@ public class GameScreen extends ApplicationAdapter {
             case "take"   -> startGroundItemApproach((Integer) item.target);
             case "inv_eat"   -> { if (nettyClient != null) nettyClient.sendUseItem((Integer) item.target, "eat"); }
             case "inv_wield" -> { if (nettyClient != null) nettyClient.sendUseItem((Integer) item.target, "wield"); }
-            case "inv_bury"  -> { if (nettyClient != null) nettyClient.sendUseItem((Integer) item.target, "bury"); }
+            case "inv_bury"  -> { if (nettyClient != null) nettyClient.sendUseItem((Integer) item.target, "bury"); pickupAnimationTimer = PICKUP_ANIM_DURATION; }
             case "inv_use" -> {
                 selectedInventorySlot = (Integer) item.target;
                 sidePanel.setSelectedInventorySlot(selectedInventorySlot);
