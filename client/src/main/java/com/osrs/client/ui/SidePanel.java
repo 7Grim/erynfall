@@ -1088,6 +1088,7 @@ public class SidePanel {
                         if (mx >= panelX + pad && mx <= panelX + PANEL_W - pad
                                 && my <= y && my >= y - 16) {
                             selectedQuestId = -1;
+                            return -1;
                         }
                     } else {
                         List<QuestView> list = sortedQuests();
@@ -1176,9 +1177,6 @@ public class SidePanel {
     public void setQuestState(QuestView questView, int totalQuestPoints) {
         quests.put(questView.questId, questView);
         playerQuestPoints = Math.max(0, totalQuestPoints);
-        if (selectedQuestId < 0) {
-            selectedQuestId = questView.questId;
-        }
     }
 
     // -----------------------------------------------------------------------
