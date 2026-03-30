@@ -19,7 +19,8 @@ public class AuthApiClient {
 
     private static final Logger LOG = LoggerFactory.getLogger(AuthApiClient.class);
 
-    private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(10);
+    private static final Duration REQUEST_TIMEOUT  = Duration.ofSeconds(45);
+    private static final int     MAX_LOGIN_RETRIES = 2;
 
     private final String baseUrl;
     private final HttpClient client;
@@ -28,53 +29,63 @@ public class AuthApiClient {
     public AuthApiClient() {
         this.baseUrl = resolveBaseUrl();
         this.client = HttpClient.newBuilder()
-            .connectTimeout(Duration.ofSeconds(5))
+            .connectTimeout(Duration.ofSeconds(10))
             .build();
         this.mapper = new ObjectMapper();
     }
 
     public LoginResult login(String email, String password) {
-        try {
-            LOG.info("Auth login request to {} for {}", baseUrl, email);
-            String body = mapper.writeValueAsString(Map.of(
-                "email", email,
-                "password", password
-            ));
+        Exception lastException = null;
+        for (int attempt = 1; attempt <= MAX_LOGIN_RETRIES; attempt++) {
+            try {
+                LOG.info("Auth login request to {} for {} (attempt {}/{})",
+                    baseUrl, email, attempt, MAX_LOGIN_RETRIES);
+                String body = mapper.writeValueAsString(Map.of(
+                    "email", email,
+                    "password", password
+                ));
 
-            HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(baseUrl + "/auth/login"))
-                .timeout(REQUEST_TIMEOUT)
-                .header("Content-Type", "application/json")
-                .POST(HttpRequest.BodyPublishers.ofString(body))
-                .build();
+                HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(baseUrl + "/auth/login"))
+                    .timeout(REQUEST_TIMEOUT)
+                    .header("Content-Type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString(body))
+                    .build();
 
-            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
-            JsonNode json = safeReadJson(response.body());
+                HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+                JsonNode json = safeReadJson(response.body());
 
-            if (response.statusCode() >= 200 && response.statusCode() < 300) {
-                return new LoginResult(
-                    true,
-                    "",
-                    json.path("accessToken").asText(""),
-                    json.path("refreshToken").asText(""),
-                    json.path("characterName").asText(""),
-                    json.path("accountId").asInt(0),
-                    json.path("characterId").asInt(0)
-                );
+                if (response.statusCode() >= 200 && response.statusCode() < 300) {
+                    return new LoginResult(
+                        true,
+                        "",
+                        json.path("accessToken").asText(""),
+                        json.path("refreshToken").asText(""),
+                        json.path("characterName").asText(""),
+                        json.path("accountId").asInt(0),
+                        json.path("characterId").asInt(0)
+                    );
+                }
+
+                String error = json.path("error").asText("");
+                if (error.isBlank()) {
+                    error = "Authentication failed (" + response.statusCode() + ").";
+                }
+                return new LoginResult(false, error, "", "", "", 0, 0);
+            } catch (java.net.http.HttpTimeoutException e) {
+                LOG.warn("Auth login timed out for {} on attempt {}/{}", email, attempt, MAX_LOGIN_RETRIES);
+                lastException = e;
+            } catch (Exception e) {
+                LOG.warn("Auth login request failed for {}: {}", email, e.toString());
+                return new LoginResult(false,
+                    "Unable to reach auth service: " + e.getClass().getSimpleName() +
+                        (e.getMessage() == null || e.getMessage().isBlank() ? "" : " (" + e.getMessage() + ")"),
+                    "", "", "", 0, 0);
             }
-
-            String error = json.path("error").asText("");
-            if (error.isBlank()) {
-                error = "Authentication failed (" + response.statusCode() + ").";
-            }
-            return new LoginResult(false, error, "", "", "", 0, 0);
-        } catch (Exception e) {
-            LOG.warn("Auth login request failed for {}: {}", email, e.toString());
-            return new LoginResult(false,
-                "Unable to reach auth service: " + e.getClass().getSimpleName() +
-                    (e.getMessage() == null || e.getMessage().isBlank() ? "" : " (" + e.getMessage() + ")"),
-                "", "", "", 0, 0);
         }
+        return new LoginResult(false,
+            "Unable to reach auth service (timed out after " + MAX_LOGIN_RETRIES + " attempts)",
+            "", "", "", 0, 0);
     }
 
     private JsonNode safeReadJson(String json) throws IOException {
