@@ -7,6 +7,7 @@ import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
+import com.badlogic.gdx.math.Matrix4;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -33,6 +34,8 @@ public class CombatUI {
     private static final float FLOAT_SPEED = 25f;        // screen pixels per second upward
     private static final float FADE_START = 0.6f;        // start fading at 60% of life remaining
 
+    public enum HpBarState { HEALTHY, POISONED, VENOMED, DISEASED, NEAR_DEATH }
+
     public static class DamageNumber {
         public final float tileX;   // world tile X of the entity hit
         public final float tileY;   // world tile Y of the entity hit
@@ -58,6 +61,14 @@ public class CombatUI {
 
     private final List<DamageNumber> damageNumbers = new ArrayList<>();
     private final List<String> combatMessages = new ArrayList<>();
+    private HpBarState hpBarState = HpBarState.HEALTHY;
+    private String opponentName = null;
+    private int opponentLevel = 0;
+    private int opponentHp = 0;
+    private int opponentMaxHp = 0;
+    private boolean showOpponentInfo = false;
+
+    private final Matrix4 screenProjection = new Matrix4();
     private static final int MAX_MESSAGES = 5;
 
     /** Add a hitsplat above the given world tile. */
@@ -71,6 +82,18 @@ public class CombatUI {
         if (combatMessages.size() > MAX_MESSAGES) {
             combatMessages.remove(0);
         }
+    }
+
+    public void setHpBarState(HpBarState state) {
+        this.hpBarState = state != null ? state : HpBarState.HEALTHY;
+    }
+
+    public void setOpponentInfo(String npcName, int npcLevel, int npcHp, int npcMaxHp) {
+        this.opponentName = npcName;
+        this.opponentLevel = Math.max(0, npcLevel);
+        this.opponentHp = Math.max(0, npcHp);
+        this.opponentMaxHp = Math.max(1, npcMaxHp);
+        this.showOpponentInfo = npcName != null && !npcName.isEmpty();
     }
 
     /** Call every frame with elapsed delta (seconds). */
@@ -89,43 +112,119 @@ public class CombatUI {
      * The isometric formula: screenX = (tileX - tileY) * 16, screenY = (tileX + tileY) * 8
      */
     public void render(ShapeRenderer shapeRenderer, SpriteBatch batch, BitmapFont font, OrthographicCamera camera) {
-        if (damageNumbers.isEmpty()) return;
+        if (damageNumbers.isEmpty() && !showOpponentInfo) return;
 
         Gdx.gl.glEnable(GL20.GL_BLEND);
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
 
-        // --- Pass 1: filled circles (ShapeRenderer) ---
-        shapeRenderer.setProjectionMatrix(camera.combined);
-        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
-        for (DamageNumber dn : damageNumbers) {
-            float sx = (dn.tileX - dn.tileY) * 16f;
-            float sy = (dn.tileX + dn.tileY) * 8f + 20 + dn.yOffset; // +20 above entity
-            float alpha = dn.getAlpha();
-            if (dn.hit) {
-                shapeRenderer.setColor(0.75f, 0.0f, 0.0f, alpha); // red
-            } else {
-                shapeRenderer.setColor(0.85f, 0.85f, 0.85f, alpha); // light grey (miss)
+        if (!damageNumbers.isEmpty()) {
+            // --- Pass 1: filled circles (ShapeRenderer) ---
+            shapeRenderer.setProjectionMatrix(camera.combined);
+            shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+            for (DamageNumber dn : damageNumbers) {
+                float sx = (dn.tileX - dn.tileY) * 16f;
+                float sy = (dn.tileX + dn.tileY) * 8f + 20 + dn.yOffset; // +20 above entity
+                float alpha = dn.getAlpha();
+                if (dn.hit) {
+                    shapeRenderer.setColor(0.75f, 0.0f, 0.0f, alpha); // red
+                } else {
+                    shapeRenderer.setColor(0.85f, 0.85f, 0.85f, alpha); // light grey (miss)
+                }
+                shapeRenderer.circle(sx, sy, SPLAT_RADIUS, 12);
             }
-            shapeRenderer.circle(sx, sy, SPLAT_RADIUS, 12);
-        }
-        shapeRenderer.end();
+            shapeRenderer.end();
 
-        // --- Pass 2: number text (SpriteBatch) ---
-        batch.setProjectionMatrix(camera.combined);
-        batch.begin();
-        for (DamageNumber dn : damageNumbers) {
-            float sx = (dn.tileX - dn.tileY) * 16f;
-            float sy = (dn.tileX + dn.tileY) * 8f + 20 + dn.yOffset;
-            float alpha = dn.getAlpha();
-            String text = String.valueOf(dn.damage);
-            font.setColor(1f, 1f, 1f, alpha);
-            // Centre the number on the circle
-            font.draw(batch, text, sx - text.length() * 3f, sy + 5f);
+            // --- Pass 2: number text (SpriteBatch) ---
+            batch.setProjectionMatrix(camera.combined);
+            batch.begin();
+            for (DamageNumber dn : damageNumbers) {
+                float sx = (dn.tileX - dn.tileY) * 16f;
+                float sy = (dn.tileX + dn.tileY) * 8f + 20 + dn.yOffset;
+                float alpha = dn.getAlpha();
+                String text = String.valueOf(dn.damage);
+                font.setColor(1f, 1f, 1f, alpha);
+                // Centre the number on the circle
+                font.draw(batch, text, sx - text.length() * 3f, sy + 5f);
+            }
+            batch.end();
         }
-        batch.end();
+
+        if (showOpponentInfo) {
+            int screenW = Gdx.graphics.getWidth();
+            int screenH = Gdx.graphics.getHeight();
+            screenProjection.setToOrtho2D(0, 0, screenW, screenH);
+            renderOpponentInfo(shapeRenderer, batch, font, screenW, screenH,
+                opponentName, opponentLevel, opponentHp, opponentMaxHp);
+        }
 
         font.setColor(Color.WHITE);
         Gdx.gl.glDisable(GL20.GL_BLEND);
+    }
+
+    private Color hpColorForState() {
+        return switch (hpBarState) {
+            case HEALTHY, NEAR_DEATH -> new Color(0.22f, 0.78f, 0.28f, 1f); // green
+            case POISONED -> new Color(0.90f, 0.80f, 0.15f, 1f);             // yellow
+            case VENOMED -> new Color(0.12f, 0.42f, 0.38f, 1f);              // dark green-blue
+            case DISEASED -> new Color(0.90f, 0.80f, 0.15f, 1f);             // yellow
+        };
+    }
+
+    private void renderHpBar(ShapeRenderer sr, float screenX, float screenY,
+                             float hpPercent, Color barColor, Color textColor) {
+        int barWidth = 100;
+        int barHeight = 8;
+        int barX = (int) screenX + 10;
+        int barY = (int) screenY - 25;
+
+        float clamped = Math.max(0f, Math.min(1f, hpPercent));
+        float innerW = (barWidth - 2) * clamped;
+
+        // Background fill
+        sr.setColor(Color.BLACK);
+        sr.rect(barX, barY, barWidth, barHeight);
+
+        // HP fill
+        sr.setColor(barColor);
+        sr.rect(barX + 1, barY + 1, innerW, barHeight - 2);
+
+        // Red overlay for near-death state
+        if (hpBarState == HpBarState.NEAR_DEATH) {
+            sr.setColor(new Color(1f, 0f, 0f, 0.5f));
+            sr.rect(barX, barY, barWidth, barHeight);
+        }
+    }
+
+    private void renderOpponentInfo(ShapeRenderer sr, SpriteBatch batch, BitmapFont font,
+                                    int screenX, int screenY,
+                                    String npcName, int npcLevel, int npcHp, int npcMaxHp) {
+        int panelX = 10;
+        int panelY = screenY - 200;
+        int panelW = 170;
+        int panelH = 42;
+
+        float hpPercent = npcMaxHp > 0 ? (float) npcHp / npcMaxHp : 0f;
+        Color hpColor = hpColorForState();
+
+        sr.setProjectionMatrix(screenProjection);
+        sr.begin(ShapeRenderer.ShapeType.Filled);
+        sr.setColor(0.08f, 0.07f, 0.06f, 0.88f);
+        sr.rect(panelX, panelY - panelH + 8, panelW, panelH);
+        renderHpBar(sr, panelX + 10, panelY - 8, hpPercent, hpColor, Color.WHITE);
+        sr.end();
+
+        sr.begin(ShapeRenderer.ShapeType.Line);
+        sr.setColor(0.55f, 0.46f, 0.28f, 1f);
+        sr.rect(panelX, panelY - panelH + 8, panelW, panelH);
+        sr.end();
+
+        batch.setProjectionMatrix(screenProjection);
+        batch.begin();
+        font.setColor(Color.WHITE);
+        font.draw(batch, npcName + " (Level " + npcLevel + ")", panelX + 10, panelY);
+        font.setColor(0.88f, 0.82f, 0.72f, 1f);
+        font.draw(batch, "HP: " + npcHp + "/" + npcMaxHp, panelX + 10, panelY - 16);
+        batch.end();
     }
 
     /**

@@ -814,6 +814,12 @@ public class GameScreen extends ApplicationAdapter {
         }
 
         if (Gdx.input.isKeyJustPressed(Input.Keys.ENTER)) {
+            // Logout modal has priority focus: Enter confirms Logout.
+            if (logoutMenuVisible) {
+                logoutMenuVisible = false;
+                requestLogout();
+                return;
+            }
             if (suppressInitialEnter) {
                 return;
             }
@@ -2170,34 +2176,40 @@ public class GameScreen extends ApplicationAdapter {
 
         int panelX = DialogueUI.PANEL_X;
         int panelY = DialogueUI.PANEL_Y;
+        int panelW = DialogueUI.PANEL_WIDTH;
+        int panelH = DialogueUI.PANEL_HEIGHT;
         int optionX = panelX + DialogueUI.H_PADDING;
-        int optionY = panelY + ChatBox.INPUT_H + DialogueUI.CONTENT_TOP_PADDING;
+        int optionY = panelY + ChatBox.INPUT_H + DialogueUI.CONTENT_TOP_PADDING + 18;
         int optionW = DialogueUI.PANEL_WIDTH - (DialogueUI.H_PADDING * 2);
-        int contentTop = panelY + DialogueUI.PANEL_HEIGHT - 8;
+        int contentTop = panelY + panelH - 28;
+        int hoveredOption = dialogueUI.getHoveredOptionIndex(mouseX, mouseY);
 
         shapeRenderer.setProjectionMatrix(screenProjection);
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
-        shapeRenderer.setColor(0.05f, 0.04f, 0.04f, 0.9f);
-        shapeRenderer.rect(panelX, panelY, DialogueUI.PANEL_WIDTH, DialogueUI.PANEL_HEIGHT);
-        shapeRenderer.setColor(0.2f, 0.2f, 0.2f, 0.8f);
-        shapeRenderer.rect(panelX, panelY + ChatBox.INPUT_H - 1, DialogueUI.PANEL_WIDTH, 1);
+        shapeRenderer.setColor(DialogueUI.DIALOGUE_BG_COLOR);
+        shapeRenderer.rect(panelX, panelY, panelW, panelH);
+        shapeRenderer.setColor(0.25f, 0.22f, 0.12f, 0.85f);
+        shapeRenderer.rect(panelX, panelY + ChatBox.INPUT_H, panelW, 1);
         shapeRenderer.end();
 
-        shapeRenderer.begin(ShapeRenderer.ShapeType.Line);
-        shapeRenderer.setColor(0.85f, 0.75f, 0.1f, 1f);
-        shapeRenderer.rect(panelX, panelY, DialogueUI.PANEL_WIDTH, DialogueUI.PANEL_HEIGHT);
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+        shapeRenderer.setColor(DialogueUI.BORDER_COLOR);
+        shapeRenderer.rect(panelX, panelY, panelW, DialogueUI.BORDER_THICKNESS);
+        shapeRenderer.rect(panelX, panelY + panelH - DialogueUI.BORDER_THICKNESS,
+            panelW, DialogueUI.BORDER_THICKNESS);
+        shapeRenderer.rect(panelX, panelY, DialogueUI.BORDER_THICKNESS, panelH);
+        shapeRenderer.rect(panelX + panelW - DialogueUI.BORDER_THICKNESS, panelY,
+            DialogueUI.BORDER_THICKNESS, panelH);
         shapeRenderer.end();
 
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
         List<DialogueUI.DialogueOption> options = dialogueUI.getOptions();
         for (int i = 0; i < options.size(); i++) {
             int y = optionY + i * (DialogueUI.OPTION_HEIGHT + DialogueUI.OPTION_GAP);
-            boolean hover = mouseX >= optionX && mouseX < optionX + optionW
-                && mouseY >= y && mouseY < y + DialogueUI.OPTION_HEIGHT;
-            if (hover) {
-                shapeRenderer.setColor(0.2f, 0.24f, 0.34f, 0.9f);
+            if (i == hoveredOption) {
+                shapeRenderer.setColor(DialogueUI.OPTION_HOVER_BG_COLOR);
             } else {
-                shapeRenderer.setColor(0.1f, 0.1f, 0.16f, 0.72f);
+                shapeRenderer.setColor(DialogueUI.OPTION_BG_COLOR);
             }
             shapeRenderer.rect(optionX, y, optionW, DialogueUI.OPTION_HEIGHT);
         }
@@ -2206,19 +2218,20 @@ public class GameScreen extends ApplicationAdapter {
         screenBatch.setProjectionMatrix(screenProjection);
         screenBatch.begin();
 
-        font.setColor(Color.WHITE);
+        font.setColor(DialogueUI.HEADER_COLOR);
+        font.draw(screenBatch, "Choose Option", panelX + 8, panelY + panelH - 8);
+
+        font.setColor(DialogueUI.NPC_TEXT_COLOR);
         String npcText = dialogueUI.getNpcText();
-        GlyphLayout layout = new GlyphLayout(font, npcText, Color.WHITE, optionW, -1, true);
+        String displayText = "NPCName: " + (npcText == null ? "" : npcText);
+        GlyphLayout layout = new GlyphLayout(font, displayText, DialogueUI.NPC_TEXT_COLOR, optionW, -1, true);
         font.draw(screenBatch, layout, optionX, contentTop);
 
         for (int i = 0; i < options.size(); i++) {
             int y = optionY + i * (DialogueUI.OPTION_HEIGHT + DialogueUI.OPTION_GAP);
-            font.setColor(Color.WHITE);
+            font.setColor(i == hoveredOption ? DialogueUI.OPTION_HOVER_TEXT_COLOR : DialogueUI.OPTION_TEXT_COLOR);
             font.draw(screenBatch, (i + 1) + ". " + options.get(i).text, optionX + 8, y + 14);
         }
-
-        font.setColor(0.95f, 0.95f, 0.5f, 1f);
-        font.draw(screenBatch, "Choose an Option (1-5 or click)", panelX + 8, panelY + ChatBox.INPUT_H - 4);
         screenBatch.end();
         font.setColor(Color.WHITE);
     }

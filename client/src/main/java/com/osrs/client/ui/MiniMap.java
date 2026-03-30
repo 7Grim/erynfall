@@ -2,6 +2,7 @@ package com.osrs.client.ui;
 
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
+import com.badlogic.gdx.graphics.g2d.GlyphLayout;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.Matrix4;
@@ -21,6 +22,11 @@ public class MiniMap {
     public static final int TILE_PX  = 8;    // pixels per world tile on the minimap
     // How many tiles are visible in each direction from the player
     private static final int HALF_TILES = RADIUS / TILE_PX + 2;
+
+    private static final Color COLOR_GRASS = new Color(0.27f, 0.53f, 0.15f, 1f); // Light green
+    private static final Color COLOR_PATH = new Color(0.86f, 0.70f, 0.35f, 1f);  // Beige-tan
+    private static final Color COLOR_WATER = new Color(0.18f, 0.70f, 0.60f, 1f); // Light blue
+    private static final Color COLOR_WALL = new Color(0.31f, 0.31f, 0.31f, 1f);  // Dark gray
 
     /** Render the minimap.
      *
@@ -70,12 +76,11 @@ public class MiniMap {
                 if (dx * dx + dy * dy > (RADIUS - 1) * (RADIUS - 1)) continue;
 
                 switch (tileMap[tx][ty]) {
-                    case TutorialIslandMap.GRASS -> sr.setColor(0.22f, 0.50f, 0.14f, 1f);
-                    case TutorialIslandMap.PATH  -> sr.setColor(0.58f, 0.50f, 0.28f, 1f);
-                    case TutorialIslandMap.WATER -> sr.setColor(0.10f, 0.28f, 0.60f, 1f);
-                    case TutorialIslandMap.SAND  -> sr.setColor(0.68f, 0.60f, 0.28f, 1f);
-                    case TutorialIslandMap.WALL  -> sr.setColor(0.32f, 0.28f, 0.26f, 1f);
-                    default                      -> sr.setColor(0.22f, 0.50f, 0.14f, 1f);
+                    case TutorialIslandMap.GRASS -> sr.setColor(COLOR_GRASS);
+                    case TutorialIslandMap.PATH, TutorialIslandMap.SAND -> sr.setColor(COLOR_PATH);
+                    case TutorialIslandMap.WATER -> sr.setColor(COLOR_WATER);
+                    case TutorialIslandMap.WALL  -> sr.setColor(COLOR_WALL);
+                    default                      -> sr.setColor(COLOR_GRASS);
                 }
                 sr.rect(mx - TILE_PX / 2f, my - TILE_PX / 2f, TILE_PX, TILE_PX);
             }
@@ -83,8 +88,8 @@ public class MiniMap {
 
         // -- Entity dots --
         if (h != null) {
-            // Ground items -- cyan
-            sr.setColor(0.2f, 0.9f, 0.9f, 1f);
+            // Ground items -- yellow
+            sr.setColor(1f, 0.92f, 0.20f, 1f);
             for (int[] item : h.getGroundItemPositions()) {
                 // item = {x, y}
                 float mx = cx + (item[0] - playerTileX) * TILE_PX;
@@ -108,7 +113,7 @@ public class MiniMap {
                 } else {
                     sr.setColor(1f, 0.95f, 0.10f, 1f);
                 }
-                sr.circle(mx, my, 3f);
+                sr.circle(mx, my, 3.5f);
             }
         }
 
@@ -120,9 +125,11 @@ public class MiniMap {
 
         // -- Compass ring border --
         sr.begin(ShapeRenderer.ShapeType.Line);
-        sr.setColor(0.65f, 0.55f, 0.22f, 1f);   // gold
+        sr.setColor(0.20f, 0.16f, 0.08f, 1f);
         sr.circle(cx, cy, RADIUS);
-        sr.circle(cx, cy, RADIUS - 1);            // double-ring for thickness
+        // 1px gold outline for OSRS compass styling
+        sr.setColor(0.80f, 0.68f, 0.28f, 1f);
+        sr.circle(cx, cy, RADIUS + 1);
         sr.end();
 
         // -- "N" compass label --
@@ -130,7 +137,8 @@ public class MiniMap {
         batch.begin();
         font.getData().setScale(0.75f);
         font.setColor(1f, 0.92f, 0.20f, 1f);     // gold
-        font.draw(batch, "N", cx - 4, cy + RADIUS - 2);
+        GlyphLayout nGlyph = new GlyphLayout(font, "N");
+        font.draw(batch, "N", cx - nGlyph.width / 2f, cy + RADIUS - 2);
         font.getData().setScale(1f);
         font.setColor(Color.WHITE);
         batch.end();

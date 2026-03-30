@@ -62,7 +62,7 @@ public class ChatBox {
     /** Normal message text: white. */
     private static final Color MSG_COLOR    = Color.WHITE;
     /** System/game messages: light grey. */
-    private static final Color SYS_COLOR    = new Color(0.75f, 0.75f, 0.75f, 1f);
+    private static final Color SYS_COLOR    = new Color(0.95f, 0.95f, 0.95f, 1f);
     /** "Press Enter to Chat" hint: dim grey. */
     private static final Color HINT_COLOR   = new Color(0.5f, 0.5f, 0.5f, 0.9f);
     /** Typed text in input bar: yellow-white (matches OSRS input colour). */

@@ -2,6 +2,7 @@ package com.osrs.client.ui;
 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.graphics.g2d.GlyphLayout;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
@@ -29,6 +30,16 @@ public class InventoryUI {
     // Panel dimensions
     private static final int PANEL_W = COLS * SLOT_SIZE + (COLS + 1) * SLOT_GAP + PANEL_PAD * 2;
     private static final int PANEL_H = ROWS * SLOT_SIZE + (ROWS + 1) * SLOT_GAP + PANEL_PAD * 2;
+
+    // OSRS material tier colors
+    private static final Color BRONZE_COLOR = new Color(0.55f, 0.46f, 0.28f, 1f);
+    private static final Color IRON_COLOR = new Color(0.30f, 0.30f, 0.30f, 1f);
+    private static final Color STEEL_COLOR = new Color(0.60f, 0.60f, 0.60f, 1f);
+    private static final Color MITHRIL_COLOR = new Color(0.20f, 0.55f, 0.85f, 1f);
+    private static final Color ADAMANT_COLOR = new Color(0.20f, 0.60f, 0.20f, 1f);
+    private static final Color RUNE_COLOR = new Color(0.40f, 0.65f, 0.75f, 1f);
+    private static final Color DRAGON_COLOR = new Color(1.00f, 0.85f, 0.00f, 1f);
+    private static final Color DEFAULT_ITEM_COLOR = new Color(0.60f, 0.60f, 0.60f, 1f);
 
     // Item data (synced from ClientPacketHandler)
     private final int[]    itemIds    = new int[SLOTS];
@@ -102,6 +113,8 @@ public class InventoryUI {
         sr.end();
 
         // ----- Slots -----
+        int hoverSlot = (dragSlot >= 0) ? getSlotAt(dragMouseX, dragMouseY) : -1;
+
         sr.begin(ShapeRenderer.ShapeType.Filled);
         for (int slot = 0; slot < SLOTS; slot++) {
             if (slot == dragSlot) continue;  // render dragged slot last / as floating
@@ -112,6 +125,12 @@ public class InventoryUI {
                 ? new Color(0.28f, 0.25f, 0.20f, 1f)
                 : new Color(0.20f, 0.20f, 0.20f, 1f));
             sr.rect(pos[0], pos[1], SLOT_SIZE, SLOT_SIZE);
+
+            // Drop target feedback while dragging
+            if (dragSlot >= 0 && hoverSlot == slot && slot != dragSlot) {
+                sr.setColor(1f, 0.85f, 0.1f, 0.18f);
+                sr.rect(pos[0] + 1, pos[1] + 1, SLOT_SIZE - 2, SLOT_SIZE - 2);
+            }
         }
         sr.end();
 
@@ -120,20 +139,23 @@ public class InventoryUI {
         for (int slot = 0; slot < SLOTS; slot++) {
             if (slot == dragSlot) continue;
             float[] pos = slotPos(slot);
-            sr.setColor(0.40f, 0.36f, 0.28f, 1f);
-            sr.rect(pos[0], pos[1], SLOT_SIZE, SLOT_SIZE);
+            if (selectedSlot == slot) {
+                // Double gold border for selected slot
+                sr.setColor(1f, 0.85f, 0.1f, 1f);
+                sr.rect(pos[0] + 1, pos[1] + 1, SLOT_SIZE - 2, SLOT_SIZE - 2);
+                sr.rect(pos[0] + 2, pos[1] + 2, SLOT_SIZE - 4, SLOT_SIZE - 4);
+            } else {
+                // Single gray border for unselected slots
+                sr.setColor(0.40f, 0.36f, 0.28f, 1f);
+                sr.rect(pos[0], pos[1], SLOT_SIZE, SLOT_SIZE);
+            }
+
+            if (dragSlot >= 0 && hoverSlot == slot && slot != dragSlot) {
+                sr.setColor(1f, 0.85f, 0.1f, 1f);
+                sr.rect(pos[0] + 1, pos[1] + 1, SLOT_SIZE - 2, SLOT_SIZE - 2);
+            }
         }
         sr.end();
-
-        // Use-mode highlight: double-border in gold around selected slot
-        if (selectedSlot >= 0 && selectedSlot < SLOTS) {
-            sr.begin(ShapeRenderer.ShapeType.Line);
-            sr.setColor(1f, 0.85f, 0.1f, 1f);
-            float[] sel = slotPos(selectedSlot);
-            sr.rect(sel[0] + 1, sel[1] + 1, SLOT_SIZE - 2, SLOT_SIZE - 2);
-            sr.rect(sel[0] + 2, sel[1] + 2, SLOT_SIZE - 4, SLOT_SIZE - 4);
-            sr.end();
-        }
 
         // ----- Item icons (coloured squares inside each slot) -----
         sr.begin(ShapeRenderer.ShapeType.Filled);
@@ -141,31 +163,36 @@ public class InventoryUI {
             if (slot == dragSlot) continue;
             if (itemIds[slot] == 0) continue;
             float[] pos = slotPos(slot);
-            drawItemIcon(sr, pos[0], pos[1], itemIds[slot], flags[slot], names[slot]);
+            drawItemIcon(sr, pos[0], pos[1], itemIds[slot]);
         }
         sr.end();
 
         // ----- Stack counts & names (batch text) -----
         batch.setProjectionMatrix(proj);
         batch.begin();
-        font.getData().setScale(0.72f);
+        GlyphLayout layout = new GlyphLayout();
+        font.getData().setScale(0.8f);
         for (int slot = 0; slot < SLOTS; slot++) {
             if (slot == dragSlot) continue;
             if (itemIds[slot] == 0) continue;
             float[] pos = slotPos(slot);
             if (quantities[slot] > 1) {
-                font.setColor(1f, 0.9f, 0.1f, 1f);
-                String qty = quantities[slot] > 99_999
-                    ? String.format("%dk", quantities[slot] / 1000)
-                    : String.valueOf(quantities[slot]);
-                font.draw(batch, qty, pos[0] + 3, pos[1] + 11);
+                font.setColor(0.35f, 0.35f, 0.35f, 1f);
+                String qty = formatStackCount(quantities[slot]);
+                layout.setText(font, qty);
+                font.draw(batch, qty, pos[0] + SLOT_SIZE - 3 - layout.width, pos[1] + 10);
             }
         }
 
-        // ----- Floating dragged item -----
         if (dragSlot >= 0 && itemIds[dragSlot] > 0) {
-            font.getData().setScale(0.75f);
-            // Drawn after loop — just text; shape drawn separately below
+            if (quantities[dragSlot] > 1) {
+                float fx = dragMouseX - SLOT_SIZE / 2f;
+                float fy = dragMouseY - SLOT_SIZE / 2f + 6f;
+                String qty = formatStackCount(quantities[dragSlot]);
+                layout.setText(font, qty);
+                font.setColor(0.35f, 0.35f, 0.35f, 1f);
+                font.draw(batch, qty, fx + SLOT_SIZE - 3 - layout.width, fy + 10);
+            }
         }
         font.getData().setScale(1f);
         font.setColor(Color.WHITE);
@@ -174,11 +201,24 @@ public class InventoryUI {
         // ----- Floating dragged item icon -----
         if (dragSlot >= 0 && itemIds[dragSlot] > 0) {
             sr.begin(ShapeRenderer.ShapeType.Filled);
-            sr.setColor(0.28f, 0.25f, 0.20f, 0.85f);
             float fx = dragMouseX - SLOT_SIZE / 2f;
-            float fy = dragMouseY - SLOT_SIZE / 2f;
+            float fy = dragMouseY - SLOT_SIZE / 2f + 6f;
+
+            // Semi-transparent shadow below dragged slot
+            sr.setColor(0f, 0f, 0f, 0.28f);
+            sr.rect(fx + 3, fy - 4, SLOT_SIZE, SLOT_SIZE);
+
+            sr.setColor(0.28f, 0.25f, 0.20f, 0.88f);
             sr.rect(fx, fy, SLOT_SIZE, SLOT_SIZE);
-            drawItemIcon(sr, fx, fy, itemIds[dragSlot], flags[dragSlot], names[dragSlot]);
+
+            if (selectedSlot == dragSlot) {
+                sr.setColor(1f, 0.85f, 0.1f, 0.85f);
+                sr.rect(fx + 1, fy + 1, SLOT_SIZE - 2, 1);
+                sr.rect(fx + 1, fy + SLOT_SIZE - 2, SLOT_SIZE - 2, 1);
+                sr.rect(fx + 1, fy + 1, 1, SLOT_SIZE - 2);
+                sr.rect(fx + SLOT_SIZE - 2, fy + 1, 1, SLOT_SIZE - 2);
+            }
+            drawItemIcon(sr, fx, fy, itemIds[dragSlot]);
             sr.end();
         }
     }
@@ -188,7 +228,7 @@ public class InventoryUI {
      * Icon occupies the central 24×24 area of a 40×40 slot.
      */
     private void drawItemIcon(ShapeRenderer sr, float slotLeft, float slotBottom,
-                               int itemId, int itemFlags, String itemName) {
+                               int itemId) {
         float iconX = slotLeft   + 8;
         float iconY = slotBottom + 8;
         float iconW = 24f;
@@ -206,7 +246,7 @@ public class InventoryUI {
             case 315 -> drawCookedShrimpsIcon(sr, iconX, iconY);
             case 7954 -> drawBurntShrimpsIcon(sr, iconX, iconY);
             case 526 -> drawBonesIcon(sr, iconX, iconY);
-            default -> drawGenericIcon(sr, iconX, iconY, itemColor(itemId, itemFlags, itemName));
+            default -> drawGenericIcon(sr, iconX, iconY, getItemIconColor(itemId));
         }
     }
 
@@ -287,23 +327,48 @@ public class InventoryUI {
         sr.rect(x + 15, y + 13, 3, 3);
     }
 
-    private Color itemColor(int itemId, int itemFlags, String name) {
-        if (itemId == 995) return new Color(1f, 0.90f, 0.10f, 1f);   // coins
-        if ((itemFlags & 0x2) != 0) return new Color(1f, 0.60f, 0.20f, 1f); // food
-        if ((itemFlags & 0x1) != 0) {                                 // equipable
-            String n = name == null ? "" : name.toLowerCase();
-            if (n.contains("dragon"))  return new Color(0.80f, 0.18f, 0.10f, 1f); // deep red
-            if (n.contains("rune"))    return new Color(0.10f, 0.62f, 0.85f, 1f); // teal-blue
-            if (n.contains("adamant")) return new Color(0.15f, 0.58f, 0.28f, 1f); // green
-            if (n.contains("mithril")) return new Color(0.35f, 0.48f, 0.82f, 1f); // blue
-            if (n.contains("black"))   return new Color(0.22f, 0.20f, 0.25f, 1f); // dark
-            if (n.contains("steel"))   return new Color(0.60f, 0.62f, 0.72f, 1f); // steel-blue
-            if (n.contains("iron"))    return new Color(0.52f, 0.52f, 0.54f, 1f); // grey
-            if (n.contains("bronze"))  return new Color(0.72f, 0.42f, 0.10f, 1f); // bronze
-            return new Color(0.75f, 0.78f, 0.82f, 1f); // default equipable
+    private Color getItemIconColor(int itemId) {
+        return switch (itemId) {
+            // Bronze tier
+            case 882, 1277, 1321, 1175, 1115, 1119, 1067, 1351 -> BRONZE_COLOR;
+
+            // Iron tier
+            case 1349, 1323, 1153, 2000, 1069, 1177 -> IRON_COLOR;
+
+            // Steel tier
+            case 1353, 1325, 1157, 1085, 1071, 1193 -> STEEL_COLOR;
+
+            // Mithril tier
+            case 1355, 1329, 1163, 1129, 1075, 1197 -> MITHRIL_COLOR;
+
+            // Adamantite tier
+            case 1357, 1331, 1161, 1133, 1077, 1199 -> ADAMANT_COLOR;
+
+            // Rune tier
+            case 1359, 1333, 1165, 1127, 1079, 1185 -> RUNE_COLOR;
+
+            // Dragon tier
+            case 4587, 11335, 3140, 4087, 11286 -> DRAGON_COLOR;
+
+            // Black-tier equipment maps closer to iron-dark look
+            case 1327, 1159, 1125, 1073, 1195 -> IRON_COLOR;
+
+            // Misc non-tier identity colors
+            case 995 -> new Color(1f, 0.90f, 0.10f, 1f); // coins
+            case 526 -> new Color(0.85f, 0.75f, 0.55f, 1f); // bones
+
+            default -> DEFAULT_ITEM_COLOR;
+        };
+    }
+
+    private String formatStackCount(int qty) {
+        if (qty >= 1_000_000) {
+            return (qty / 1_000_000) + "M";
         }
-        if (itemId == 526) return new Color(0.85f, 0.75f, 0.55f, 1f);
-        return new Color(0.65f, 0.55f, 0.45f, 1f);
+        if (qty >= 1_000) {
+            return (qty / 1_000) + "k";
+        }
+        return String.valueOf(qty);
     }
 
     // -----------------------------------------------------------------------
