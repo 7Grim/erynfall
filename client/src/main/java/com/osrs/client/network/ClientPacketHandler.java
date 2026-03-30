@@ -333,6 +333,12 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
             hp[0] = update.getHealth();
             entityHealth.put(id, hp);
         }
+        if (update.hasIsPlayer()) {
+            entityIsPlayer.put(id, update.getIsPlayer());
+        }
+        if (update.hasName() && !update.getName().isEmpty()) {
+            entityNames.put(id, update.getName());
+        }
         LOG.debug("EntityUpdate id={} pos=({},{})", id,
             update.hasX() ? update.getX() : '?', update.hasY() ? update.getY() : '?');
     }

@@ -65,6 +65,8 @@ message EntityUpdate {
     optional int32 facing = 4;
     optional int32 animation_frame = 5;
     optional int32 health = 6;
+    optional bool is_player = 7;    // only set on player-join broadcasts
+    optional string name = 8;       // only set on player-join broadcasts
 }
 
 // CombatHit: Server → Client

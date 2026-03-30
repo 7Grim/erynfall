@@ -74,6 +74,12 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
                     PlayerRepository.saveQuestProgress(player, session.getQuestManager());
                     LOG.info("Saved player {} on disconnect", player.getName());
                 }
+                // Broadcast player departure before removing from world/session maps
+                NetworkProto.ServerMessage leaveMsg = NetworkProto.ServerMessage.newBuilder()
+                    .setNpcDespawn(NetworkProto.NpcDespawn.newBuilder()
+                        .setNpcId(player.getId()))
+                    .build();
+                server.broadcastToAll(leaveMsg);
                 server.getWorld().getPlayers().remove(player.getId());
             }
             server.removeSession(session.getSessionId());
@@ -185,6 +191,24 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
         sendInitialQuestState(ctx);
 
         sendWorldState(ctx);
+
+        // Notify already-connected clients of the new player
+        Player newPlayer = session.getPlayer();
+        if (newPlayer != null) {
+            NetworkProto.ServerMessage joinMsg = NetworkProto.ServerMessage.newBuilder()
+                .setEntityUpdate(NetworkProto.EntityUpdate.newBuilder()
+                    .setEntityId(newPlayer.getId())
+                    .setX(newPlayer.getX())
+                    .setY(newPlayer.getY())
+                    .setIsPlayer(true)
+                    .setName(newPlayer.getName()))
+                .build();
+            for (PlayerSession ps : server.getSessions().values()) {
+                if (ps.getSessionId() == session.getSessionId()) continue;
+                if (!ps.isAuthenticated() || ps.getPlayer() == null) continue;
+                ps.getChannel().writeAndFlush(joinMsg);
+            }
+        }
     }
 
     private void handleTokenHandshake(ChannelHandlerContext ctx, String accessToken) {
@@ -256,6 +280,24 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
         sendFullEquipment(ctx, player);
         sendInitialQuestState(ctx);
         sendWorldState(ctx);
+
+        // Notify already-connected clients of the new player
+        Player newPlayer = session.getPlayer();
+        if (newPlayer != null) {
+            NetworkProto.ServerMessage joinMsg = NetworkProto.ServerMessage.newBuilder()
+                .setEntityUpdate(NetworkProto.EntityUpdate.newBuilder()
+                    .setEntityId(newPlayer.getId())
+                    .setX(newPlayer.getX())
+                    .setY(newPlayer.getY())
+                    .setIsPlayer(true)
+                    .setName(newPlayer.getName()))
+                .build();
+            for (PlayerSession ps : server.getSessions().values()) {
+                if (ps.getSessionId() == session.getSessionId()) continue;
+                if (!ps.isAuthenticated() || ps.getPlayer() == null) continue;
+                ps.getChannel().writeAndFlush(joinMsg);
+            }
+        }
     }
 
     private void sendFullEquipment(ChannelHandlerContext ctx, Player player) {

@@ -385,18 +385,23 @@ public class GameScreen extends ApplicationAdapter {
             renderer.renderGroundItem(data[2], data[3], data[0], data[1]);
         }
 
-        // NPCs — rendered at their smoothly interpolated visual positions
+        // Entities — NPCs and other players at their interpolated visual positions
         ClientPacketHandler handler = handler();
         if (handler != null) {
             for (Map.Entry<Integer, int[]> entry : handler.getEntityPositions().entrySet()) {
                 int id = entry.getKey();
-                if (handler.isPlayer(id)) continue;          // skip other players for now
+                if (localPlayerId >= 0 && id == localPlayerId) continue;  // local player rendered below
 
                 float[] vis = npcVisual.get(id);
                 if (vis == null) continue;
 
-                String npcName = handler.getEntityName(id);
-                renderer.renderNPC(vis[0], vis[1], id, npcName);
+                if (handler.isPlayer(id)) {
+                    // Other connected player — render as player sprite (no action state known)
+                    renderer.renderPlayer(vis[0], vis[1], false, null);
+                } else {
+                    String npcName = handler.getEntityName(id);
+                    renderer.renderNPC(vis[0], vis[1], id, npcName);
+                }
 
                 int[] hp = handler.getEntityHealth(id);
                 if (hp[0] < hp[1]) {
@@ -416,6 +421,7 @@ public class GameScreen extends ApplicationAdapter {
         chatBox.update(delta);
         xpDropOverlay.update(delta);
         levelUpOverlay.update(delta);
+        renderOtherPlayerNametags();
         renderOverheadText(delta);
         renderClickMarkers();
 
@@ -735,7 +741,7 @@ public class GameScreen extends ApplicationAdapter {
 
         for (Map.Entry<Integer, int[]> entry : h.getEntityPositions().entrySet()) {
             int id = entry.getKey();
-            if (h.isPlayer(id)) continue;
+            if (localPlayerId >= 0 && id == localPlayerId) continue;
 
             int[] logical = entry.getValue();
             float[] vis   = npcVisual.get(id);
@@ -1639,7 +1645,23 @@ public class GameScreen extends ApplicationAdapter {
         if (h != null) {
             for (Map.Entry<Integer, int[]> entry : h.getEntityPositions().entrySet()) {
                 int id = entry.getKey();
-                if (h.isPlayer(id)) continue;
+                if (h.isPlayer(id)) {
+                    // Other player — add Trade/Follow options if standing on this tile
+                    if (localPlayerId >= 0 && id == localPlayerId) continue;
+                    float[] vis = npcVisual.get(id);
+                    if (vis == null) continue;
+                    int vx = (int) Math.round(vis[0]);
+                    int vy = (int) Math.round(vis[1]);
+                    if (tileX != vx || tileY != vy) continue;
+                    String pName = h.getEntityName(id);
+                    if (pName == null || pName.isEmpty()) pName = "Player";
+                    String yellow = "[#ffff00]" + pName + "[]";
+                    opts.add(new ContextMenu.MenuItem(
+                        "Trade with " + yellow, "trade_player", id));
+                    opts.add(new ContextMenu.MenuItem(
+                        "Follow " + yellow, "follow_player", id));
+                    continue;
+                }
                 // Use visual (rounded) position so click target matches the sprite
                 float[] vis = npcVisual.get(id);
                 if (vis == null) continue;
@@ -1692,6 +1714,8 @@ public class GameScreen extends ApplicationAdapter {
             case "chop"   -> startApproach((Integer) item.target, "chop");
             case "fish"   -> startApproach((Integer) item.target, "fish");
             case "cook_at" -> startApproach((Integer) item.target, "cook_at");
+            case "trade_player"  -> LOG.info("Trade not yet implemented for player {}", item.target);
+            case "follow_player" -> LOG.info("Follow not yet implemented for player {}", item.target);
             case "take"   -> startGroundItemApproach((Integer) item.target);
             case "inv_eat"   -> { if (nettyClient != null) nettyClient.sendUseItem((Integer) item.target, "eat"); }
             case "inv_wield" -> { if (nettyClient != null) nettyClient.sendUseItem((Integer) item.target, "wield"); }
@@ -1839,6 +1863,63 @@ public class GameScreen extends ApplicationAdapter {
 
         batch.end();
         font.setColor(Color.WHITE);
+        Gdx.gl.glDisable(GL20.GL_BLEND);
+    }
+
+    /**
+     * Renders a persistent yellow nametag above each other connected player.
+     * Called every frame in world-space projection.
+     */
+    private void renderOtherPlayerNametags() {
+        ClientPacketHandler h = handler();
+        if (h == null) return;
+
+        boolean anyPlayer = false;
+        for (Map.Entry<Integer, int[]> entry : h.getEntityPositions().entrySet()) {
+            int id = entry.getKey();
+            if (!h.isPlayer(id)) continue;
+            if (localPlayerId >= 0 && id == localPlayerId) continue;
+            float[] vis = npcVisual.get(id);
+            if (vis == null) continue;
+            String name = h.getEntityName(id);
+            if (name == null || name.isEmpty()) continue;
+            anyPlayer = true;
+            break;
+        }
+        if (!anyPlayer) return;
+
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
+        batch.setProjectionMatrix(camera.combined);
+        batch.begin();
+        font.getData().setScale(0.72f);
+
+        for (Map.Entry<Integer, int[]> entry : h.getEntityPositions().entrySet()) {
+            int id = entry.getKey();
+            if (!h.isPlayer(id)) continue;
+            if (localPlayerId >= 0 && id == localPlayerId) continue;
+            float[] vis = npcVisual.get(id);
+            if (vis == null) continue;
+            String name = h.getEntityName(id);
+            if (name == null || name.isEmpty()) continue;
+
+            float sx = (vis[0] - vis[1]) * 16f;
+            float sy = (vis[0] + vis[1]) * 8f + 28f;   // 28px above player feet
+
+            com.badlogic.gdx.graphics.g2d.GlyphLayout gl =
+                new com.badlogic.gdx.graphics.g2d.GlyphLayout(font, name);
+
+            // Shadow
+            font.setColor(0f, 0f, 0f, 0.8f);
+            font.draw(batch, name, sx - gl.width * 0.5f + 1f, sy - 1f);
+            // Yellow name
+            font.setColor(1f, 1f, 0f, 1f);
+            font.draw(batch, name, sx - gl.width * 0.5f, sy);
+        }
+
+        font.getData().setScale(1f);
+        font.setColor(Color.WHITE);
+        batch.end();
         Gdx.gl.glDisable(GL20.GL_BLEND);
     }
 
