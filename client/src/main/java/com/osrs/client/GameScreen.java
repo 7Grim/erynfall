@@ -437,6 +437,7 @@ public class GameScreen extends ApplicationAdapter {
             int[] data = entry.getValue();  // {itemId, qty, x, y}
             renderer.renderGroundItem(data[2], data[3], data[0], data[1]);
         }
+        renderGroundItemLabels();
 
         // Entities — NPCs and other players at their interpolated visual positions
         ClientPacketHandler handler = handler();
@@ -2064,6 +2065,33 @@ public class GameScreen extends ApplicationAdapter {
         batch.end();
         font.setColor(COLOR_WHITE);
         Gdx.gl.glDisable(GL20.GL_BLEND);
+    }
+
+    private void renderGroundItemLabels() {
+        if (groundItemsOnMap.isEmpty()) return;
+
+        batch.setProjectionMatrix(camera.combined);
+        batch.begin();
+
+        font.getData().setScale(FontManager.getScale(FontManager.FontContext.SMALL_LABEL));
+        font.setColor(FontManager.TEXT_YELLOW);
+        GlyphLayout gl = new GlyphLayout();
+
+        for (Map.Entry<Integer, int[]> entry : groundItemsOnMap.entrySet()) {
+            String itemName = groundItemNamesMap.get(entry.getKey());
+            if (itemName == null || itemName.isEmpty()) continue;
+
+            int[] data = entry.getValue(); // {itemId, qty, x, y}
+            float sx = renderer.worldToScreenX(data[2], data[3]);
+            float sy = renderer.worldToScreenY(data[2], data[3]);
+
+            gl.setText(font, itemName);
+            font.draw(batch, gl, sx - gl.width / 2f, sy + 18f);
+        }
+
+        batch.end();
+        font.getData().setScale(FontManager.getScale(FontManager.FontContext.BASE_UI));
+        font.setColor(COLOR_WHITE);
     }
 
     /**
