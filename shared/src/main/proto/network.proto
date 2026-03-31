@@ -316,6 +316,33 @@ message ExamineItem {
     int32 inventory_slot = 1;   // 0-27
 }
 
+message PlayerEntry {
+    string name = 1;
+    int64 player_id = 2;
+    bool online = 3;
+}
+
+message FriendsListUpdate {
+    repeated PlayerEntry friends = 1;
+}
+
+message FriendAction {
+    enum Action {
+        ADD = 0;
+        REMOVE = 1;
+    }
+    Action action = 1;
+    int64 player_id = 2;
+    string name = 3;
+    int64 sequence = 4;
+}
+
+message FriendActionResult {
+    bool success = 1;
+    string error = 2;
+    int64 sequence = 3;
+}
+
 // LogoutRequest: Client -> Server (explicitly log out and persist state)
 message LogoutRequest {
     int64 sequence = 1;
@@ -390,6 +417,7 @@ message ClientMessage {
         UnequipItem unequip_item   = 17;
         TogglePrayer toggle_prayer = 18;
         ExamineItem examine_item = 19;
+        FriendAction friend_action = 20;
     }
 }
 
@@ -419,5 +447,7 @@ message ServerMessage {
         SkillingStateUpdate skilling_state_update = 21;
         EquipmentBonuses equipment_bonuses = 22;
         PrayerPointsUpdate prayer_points_update = 23;
+        FriendsListUpdate friends_list_update = 24;
+        FriendActionResult friend_action_result = 25;
     }
 }
