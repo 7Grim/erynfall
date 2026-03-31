@@ -59,6 +59,7 @@ public class GameScreen extends ApplicationAdapter {
     private static final Color COLOR_WHITE = FontManager.TEXT_WHITE;
     private static final Color COLOR_CYAN = FontManager.TEXT_CYAN;
     private static final Color COLOR_YELLOW = FontManager.TEXT_YELLOW;
+    private static final Color COLOR_RED = new Color(1.0f, 0.0f, 0.0f, 1f);
     private static final Color COLOR_GOLD = FontManager.TEXT_GOLD;
 
     /** OSRS walk speed: 1 tile per 0.6 s. */
@@ -514,6 +515,7 @@ public class GameScreen extends ApplicationAdapter {
         xpDropOverlay.update(delta);
         levelUpOverlay.update(delta);
         renderOtherPlayerNametags();
+        renderNpcNametags();
         renderOverheadText(delta);
         renderClickMarkers();
 
@@ -2297,6 +2299,60 @@ public class GameScreen extends ApplicationAdapter {
             font.draw(batch, name, sx - gl.width * 0.5f + 1f, sy - 1f);
             // Yellow name
             font.setColor(COLOR_YELLOW);
+            font.draw(batch, name, sx - gl.width * 0.5f, sy);
+        }
+
+        font.getData().setScale(FontManager.getScale(FontManager.FontContext.BASE_UI));
+        font.setColor(COLOR_WHITE);
+        batch.end();
+        Gdx.gl.glDisable(GL20.GL_BLEND);
+    }
+
+    private void renderNpcNametags() {
+        ClientPacketHandler h = handler();
+        if (h == null) return;
+
+        boolean anyNpc = false;
+        for (Map.Entry<Integer, int[]> entry : h.getEntityPositions().entrySet()) {
+            int id = entry.getKey();
+            if (h.isPlayer(id)) continue;
+            if (h.getResourcePrimarySkill(id) != null) continue;
+            float[] vis = npcVisual.get(id);
+            if (vis == null) continue;
+            String name = h.getEntityName(id);
+            if (name == null || name.isEmpty()) continue;
+            anyNpc = true;
+            break;
+        }
+        if (!anyNpc) return;
+
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
+        batch.setProjectionMatrix(camera.combined);
+        batch.begin();
+        font.getData().setScale(FontManager.getScale(FontManager.FontContext.TOOLTIP));
+
+        for (Map.Entry<Integer, int[]> entry : h.getEntityPositions().entrySet()) {
+            int id = entry.getKey();
+            if (h.isPlayer(id)) continue;
+            if (h.getResourcePrimarySkill(id) != null) continue;
+
+            float[] vis = npcVisual.get(id);
+            if (vis == null) continue;
+            String name = h.getEntityName(id);
+            if (name == null || name.isEmpty()) continue;
+
+            boolean hostile = h.isNpcHostile(id);
+            Color nameColor = hostile ? COLOR_RED : COLOR_YELLOW;
+            float sx = (vis[0] - vis[1]) * 16f;
+            float sy = (vis[0] + vis[1]) * 8f + 28f;
+
+            com.badlogic.gdx.graphics.g2d.GlyphLayout gl =
+                new com.badlogic.gdx.graphics.g2d.GlyphLayout(font, name);
+
+            font.setColor(0f, 0f, 0f, 0.8f);
+            font.draw(batch, name, sx - gl.width * 0.5f + 1f, sy - 1f);
+            font.setColor(nameColor);
             font.draw(batch, name, sx - gl.width * 0.5f, sy);
         }
 

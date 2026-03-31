@@ -12,8 +12,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 
 /**
  * OSRS-style hitsplat rendering.
@@ -33,6 +35,7 @@ public class CombatUI {
     private static final float SPLAT_RADIUS = 9f;        // pixels
     private static final float FLOAT_SPEED = 25f;        // screen pixels per second upward
     private static final float FADE_START = 0.6f;        // start fading at 60% of life remaining
+    private static final float STACK_SPACING = 12f;      // vertical spacing for overlapping hitsplats
 
     public enum HpBarState { HEALTHY, POISONED, VENOMED, DISEASED, NEAR_DEATH }
 
@@ -121,14 +124,19 @@ public class CombatUI {
             // --- Pass 1: filled circles (ShapeRenderer) ---
             shapeRenderer.setProjectionMatrix(camera.combined);
             shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+            Map<Long, Integer> stacksByTile = new HashMap<>();
             for (DamageNumber dn : damageNumbers) {
                 float sx = (dn.tileX - dn.tileY) * 16f;
-                float sy = (dn.tileX + dn.tileY) * 8f + 20 + dn.yOffset; // +20 above entity
+                int stackIndex = stacksByTile.getOrDefault(tileKey(dn.tileX, dn.tileY), 0);
+                stacksByTile.put(tileKey(dn.tileX, dn.tileY), stackIndex + 1);
+                float sy = (dn.tileX + dn.tileY) * 8f + 20 + dn.yOffset + stackIndex * STACK_SPACING; // +20 above entity
                 float alpha = dn.getAlpha();
-                if (dn.hit) {
-                    shapeRenderer.setColor(0.75f, 0.0f, 0.0f, alpha); // red
-                } else {
+                if (!dn.hit) {
                     shapeRenderer.setColor(0.85f, 0.85f, 0.85f, alpha); // light grey (miss)
+                } else if (dn.damage == 0) {
+                    shapeRenderer.setColor(0.40f, 0.60f, 1.0f, alpha); // blue (blocked/zero damage)
+                } else {
+                    shapeRenderer.setColor(0.75f, 0.0f, 0.0f, alpha); // red (hit)
                 }
                 shapeRenderer.circle(sx, sy, SPLAT_RADIUS, 12);
             }
@@ -137,9 +145,12 @@ public class CombatUI {
             // --- Pass 2: number text (SpriteBatch) ---
             batch.setProjectionMatrix(camera.combined);
             batch.begin();
+            stacksByTile.clear();
             for (DamageNumber dn : damageNumbers) {
                 float sx = (dn.tileX - dn.tileY) * 16f;
-                float sy = (dn.tileX + dn.tileY) * 8f + 20 + dn.yOffset;
+                int stackIndex = stacksByTile.getOrDefault(tileKey(dn.tileX, dn.tileY), 0);
+                stacksByTile.put(tileKey(dn.tileX, dn.tileY), stackIndex + 1);
+                float sy = (dn.tileX + dn.tileY) * 8f + 20 + dn.yOffset + stackIndex * STACK_SPACING;
                 float alpha = dn.getAlpha();
                 String text = String.valueOf(dn.damage);
                 font.setColor(1f, 1f, 1f, alpha);
@@ -245,4 +256,10 @@ public class CombatUI {
 
     public List<DamageNumber> getDamageNumbers() { return damageNumbers; }
     public List<String> getMessages() { return combatMessages; }
+
+    private long tileKey(float tileX, float tileY) {
+        long x = Float.floatToIntBits(tileX);
+        long y = Float.floatToIntBits(tileY);
+        return (x << 32) | (y & 0xffffffffL);
+    }
 }
