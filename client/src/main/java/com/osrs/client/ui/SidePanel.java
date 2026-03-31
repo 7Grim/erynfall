@@ -83,8 +83,9 @@ public class SidePanel {
     public enum Tab {
         COMBAT    (0, "Combat"),
         SKILLS    (1, "Skills"),
-        CHARACTER (2, "Summary"),
-        INVENTORY (3, "Inventory");
+        PRAYER    (2, "Prayer"),
+        CHARACTER (3, "Summary"),
+        INVENTORY (4, "Inventory");
 
         public final int    index;
         public final String label;
@@ -203,6 +204,16 @@ public class SidePanel {
     private int selectedQuestId = -1;
     private int playerQuestPoints = 0;
     private boolean logoutRequested = false;
+    // Prayer tab state (synced from GameScreen)
+    private int currentPrayerPoints = 0;
+    private int maxPrayerPoints     = 0;
+    private final java.util.Set<Integer> activePrayerIds = new java.util.HashSet<>();
+    public void setPrayerState(int current, int max, java.util.Set<Integer> active) {
+        this.currentPrayerPoints = current;
+        this.maxPrayerPoints     = max;
+        this.activePrayerIds.clear();
+        if (active != null) this.activePrayerIds.addAll(active);
+    }
 
     private static final String[] STYLE_NAMES = {
         "Accurate", "Aggressive", "Defensive", "Controlled"
@@ -258,6 +269,7 @@ public class SidePanel {
         switch (activeTab) {
             case COMBAT    -> renderCombatTab(sr, batch, font, proj);
             case SKILLS    -> renderSkillsTab(sr, batch, font, proj, screenW, screenH, mouseX, mouseY);
+            case PRAYER    -> renderPrayerTab(sr, batch, font, proj, mouseX, mouseY);
             case CHARACTER -> renderCharacterTab(sr, batch, font, proj);
             case INVENTORY -> {
                 int invX = panelX + (PANEL_W - inventoryUI.getPanelWidth()) / 2;
@@ -324,11 +336,17 @@ public class SidePanel {
                     sr.rect(cx + 3, cy - 6, 4, 12);
                 }
                 case 2 -> {
+                    // Prayer icon: prayer/star
+                    sr.circle(cx, cy + 3, 3);
+                    sr.rect(cx - 1, cy - 6, 2, 10);
+                    sr.rect(cx - 5, cy - 2, 10, 2);
+                }
+                case 3 -> {
                     // Character icon: head + torso
                     sr.circle(cx, cy + 4, 3);
                     sr.rect(cx - 4, cy - 8, 8, 9);
                 }
-                case 3 -> {
+                case 4 -> {
                     // Inventory icon: backpack
                     sr.rect(cx - 6, cy - 7, 12, 13);
                     sr.setColor(c.r * 0.8f, c.g * 0.8f, c.b * 0.8f, 1f);
@@ -493,6 +511,131 @@ public class SidePanel {
         {14, 19, 20},  // Runecrafting, Slayer,      Farming
         {22, 21, -1},  // Construction, Hunter,      [Total Level]
     };
+
+    /** F2P prayer definitions: {prayerId, levelRequired, name}. */
+    private static final Object[][] PRAYERS = {
+        {1,  1, "Thick Skin"},
+        {2,  4, "Burst of Strength"},
+        {3,  7, "Clarity of Thought"},
+        {4, 10, "Rock Skin"},
+        {5, 13, "Superhuman Strength"},
+        {6, 16, "Improved Reflexes"},
+    };
+
+    private void renderPrayerTab(ShapeRenderer sr, SpriteBatch batch, BitmapFont font,
+                                  Matrix4 proj, int mouseX, int mouseY) {
+        final int PAD     = 8;
+        final int ROW_H   = 36;
+        final int BAR_H   = 20;
+        final int DOT_SZ  = 20;
+
+        // -- Header --
+        batch.setProjectionMatrix(proj);
+        batch.begin();
+        font.getData().setScale(0.85f);
+        font.setColor(0.90f, 0.80f, 0.50f, 1f);
+        font.draw(batch, "Prayer", panelX + PAD, panelY + CONTENT_H - 8);
+        font.getData().setScale(1f);
+        font.setColor(Color.WHITE);
+        batch.end();
+
+        sr.setProjectionMatrix(proj);
+        sr.begin(ShapeRenderer.ShapeType.Filled);
+        sr.setColor(0.45f, 0.38f, 0.22f, 1f);
+        sr.rect(panelX + PAD, panelY + CONTENT_H - 20, PANEL_W - PAD * 2, 1);
+        sr.end();
+
+        // -- Prayer rows --
+        int prayerLevel = skillLevels[6]; // SKILL_PRAYER index
+        int startY = panelY + CONTENT_H - 28;
+
+        sr.begin(ShapeRenderer.ShapeType.Filled);
+        for (int i = 0; i < PRAYERS.length; i++) {
+            int    prayerId  = (int) PRAYERS[i][0];
+            int    levelReq  = (int) PRAYERS[i][1];
+            boolean active   = activePrayerIds.contains(prayerId);
+            boolean canUse   = prayerLevel >= levelReq && currentPrayerPoints > 0;
+            boolean hovering = mouseX >= panelX + PAD && mouseX <= panelX + PANEL_W - PAD
+                            && mouseY >= startY - (i + 1) * ROW_H
+                            && mouseY <= startY - i * ROW_H - 2;
+
+            int rowY = startY - (i + 1) * ROW_H + 2;
+
+            // Row background
+            if (active) {
+                sr.setColor(0.20f, 0.28f, 0.10f, 1f);
+            } else if (hovering && canUse) {
+                sr.setColor(0.16f, 0.14f, 0.10f, 1f);
+            } else {
+                sr.setColor(0.10f, 0.09f, 0.07f, 1f);
+            }
+            sr.rect(panelX + PAD, rowY, PANEL_W - PAD * 2, ROW_H - 2);
+
+            // Active/inactive indicator dot
+            if (active) {
+                sr.setColor(0.55f, 0.88f, 0.20f, 1f);
+            } else if (!canUse) {
+                sr.setColor(0.28f, 0.24f, 0.18f, 1f);
+            } else {
+                sr.setColor(0.38f, 0.34f, 0.22f, 1f);
+            }
+            sr.rect(panelX + PAD + 2, rowY + (ROW_H - 2 - DOT_SZ) / 2f, DOT_SZ, DOT_SZ);
+
+            // Row border
+            sr.setColor(0.38f, 0.32f, 0.18f, 0.70f);
+            sr.rect(panelX + PAD, rowY,            PANEL_W - PAD * 2, 1);
+            sr.rect(panelX + PAD, rowY + ROW_H - 3, PANEL_W - PAD * 2, 1);
+        }
+        sr.end();
+
+        // -- Prayer point bar (bottom) --
+        int barY  = panelY + PAD + 2;
+        int barW  = PANEL_W - PAD * 2;
+        float ratio = maxPrayerPoints > 0 ? (float) currentPrayerPoints / maxPrayerPoints : 0f;
+
+        sr.begin(ShapeRenderer.ShapeType.Filled);
+        sr.setColor(0.12f, 0.10f, 0.08f, 1f);
+        sr.rect(panelX + PAD, barY, barW, BAR_H);
+        sr.setColor(0.22f, 0.50f, 0.82f, 1f);
+        sr.rect(panelX + PAD, barY, (int) (barW * ratio), BAR_H);
+        sr.setColor(0.38f, 0.32f, 0.18f, 0.80f);
+        sr.rect(panelX + PAD, barY,       barW, 1);
+        sr.rect(panelX + PAD, barY + BAR_H - 1, barW, 1);
+        sr.end();
+
+        // -- Text pass --
+        batch.setProjectionMatrix(proj);
+        batch.begin();
+        for (int i = 0; i < PRAYERS.length; i++) {
+            int    prayerId = (int) PRAYERS[i][0];
+            int    levelReq = (int) PRAYERS[i][1];
+            String name     = (String) PRAYERS[i][2];
+            boolean active  = activePrayerIds.contains(prayerId);
+            boolean canUse  = prayerLevel >= levelReq;
+            int rowY = startY - (i + 1) * ROW_H + 2;
+
+            font.getData().setScale(0.78f);
+            font.setColor(active ? new Color(0.75f, 1.00f, 0.35f, 1f)
+                        : canUse ? new Color(0.88f, 0.84f, 0.72f, 1f)
+                                 : new Color(0.45f, 0.42f, 0.35f, 1f));
+            font.draw(batch, name, panelX + PAD + DOT_SZ + 8, rowY + ROW_H - 8);
+
+            font.getData().setScale(0.62f);
+            font.setColor(canUse ? new Color(0.65f, 0.90f, 0.25f, 1f)
+                                 : new Color(0.75f, 0.58f, 0.18f, 1f));
+            font.draw(batch, "Lv " + levelReq, panelX + PANEL_W - PAD - 26, rowY + ROW_H - 8);
+        }
+
+        // Prayer points bar label
+        font.getData().setScale(0.72f);
+        font.setColor(0.78f, 0.88f, 1.00f, 1f);
+        font.draw(batch, currentPrayerPoints + " / " + maxPrayerPoints,
+            panelX + PAD + 4, barY + BAR_H - 3);
+
+        font.getData().setScale(1f);
+        font.setColor(Color.WHITE);
+        batch.end();
+    }
 
     private void renderSkillsTab(ShapeRenderer sr, SpriteBatch batch, BitmapFont font, Matrix4 proj,
                                   int screenW, int screenH, int mouseX, int mouseY) {
@@ -1278,6 +1421,19 @@ public class SidePanel {
                     && my >= logoutButtonY() && my <= logoutButtonY() + logoutButtonH()) {
                     logoutRequested = true;
                     return -1;
+                }
+            }
+            case PRAYER -> {
+                int prayerLevel = skillLevels[6];
+                int startY = panelY + CONTENT_H - 28;
+                final int ROW_H = 36;
+                for (int i = 0; i < PRAYERS.length; i++) {
+                    int prayerId = (int) PRAYERS[i][0];
+                    int rowY = startY - (i + 1) * ROW_H + 2;
+                    if (mx >= panelX + 8 && mx <= panelX + PANEL_W - 8
+                     && my >= rowY && my <= rowY + ROW_H - 2) {
+                        return -(200 + prayerId);   // GameScreen decodes: prayerId = -(ret+200)
+                    }
                 }
             }
             case INVENTORY -> inventoryUI.handleMouseDown(mx, my, 0);

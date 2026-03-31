@@ -282,6 +282,22 @@ public class Player extends Entity {
     // Prayer points
     // -----------------------------------------------------------------------
 
+    // -----------------------------------------------------------------------
+    // Active prayers
+    // -----------------------------------------------------------------------
+
+    /** IDs of currently active prayers. Empty when no prayer is active. */
+    private final java.util.Set<Integer> activePrayers = new java.util.HashSet<>();
+
+    public boolean isPrayerActive(int id)   { return activePrayers.contains(id); }
+    public void activatePrayer(int id)      { activePrayers.add(id); }
+    public void deactivatePrayer(int id)    { activePrayers.remove(id); }
+    public void deactivateAllPrayers()      { activePrayers.clear(); }
+    public boolean hasAnyActivePrayer()     { return !activePrayers.isEmpty(); }
+    public java.util.Set<Integer> getActivePrayers() {
+        return java.util.Collections.unmodifiableSet(activePrayers);
+    }
+
     /** Current prayer points. Range: 0 .. getMaxPrayerPoints(). */
     private int prayerPoints = 0;
 

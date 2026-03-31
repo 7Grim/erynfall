@@ -265,6 +265,12 @@ message UseItemOnItem {
     int64 sequence    = 3;
 }
 
+// TogglePrayer: Client → Server (activate or deactivate a prayer by ID)
+message TogglePrayer {
+    int32 prayer_id = 1;
+    int64 sequence  = 2;
+}
+
 // Client → Server: remove item from equipment slot, return to inventory
 message UnequipItem {
     int32 equipment_slot = 1;
@@ -376,7 +382,8 @@ message ClientMessage {
         LogoutRequest logout_request = 14;
         StartSkillingRequest start_skilling = 15;
         UseItemOnItem use_item_on_item = 16;
-        UnequipItem unequip_item = 17;
+        UnequipItem unequip_item   = 17;
+        TogglePrayer toggle_prayer = 18;
     }
 }
 

@@ -660,6 +660,8 @@ public class GameScreen extends ApplicationAdapter {
             playerPrayer    = pp.current;
             playerMaxPrayer = pp.maximum;
         }
+        // Keep SidePanel prayer tab in sync with latest values
+        sidePanel.setPrayerState(playerPrayer, playerMaxPrayer, null);
         for (ClientPacketHandler.XpDropEvent xp : h.drainXpDrops()) {
             if (xp.skillIndex >= 0 && xp.skillIndex < skillNames.length) {
                 xpDropOverlay.addDrop(xp.skillIndex, xp.xpGained);
@@ -986,8 +988,11 @@ public class GameScreen extends ApplicationAdapter {
                 if (click >= 0) {
                     sidePanel.setCombatStyle(click);
                     if (nettyClient != null) nettyClient.sendSetCombatStyle(click);
+                } else if (click <= -200) {
+                    int prayerId = -(click + 200);
+                    if (nettyClient != null) nettyClient.sendTogglePrayer(prayerId);
                 } else if (click <= -100) {
-                    int equipSlot = -(click + 100);   // recovers slot index 0-10
+                    int equipSlot = -(click + 100);
                     if (nettyClient != null) nettyClient.sendUnequipItem(equipSlot);
                 }
                 if (sidePanel.consumeLogoutRequested()) {
@@ -1107,8 +1112,11 @@ public class GameScreen extends ApplicationAdapter {
                     if (click >= 0) {
                         sidePanel.setCombatStyle(click);
                         if (nettyClient != null) nettyClient.sendSetCombatStyle(click);
+                    } else if (click <= -200) {
+                        int prayerId = -(click + 200);
+                        if (nettyClient != null) nettyClient.sendTogglePrayer(prayerId);
                     } else if (click <= -100) {
-                        int equipSlot = -(click + 100);   // recovers slot index 0-10
+                        int equipSlot = -(click + 100);
                         if (nettyClient != null) nettyClient.sendUnequipItem(equipSlot);
                     }
                     if (sidePanel.consumeLogoutRequested()) requestLogout();

@@ -39,6 +39,15 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
     private static final int  TINDERBOX_ITEM_ID   = 590;
     private static final int  LOGS_ITEM_ID        = 1511;
     private static final long BONES_PRAYER_XP = 4L;
+    /** Prayer defs: {prayerId, levelRequired}. IDs 1–6 = F2P melee prayers. */
+    private static final int[][] PRAYER_DEFS = {
+        {1,  1},  // Thick Skin        (+5% Defence)
+        {2,  4},  // Burst of Strength (+5% Strength)
+        {3,  7},  // Clarity of Thought(+5% Attack)
+        {4, 10},  // Rock Skin         (+10% Defence)
+        {5, 13},  // Superhuman Strength(+10% Strength)
+        {6, 16},  // Improved Reflexes (+10% Attack)
+    };
     private static final long FIREMAKING_LOG_XP   = 40L;
     
     private final NettyServer server;
@@ -111,6 +120,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             case EXAMINE_NPC         -> handleExamineNpc(ctx, packet.getExamineNpc());
             case LOGOUT_REQUEST      -> handleLogoutRequest(ctx, packet.getLogoutRequest());
             case START_SKILLING      -> handleStartSkilling(ctx, packet.getStartSkilling());
+            case TOGGLE_PRAYER       -> handleTogglePrayer(ctx, packet.getTogglePrayer());
             default -> LOG.warn("Unhandled payload case: {}", packet.getPayloadCase());
         }
     }
@@ -1462,6 +1472,33 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
     private void sendFullInventory(ChannelHandlerContext ctx, Player player) {
         for (int slot = 0; slot < 28; slot++) {
             sendInventorySlot(ctx, player, slot);
+        }
+    }
+
+    private void handleTogglePrayer(ChannelHandlerContext ctx, NetworkProto.TogglePrayer req) {
+        if (session.getPlayer() == null) return;
+        Player player = session.getPlayer();
+        int prayerId = req.getPrayerId();
+
+        // Validate prayer ID
+        int levelReq = -1;
+        for (int[] def : PRAYER_DEFS) {
+            if (def[0] == prayerId) { levelReq = def[1]; break; }
+        }
+        if (levelReq < 0) return;
+
+        if (player.isPrayerActive(prayerId)) {
+            player.deactivatePrayer(prayerId);
+        } else {
+            if (player.getSkillLevel(Player.SKILL_PRAYER) < levelReq) {
+                sendChatMessage(ctx, "You need level " + levelReq + " Prayer to use this.", 1);
+                return;
+            }
+            if (player.getPrayerPoints() <= 0) {
+                sendChatMessage(ctx, "You have run out of Prayer points.", 1);
+                return;
+            }
+            player.activatePrayer(prayerId);
         }
     }
 

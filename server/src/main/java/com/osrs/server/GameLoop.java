@@ -61,6 +61,9 @@ public class GameLoop {
     private final Map<Integer, Long> npcNextWanderTick = new HashMap<>();
     private final Random random = new Random();
 
+    // Prayer drain: 1 prayer point every 9,240 server ticks (~36 s) — OSRS tier-1 rate.
+    private static final long PRAYER_DRAIN_TICKS = 9_240L;
+
     // NPC combat movement: 1 tile per ~0.6s = 154 ticks at 256 Hz
     private static final int NPC_MOVE_SPEED   = 154;
     // NPC attack speed: 4 OSRS ticks = 2.4s = 615 server ticks
@@ -201,6 +204,7 @@ public class GameLoop {
             // Stage 4: Skill progression (XP awards, level-ups)
             processSkillingActions();
             updateSkills();
+            processPrayerDrain();
 
             // Stage 5: Loot generation — tick ground item visibility and despawn
             tickGroundItems();
@@ -750,6 +754,36 @@ public class GameLoop {
             if (session.getPlayer().getId() == playerId) return session;
         }
         return null;
+    }
+
+    /**
+     * Drains 1 prayer point from every online player who has an active prayer,
+     * at the rate of 1 point per PRAYER_DRAIN_TICKS server ticks (~36 s).
+     * Deactivates all prayers and notifies the player when points reach 0.
+     */
+    private void processPrayerDrain() {
+        if (tickCount == 0 || tickCount % PRAYER_DRAIN_TICKS != 0) return;
+        for (PlayerSession ps : nettyServer.getSessions().values()) {
+            if (!ps.isAuthenticated() || ps.getPlayer() == null) continue;
+            Player p = ps.getPlayer();
+            if (!p.hasAnyActivePrayer() || p.getPrayerPoints() <= 0) continue;
+            p.setPrayerPoints(p.getPrayerPoints() - 1);
+            io.netty.channel.Channel ch = ps.getChannel();
+            if (ch == null) continue;
+            ch.writeAndFlush(NetworkProto.ServerMessage.newBuilder()
+                .setPrayerPointsUpdate(NetworkProto.PrayerPointsUpdate.newBuilder()
+                    .setCurrent(p.getPrayerPoints())
+                    .setMaximum(p.getMaxPrayerPoints()))
+                .build());
+            if (p.getPrayerPoints() == 0) {
+                p.deactivateAllPrayers();
+                ch.writeAndFlush(NetworkProto.ServerMessage.newBuilder()
+                    .setChatMessage(NetworkProto.ChatMessage.newBuilder()
+                        .setText("You have run out of Prayer points.")
+                        .setType(1))
+                    .build());
+            }
+        }
     }
 
     /**

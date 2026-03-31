@@ -261,6 +261,16 @@ public class NettyClient {
         LOG.debug("Sent ExamineNpc: npc {}", npcId);
     }
 
+    public void sendTogglePrayer(int prayerId) {
+        if (channel == null || !channel.isActive()) return;
+        channel.writeAndFlush(NetworkProto.ClientMessage.newBuilder()
+            .setTogglePrayer(NetworkProto.TogglePrayer.newBuilder()
+                .setPrayerId(prayerId)
+                .setSequence(System.currentTimeMillis()))
+            .build());
+        LOG.debug("Sent TogglePrayer: id={}", prayerId);
+    }
+
     public void sendLogoutRequest() {
         NetworkProto.ClientMessage msg = NetworkProto.ClientMessage.newBuilder()
             .setLogoutRequest(NetworkProto.LogoutRequest.newBuilder()
