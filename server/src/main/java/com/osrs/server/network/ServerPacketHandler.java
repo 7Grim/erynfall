@@ -9,6 +9,7 @@ import com.osrs.server.database.PlayerRepository;
 import com.osrs.server.quest.DialogueEngine;
 import com.osrs.server.quest.Quest;
 import com.osrs.server.quest.QuestManager;
+import com.osrs.server.skilling.TreeVariantRegistry;
 import com.osrs.server.world.GroundItem;
 import com.osrs.server.world.World;
 import com.osrs.shared.CombatStyle;
@@ -629,9 +630,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
                                      NPC npc,
                                      NetworkProto.SkillingType requestedType,
                                      boolean strictType) {
-        String npcName = npc.getName();
-
-        if (isChoppableTreeName(npcName)) {
+        if (TreeVariantRegistry.isChoppableDefinitionId(npc.getDefinitionId())) {
             if (strictType && requestedType != NetworkProto.SkillingType.SKILLING_WOODCUTTING) {
                 return false;
             }
@@ -656,6 +655,8 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
                 NetworkProto.SkillingState.SKILLING_STATE_QUEUED, npc.getId(), "queued");
             return true;
         }
+
+        String npcName = npc.getName();
 
         if ("Fishing Spot".equalsIgnoreCase(npcName)) {
             if (strictType && requestedType != NetworkProto.SkillingType.SKILLING_FISHING) {
@@ -1404,14 +1405,6 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
                 s.getChannel().writeAndFlush(broadcast);
             }
         }
-    }
-
-    private boolean isChoppableTreeName(String npcName) {
-        return "Oak Tree".equalsIgnoreCase(npcName)
-            || "Willow Tree".equalsIgnoreCase(npcName)
-            || "Maple Tree".equalsIgnoreCase(npcName)
-            || "Yew Tree".equalsIgnoreCase(npcName)
-            || "Magic Tree".equalsIgnoreCase(npcName);
     }
 
     private boolean isFiremakingLogItem(int itemId) {

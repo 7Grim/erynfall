@@ -8,6 +8,7 @@ import com.osrs.server.network.NettyServer;
 import com.osrs.server.network.PlayerSession;
 import com.osrs.server.quest.Quest;
 import com.osrs.server.quest.QuestManager;
+import com.osrs.server.skilling.TreeVariantRegistry;
 import com.osrs.server.world.GroundItem;
 import com.osrs.server.world.World;
 import com.osrs.shared.ItemDefinition;
@@ -89,9 +90,6 @@ public class GameLoop {
         {1349,  6},   // Iron axe
         {1351,  1},   // Bronze axe
     };
-    private static final int NORMAL_TREE_LOG_ITEM_ID = 1511;
-    private static final long NORMAL_TREE_XP = 25L;
-    private static final int[] TREE_LOG_ITEM_IDS = {1511, 1521, 1522, 1523, 1524, 1525};
     private static final int TREE_REGROW_TICKS = 640;
 
     // Fishing (MVP first slice)
@@ -113,6 +111,7 @@ public class GameLoop {
     
     public void start() {
         LOG.info("Starting game loop (interval: {} ns)", tickIntervalNs);
+        validateTreeVariantConfiguration();
         running = true;
         
         loopThread = new Thread(this::run, "GameLoop");
@@ -1103,9 +1102,18 @@ public class GameLoop {
             return;
         }
 
-        int treeDefinitionId = getChoppableTreeDefinitionId(tree.getName());
-        if (treeDefinitionId < 0) {
+        TreeVariantRegistry.TreeVariant treeVariant = resolveTreeVariant(tree);
+        if (treeVariant == null) {
             stopSkilling(player, session, "target-invalid");
+            return;
+        }
+
+        int requiredLevel = treeVariant.levelRequirement();
+        int wcLevel = Math.max(1, player.getSkillLevel(Player.SKILL_WOODCUTTING));
+        if (wcLevel < requiredLevel) {
+            sendChatMessageToPlayer(session.getChannel(),
+                "You need a woodcutting level of " + requiredLevel + " to chop this tree.", 1);
+            stopSkilling(player, session, "level-requirement");
             return;
         }
 
@@ -1151,7 +1159,6 @@ public class GameLoop {
                 break;
             }
         }
-        int wcLevel = Math.max(1, player.getSkillLevel(Player.SKILL_WOODCUTTING));
         int successThreshold = Math.max(5, 50 - wcLevel - axeTierBonus * 3);
         boolean success = random.nextInt(100) >= successThreshold;
         if (!success) {
@@ -1166,17 +1173,13 @@ public class GameLoop {
             return;
         }
 
-        int configuredDefinitionId = tree.getDefinitionId();
-        if (configuredDefinitionId >= 0 && configuredDefinitionId < TREE_LOG_ITEM_IDS.length) {
-            treeDefinitionId = configuredDefinitionId;
-        }
-        int logItemId = TREE_LOG_ITEM_IDS[treeDefinitionId];
+        int logItemId = treeVariant.logItemId();
 
         player.setInventoryItem(slot, logItemId, 1);
         sendInventorySlot(session.getChannel(), player, slot);
         sendChatMessageToPlayer(session.getChannel(), "You get some logs.", 0);
         updateSkillQuestObjectives(session, Quest.TaskType.COLLECT, logItemId);
-        sendSkillUpdate(player, Player.SKILL_WOODCUTTING, NORMAL_TREE_XP);
+        sendSkillUpdate(player, Player.SKILL_WOODCUTTING, treeVariant.xp());
 
         tree.setDead(true);
         tree.setRespawnAtTick(tickCount + TREE_REGROW_TICKS);
@@ -1187,13 +1190,53 @@ public class GameLoop {
         stopSkilling(player, session, "success");
     }
 
-    private int getChoppableTreeDefinitionId(String name) {
-        if ("Oak Tree".equalsIgnoreCase(name)) return 1;
-        if ("Willow Tree".equalsIgnoreCase(name)) return 2;
-        if ("Maple Tree".equalsIgnoreCase(name)) return 3;
-        if ("Yew Tree".equalsIgnoreCase(name)) return 4;
-        if ("Magic Tree".equalsIgnoreCase(name)) return 5;
-        return -1;
+    private TreeVariantRegistry.TreeVariant resolveTreeVariant(NPC tree) {
+        int configuredDefinitionId = tree.getDefinitionId();
+        TreeVariantRegistry.TreeVariant byDefinition = TreeVariantRegistry.getByDefinitionId(configuredDefinitionId);
+        if (byDefinition == null) {
+            return null;
+        }
+
+        String actualName = tree.getName() == null ? "" : tree.getName().trim();
+        if (!byDefinition.name().equalsIgnoreCase(actualName)) {
+            LOG.error("Tree variant mismatch for npcId={}: definition_id={} expects name='{}', but actual name='{}'",
+                tree.getId(), configuredDefinitionId, byDefinition.name(), tree.getName());
+            return null;
+        }
+        return byDefinition;
+    }
+
+    private void validateTreeVariantConfiguration() {
+        List<String> errors = new ArrayList<>();
+        for (NPC npc : world.getNPCs().values()) {
+            int definitionId = npc.getDefinitionId();
+            TreeVariantRegistry.TreeVariant byDefinition = TreeVariantRegistry.getByDefinitionId(definitionId);
+            TreeVariantRegistry.TreeVariant byName = TreeVariantRegistry.getByName(npc.getName());
+
+            if (byName == null && byDefinition == null) {
+                continue;
+            }
+            if (byDefinition == null && byName != null) {
+                errors.add("npcId=" + npc.getId() + " name='" + npc.getName() + "' uses tree variant '"
+                    + byName.name() + "' but definition_id=" + definitionId + " is unmapped");
+                continue;
+            }
+            if (byDefinition != null && byName == null) {
+                errors.add("npcId=" + npc.getId() + " definition_id=" + definitionId + " maps to '"
+                    + byDefinition.name() + "' but name='" + npc.getName() + "' is not a known tree variant");
+                continue;
+            }
+            if (byDefinition != null && byName != null && byDefinition.definitionId() != byName.definitionId()) {
+                errors.add("npcId=" + npc.getId() + " mismatch: definition_id=" + definitionId + " => '"
+                    + byDefinition.name() + "' but name='" + npc.getName() + "' => '" + byName.name() + "'");
+            }
+        }
+
+        if (!errors.isEmpty()) {
+            String joined = String.join("; ", errors);
+            LOG.error("Invalid tree variant configuration in world data: {}", joined);
+            throw new IllegalStateException("Invalid tree variant configuration: " + joined);
+        }
     }
 
     private void processFishing(Player player, PlayerSession session) {
@@ -1465,6 +1508,7 @@ public class GameLoop {
         }
         return false;
     }
+
 
     public long getTickCount() {
         return tickCount;
