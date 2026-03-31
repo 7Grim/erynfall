@@ -325,6 +325,12 @@ message LogoutResponse {
     string message = 2;
 }
 
+// PrayerPointsUpdate: Server → Client (current / maximum prayer points)
+message PrayerPointsUpdate {
+    int32 current = 1;
+    int32 maximum = 2;
+}
+
 // SkillUpdate: Server → Client (XP gain / level-up)
 message SkillUpdate {
     int32 skill_index = 1;   // 0=Attack, 1=Strength, 2=Defence, 3=Hitpoints, 4=Ranged, 5=Magic
@@ -399,5 +405,6 @@ message ServerMessage {
         LogoutResponse logout_response = 20;
         SkillingStateUpdate skilling_state_update = 21;
         EquipmentBonuses equipment_bonuses = 22;
+        PrayerPointsUpdate prayer_points_update = 23;
     }
 }

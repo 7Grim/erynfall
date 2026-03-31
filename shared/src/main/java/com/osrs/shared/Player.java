@@ -277,4 +277,17 @@ public class Player extends Entity {
 
     public boolean isMember() { return member; }
     public void setMember(boolean member) { this.member = member; }
+
+    // -----------------------------------------------------------------------
+    // Prayer points
+    // -----------------------------------------------------------------------
+
+    /** Current prayer points. Range: 0 .. getMaxPrayerPoints(). */
+    private int prayerPoints = 0;
+
+    public int getPrayerPoints()  { return prayerPoints; }
+    public int getMaxPrayerPoints() { return skillLevel[SKILL_PRAYER]; }
+    public void setPrayerPoints(int points) {
+        this.prayerPoints = Math.max(0, Math.min(points, getMaxPrayerPoints()));
+    }
 }

@@ -269,7 +269,10 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
             case ENTITY_UPDATE       -> handleEntityUpdate(packet.getEntityUpdate());
             case COMBAT_HIT          -> handleCombatHit(packet.getCombatHit());
             case HEALTH_UPDATE       -> handleHealthUpdate(packet.getHealthUpdate());
-            case SKILL_UPDATE        -> handleSkillUpdate(packet.getSkillUpdate());
+            case SKILL_UPDATE           -> handleSkillUpdate(packet.getSkillUpdate());
+            case PRAYER_POINTS_UPDATE   -> pendingPrayerPoints.add(new PrayerPointsEvent(
+                packet.getPrayerPointsUpdate().getCurrent(),
+                packet.getPrayerPointsUpdate().getMaximum()));
             case DIALOGUE_PROMPT     -> handleDialoguePrompt(packet.getDialoguePrompt());
             case QUEST_UPDATE        -> handleQuestUpdate(packet.getQuestUpdate());
             case PLAYER_DEATH        -> handlePlayerDeath(packet.getPlayerDeath());
@@ -734,6 +737,23 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
     // -----------------------------------------------------------------------
     // Public chat broadcasts
     // -----------------------------------------------------------------------
+
+    public static class PrayerPointsEvent {
+        public final int current, maximum;
+        public PrayerPointsEvent(int current, int maximum) {
+            this.current = current;
+            this.maximum = maximum;
+        }
+    }
+    private final ConcurrentLinkedQueue<PrayerPointsEvent> pendingPrayerPoints =
+        new ConcurrentLinkedQueue<>();
+    public List<PrayerPointsEvent> drainPrayerPoints() {
+        if (pendingPrayerPoints.isEmpty()) return List.of();
+        List<PrayerPointsEvent> out = new ArrayList<>();
+        PrayerPointsEvent e;
+        while ((e = pendingPrayerPoints.poll()) != null) out.add(e);
+        return out;
+    }
 
     /** A public chat message from a nearby player. */
     public static class ChatBroadcastEvent {

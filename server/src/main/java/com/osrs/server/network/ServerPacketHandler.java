@@ -350,6 +350,14 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
                     .setLeveledUp(false))
                 .build());
         }
+        // Initialise prayer points to prayer level on login
+        int prayerLevel = player.getSkillLevel(Player.SKILL_PRAYER);
+        player.setPrayerPoints(prayerLevel);
+        ctx.writeAndFlush(NetworkProto.ServerMessage.newBuilder()
+            .setPrayerPointsUpdate(NetworkProto.PrayerPointsUpdate.newBuilder()
+                .setCurrent(prayerLevel)
+                .setMaximum(prayerLevel))
+            .build());
     }
     
     private void handlePlayerMovement(ChannelHandlerContext ctx, NetworkProto.PlayerMovement movement) {
@@ -1183,6 +1191,14 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
                 .build());
 
             sendChatMessage(ctx, "You bury the bones.", 0);
+            // Update prayer points max if level increased
+            int pMax = player.getSkillLevel(Player.SKILL_PRAYER);
+            int pCur = Math.min(player.getPrayerPoints(), pMax);
+            player.setPrayerPoints(pCur);
+            ctx.writeAndFlush(NetworkProto.ServerMessage.newBuilder()
+                .setPrayerPointsUpdate(NetworkProto.PrayerPointsUpdate.newBuilder()
+                    .setCurrent(pCur).setMaximum(pMax))
+                .build());
             if (leveledUp) {
                 sendChatMessage(ctx, "Congratulations, you just advanced a Prayer level.", 2);
             }

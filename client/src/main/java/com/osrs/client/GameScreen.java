@@ -656,6 +656,10 @@ public class GameScreen extends ApplicationAdapter {
             "Crafting", "Runecrafting", "Fletching", "Agility", "Herblore", "Thieving",
             "Slayer", "Farming", "Hunter", "Construction"
         };
+        for (ClientPacketHandler.PrayerPointsEvent pp : h.drainPrayerPoints()) {
+            playerPrayer    = pp.current;
+            playerMaxPrayer = pp.maximum;
+        }
         for (ClientPacketHandler.XpDropEvent xp : h.drainXpDrops()) {
             if (xp.skillIndex >= 0 && xp.skillIndex < skillNames.length) {
                 xpDropOverlay.addDrop(xp.skillIndex, xp.xpGained);
