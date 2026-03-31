@@ -141,6 +141,15 @@ public class GameScreen extends ApplicationAdapter {
     private float   runRestoreAcc = 0f; // accumulates delta time for energy restore
     private int attackLevel = 1, strengthLevel = 1, defenceLevel = 1;
 
+    // Friends list state
+    private boolean friendsListVisible = false;
+    private String friendsListText = "";
+    private final List<String> friendNamesList = new ArrayList<>();
+    private final java.util.Set<Long> friendIds = new java.util.HashSet<>();
+    private final Map<Long, String> friendDisplayNames = new HashMap<>();
+    private final java.util.LinkedHashMap<Long, String> pendingFriendActionFeedbackBySequence = new java.util.LinkedHashMap<>();
+    private static final int MAX_PENDING_FRIEND_FEEDBACK = 16;
+
     // Camera zoom state
     private float currentZoom = 1.0f;  // 1.0 = 100% zoom (OSRS default)
     private float targetZoom = 1.0f;    // Target zoom for smooth interpolation
@@ -650,6 +659,32 @@ public class GameScreen extends ApplicationAdapter {
         groundItemNamesMap.clear();
         groundItemNamesMap.putAll(h.getGroundItemNames());
 
+        for (ClientPacketHandler.FriendsListEvent event : h.drainFriendsListUpdates()) {
+            friendsListVisible = true;
+            friendNamesList.clear();
+            friendIds.clear();
+            friendDisplayNames.clear();
+
+            List<SidePanel.FriendEntryView> views = new ArrayList<>();
+            for (ClientPacketHandler.FriendsListEvent.Entry entry : event.entries) {
+                friendNamesList.add(entry.name);
+                friendIds.add(entry.playerId);
+                friendDisplayNames.put(entry.playerId, entry.name);
+                views.add(new SidePanel.FriendEntryView(entry.playerId, entry.name, entry.online));
+            }
+            sidePanel.setFriendsList(views);
+            friendsListText = "Friends: " + String.join(", ", friendNamesList);
+        }
+
+        for (ClientPacketHandler.FriendActionResultEvent result : h.drainFriendActionResults()) {
+            String queuedFeedback = pendingFriendActionFeedbackBySequence.remove(result.sequence);
+            if (!result.success && result.error != null && !result.error.isEmpty()) {
+                chatBox.addSystemMessage(result.error);
+            } else if (result.success) {
+                chatBox.addSystemMessage(queuedFeedback != null ? queuedFeedback : "Friends list updated.");
+            }
+        }
+
         // Process NPC deaths — remove visuals for despawned NPCs
         for (int deadId : h.drainDespawnedNpcs()) {
             npcVisual.remove(deadId);
@@ -1027,6 +1062,12 @@ public class GameScreen extends ApplicationAdapter {
         // Update drag position continuously (for inventory drag)
         sidePanel.updateDrag(mx, screenMy);
 
+        if (sidePanel.isInventoryTabActive() && sidePanel.isOverPanel(mx, screenMy) && !sidePanel.isInventoryDragging()) {
+            sidePanel.setInventoryHoveredSlot(sidePanel.getInventorySlotAt(mx, screenMy));
+        } else {
+            sidePanel.setInventoryHoveredSlot(-1);
+        }
+
         if (Gdx.input.isButtonJustPressed(Input.Buttons.RIGHT)) {
             // Check side panel right-click first
             if (sidePanel.isOverPanel(mx, screenMy)) {
@@ -1102,6 +1143,14 @@ public class GameScreen extends ApplicationAdapter {
                     int equipSlot = -(click + 100);
                     if (nettyClient != null) nettyClient.sendUnequipItem(equipSlot);
                 }
+                long removeFriendId = sidePanel.consumeRemoveFriendRequestedId();
+                if (removeFriendId > 0) {
+                    sendFriendActionWithFeedback(
+                        NetworkProto.FriendAction.Action.REMOVE,
+                        removeFriendId,
+                        friendDisplayNames.getOrDefault(removeFriendId, "")
+                    );
+                }
                 if (sidePanel.consumeLogoutRequested()) {
                     requestLogout();
                 }
@@ -1132,6 +1181,7 @@ public class GameScreen extends ApplicationAdapter {
                     handleInventoryPrimaryAction(inventoryMouseDownSlot);
                 }
             }
+            sidePanel.setInventoryHoveredSlot(-1);
             inventoryMouseDownSlot = -1;
         }
 
@@ -1229,6 +1279,14 @@ public class GameScreen extends ApplicationAdapter {
                     } else if (click <= -100) {
                         int equipSlot = -(click + 100);
                         if (nettyClient != null) nettyClient.sendUnequipItem(equipSlot);
+                    }
+                    long removeFriendId = sidePanel.consumeRemoveFriendRequestedId();
+                    if (removeFriendId > 0) {
+                        sendFriendActionWithFeedback(
+                            NetworkProto.FriendAction.Action.REMOVE,
+                            removeFriendId,
+                            friendDisplayNames.getOrDefault(removeFriendId, "")
+                        );
                     }
                     if (sidePanel.consumeLogoutRequested()) requestLogout();
                 } else {
@@ -1888,9 +1946,14 @@ public class GameScreen extends ApplicationAdapter {
                     String pName = h.getEntityName(id);
                     if (pName == null || pName.isEmpty()) pName = "Player";
                     String yellow = "[#ffff00]" + pName + "[]";
+                    boolean isFriend = friendIds.contains((long) id);
                     opts.add(new ContextMenu.MenuItem(ContextMenu.Action.TRADE, yellow, id));
                     opts.add(new ContextMenu.MenuItem(ContextMenu.Action.FOLLOW, yellow, id));
                     opts.add(new ContextMenu.MenuItem(ContextMenu.Action.CHALLENGE, yellow, id));
+                    opts.add(new ContextMenu.MenuItem(
+                        isFriend ? ContextMenu.Action.REMOVE_FRIEND : ContextMenu.Action.ADD_FRIEND,
+                        yellow,
+                        id));
                     continue;
                 }
                 // Use visual (rounded) position so click target matches the sprite
@@ -1943,6 +2006,22 @@ public class GameScreen extends ApplicationAdapter {
             case "trade_player"  -> LOG.info("Trade not yet implemented for player {}", item.target);
             case "follow_player" -> LOG.info("Follow not yet implemented for player {}", item.target);
             case "challenge_player" -> LOG.info("Challenge not yet implemented for player {}", item.target);
+            case "friend_add" -> {
+                Integer targetId = (Integer) item.target;
+                if (targetId != null) {
+                    ClientPacketHandler h = handler();
+                    String targetName = h != null ? h.getEntityName(targetId) : "";
+                    sendFriendActionWithFeedback(NetworkProto.FriendAction.Action.ADD, targetId, targetName);
+                }
+            }
+            case "friend_remove" -> {
+                Integer targetId = (Integer) item.target;
+                if (targetId != null) {
+                    ClientPacketHandler h = handler();
+                    String targetName = h != null ? h.getEntityName(targetId) : "";
+                    sendFriendActionWithFeedback(NetworkProto.FriendAction.Action.REMOVE, targetId, targetName);
+                }
+            }
             case "take"   -> startGroundItemApproach((Integer) item.target);
             case "examine_ground_item" -> {
                 String name = groundItemNamesMap.get((Integer) item.target);
@@ -1979,6 +2058,33 @@ public class GameScreen extends ApplicationAdapter {
         ClientPacketHandler h = handler();
         String name = (h != null) ? h.getEntityName(npcId) : "creature";
         chatBox.addSystemMessage("It's a " + (name == null || name.isEmpty() ? "creature" : name) + ".");
+    }
+
+    private void sendFriendActionWithFeedback(NetworkProto.FriendAction.Action action, long targetPlayerId, String targetName) {
+        if (nettyClient == null || !nettyClient.isConnected()) {
+            return;
+        }
+
+        String displayName = (targetName == null || targetName.isBlank())
+            ? "Player " + targetPlayerId
+            : targetName;
+        String feedback = switch (action) {
+            case ADD -> "Added " + displayName + " to your friends list.";
+            case REMOVE -> "Removed " + displayName + " from your friends list.";
+            case UNRECOGNIZED -> "Friends list updated.";
+        };
+
+        if (pendingFriendActionFeedbackBySequence.size() >= MAX_PENDING_FRIEND_FEEDBACK) {
+            java.util.Iterator<Long> it = pendingFriendActionFeedbackBySequence.keySet().iterator();
+            if (it.hasNext()) {
+                it.next();
+                it.remove();
+            }
+        }
+        long sequence = nettyClient.sendFriendAction(action, targetPlayerId, targetName);
+        if (sequence > 0) {
+            pendingFriendActionFeedbackBySequence.put(sequence, feedback);
+        }
     }
 
     /**
@@ -2034,23 +2140,28 @@ public class GameScreen extends ApplicationAdapter {
      *   - Visible for 3 seconds (150 × 20ms client ticks), then removed
      */
     private void renderOverheadText(float delta) {
-        if (overheadTexts.isEmpty()) return;
+        boolean prayerIndicatorVisible = !localActivePrayers.isEmpty();
+        if (overheadTexts.isEmpty() && !prayerIndicatorVisible) return;
 
         ClientPacketHandler h = handler();
 
         // Expire old entries
-        overheadTexts.values().removeIf(ot -> {
-            ot.timer -= delta;
-            return ot.timer <= 0;
-        });
+        if (!overheadTexts.isEmpty()) {
+            overheadTexts.values().removeIf(ot -> {
+                ot.timer -= delta;
+                return ot.timer <= 0;
+            });
+        }
 
-        if (overheadTexts.isEmpty()) return;
+        if (overheadTexts.isEmpty() && !prayerIndicatorVisible) return;
 
         Gdx.gl.glEnable(GL20.GL_BLEND);
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
 
-        batch.setProjectionMatrix(camera.combined);
-        batch.begin();
+        if (!overheadTexts.isEmpty()) {
+            batch.setProjectionMatrix(camera.combined);
+            batch.begin();
+        }
 
         for (Map.Entry<Integer, OverheadText> entry : overheadTexts.entrySet()) {
             int      entityId = entry.getKey();
@@ -2093,7 +2204,20 @@ public class GameScreen extends ApplicationAdapter {
             font.draw(batch, ot.text, textX, textY);
         }
 
-        batch.end();
+        if (!overheadTexts.isEmpty()) {
+            batch.end();
+        }
+
+        if (!localActivePrayers.isEmpty()) {
+            float iconSx = (visualX - visualY) * 16f;
+            float iconSy = (visualX + visualY) * 8f + 65f;
+            shapeRenderer.setProjectionMatrix(camera.combined);
+            shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+            shapeRenderer.setColor(0.8f, 0.75f, 0.5f, 1f);
+            shapeRenderer.circle(iconSx, iconSy, 4f);
+            shapeRenderer.end();
+        }
+
         font.setColor(COLOR_WHITE);
         Gdx.gl.glDisable(GL20.GL_BLEND);
     }
@@ -2640,6 +2764,13 @@ public class GameScreen extends ApplicationAdapter {
         shapeRenderer.circle(ORB_CX, RN_CY, ORB_R);
         shapeRenderer.end();
 
+        if (friendsListVisible && friendsListText != null && !friendsListText.isEmpty()) {
+            shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+            shapeRenderer.setColor(0f, 0f, 0f, 0.75f);
+            shapeRenderer.rect(30, h - 120, 300, 80);
+            shapeRenderer.end();
+        }
+
         // -- Pass 4: numbers and labels --
         screenBatch.setProjectionMatrix(screenProjection);
         screenBatch.begin();
@@ -2698,6 +2829,12 @@ public class GameScreen extends ApplicationAdapter {
             float iconAlpha = (i == 0) ? 1.0f : (i == 1) ? 0.7f : 0.4f;
             font.setColor(1f, 1f, 1f, iconAlpha);
             font.draw(screenBatch, "-", iconX + i * (iconSize + 6), iconY + 2);
+        }
+
+        if (friendsListVisible && friendsListText != null && !friendsListText.isEmpty()) {
+            font.getData().setScale(FontManager.getScale(FontManager.FontContext.SMALL_LABEL));
+            font.setColor(FontManager.TEXT_WHITE);
+            font.draw(screenBatch, friendsListText, 35, h - 60);
         }
 
         // Coordinates debug text -- bottom-right, unchanged

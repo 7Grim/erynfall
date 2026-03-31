@@ -27,6 +27,8 @@ public class ContextMenu {
         TRADE("trade_player", "Trade with"),
         FOLLOW("follow_player", "Follow"),
         CHALLENGE("challenge_player", "Challenge"),
+        ADD_FRIEND("friend_add", "Add friend"),
+        REMOVE_FRIEND("friend_remove", "Remove friend"),
         ATTACK("attack", "Attack"),
         TALK_TO("talk", "Talk-to"),
         CHOP("chop", "Chop down"),

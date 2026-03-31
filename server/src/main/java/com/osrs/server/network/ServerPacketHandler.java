@@ -32,6 +32,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
     private static final Logger LOG = LoggerFactory.getLogger(ServerPacketHandler.class);
     private static final int MAX_STEP = 1;
     private static final int TRANSIENT_PLAYER_ID_OFFSET = 900_000;
+    private static final int MAX_FRIENDS = 200;
     private static final int BRONZE_AXE_ITEM_ID = 1351;
     private static final int SMALL_FISHING_NET_ITEM_ID = 303;
     private static final int RAW_SHRIMPS_ITEM_ID = 317;
@@ -80,6 +81,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
                     PlayerRepository.savePlayer(player);
                     PlayerRepository.saveInventory(player);
                     PlayerRepository.saveEquipment(player);
+                    PlayerRepository.saveFriends(player);
                     PlayerRepository.saveQuestProgress(player, session.getQuestManager());
                     LOG.info("Saved player {} on disconnect", player.getName());
                 }
@@ -119,6 +121,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             case PUBLIC_CHAT         -> handlePublicChat(ctx, packet.getPublicChat());
             case EXAMINE_NPC         -> handleExamineNpc(ctx, packet.getExamineNpc());
             case EXAMINE_ITEM        -> handleExamineItem(ctx, packet.getExamineItem());
+            case FRIEND_ACTION       -> handleFriendAction(ctx, packet.getFriendAction());
             case LOGOUT_REQUEST      -> handleLogoutRequest(ctx, packet.getLogoutRequest());
             case START_SKILLING      -> handleStartSkilling(ctx, packet.getStartSkilling());
             case TOGGLE_PRAYER       -> handleTogglePrayer(ctx, packet.getTogglePrayer());
@@ -165,6 +168,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             } else {
                 // Load inventory for returning player
                 PlayerRepository.loadInventory(player);
+                PlayerRepository.loadFriends(player);
             }
         } else {
             // DB offline: fall back to in-memory session (no persistence)
@@ -198,6 +202,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
         sendAllSkillUpdates(ctx, player);
         sendFullInventory(ctx, player);
         sendFullEquipment(ctx, player);
+        sendFriendsListUpdate(ctx, player);
 
         sendInitialQuestState(ctx);
 
@@ -269,6 +274,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
         }
 
         PlayerRepository.loadInventory(player);
+        PlayerRepository.loadFriends(player);
         ensureStarterSkillingTools(player);
 
         if (!server.getWorld().canWalkTo(player.getX(), player.getY())) {
@@ -289,6 +295,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
         sendAllSkillUpdates(ctx, player);
         sendFullInventory(ctx, player);
         sendFullEquipment(ctx, player);
+        sendFriendsListUpdate(ctx, player);
         sendInitialQuestState(ctx);
         sendWorldState(ctx);
 
@@ -1443,6 +1450,149 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
         sendChatMessage(ctx, examineText, 0);
     }
 
+    private void handleFriendAction(ChannelHandlerContext ctx, NetworkProto.FriendAction req) {
+        if (session.getPlayer() == null) return;
+        Player player = session.getPlayer();
+        int sessionPlayerDbId = resolveSessionPlayerDbId(player);
+
+        boolean success = true;
+        String error = "";
+        long targetDbId = -1L;
+
+        switch (req.getAction()) {
+            case ADD -> {
+                targetDbId = resolveTargetPlayerDbId(req);
+                if (targetDbId <= 0) {
+                    success = false;
+                    error = "Invalid player.";
+                } else if (sessionPlayerDbId > 0 && targetDbId == sessionPlayerDbId) {
+                    success = false;
+                    error = "You can't add yourself.";
+                } else if (player.hasFriend(targetDbId)) {
+                    success = false;
+                    error = "That player is already on your friends list.";
+                } else if (player.getFriends().size() >= MAX_FRIENDS) {
+                    success = false;
+                    error = "Friend list at capacity.";
+                } else {
+                    player.addFriend(targetDbId);
+                }
+            }
+            case REMOVE -> {
+                targetDbId = resolveTargetPlayerDbId(req);
+                if (targetDbId <= 0) {
+                    success = false;
+                    error = "Invalid player.";
+                } else {
+                    player.removeFriend(targetDbId);
+                    player.removeFromBlock(targetDbId);
+                }
+            }
+            case UNRECOGNIZED -> {
+                success = false;
+                error = "Unknown friend action.";
+            }
+        }
+
+        if (DatabaseManager.isHealthy()) {
+            PlayerRepository.saveFriends(player);
+        }
+
+        ctx.writeAndFlush(NetworkProto.ServerMessage.newBuilder()
+            .setFriendActionResult(NetworkProto.FriendActionResult.newBuilder()
+                .setSuccess(success)
+                .setError(error)
+                .setSequence(req.getSequence()))
+            .build());
+
+        if (success) {
+            sendFriendsListUpdate(ctx, player);
+        }
+    }
+
+    private void sendFriendsListUpdate(ChannelHandlerContext ctx, Player player) {
+        NetworkProto.FriendsListUpdate.Builder list = NetworkProto.FriendsListUpdate.newBuilder();
+        java.util.Set<Integer> onlineDbIds = collectOnlineDbIds();
+        for (Long friendIdLong : player.getFriends()) {
+            int friendDbId = (int) (long) friendIdLong;
+            String name = PlayerRepository.findUsernameByDbId(friendDbId);
+            if (name == null || name.isBlank()) {
+                name = "Player " + friendDbId;
+            }
+            list.addFriends(NetworkProto.PlayerEntry.newBuilder()
+                .setName(name)
+                .setPlayerId(friendDbId)
+                .setOnline(onlineDbIds.contains(friendDbId)));
+        }
+
+        ctx.writeAndFlush(NetworkProto.ServerMessage.newBuilder()
+            .setFriendsListUpdate(list)
+            .build());
+    }
+
+    private int resolveSessionPlayerDbId(Player player) {
+        if (player == null || !DatabaseManager.isHealthy()) {
+            return -1;
+        }
+        int dbIdFromEntity = PlayerRepository.tryMapEntityIdToDbId(player.getId());
+        if (dbIdFromEntity > 0 && PlayerRepository.playerExistsByDbId(dbIdFromEntity)) {
+            return dbIdFromEntity;
+        }
+        return PlayerRepository.findDbIdByUsername(player.getName());
+    }
+
+    private long resolveTargetPlayerDbId(NetworkProto.FriendAction req) {
+        if (!DatabaseManager.isHealthy()) {
+            return req.getPlayerId() > 0 ? req.getPlayerId() : -1L;
+        }
+
+        String name = req.getName();
+        if (name != null && !name.isBlank()) {
+            int byName = PlayerRepository.findDbIdByUsername(name.trim());
+            if (byName > 0) {
+                return byName;
+            }
+        }
+
+        long suppliedId = req.getPlayerId();
+        if (suppliedId <= 0 || suppliedId > Integer.MAX_VALUE) {
+            return -1L;
+        }
+
+        Player onlineByEntity = server.getWorld().getPlayers().get((int) suppliedId);
+        if (onlineByEntity != null) {
+            int byEntityName = PlayerRepository.findDbIdByUsername(onlineByEntity.getName());
+            if (byEntityName > 0) {
+                return byEntityName;
+            }
+        }
+
+        int dbCandidate = (int) suppliedId;
+        if (PlayerRepository.playerExistsByDbId(dbCandidate)) {
+            return dbCandidate;
+        }
+
+        int mappedFromEntity = PlayerRepository.tryMapEntityIdToDbId((int) suppliedId);
+        if (mappedFromEntity > 0 && PlayerRepository.playerExistsByDbId(mappedFromEntity)) {
+            return mappedFromEntity;
+        }
+        return -1L;
+    }
+
+    private java.util.Set<Integer> collectOnlineDbIds() {
+        java.util.Set<Integer> out = new java.util.HashSet<>();
+        if (!DatabaseManager.isHealthy()) {
+            return out;
+        }
+        for (Player onlinePlayer : server.getWorld().getPlayers().values()) {
+            int dbId = PlayerRepository.tryMapEntityIdToDbId(onlinePlayer.getId());
+            if (dbId > 0) {
+                out.add(dbId);
+            }
+        }
+        return out;
+    }
+
     private void handleLogoutRequest(ChannelHandlerContext ctx, NetworkProto.LogoutRequest req) {
         if (session == null || session.getPlayer() == null) {
             ctx.writeAndFlush(NetworkProto.ServerMessage.newBuilder()
@@ -1461,6 +1611,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
         if (session.isAuthenticated() && DatabaseManager.isHealthy()) {
             PlayerRepository.savePlayer(player);
             PlayerRepository.saveInventory(player);
+            PlayerRepository.saveFriends(player);
             PlayerRepository.saveQuestProgress(player, session.getQuestManager());
             LOG.info("Saved player {} on explicit logout", player.getName());
         }

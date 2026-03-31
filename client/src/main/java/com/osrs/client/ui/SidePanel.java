@@ -51,6 +51,8 @@ public class SidePanel {
     private static final Color BORDER_COLOR = new Color(0.55f, 0.46f, 0.28f, 1f);  // Brown-gold
     private static final int BORDER_THICKNESS = 2;  // OSRS uses 2px border
     private static final Color BG_COLOR = new Color(0.10f, 0.09f, 0.08f, 0.75f);  // Semi-transparent (75% opacity)
+    private static final int FRIEND_ROW_H = 14;
+    private static final int FRIEND_REMOVE_W = 42;
 
     // -----------------------------------------------------------------------
     // OSRS XP table — exact formula: floor(level + 300 * 2^(level/7)) / 4
@@ -105,7 +107,8 @@ public class SidePanel {
     private enum CharacterPage {
         SUMMARY,
         QUEST_LIST,
-        GEAR
+        GEAR,
+        FRIENDS_LIST
     }
 
     public enum QuestStatus {
@@ -204,6 +207,20 @@ public class SidePanel {
     private int selectedQuestId = -1;
     private int playerQuestPoints = 0;
     private boolean logoutRequested = false;
+    private final List<FriendEntryView> friendEntries = new ArrayList<>();
+    private long removeFriendRequestedId = -1L;
+
+    public static class FriendEntryView {
+        public final long playerId;
+        public final String name;
+        public final boolean online;
+
+        public FriendEntryView(long playerId, String name, boolean online) {
+            this.playerId = playerId;
+            this.name = name;
+            this.online = online;
+        }
+    }
     // Prayer tab state (synced from GameScreen)
     private int currentPrayerPoints = 0;
     private int maxPrayerPoints     = 0;
@@ -985,7 +1002,7 @@ public class SidePanel {
         final int pad = 8;
         final int headerY = panelY + CONTENT_H - 8;
         final int subY = panelY + CONTENT_H - 34;
-        final int subW = (PANEL_W - pad * 4) / 3;
+        final int subW = (PANEL_W - pad * 5) / 4;
         final int subH = 18;
 
         // Title
@@ -1000,7 +1017,7 @@ public class SidePanel {
         // Sub-nav buttons
         sr.setProjectionMatrix(proj);
         sr.begin(ShapeRenderer.ShapeType.Filled);
-        for (int i = 0; i < 3; i++) {
+        for (int i = 0; i < 4; i++) {
             int bx = panelX + pad + i * (subW + pad);
             boolean active = characterPage.ordinal() == i;
             sr.setColor(active ? new Color(0.32f, 0.25f, 0.06f, 1f) : new Color(0.13f, 0.12f, 0.10f, 1f));
@@ -1009,7 +1026,7 @@ public class SidePanel {
         sr.end();
 
         sr.begin(ShapeRenderer.ShapeType.Line);
-        for (int i = 0; i < 3; i++) {
+        for (int i = 0; i < 4; i++) {
             int bx = panelX + pad + i * (subW + pad);
             boolean active = characterPage.ordinal() == i;
             sr.setColor(active ? new Color(1f, 0.85f, 0.10f, 1f) : new Color(0.40f, 0.36f, 0.26f, 1f));
@@ -1019,11 +1036,11 @@ public class SidePanel {
 
         batch.begin();
         font.getData().setScale(0.72f);
-        String[] labels = {"Summary", "Quests", "Gear"};
-        for (int i = 0; i < 3; i++) {
+        String[] labels = {"Summary", "Quests", "Gear", "Friends"};
+        for (int i = 0; i < 4; i++) {
             int bx = panelX + pad + i * (subW + pad);
             font.setColor(characterPage.ordinal() == i ? new Color(1f, 0.90f, 0.10f, 1f) : Color.WHITE);
-            font.draw(batch, labels[i], bx + 7, subY + 12);
+            font.draw(batch, labels[i], bx + 3, subY + 12);
         }
 
         int bodyTop = subY - 8;
@@ -1289,6 +1306,8 @@ public class SidePanel {
                     sy2 -= LH;
                 }
             }
+        } else if (characterPage == CharacterPage.FRIENDS_LIST) {
+            renderFriendsList(batch, font, panelX + pad, bodyTop);
         }
         font.getData().setScale(1f);
         font.setColor(Color.WHITE);
@@ -1299,6 +1318,32 @@ public class SidePanel {
         List<QuestView> list = new ArrayList<>(quests.values());
         list.sort(Comparator.comparing(q -> q.questName));
         return list;
+    }
+
+    private void renderFriendsList(SpriteBatch batch, BitmapFont font, int leftX, int topY) {
+        font.getData().setScale(0.78f);
+        font.setColor(new Color(0.90f, 0.85f, 0.55f, 1f));
+        font.draw(batch, "Friends List", leftX, topY);
+
+        int y = topY - 18;
+        font.getData().setScale(0.68f);
+        if (friendEntries.isEmpty()) {
+            font.setColor(Color.WHITE);
+            font.draw(batch, "No friends added yet.", leftX, y);
+            font.draw(batch, "Right-click players to add.", leftX, y - FRIEND_ROW_H);
+            return;
+        }
+
+        for (FriendEntryView entry : friendEntries) {
+            if (y < panelY + 16) break;
+            font.setColor(entry.online ? new Color(0.50f, 0.95f, 0.50f, 1f) : new Color(0.72f, 0.72f, 0.72f, 1f));
+            String status = entry.online ? "Online" : "Offline";
+            font.draw(batch, entry.name + " - " + status, leftX, y);
+            font.setColor(new Color(0.95f, 0.45f, 0.45f, 1f));
+            int removeX = panelX + PANEL_W - 8 - FRIEND_REMOVE_W;
+            font.draw(batch, "Remove", removeX, y);
+            y -= FRIEND_ROW_H;
+        }
     }
 
     private int countCompletedQuests() {
@@ -1360,10 +1405,10 @@ public class SidePanel {
             case CHARACTER -> {
                 int pad = 8;
                 int subY = panelY + CONTENT_H - 34;
-                int subW = (PANEL_W - pad * 4) / 3;
+                int subW = (PANEL_W - pad * 5) / 4;
                 int subH = 18;
 
-                for (int i = 0; i < 3; i++) {
+                for (int i = 0; i < 4; i++) {
                     int bx = panelX + pad + i * (subW + pad);
                     if (mx >= bx && mx <= bx + subW && my >= subY && my <= subY + subH) {
                         characterPage = CharacterPage.values()[i];
@@ -1416,6 +1461,21 @@ public class SidePanel {
                     }
                 }
 
+                if (characterPage == CharacterPage.FRIENDS_LIST) {
+                    int bodyTop = subY - 8;
+                    int y = bodyTop - 18;
+                    int removeX = panelX + PANEL_W - 8 - FRIEND_REMOVE_W;
+                    for (FriendEntryView entry : friendEntries) {
+                        if (y < panelY + 16) break;
+                        if (mx >= removeX && mx <= removeX + FRIEND_REMOVE_W
+                            && my >= y - FRIEND_ROW_H + 2 && my <= y + 2) {
+                            removeFriendRequestedId = entry.playerId;
+                            return -1;
+                        }
+                        y -= FRIEND_ROW_H;
+                    }
+                }
+
                 if (characterPage == CharacterPage.SUMMARY
                     && mx >= logoutButtonX() && mx <= logoutButtonX() + logoutButtonW()
                     && my >= logoutButtonY() && my <= logoutButtonY() + logoutButtonH()) {
@@ -1465,6 +1525,7 @@ public class SidePanel {
     public int[]   handleInventoryMouseUp(int mx, int my) { return inventoryUI.handleMouseUp(mx, my); }
     public int     getInventoryRightClickSlot(int mx, int my) { return inventoryUI.getRightClickSlot(mx, my); }
     public void setSelectedInventorySlot(int slot) { inventoryUI.setSelectedSlot(slot); }
+    public void setInventoryHoveredSlot(int slot) { inventoryUI.setHoveredSlot(slot); }
     public int  getInventorySlotAt(int mx, int my)  { return inventoryUI.getSlotAt(mx, my); }
 
     // -----------------------------------------------------------------------
@@ -1502,6 +1563,17 @@ public class SidePanel {
     public void setQuestState(QuestView questView, int totalQuestPoints) {
         quests.put(questView.questId, questView);
         playerQuestPoints = Math.max(0, totalQuestPoints);
+    }
+
+    public void setFriendsList(List<FriendEntryView> entries) {
+        friendEntries.clear();
+        if (entries != null) friendEntries.addAll(entries);
+    }
+
+    public long consumeRemoveFriendRequestedId() {
+        long id = removeFriendRequestedId;
+        removeFriendRequestedId = -1L;
+        return id;
     }
 
     // -----------------------------------------------------------------------

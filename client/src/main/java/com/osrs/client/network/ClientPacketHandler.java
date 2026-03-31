@@ -287,6 +287,8 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
             case CHAT_BROADCAST      -> handleChatBroadcast(packet.getChatBroadcast());  // public_chat from nearby player
             case LOGOUT_RESPONSE     -> handleLogoutResponse(packet.getLogoutResponse());
             case SKILLING_STATE_UPDATE -> handleSkillingStateUpdate(packet.getSkillingStateUpdate());
+            case FRIENDS_LIST_UPDATE -> handleFriendsListUpdate(packet.getFriendsListUpdate());
+            case FRIEND_ACTION_RESULT -> handleFriendActionResult(packet.getFriendActionResult());
             default -> LOG.debug("Unhandled server message: {}", packet.getPayloadCase());
         }
     }
@@ -725,6 +727,18 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
         LOG.debug("Server chat: {}", msg.getText());
     }
 
+    private void handleFriendsListUpdate(NetworkProto.FriendsListUpdate msg) {
+        List<FriendsListEvent.Entry> entries = new ArrayList<>();
+        for (NetworkProto.PlayerEntry friend : msg.getFriendsList()) {
+            entries.add(new FriendsListEvent.Entry(friend.getName(), friend.getPlayerId(), friend.getOnline()));
+        }
+        pendingFriendsListUpdates.add(new FriendsListEvent(entries));
+    }
+
+    private void handleFriendActionResult(NetworkProto.FriendActionResult msg) {
+        pendingFriendActionResults.add(new FriendActionResultEvent(msg.getSuccess(), msg.getError(), msg.getSequence()));
+    }
+
     /** Drain server chat messages queued this frame. */
     public List<String> drainServerChatMessages() {
         if (serverChatMessages.isEmpty()) return List.of();
@@ -745,13 +759,66 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
             this.maximum = maximum;
         }
     }
+
+    public static class FriendsListEvent {
+        public static class Entry {
+            public final String name;
+            public final long playerId;
+            public final boolean online;
+
+            public Entry(String name, long playerId, boolean online) {
+                this.name = name;
+                this.playerId = playerId;
+                this.online = online;
+            }
+        }
+
+        public final List<Entry> entries;
+
+        public FriendsListEvent(List<Entry> entries) {
+            this.entries = entries;
+        }
+    }
+
+    public static class FriendActionResultEvent {
+        public final boolean success;
+        public final String error;
+        public final long sequence;
+
+        public FriendActionResultEvent(boolean success, String error, long sequence) {
+            this.success = success;
+            this.error = error;
+            this.sequence = sequence;
+        }
+    }
+
     private final ConcurrentLinkedQueue<PrayerPointsEvent> pendingPrayerPoints =
+        new ConcurrentLinkedQueue<>();
+    private final ConcurrentLinkedQueue<FriendsListEvent> pendingFriendsListUpdates =
+        new ConcurrentLinkedQueue<>();
+    private final ConcurrentLinkedQueue<FriendActionResultEvent> pendingFriendActionResults =
         new ConcurrentLinkedQueue<>();
     public List<PrayerPointsEvent> drainPrayerPoints() {
         if (pendingPrayerPoints.isEmpty()) return List.of();
         List<PrayerPointsEvent> out = new ArrayList<>();
         PrayerPointsEvent e;
         while ((e = pendingPrayerPoints.poll()) != null) out.add(e);
+        return out;
+    }
+
+    public List<FriendsListEvent> drainFriendsListUpdates() {
+        if (pendingFriendsListUpdates.isEmpty()) return List.of();
+        List<FriendsListEvent> out = new ArrayList<>();
+        FriendsListEvent e;
+        while ((e = pendingFriendsListUpdates.poll()) != null) out.add(e);
+        return out;
+    }
+
+    public List<FriendActionResultEvent> drainFriendActionResults() {
+        if (pendingFriendActionResults.isEmpty()) return List.of();
+        List<FriendActionResultEvent> out = new ArrayList<>();
+        FriendActionResultEvent e;
+        while ((e = pendingFriendActionResults.poll()) != null) out.add(e);
         return out;
     }
 
