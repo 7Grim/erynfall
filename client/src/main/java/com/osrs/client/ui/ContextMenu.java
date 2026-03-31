@@ -19,6 +19,35 @@ public class ContextMenu {
     public static final int H_PAD = 6;
     public static final int V_PAD = 4;
 
+    public enum Action {
+        WALK_HERE("walk", "Walk here"),
+        EXAMINE_NPC("examine_npc", "Examine"),
+        EXAMINE_ITEM("inv_examine", "Examine"),
+        EXAMINE_GROUND_ITEM("examine_ground_item", "Examine"),
+        TRADE("trade_player", "Trade with"),
+        FOLLOW("follow_player", "Follow"),
+        CHALLENGE("challenge_player", "Challenge"),
+        ATTACK("attack", "Attack"),
+        TALK_TO("talk", "Talk-to"),
+        CHOP("chop", "Chop down"),
+        FISH("fish", "Net"),
+        COOK_AT("cook_at", "Cook-at"),
+        TAKE("take", "Take"),
+        EAT("inv_eat", "Eat"),
+        WIELD("inv_wield", "Wield"),
+        BURY("inv_bury", "Bury"),
+        USE("inv_use", "Use"),
+        DROP("inv_drop", "Drop");
+
+        public final String id;
+        public final String defaultLabel;
+
+        Action(String id, String defaultLabel) {
+            this.id = id;
+            this.defaultLabel = defaultLabel;
+        }
+    }
+
     public static class MenuItem {
         public String label;
         public String action;
@@ -27,6 +56,14 @@ public class ContextMenu {
         public MenuItem(String label, String action, Object target) {
             this.label = label;
             this.action = action;
+            this.target = target;
+        }
+
+        public MenuItem(Action action, String subject, Object target) {
+            this.label = subject == null || subject.isEmpty()
+                ? action.defaultLabel
+                : action.defaultLabel + " " + subject;
+            this.action = action.id;
             this.target = target;
         }
     }

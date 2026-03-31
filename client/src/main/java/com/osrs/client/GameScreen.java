@@ -1335,20 +1335,20 @@ public class GameScreen extends ApplicationAdapter {
         List<ContextMenu.MenuItem> opts = new ArrayList<>();
         if ((itemFlags & 0x2) != 0) {
             // Consumable
-            opts.add(new ContextMenu.MenuItem("Eat " + name, "inv_eat", slot));
+            opts.add(new ContextMenu.MenuItem(ContextMenu.Action.EAT, name, slot));
         }
         if ((itemFlags & 0x1) != 0) {
             // Equipable
-            opts.add(new ContextMenu.MenuItem("Wield " + name, "inv_wield", slot));
+            opts.add(new ContextMenu.MenuItem(ContextMenu.Action.WIELD, name, slot));
         }
         if (itemId == 526) {
-            opts.add(new ContextMenu.MenuItem("Bury " + name, "inv_bury", slot));
+            opts.add(new ContextMenu.MenuItem(ContextMenu.Action.BURY, name, slot));
         }
         if (itemId == 590) {
-            opts.add(new ContextMenu.MenuItem("Use " + name, "inv_use", slot));
+            opts.add(new ContextMenu.MenuItem(ContextMenu.Action.USE, name, slot));
         }
-        opts.add(new ContextMenu.MenuItem("Drop " + name, "inv_drop", slot));
-        opts.add(new ContextMenu.MenuItem("Examine " + name, "inv_examine", slot));
+        opts.add(new ContextMenu.MenuItem(ContextMenu.Action.DROP, name, slot));
+        opts.add(new ContextMenu.MenuItem(ContextMenu.Action.EXAMINE_ITEM, name, slot));
         contextMenu.open(mx, my, opts, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
     }
 
@@ -1858,14 +1858,15 @@ public class GameScreen extends ApplicationAdapter {
         List<ContextMenu.MenuItem> opts = new ArrayList<>();
         if (!CoordinateConverter.isValidTile(tileX, tileY)) return opts;
 
-        opts.add(new ContextMenu.MenuItem("Walk here", "walk", new int[]{tileX, tileY}));
+        opts.add(new ContextMenu.MenuItem(ContextMenu.Action.WALK_HERE, null, new int[]{tileX, tileY}));
 
         // Ground items at this tile
         for (Map.Entry<Integer, int[]> entry : groundItemsOnMap.entrySet()) {
             int[] data = entry.getValue();  // {itemId, qty, x, y}
             if (data[2] == tileX && data[3] == tileY) {
                 String name = groundItemNamesMap.getOrDefault(entry.getKey(), "Item");
-                opts.add(new ContextMenu.MenuItem("Take " + name, "take", entry.getKey()));
+                opts.add(new ContextMenu.MenuItem(ContextMenu.Action.TAKE, name, entry.getKey()));
+                opts.add(new ContextMenu.MenuItem(ContextMenu.Action.EXAMINE_GROUND_ITEM, name, entry.getKey()));
             }
         }
 
@@ -1887,10 +1888,9 @@ public class GameScreen extends ApplicationAdapter {
                     String pName = h.getEntityName(id);
                     if (pName == null || pName.isEmpty()) pName = "Player";
                     String yellow = "[#ffff00]" + pName + "[]";
-                    opts.add(new ContextMenu.MenuItem(
-                        "Trade with " + yellow, "trade_player", id));
-                    opts.add(new ContextMenu.MenuItem(
-                        "Follow " + yellow, "follow_player", id));
+                    opts.add(new ContextMenu.MenuItem(ContextMenu.Action.TRADE, yellow, id));
+                    opts.add(new ContextMenu.MenuItem(ContextMenu.Action.FOLLOW, yellow, id));
+                    opts.add(new ContextMenu.MenuItem(ContextMenu.Action.CHALLENGE, yellow, id));
                     continue;
                 }
                 // Use visual (rounded) position so click target matches the sprite
@@ -1913,23 +1913,18 @@ public class GameScreen extends ApplicationAdapter {
                     if (level > 0) {
                         // Combat NPC: Attack is the primary option (top)
                         opts.add(new ContextMenu.MenuItem(
-                            "Attack " + yellowName + levelSuffix, "attack", id));
+                            "Attack " + yellowName + levelSuffix, ContextMenu.Action.ATTACK.id, id));
                     }
                     if (isTreeResource) {
-                        opts.add(new ContextMenu.MenuItem(
-                            "Chop down " + yellowName, "chop", id));
+                        opts.add(new ContextMenu.MenuItem(ContextMenu.Action.CHOP, yellowName, id));
                     } else if (isFishingSpot) {
-                        opts.add(new ContextMenu.MenuItem(
-                            "Net " + yellowName, "fish", id));
+                        opts.add(new ContextMenu.MenuItem(ContextMenu.Action.FISH, yellowName, id));
                     } else if (isFire) {
-                        opts.add(new ContextMenu.MenuItem(
-                            "Cook-at " + yellowName, "cook_at", id));
+                        opts.add(new ContextMenu.MenuItem(ContextMenu.Action.COOK_AT, yellowName, id));
                     } else {
-                        opts.add(new ContextMenu.MenuItem(
-                            "Talk-to " + yellowName, "talk", id));
+                        opts.add(new ContextMenu.MenuItem(ContextMenu.Action.TALK_TO, yellowName, id));
                     }
-                    opts.add(new ContextMenu.MenuItem(
-                        "Examine " + yellowName, "examine_npc", id));
+                    opts.add(new ContextMenu.MenuItem(ContextMenu.Action.EXAMINE_NPC, yellowName, id));
                 }
             }
         }
@@ -1947,7 +1942,13 @@ public class GameScreen extends ApplicationAdapter {
             case "cook_at" -> startApproach((Integer) item.target, "cook_at");
             case "trade_player"  -> LOG.info("Trade not yet implemented for player {}", item.target);
             case "follow_player" -> LOG.info("Follow not yet implemented for player {}", item.target);
+            case "challenge_player" -> LOG.info("Challenge not yet implemented for player {}", item.target);
             case "take"   -> startGroundItemApproach((Integer) item.target);
+            case "examine_ground_item" -> {
+                String name = groundItemNamesMap.get((Integer) item.target);
+                if (name == null || name.isEmpty()) name = "item";
+                chatBox.addSystemMessage("It's a " + name + ".");
+            }
             case "inv_eat"   -> { if (nettyClient != null) nettyClient.sendUseItem((Integer) item.target, "eat"); }
             case "inv_wield" -> { if (nettyClient != null) nettyClient.sendUseItem((Integer) item.target, "wield"); }
             case "inv_bury"  -> { if (nettyClient != null) nettyClient.sendUseItem((Integer) item.target, "bury"); pickupAnimationTimer = PICKUP_ANIM_DURATION; }
