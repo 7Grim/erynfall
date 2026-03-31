@@ -23,6 +23,7 @@ import com.osrs.client.ui.ChatBox;
 import com.osrs.client.ui.CombatUI;
 import com.osrs.client.ui.ContextMenu;
 import com.osrs.client.ui.DialogueUI;
+import com.osrs.client.ui.FontManager;
 import com.osrs.client.ui.LevelUpOverlay;
 import com.osrs.client.ui.MiniMap;
 import com.osrs.client.ui.SidePanel;
@@ -52,6 +53,12 @@ import java.util.concurrent.ConcurrentHashMap;
 public class GameScreen extends ApplicationAdapter {
 
     private static final Logger LOG = LoggerFactory.getLogger(GameScreen.class);
+
+    // OSRS-style color palette for consistent text rendering
+    private static final Color COLOR_WHITE = FontManager.TEXT_WHITE;
+    private static final Color COLOR_CYAN = FontManager.TEXT_CYAN;
+    private static final Color COLOR_YELLOW = FontManager.TEXT_YELLOW;
+    private static final Color COLOR_GOLD = FontManager.TEXT_GOLD;
 
     /** OSRS walk speed: 1 tile per 0.6 s. */
     private static final float TILES_PER_SECOND = 1.0f / 0.6f;
@@ -256,8 +263,9 @@ public class GameScreen extends ApplicationAdapter {
         camera.position.set(0, 0, 0);
         camera.update();
 
-        font = new BitmapFont();
-        font.setColor(Color.WHITE);
+        FontManager.initialize();
+        font = FontManager.regular();
+        font.setColor(COLOR_WHITE);
         font.getData().markupEnabled = true; // enables [#rrggbb] color tags in strings
 
         screenProjection = new Matrix4().setToOrtho2D(
@@ -1949,12 +1957,12 @@ public class GameScreen extends ApplicationAdapter {
             font.draw(batch, ot.text, textX + 1f, textY - 1f);
 
             // Main text — OSRS yellow
-            font.setColor(1f, 1f, 0f, alpha);
+            font.setColor(COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b, alpha);
             font.draw(batch, ot.text, textX, textY);
         }
 
         batch.end();
-        font.setColor(Color.WHITE);
+        font.setColor(COLOR_WHITE);
         Gdx.gl.glDisable(GL20.GL_BLEND);
     }
 
@@ -1984,7 +1992,7 @@ public class GameScreen extends ApplicationAdapter {
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
         batch.setProjectionMatrix(camera.combined);
         batch.begin();
-        font.getData().setScale(0.72f);
+        font.getData().setScale(FontManager.getScale(FontManager.FontContext.TOOLTIP));
 
         for (Map.Entry<Integer, int[]> entry : h.getEntityPositions().entrySet()) {
             int id = entry.getKey();
@@ -2005,12 +2013,12 @@ public class GameScreen extends ApplicationAdapter {
             font.setColor(0f, 0f, 0f, 0.8f);
             font.draw(batch, name, sx - gl.width * 0.5f + 1f, sy - 1f);
             // Yellow name
-            font.setColor(1f, 1f, 0f, 1f);
+            font.setColor(COLOR_YELLOW);
             font.draw(batch, name, sx - gl.width * 0.5f, sy);
         }
 
-        font.getData().setScale(1f);
-        font.setColor(Color.WHITE);
+        font.getData().setScale(FontManager.getScale(FontManager.FontContext.BASE_UI));
+        font.setColor(COLOR_WHITE);
         batch.end();
         Gdx.gl.glDisable(GL20.GL_BLEND);
     }
@@ -2114,15 +2122,15 @@ public class GameScreen extends ApplicationAdapter {
 
         screenBatch.setProjectionMatrix(screenProjection);
         screenBatch.begin();
-        font.setColor(1f, 0.85f, 0f, 1f);
+        font.setColor(COLOR_GOLD);
         font.draw(screenBatch, "Choose Option", mx + ContextMenu.H_PAD, headerY + 14);
         for (int i = 0; i < n; i++) {
-            font.setColor(i == hovered ? new Color(1f, 0.95f, 0.45f, 1f) : Color.WHITE);
+            font.setColor(i == hovered ? new Color(1f, 0.95f, 0.45f, 1f) : COLOR_WHITE);
             font.draw(screenBatch, items.get(i).label, mx + ContextMenu.H_PAD,
                 itemsBottomY + (n - 1 - i) * ContextMenu.ITEM_HEIGHT + 14);
         }
         screenBatch.end();
-        font.setColor(Color.WHITE);
+        font.setColor(COLOR_WHITE);
     }
 
     private void renderLogoutMenu() {
@@ -2208,18 +2216,18 @@ public class GameScreen extends ApplicationAdapter {
         screenBatch.setProjectionMatrix(screenProjection);
         screenBatch.begin();
         // Title - consistent with login screen
-        font.getData().setScale(0.85f);
+        font.getData().setScale(FontManager.getScale(FontManager.FontContext.SKILL));
         font.setColor(1f, 0.88f, 0.52f, 1f);
         font.draw(screenBatch, "Game Menu", mx + 68, my + mh - 10);
 
         // Button labels - consistent sizing with login screen
-        font.getData().setScale(0.78f);
+        font.getData().setScale(FontManager.getScale(FontManager.FontContext.BASE_UI));
         font.setColor(1f, 0.72f, 0.55f, 1f);
         font.draw(screenBatch, "Logout", logBtnX + 20, btnY + 16);
         font.setColor(1f, 0.72f, 0.55f, 1f);
         font.draw(screenBatch, "Cancel", canBtnX + 20, btnY + 16);
-        font.getData().setScale(1f);
-        font.setColor(Color.WHITE);
+        font.getData().setScale(FontManager.getScale(FontManager.FontContext.BASE_UI));
+        font.setColor(COLOR_WHITE);
         screenBatch.end();
     }
 
@@ -2286,23 +2294,23 @@ public class GameScreen extends ApplicationAdapter {
 
         // Title
         font.setColor(Color.RED);
-        font.getData().setScale(2.5f);
+        font.getData().setScale(FontManager.getScale(FontManager.FontContext.BASE_UI) * 2.5f);
         String title = "Oh dear, you are dead!";
         font.draw(screenBatch, title, w / 2f - 180, h / 2f + 60);
 
         // Subtitle
-        font.setColor(Color.WHITE);
-        font.getData().setScale(1.2f);
+        font.setColor(COLOR_WHITE);
+        font.getData().setScale(FontManager.getScale(FontManager.FontContext.BASE_UI) * 1.2f);
         font.draw(screenBatch, "You have been teleported back to Lumbridge.", w / 2f - 200, h / 2f + 10);
 
         // Countdown
         font.setColor(new Color(0.8f, 0.8f, 0.8f, 1f));
-        font.getData().setScale(1.0f);
+        font.getData().setScale(FontManager.getScale(FontManager.FontContext.BASE_UI));
         int secs = (int) Math.ceil(deathScreenTimer);
         font.draw(screenBatch, "Respawning in " + secs + "s  (click to continue)", w / 2f - 140, h / 2f - 30);
 
-        font.getData().setScale(1f);
-        font.setColor(Color.WHITE);
+        font.getData().setScale(FontManager.getScale(FontManager.FontContext.BASE_UI));
+        font.setColor(COLOR_WHITE);
         screenBatch.end();
     }
 
@@ -2365,15 +2373,15 @@ public class GameScreen extends ApplicationAdapter {
         // Text
         screenBatch.setProjectionMatrix(screenProjection);
         screenBatch.begin();
-        font.getData().setScale(1f);
-        font.setColor(1f, 0.85f, 0f, 1f);  // gold NPC name
+        font.getData().setScale(FontManager.getScale(FontManager.FontContext.BASE_UI));
+        font.setColor(COLOR_GOLD);  // gold NPC name
         font.draw(screenBatch, npcName, panelX + 8, panelY + panelH - 6);
         font.setColor(0.75f, 0.75f, 0.75f, 1f);  // grey subtitle
         font.draw(screenBatch,
             String.format("Level: %d   HP: %d / %d", combatLevel, curHp, maxHp),
             panelX + 8, panelY + 22);
         screenBatch.end();
-        font.setColor(Color.WHITE);
+        font.setColor(COLOR_WHITE);
     }
 
     private void renderHUD() {
@@ -2452,7 +2460,7 @@ public class GameScreen extends ApplicationAdapter {
         screenBatch.setProjectionMatrix(screenProjection);
         screenBatch.begin();
 
-        font.getData().setScale(0.88f);
+        font.getData().setScale(FontManager.getScale(FontManager.FontContext.SKILL));
 
         // HP value centered in orb
         GlyphLayout gl = new GlyphLayout(font, String.valueOf(playerHealth));
@@ -2474,7 +2482,7 @@ public class GameScreen extends ApplicationAdapter {
         font.draw(screenBatch, gl, ORB_CX - gl.width / 2f, RN_CY + gl.height / 2f);
 
         // Small labels below each orb
-        font.getData().setScale(0.58f);
+        font.getData().setScale(FontManager.getScale(FontManager.FontContext.SMALL_LABEL));
         font.setColor(0.52f, 0.52f, 0.52f, 0.85f);
         GlyphLayout lbl = new GlyphLayout(font, "HP");
         font.draw(screenBatch, lbl, ORB_CX - lbl.width / 2f, HP_CY - ORB_R + 4);
@@ -2484,14 +2492,14 @@ public class GameScreen extends ApplicationAdapter {
         font.draw(screenBatch, lbl, ORB_CX - lbl.width / 2f, RN_CY - ORB_R + 4);
 
         // Coordinates debug text -- bottom-right, unchanged
-        font.getData().setScale(1f);
+        font.getData().setScale(FontManager.getScale(FontManager.FontContext.BASE_UI));
         font.setColor(0.6f, 0.6f, 0.6f, 0.8f);
         font.draw(screenBatch, String.format("(%d,%d)", playerX, playerY), w - 70, 15);
 
         screenBatch.end();
         // Always reset font to defaults after HUD draw
-        font.setColor(Color.WHITE);
-        font.getData().setScale(1f);
+        font.setColor(COLOR_WHITE);
+        font.getData().setScale(FontManager.getScale(FontManager.FontContext.BASE_UI));
     }
 
     // -----------------------------------------------------------------------
@@ -2505,7 +2513,7 @@ public class GameScreen extends ApplicationAdapter {
         if (batch        != null) batch.dispose();
         if (screenBatch  != null) screenBatch.dispose();
         if (shapeRenderer!= null) shapeRenderer.dispose();
-        if (font         != null) font.dispose();
+        // FontManager owns shared font lifecycle.
     }
 
     @Override

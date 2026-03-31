@@ -61,7 +61,8 @@ public class LoginScreen extends ScreenAdapter {
 
     @Override
     public void show() {
-        font  = new BitmapFont();
+        FontManager.initialize();
+        font  = FontManager.regular();
         batch = new SpriteBatch();
         sr    = new ShapeRenderer();
         proj  = new Matrix4().setToOrtho2D(0, 0, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
@@ -399,7 +400,7 @@ public class LoginScreen extends ScreenAdapter {
 
     @Override
     public void dispose() {
-        if (font  != null) { font.dispose();  font  = null; }
+        font = null; // FontManager owns shared font lifecycle.
         if (batch != null) { batch.dispose(); batch = null; }
         if (sr    != null) { sr.dispose();    sr    = null; }
     }
