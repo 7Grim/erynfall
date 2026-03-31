@@ -559,9 +559,13 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
     // Returns the primary skilling action string for a resource NPC ("chop", "fish", "cook_at").
     public String getResourcePrimarySkill(int npcId) {
         String name = getEntityName(npcId);
-        if ("Tree".equalsIgnoreCase(name)) return "chop";
-        if ("Fishing spot".equalsIgnoreCase(name)) return "fish";
-        if ("Fire".equalsIgnoreCase(name)) return "cook_at";
+        if ("Oak Tree".equalsIgnoreCase(name)) return "chop";
+        if ("Willow Tree".equalsIgnoreCase(name)) return "chop";
+        if ("Maple Tree".equalsIgnoreCase(name)) return "chop";
+        if ("Yew Tree".equalsIgnoreCase(name)) return "chop";
+        if ("Magic Tree".equalsIgnoreCase(name)) return "chop";
+        if ("Fishing Spot".equalsIgnoreCase(name)) return "fish";
+        if ("Cooking Fire".equalsIgnoreCase(name)) return "cook_at";
         return null;
     }
 

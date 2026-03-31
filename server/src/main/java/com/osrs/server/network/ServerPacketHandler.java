@@ -38,7 +38,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
     private static final int RAW_SHRIMPS_ITEM_ID = 317;
     private static final int BONES_ITEM_ID = 526;
     private static final int  TINDERBOX_ITEM_ID   = 590;
-    private static final int  LOGS_ITEM_ID        = 1511;
+    private static final int[] FIREMAKING_LOG_ITEM_IDS = {1511, 1521, 1522, 1523, 1524, 1525};
     private static final long BONES_PRAYER_XP = 4L;
     /** Prayer defs: {prayerId, levelRequired}. IDs 1–6 = F2P melee prayers. */
     private static final int[][] PRAYER_DEFS = {
@@ -631,7 +631,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
                                      boolean strictType) {
         String npcName = npc.getName();
 
-        if ("Tree".equalsIgnoreCase(npcName)) {
+        if (isChoppableTreeName(npcName)) {
             if (strictType && requestedType != NetworkProto.SkillingType.SKILLING_WOODCUTTING) {
                 return false;
             }
@@ -657,7 +657,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             return true;
         }
 
-        if ("Fishing spot".equalsIgnoreCase(npcName)) {
+        if ("Fishing Spot".equalsIgnoreCase(npcName)) {
             if (strictType && requestedType != NetworkProto.SkillingType.SKILLING_FISHING) {
                 return false;
             }
@@ -683,7 +683,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             return true;
         }
 
-        if ("Fire".equalsIgnoreCase(npcName)) {
+        if ("Cooking Fire".equalsIgnoreCase(npcName)) {
             if (strictType && requestedType != NetworkProto.SkillingType.SKILLING_COOKING) {
                 return false;
             }
@@ -1340,10 +1340,11 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
         int srcItem = player.getInventoryItemId(srcSlot);
         int tgtItem = player.getInventoryItemId(tgtSlot);
 
-        boolean isFiremaking = (srcItem == TINDERBOX_ITEM_ID && tgtItem == LOGS_ITEM_ID)
-                             || (srcItem == LOGS_ITEM_ID    && tgtItem == TINDERBOX_ITEM_ID);
+        boolean isFiremaking = (srcItem == TINDERBOX_ITEM_ID && isFiremakingLogItem(tgtItem))
+                             || (isFiremakingLogItem(srcItem) && tgtItem == TINDERBOX_ITEM_ID);
         if (isFiremaking) {
-            int logsSlot = (srcItem == LOGS_ITEM_ID) ? srcSlot : tgtSlot;
+            int usedLogItemId = isFiremakingLogItem(srcItem) ? srcItem : tgtItem;
+            int logsSlot = isFiremakingLogItem(srcItem) ? srcSlot : tgtSlot;
             player.setInventoryItem(logsSlot, 0, 0);
             sendInventorySlot(ctx, player, logsSlot);
 
@@ -1357,7 +1358,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
                 .build());
             sendChatMessage(ctx, "You light a fire.", 0);
             if (leveledUp) sendChatMessage(ctx, "Congratulations, you just advanced a Firemaking level.", 2);
-            updateGenericQuestObjectives(session, Quest.TaskType.ACTION, LOGS_ITEM_ID);
+            updateGenericQuestObjectives(session, Quest.TaskType.ACTION, usedLogItemId);
             LOG.info("Player {} lit a fire (+{} firemaking xp)", player.getId(), FIREMAKING_LOG_XP);
             return;
         }
@@ -1403,6 +1404,21 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
                 s.getChannel().writeAndFlush(broadcast);
             }
         }
+    }
+
+    private boolean isChoppableTreeName(String npcName) {
+        return "Oak Tree".equalsIgnoreCase(npcName)
+            || "Willow Tree".equalsIgnoreCase(npcName)
+            || "Maple Tree".equalsIgnoreCase(npcName)
+            || "Yew Tree".equalsIgnoreCase(npcName)
+            || "Magic Tree".equalsIgnoreCase(npcName);
+    }
+
+    private boolean isFiremakingLogItem(int itemId) {
+        for (int id : FIREMAKING_LOG_ITEM_IDS) {
+            if (id == itemId) return true;
+        }
+        return false;
     }
 
     private void handleSetCombatStyle(NetworkProto.SetCombatStyle req) {

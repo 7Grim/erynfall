@@ -253,10 +253,15 @@ public class IsometricRenderer {
             case "Chicken"           -> drawChicken(sx, sy);
             case "Cow"               -> drawCow(sx, sy);
             case "Goblin"            -> drawGoblin(sx, sy);
-            case "Tree"              -> drawTree(sx, sy);
-            case "Fishing spot"      -> drawFishingSpot(sx, sy);
-            case "Fire"              -> drawFire(sx, sy);
-            default                  -> drawRat(sx, sy);
+            case "Tree"              -> drawDecorativeTree(sx, sy);
+            case "Oak Tree"          -> drawOakTree(sx, sy);
+            case "Willow Tree"       -> drawWillowTree(sx, sy);
+            case "Maple Tree"        -> drawMapleTree(sx, sy);
+            case "Yew Tree"          -> drawYewTree(sx, sy);
+            case "Magic Tree"        -> drawMagicTree(sx, sy);
+            case "Fishing Spot"      -> drawFishingSpot(sx, sy);
+            case "Cooking Fire"      -> drawFire(sx, sy);
+            default                  -> drawUnknownEntity(sx, sy);
         }
         sr.end();
     }
@@ -498,10 +503,24 @@ public class IsometricRenderer {
         sr.rect(sx + 5, sy - 2, 2, 9);
     }
 
+    /** Decorative non-choppable tree used as world dressing. */
+    private void drawDecorativeTree(float sx, float sy) {
+        sr.setColor(0.34f, 0.22f, 0.11f, 1f);
+        sr.rect(sx - 3, sy - 6, 6, 12);
+
+        sr.setColor(0.10f, 0.34f, 0.13f, 1f);
+        sr.rect(sx - 13, sy + 2, 26, 8);
+        sr.rect(sx - 10, sy + 9, 20, 7);
+        sr.rect(sx - 6, sy + 15, 12, 5);
+
+        sr.setColor(0.14f, 0.44f, 0.18f, 1f);
+        sr.rect(sx - 9, sy + 4, 18, 4);
+    }
+
     /**
-     * Tree resource node used by Woodcutting.
+     * Oak tree resource node used by Woodcutting.
      */
-    private void drawTree(float sx, float sy) {
+    private void drawOakTree(float sx, float sy) {
         // Trunk
         sr.setColor(0.42f, 0.25f, 0.12f, 1f);
         sr.rect(sx - 4, sy - 6, 8, 14);
@@ -514,6 +533,42 @@ public class IsometricRenderer {
 
         sr.setColor(0.20f, 0.60f, 0.24f, 1f);
         sr.rect(sx - 10, sy + 6, 20, 5);
+    }
+
+    private void drawWillowTree(float sx, float sy) {
+        sr.setColor(0.38f, 0.24f, 0.11f, 1f);
+        sr.rect(sx - 4, sy - 6, 8, 14);
+        sr.setColor(0.18f, 0.48f, 0.24f, 1f);
+        sr.rect(sx - 15, sy + 3, 30, 7);
+        sr.rect(sx - 12, sy + 10, 24, 7);
+        sr.rect(sx - 9, sy + 17, 18, 5);
+    }
+
+    private void drawMapleTree(float sx, float sy) {
+        sr.setColor(0.45f, 0.28f, 0.14f, 1f);
+        sr.rect(sx - 4, sy - 6, 8, 14);
+        sr.setColor(0.70f, 0.36f, 0.12f, 1f);
+        sr.rect(sx - 14, sy + 4, 28, 8);
+        sr.rect(sx - 10, sy + 12, 20, 6);
+        sr.rect(sx - 6, sy + 18, 12, 4);
+    }
+
+    private void drawYewTree(float sx, float sy) {
+        sr.setColor(0.30f, 0.20f, 0.11f, 1f);
+        sr.rect(sx - 4, sy - 6, 8, 14);
+        sr.setColor(0.08f, 0.30f, 0.12f, 1f);
+        sr.rect(sx - 13, sy + 4, 26, 9);
+        sr.rect(sx - 10, sy + 13, 20, 7);
+        sr.rect(sx - 6, sy + 20, 12, 5);
+    }
+
+    private void drawMagicTree(float sx, float sy) {
+        sr.setColor(0.22f, 0.17f, 0.22f, 1f);
+        sr.rect(sx - 4, sy - 6, 8, 14);
+        sr.setColor(0.20f, 0.08f, 0.34f, 1f);
+        sr.rect(sx - 15, sy + 4, 30, 8);
+        sr.rect(sx - 11, sy + 12, 22, 7);
+        sr.rect(sx - 7, sy + 19, 14, 5);
     }
 
     private void drawFishingSpot(float sx, float sy) {
@@ -532,6 +587,14 @@ public class IsometricRenderer {
         sr.rect(sx - 4, sy - 1, 8, 6);
         sr.setColor(1.00f, 0.80f, 0.25f, 1f);
         sr.rect(sx - 2, sy + 1, 4, 4);
+    }
+
+    /** Unknown entity marker used to make missing renderer cases obvious in-game. */
+    private void drawUnknownEntity(float sx, float sy) {
+        sr.setColor(1.00f, 0.00f, 1.00f, 1f);
+        sr.circle(sx, sy, 10f);
+        sr.setColor(0.80f, 0.00f, 0.80f, 1f);
+        sr.circle(sx, sy, 6f);
     }
 
     // -----------------------------------------------------------------------

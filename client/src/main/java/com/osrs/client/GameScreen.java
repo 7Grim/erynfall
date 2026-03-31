@@ -1976,9 +1976,13 @@ public class GameScreen extends ApplicationAdapter {
                     // Yellow name with level suffix — OSRS style
                     String yellowName = "[#ffff00]" + rawName + "[]";
                     String levelSuffix = level > 0 ? " (level-" + level + ")" : "";
-                    boolean isTreeResource = "Tree".equalsIgnoreCase(rawName);
-                    boolean isFishingSpot = "Fishing spot".equalsIgnoreCase(rawName);
-                    boolean isFire = "Fire".equalsIgnoreCase(rawName);
+                    boolean isTreeResource = "Oak Tree".equalsIgnoreCase(rawName)
+                        || "Willow Tree".equalsIgnoreCase(rawName)
+                        || "Maple Tree".equalsIgnoreCase(rawName)
+                        || "Yew Tree".equalsIgnoreCase(rawName)
+                        || "Magic Tree".equalsIgnoreCase(rawName);
+                    boolean isFishingSpot = "Fishing Spot".equalsIgnoreCase(rawName);
+                    boolean isFire = "Cooking Fire".equalsIgnoreCase(rawName);
 
                     if (level > 0) {
                         // Combat NPC: Attack is the primary option (top)

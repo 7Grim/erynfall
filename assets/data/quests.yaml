@@ -32,8 +32,8 @@ quests:
         
       - id: "collect_logs"
         type: "collect"
-        description: "Collect 10 logs"
-        item_id: 1511
+        description: "Collect 10 oak logs"
+        item_id: 1521
         count: 10
         reward_xp: 100
 
@@ -68,7 +68,7 @@ quests:
       - id: "light_fire"
         type: "action"
         description: "Light a fire using your tinderbox"
-        item_id: 1511
+        item_id: 1521
         count: 1
         reward_xp: 40
 

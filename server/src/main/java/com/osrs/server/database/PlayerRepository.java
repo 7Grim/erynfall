@@ -746,6 +746,11 @@ public class PlayerRepository {
         return switch (itemId) {
             case 1351 -> "Bronze axe";
             case 1511 -> "Logs";
+            case 1521 -> "Oak logs";
+            case 1522 -> "Willow logs";
+            case 1523 -> "Maple logs";
+            case 1524 -> "Yew logs";
+            case 1525 -> "Magic logs";
             case 303 -> "Small fishing net";
             case 317 -> "Raw shrimps";
             case 315 -> "Shrimps";
@@ -760,6 +765,11 @@ public class PlayerRepository {
         return switch (itemId) {
             case 1351 -> "A woodcutting axe made of bronze.";
             case 1511 -> "A set of logs.";
+            case 1521 -> "Logs from a sturdy oak tree.";
+            case 1522 -> "Logs from a flexible willow tree.";
+            case 1523 -> "Logs from a vibrant maple tree.";
+            case 1524 -> "Logs from an ancient yew tree.";
+            case 1525 -> "Logs from a mystical magic tree.";
             case 303 -> "Useful for catching shrimp.";
             case 317 -> "I should cook these first.";
             case 315 -> "A nicely cooked shrimp.";

@@ -91,6 +91,7 @@ public class GameLoop {
     };
     private static final int NORMAL_TREE_LOG_ITEM_ID = 1511;
     private static final long NORMAL_TREE_XP = 25L;
+    private static final int[] TREE_LOG_ITEM_IDS = {1511, 1521, 1522, 1523, 1524, 1525};
     private static final int TREE_REGROW_TICKS = 640;
 
     // Fishing (MVP first slice)
@@ -1097,7 +1098,13 @@ public class GameLoop {
 
     private void processWoodcutting(Player player, PlayerSession session) {
         NPC tree = world.getNPC(player.getSkillingTargetNpcId());
-        if (tree == null || tree.isDead() || !"Tree".equalsIgnoreCase(tree.getName())) {
+        if (tree == null || tree.isDead()) {
+            stopSkilling(player, session, "target-invalid");
+            return;
+        }
+
+        int treeDefinitionId = getChoppableTreeDefinitionId(tree.getName());
+        if (treeDefinitionId < 0) {
             stopSkilling(player, session, "target-invalid");
             return;
         }
@@ -1159,10 +1166,16 @@ public class GameLoop {
             return;
         }
 
-        player.setInventoryItem(slot, NORMAL_TREE_LOG_ITEM_ID, 1);
+        int configuredDefinitionId = tree.getDefinitionId();
+        if (configuredDefinitionId >= 0 && configuredDefinitionId < TREE_LOG_ITEM_IDS.length) {
+            treeDefinitionId = configuredDefinitionId;
+        }
+        int logItemId = TREE_LOG_ITEM_IDS[treeDefinitionId];
+
+        player.setInventoryItem(slot, logItemId, 1);
         sendInventorySlot(session.getChannel(), player, slot);
         sendChatMessageToPlayer(session.getChannel(), "You get some logs.", 0);
-        updateSkillQuestObjectives(session, Quest.TaskType.COLLECT, NORMAL_TREE_LOG_ITEM_ID);
+        updateSkillQuestObjectives(session, Quest.TaskType.COLLECT, logItemId);
         sendSkillUpdate(player, Player.SKILL_WOODCUTTING, NORMAL_TREE_XP);
 
         tree.setDead(true);
@@ -1174,9 +1187,18 @@ public class GameLoop {
         stopSkilling(player, session, "success");
     }
 
+    private int getChoppableTreeDefinitionId(String name) {
+        if ("Oak Tree".equalsIgnoreCase(name)) return 1;
+        if ("Willow Tree".equalsIgnoreCase(name)) return 2;
+        if ("Maple Tree".equalsIgnoreCase(name)) return 3;
+        if ("Yew Tree".equalsIgnoreCase(name)) return 4;
+        if ("Magic Tree".equalsIgnoreCase(name)) return 5;
+        return -1;
+    }
+
     private void processFishing(Player player, PlayerSession session) {
         NPC spot = world.getNPC(player.getSkillingTargetNpcId());
-        if (spot == null || spot.isDead() || !"Fishing spot".equalsIgnoreCase(spot.getName())) {
+        if (spot == null || spot.isDead() || !"Fishing Spot".equalsIgnoreCase(spot.getName())) {
             stopSkilling(player, session, "target-invalid");
             return;
         }
@@ -1239,7 +1261,7 @@ public class GameLoop {
 
     private void processCooking(Player player, PlayerSession session) {
         NPC fire = world.getNPC(player.getSkillingTargetNpcId());
-        if (fire == null || fire.isDead() || !"Fire".equalsIgnoreCase(fire.getName())) {
+        if (fire == null || fire.isDead() || !"Cooking Fire".equalsIgnoreCase(fire.getName())) {
             stopSkilling(player, session, "target-invalid");
             return;
         }

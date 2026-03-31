@@ -97,6 +97,46 @@ items:
     equipable: false
     consumable: false
 
+  - id: 1521
+    name: "Oak logs"
+    examine: "Logs from a sturdy oak tree."
+    stackable: false
+    store_value: 8
+    equipable: false
+    consumable: false
+
+  - id: 1522
+    name: "Willow logs"
+    examine: "Logs from a flexible willow tree."
+    stackable: false
+    store_value: 16
+    equipable: false
+    consumable: false
+
+  - id: 1523
+    name: "Maple logs"
+    examine: "Logs from a vibrant maple tree."
+    stackable: false
+    store_value: 24
+    equipable: false
+    consumable: false
+
+  - id: 1524
+    name: "Yew logs"
+    examine: "Logs from an ancient yew tree."
+    stackable: false
+    store_value: 32
+    equipable: false
+    consumable: false
+
+  - id: 1525
+    name: "Magic logs"
+    examine: "Logs from a mystical magic tree."
+    stackable: false
+    store_value: 48
+    equipable: false
+    consumable: false
+
   - id: 590
     name: "Tinderbox"
     examine: "Useful for lighting fires."

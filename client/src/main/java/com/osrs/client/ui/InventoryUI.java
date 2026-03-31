@@ -284,6 +284,11 @@ public class InventoryUI {
 
         switch (itemId) {
             case 1511 -> drawLogsIcon(sr, iconX, iconY);
+            case 1521 -> drawOakLogsIcon(sr, iconX, iconY);
+            case 1522 -> drawWillowLogsIcon(sr, iconX, iconY);
+            case 1523 -> drawMapleLogsIcon(sr, iconX, iconY);
+            case 1524 -> drawYewLogsIcon(sr, iconX, iconY);
+            case 1525 -> drawMagicLogsIcon(sr, iconX, iconY);
             case 1351 -> drawAxeIcon(sr, iconX, iconY);
             case 303 -> drawSmallNetIcon(sr, iconX, iconY);
             case 317 -> drawRawShrimpsIcon(sr, iconX, iconY);
@@ -320,6 +325,61 @@ public class InventoryUI {
         sr.rect(x + 6, y + 14, 10, 5);
         sr.setColor(0.55f, 0.59f, 0.64f, 1f);
         sr.rect(x + 6, y + 12, 6, 2);
+    }
+
+    private void drawOakLogsIcon(ShapeRenderer sr, float x, float y) {
+        sr.setColor(0.58f, 0.34f, 0.16f, 1f);
+        sr.rect(x + 4, y + 5, 16, 4);
+        sr.rect(x + 3, y + 10, 18, 4);
+        sr.rect(x + 5, y + 15, 14, 4);
+        sr.setColor(0.74f, 0.52f, 0.30f, 1f);
+        sr.rect(x + 18, y + 5, 2, 4);
+        sr.rect(x + 19, y + 10, 2, 4);
+        sr.rect(x + 17, y + 15, 2, 4);
+    }
+
+    private void drawWillowLogsIcon(ShapeRenderer sr, float x, float y) {
+        sr.setColor(0.46f, 0.32f, 0.20f, 1f);
+        sr.rect(x + 4, y + 5, 16, 4);
+        sr.rect(x + 3, y + 10, 18, 4);
+        sr.rect(x + 5, y + 15, 14, 4);
+        sr.setColor(0.60f, 0.48f, 0.34f, 1f);
+        sr.rect(x + 18, y + 5, 2, 4);
+        sr.rect(x + 19, y + 10, 2, 4);
+        sr.rect(x + 17, y + 15, 2, 4);
+    }
+
+    private void drawMapleLogsIcon(ShapeRenderer sr, float x, float y) {
+        sr.setColor(0.68f, 0.36f, 0.14f, 1f);
+        sr.rect(x + 4, y + 5, 16, 4);
+        sr.rect(x + 3, y + 10, 18, 4);
+        sr.rect(x + 5, y + 15, 14, 4);
+        sr.setColor(0.84f, 0.56f, 0.28f, 1f);
+        sr.rect(x + 18, y + 5, 2, 4);
+        sr.rect(x + 19, y + 10, 2, 4);
+        sr.rect(x + 17, y + 15, 2, 4);
+    }
+
+    private void drawYewLogsIcon(ShapeRenderer sr, float x, float y) {
+        sr.setColor(0.30f, 0.26f, 0.16f, 1f);
+        sr.rect(x + 4, y + 5, 16, 4);
+        sr.rect(x + 3, y + 10, 18, 4);
+        sr.rect(x + 5, y + 15, 14, 4);
+        sr.setColor(0.44f, 0.38f, 0.24f, 1f);
+        sr.rect(x + 18, y + 5, 2, 4);
+        sr.rect(x + 19, y + 10, 2, 4);
+        sr.rect(x + 17, y + 15, 2, 4);
+    }
+
+    private void drawMagicLogsIcon(ShapeRenderer sr, float x, float y) {
+        sr.setColor(0.36f, 0.20f, 0.42f, 1f);
+        sr.rect(x + 4, y + 5, 16, 4);
+        sr.rect(x + 3, y + 10, 18, 4);
+        sr.rect(x + 5, y + 15, 14, 4);
+        sr.setColor(0.54f, 0.32f, 0.62f, 1f);
+        sr.rect(x + 18, y + 5, 2, 4);
+        sr.rect(x + 19, y + 10, 2, 4);
+        sr.rect(x + 17, y + 15, 2, 4);
     }
 
     private void drawSmallNetIcon(ShapeRenderer sr, float x, float y) {
