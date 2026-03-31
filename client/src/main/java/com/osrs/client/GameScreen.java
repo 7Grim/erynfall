@@ -144,7 +144,6 @@ public class GameScreen extends ApplicationAdapter {
     // Camera zoom state
     private float currentZoom = 1.0f;  // 1.0 = 100% zoom (OSRS default)
     private float targetZoom = 1.0f;    // Target zoom for smooth interpolation
-    private static final float ZOOM_SPEED = 2.0f;  // Interpolation speed factor
     private static final float ZOOM_MIN = 0.5f;   // Zoomed out (2x further view distance)
     private static final float ZOOM_DEFAULT = 1.0f; // Default zoom (OSRS standard)
     private static final float ZOOM_MAX = 2.0f;   // Zoomed in (2x closer view)
@@ -521,28 +520,9 @@ public class GameScreen extends ApplicationAdapter {
      * Gradually moves currentZoom toward targetZoom.
      */
     private void updateCameraZoom(float delta) {
-        if (Math.abs(currentZoom - targetZoom) < 0.001f) {
-            // Already at target
-            return;
-        }
-
-        // Smooth interpolation - move current toward target
-        float zoomDiff = targetZoom - currentZoom;
-        float zoomStep = Math.signum(zoomDiff) * Math.min(Math.abs(zoomDiff) * ZOOM_SPEED, delta * 5f);
-
-        currentZoom += zoomStep;
-
-        // Clamp to bounds
-        if (currentZoom < ZOOM_MIN) currentZoom = ZOOM_MIN;
-        if (currentZoom > ZOOM_MAX) currentZoom = ZOOM_MAX;
-
-        // Apply zoom to camera
+        currentZoom = targetZoom;
         camera.zoom = currentZoom;
         camera.update();
-
-        // Mark interpolation as done if close enough
-        if (Math.abs(currentZoom - targetZoom) < 0.01f) {
-        }
     }
 
     private boolean isInUiArea(int mouseX, int mouseY) {

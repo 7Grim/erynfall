@@ -19,8 +19,8 @@ public class IsometricRenderer {
     public static final int MAP_WIDTH   = 104;
     public static final int MAP_HEIGHT  = 104;
 
-    /** Only render tiles within this radius of the camera centre (viewport culling). */
-    private static final int RENDER_RADIUS = 36;
+    /** Minimum tile culling radius so we never under-draw at tight zoom. */
+    private static final int MIN_RENDER_RADIUS = 36;
 
     // --- Tile colours: two variants per type for checkerboard micro-texture ---
     private static final Color GRASS_A = new Color(0.27f, 0.60f, 0.15f, 1f);
@@ -82,13 +82,21 @@ public class IsometricRenderer {
      * @param centerY  visual player Y
      */
     public void renderWorld(int[][] tileMap, float centerX, float centerY) {
-        int cx = (int) centerX;
-        int cy = (int) centerY;
+        float zoom = camera.zoom;
+        float scaledViewportWidth = camera.viewportWidth * zoom;
+        float scaledViewportHeight = camera.viewportHeight * zoom;
 
-        int minX = Math.max(0, cx - RENDER_RADIUS);
-        int maxX = Math.min(MAP_WIDTH  - 1, cx + RENDER_RADIUS);
-        int minY = Math.max(0, cy - RENDER_RADIUS);
-        int maxY = Math.min(MAP_HEIGHT - 1, cy + RENDER_RADIUS);
+        int cx = CoordinateConverter.screenToWorldX(camera.position.x, camera.position.y);
+        int cy = CoordinateConverter.screenToWorldY(camera.position.x, camera.position.y);
+
+        int radiusX = (int) Math.ceil((scaledViewportWidth * 0.5f) / (TILE_WIDTH / 2.0f)) + 4;
+        int radiusY = (int) Math.ceil((scaledViewportHeight * 0.5f) / (TILE_HEIGHT / 2.0f)) + 4;
+        int renderRadius = Math.max(MIN_RENDER_RADIUS, Math.max(radiusX, radiusY));
+
+        int minX = Math.max(0, cx - renderRadius);
+        int maxX = Math.min(MAP_WIDTH  - 1, cx + renderRadius);
+        int minY = Math.max(0, cy - renderRadius);
+        int maxY = Math.min(MAP_HEIGHT - 1, cy + renderRadius);
 
         sr.setProjectionMatrix(camera.combined);
         sr.begin(ShapeRenderer.ShapeType.Filled);
