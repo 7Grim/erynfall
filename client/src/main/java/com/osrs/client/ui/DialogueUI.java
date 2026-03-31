@@ -27,7 +27,7 @@ public class DialogueUI {
     public static final Color DIALOGUE_BG_COLOR = new Color(0f, 0f, 0.1f, 0.75f);
     public static final Color BORDER_COLOR = new Color(0.75f, 0.60f, 0.10f, 1f);
     public static final Color HEADER_COLOR = new Color(1f, 0.92f, 0f, 1f);
-    public static final Color NPC_TEXT_COLOR = new Color(0f, 0.38f, 1f, 1f);
+    public static final Color NPC_TEXT_COLOR = FontManager.TEXT_CYAN;
     public static final Color OPTION_TEXT_COLOR = Color.WHITE;
     public static final Color OPTION_HOVER_TEXT_COLOR = new Color(1f, 0.78f, 0.10f, 1f);
     public static final Color OPTION_BG_COLOR = new Color(0.10f, 0.10f, 0.16f, 0.72f);
@@ -271,9 +271,11 @@ public class DialogueUI {
         batch.begin();
 
         if (currentPhase == DialoguePhase.PLAYER_CHOOSING) {
+            font.getData().setScale(FontManager.getScale(FontManager.FontContext.SMALL_LABEL));
             font.setColor(HEADER_COLOR);
             font.draw(batch, "Choose Option", PANEL_X + 8, PANEL_Y + PANEL_HEIGHT - 8);
 
+            font.getData().setScale(FontManager.getScale(FontManager.FontContext.TOOLTIP));
             int hovered = getHoveredOptionIndex(mouseX, mouseY);
             for (int i = 0; i < options.size(); i++) {
                 int y = firstOptionY - i * (OPTION_HEIGHT + OPTION_GAP);
@@ -282,21 +284,25 @@ public class DialogueUI {
             }
 
             if (hasBackButton) {
+                font.getData().setScale(FontManager.getScale(FontManager.FontContext.SMALL_LABEL));
                 font.setColor(isBackButtonHit(mouseX, mouseY) ? OPTION_HOVER_TEXT_COLOR : OPTION_TEXT_COLOR);
                 font.draw(batch, "Back", backButtonX() + 8, backButtonY() + 14);
             }
         } else {
+            font.getData().setScale(FontManager.getScale(FontManager.FontContext.TOOLTIP));
             font.setColor(NPC_TEXT_COLOR);
             String currentLine = getCurrentNpcLine();
             GlyphLayout layout = new GlyphLayout(font, currentLine, NPC_TEXT_COLOR,
                 optionW, -1, true);
             font.draw(batch, layout, optionX, PANEL_Y + PANEL_HEIGHT - 20);
 
+            font.getData().setScale(FontManager.getScale(FontManager.FontContext.SMALL_LABEL));
             font.setColor(isContinueButtonHit(mouseX, mouseY) ? OPTION_HOVER_TEXT_COLOR : HEADER_COLOR);
             font.draw(batch, "Click here to continue", continueButtonX() + 8, continueButtonY() + 14);
         }
 
         batch.end();
+        font.getData().setScale(FontManager.getScale(FontManager.FontContext.BASE_UI));
         font.setColor(Color.WHITE);
     }
     

@@ -171,29 +171,29 @@ public class SidePanel {
         "Slayer", "Farming", "Hunter", "Construction"
     };
     private static final Color[] SKILL_COLORS = {
-        new Color(0.80f, 0.20f, 0.20f, 1f),   // Attack    – red
-        new Color(0.80f, 0.50f, 0.10f, 1f),   // Strength  – orange
-        new Color(0.20f, 0.55f, 0.85f, 1f),   // Defence   – blue
-        new Color(0.25f, 0.75f, 0.25f, 1f),   // Hitpoints – green
-        new Color(0.25f, 0.75f, 0.25f, 1f),   // Ranged    – lime
-        new Color(0.45f, 0.30f, 0.90f, 1f),   // Magic     – purple
-        new Color(0.30f, 0.60f, 0.15f, 1f),   // Prayer    – gold
-        new Color(0.30f, 0.60f, 0.15f, 1f),   // Woodcutting – dark green
-        new Color(0.10f, 0.55f, 0.80f, 1f),   // Fishing   – cyan-blue
-        new Color(0.85f, 0.40f, 0.10f, 1f),   // Cooking   – orange-red
-        new Color(0.60f, 0.60f, 0.62f, 1f),   // Mining
-        new Color(0.70f, 0.50f, 0.20f, 1f),   // Smithing
-        new Color(0.95f, 0.55f, 0.05f, 1f),   // Firemaking
-        new Color(0.65f, 0.50f, 0.30f, 1f),   // Crafting
-        new Color(0.20f, 0.75f, 0.75f, 1f),   // Runecrafting
-        new Color(0.35f, 0.55f, 0.15f, 1f),   // Fletching
-        new Color(0.25f, 0.60f, 0.85f, 1f),   // Agility
-        new Color(0.15f, 0.75f, 0.25f, 1f),   // Herblore
-        new Color(0.55f, 0.15f, 0.65f, 1f),   // Thieving
-        new Color(0.70f, 0.10f, 0.10f, 1f),   // Slayer
-        new Color(0.40f, 0.65f, 0.15f, 1f),   // Farming
-        new Color(0.55f, 0.38f, 0.12f, 1f),   // Hunter
-        new Color(0.78f, 0.65f, 0.35f, 1f),   // Construction
+        new Color(0.72f, 0.18f, 0.10f, 1f),   // Attack       – dark-red steel sword
+        new Color(0.52f, 0.38f, 0.26f, 1f),   // Strength     – grey-brown fist
+        new Color(0.22f, 0.42f, 0.72f, 1f),   // Defence      – steel blue shield
+        new Color(0.85f, 0.15f, 0.15f, 1f),   // Hitpoints    – bright red heart
+        new Color(0.40f, 0.58f, 0.20f, 1f),   // Ranged       – olive-green bow
+        new Color(0.30f, 0.25f, 0.78f, 1f),   // Magic        – deep blue wand
+        new Color(0.90f, 0.85f, 0.55f, 1f),   // Prayer       – cream/pale yellow
+        new Color(0.55f, 0.32f, 0.12f, 1f),   // Woodcutting  – brown axe
+        new Color(0.20f, 0.48f, 0.78f, 1f),   // Fishing      – mid blue
+        new Color(0.82f, 0.38f, 0.12f, 1f),   // Cooking      – flame orange
+        new Color(0.52f, 0.52f, 0.55f, 1f),   // Mining       – stone grey
+        new Color(0.55f, 0.52f, 0.50f, 1f),   // Smithing     – grey anvil
+        new Color(0.92f, 0.52f, 0.08f, 1f),   // Firemaking   – bright orange flame
+        new Color(0.75f, 0.68f, 0.28f, 1f),   // Crafting     – golden tools
+        new Color(0.58f, 0.35f, 0.72f, 1f),   // Runecrafting – purple rune
+        new Color(0.62f, 0.55f, 0.28f, 1f),   // Fletching    – olive arrow shaft
+        new Color(0.35f, 0.58f, 0.78f, 1f),   // Agility      – sky-blue figure
+        new Color(0.25f, 0.65f, 0.30f, 1f),   // Herblore     – herb green
+        new Color(0.48f, 0.38f, 0.52f, 1f),   // Thieving     – grey-purple
+        new Color(0.78f, 0.14f, 0.14f, 1f),   // Slayer       – dark-red skull
+        new Color(0.30f, 0.62f, 0.22f, 1f),   // Farming      – leaf green
+        new Color(0.78f, 0.62f, 0.28f, 1f),   // Hunter       – tan/earth
+        new Color(0.80f, 0.68f, 0.38f, 1f),   // Construction – sandstone
     };
 
     // Combat style (0=Accurate 1=Aggressive 2=Defensive 3=Controlled)
@@ -479,138 +479,281 @@ public class SidePanel {
         sr.end();
     }
 
-    // -----------------------------------------------------------------------
-    // Skills tab — OSRS 2007 style two-column panel.
-    // Top rows are ordered as OSRS combat skills:
-    //   left:  Attack / Strength / Defence
-    //   right: Hitpoints / Ranged / Magic
-    // Remaining skills continue downward in the two columns.
-    // -----------------------------------------------------------------------
-
-    private static final int[] LEFT_COLUMN_SKILLS = {
-        0, 1, 2, 6, 7, 8, 9, 10, 11, 12, 13, 14
-    };
-    private static final int[] RIGHT_COLUMN_SKILLS = {
-        3, 4, 5, 15, 16, 17, 18, 19, 20, 21, 22
+    /**
+     * OSRS skills-tab grid: 3 columns × 8 rows, OSRS canonical ordering.
+     * Each row = {col0 skillIdx, col1 skillIdx, col2 skillIdx}, -1 = Total Level cell.
+     */
+    private static final int[][] SKILL_GRID = {
+        { 0,  3, 10},  // Attack,       Hitpoints,   Mining
+        { 1, 16, 11},  // Strength,     Agility,     Smithing
+        { 2, 17,  8},  // Defence,      Herblore,    Fishing
+        { 4, 18,  9},  // Ranged,       Thieving,    Cooking
+        { 6, 13, 12},  // Prayer,       Crafting,    Firemaking
+        { 5, 15,  7},  // Magic,        Fletching,   Woodcutting
+        {14, 19, 20},  // Runecrafting, Slayer,      Farming
+        {22, 21, -1},  // Construction, Hunter,      [Total Level]
     };
 
     private void renderSkillsTab(ShapeRenderer sr, SpriteBatch batch, BitmapFont font, Matrix4 proj,
                                   int screenW, int screenH, int mouseX, int mouseY) {
-        final int ROWS   = Math.max(LEFT_COLUMN_SKILLS.length, RIGHT_COLUMN_SKILLS.length);
-        final int PAD_X  = 8;
-        final int PAD_Y  = 4;
+        final int COLS    = 3;
+        final int ROWS    = SKILL_GRID.length;  // 8
+        final int PAD_X   = 3;
+        final int PAD_Y   = 2;
         final int COL_GAP = 2;
-        final int CELL_W = (PANEL_W - PAD_X * 2 - COL_GAP) / 2;
-        final int CELL_H = (CONTENT_H - PAD_Y * (ROWS + 1)) / ROWS;
-        final int ICON_SZ = 14;
+        final int ROW_GAP = 1;
+        final int CELL_W  = (PANEL_W - PAD_X * 2 - COL_GAP * (COLS - 1)) / COLS;  // ~76
+        final int CELL_H  = (CONTENT_H - PAD_Y * 2 - ROW_GAP * (ROWS - 1)) / ROWS; // ~37
+        final int ICON_SZ = Math.min(CELL_H - 4, 32);
 
-        int[] cellX = new int[23];
-        int[] cellY = new int[23];
-        for (int i = 0; i < 23; i++) {
-            cellX[i] = -1;
-            cellY[i] = -1;
+        // Compute cell origins for all 23 skills + total-level cell.
+        // cellX/cellY indexed by skillIdx; -2 = total-level cell stored at index 23.
+        int[] cellX = new int[24]; int[] cellY = new int[24];
+        for (int r = 0; r < ROWS; r++) {
+            for (int c = 0; c < COLS; c++) {
+                int idx = SKILL_GRID[r][c];
+                int storeIdx = (idx == -1) ? 23 : idx;
+                cellX[storeIdx] = panelX + PAD_X + c * (CELL_W + COL_GAP);
+                cellY[storeIdx] = panelY + CONTENT_H - PAD_Y - (r + 1) * CELL_H - r * ROW_GAP;
+            }
         }
 
-        for (int row = 0; row < LEFT_COLUMN_SKILLS.length; row++) {
-            int i = LEFT_COLUMN_SKILLS[row];
-            cellX[i] = panelX + PAD_X;
-            cellY[i] = panelY + CONTENT_H - PAD_Y - (row + 1) * CELL_H - row * PAD_Y;
-        }
-        for (int row = 0; row < RIGHT_COLUMN_SKILLS.length; row++) {
-            int i = RIGHT_COLUMN_SKILLS[row];
-            cellX[i] = panelX + PAD_X + CELL_W + COL_GAP;
-            cellY[i] = panelY + CONTENT_H - PAD_Y - (row + 1) * CELL_H - row * PAD_Y;
-        }
-
-        // -- Pass 1: all filled shapes (backgrounds + icon boxes) --
+        // -- Pass 1: cell backgrounds --
         sr.setProjectionMatrix(proj);
         sr.begin(ShapeRenderer.ShapeType.Filled);
-        for (int i = 0; i < 23; i++) {
-            if (cellX[i] < 0) continue;
-            int cx = cellX[i], cy = cellY[i];
-            boolean membersLocked = i >= 15 && !memberPlayer;
-
-            if (membersLocked) {
-                sr.setColor(0.08f, 0.07f, 0.06f, 1f);
-            } else {
-                sr.setColor(0.11f, 0.10f, 0.08f, 1f);
-            }
+        for (int i = 0; i < 24; i++) {
+            int cx = cellX[i]; int cy = cellY[i];
+            boolean isTotalCell = (i == 23);
+            boolean membersLocked = !isTotalCell && i >= 15 && !memberPlayer;
+            sr.setColor(membersLocked ? 0.07f : 0.10f,
+                        membersLocked ? 0.06f : 0.09f,
+                        membersLocked ? 0.05f : 0.07f, 1f);
             sr.rect(cx, cy, CELL_W, CELL_H);
+        }
 
-            // Skill icon box in top-left of the cell
-            int iconX = cx + 5;
-            int iconY = cy + CELL_H - ICON_SZ - 4;
-            Color ic  = SKILL_COLORS[i];
-            if (membersLocked) {
-                sr.setColor(ic.r * 0.5f, ic.g * 0.5f, ic.b * 0.5f, 0.5f);
-            } else {
-                sr.setColor(ic.r, ic.g, ic.b, 1f);
-            }
+        // -- Pass 2: skill icon shapes --
+        for (int i = 0; i < 23; i++) {
+            int cx = cellX[i]; int cy = cellY[i];
+            boolean membersLocked = i >= 15 && !memberPlayer;
+            float iconX = cx + 2;
+            float iconY = cy + (CELL_H - ICON_SZ) / 2f;
+            Color ic = SKILL_COLORS[i];
+            float dim = membersLocked ? 0.35f : 1.0f;
+
+            // Icon background tile
+            sr.setColor(ic.r * dim * 0.45f, ic.g * dim * 0.45f, ic.b * dim * 0.45f, 1f);
             sr.rect(iconX, iconY, ICON_SZ, ICON_SZ);
 
-            if (!membersLocked) {
-                sr.setColor(Math.min(1f, ic.r + 0.35f), Math.min(1f, ic.g + 0.35f),
-                            Math.min(1f, ic.b + 0.35f), 0.65f);
-                sr.rect(iconX, iconY + ICON_SZ - 2, ICON_SZ, 2);
-                sr.rect(iconX, iconY, 2, ICON_SZ);
-            }
+            // Icon symbol (brighter, drawn over background)
+            sr.setColor(ic.r * dim, ic.g * dim, ic.b * dim, 1f);
+            drawSkillIcon(sr, i, iconX, iconY, ICON_SZ);
         }
         sr.end();
 
-        // -- Pass 2: all borders (line mode) --
-        sr.begin(ShapeRenderer.ShapeType.Line);
-        sr.setColor(0.48f, 0.40f, 0.18f, 1f);
-        for (int i = 0; i < 23; i++) {
-            if (cellX[i] < 0) continue;
-            sr.rect(cellX[i], cellY[i], CELL_W, CELL_H);
+        // -- Pass 3: cell borders (filled 1px rects – more reliable than Line mode) --
+        sr.begin(ShapeRenderer.ShapeType.Filled);
+        sr.setColor(0.38f, 0.32f, 0.16f, 0.80f);
+        for (int i = 0; i < 24; i++) {
+            int cx = cellX[i]; int cy = cellY[i];
+            sr.rect(cx, cy,            CELL_W, 1);
+            sr.rect(cx, cy + CELL_H - 1, CELL_W, 1);
+            sr.rect(cx, cy,            1, CELL_H);
+            sr.rect(cx + CELL_W - 1, cy, 1, CELL_H);
         }
         sr.end();
 
-        // -- Pass 3: levels + names --
+        // -- Pass 4: level numbers + Total Level cell --
         batch.setProjectionMatrix(proj);
         batch.begin();
+        int textX = (int)(cellX[0] + 2 + ICON_SZ + 3); // X relative to each cell below
         for (int i = 0; i < 23; i++) {
-            if (cellX[i] < 0) continue;
-            int cx = cellX[i], cy = cellY[i];
+            int cx = cellX[i]; int cy = cellY[i];
             boolean membersLocked = i >= 15 && !memberPlayer;
+            int lvlX = cx + 2 + ICON_SZ + 3;
+            int lvlY = cy + CELL_H - 4;
 
-            // Large yellow level to the right of icon
-            font.getData().setScale(0.85f);
-            if (membersLocked) {
-                font.setColor(0.45f, 0.45f, 0.45f, 1f);
-            } else {
-                font.setColor(1f, 0.85f, 0.10f, 1f);
-            }
-            String lvl = String.valueOf(skillLevels[i]);
-            font.draw(batch, lvl, cx + 24, cy + CELL_H - 5);
-
-            // Skill name below level
-            font.getData().setScale(0.48f);
-            if (membersLocked) {
-                font.setColor(0.55f, 0.55f, 0.55f, 1f);
-            } else {
-                font.setColor(0.88f, 0.84f, 0.74f, 1f);
-            }
-            font.draw(batch, SKILL_NAMES[i], cx + 24, cy + 10);
+            // Level number — large, prominent
+            font.getData().setScale(0.92f);
+            font.setColor(membersLocked ? 0.45f : 1.0f,
+                          membersLocked ? 0.45f : 0.88f,
+                          membersLocked ? 0.45f : 0.10f, 1f);
+            font.draw(batch, String.valueOf(skillLevels[i]), lvlX, lvlY);
 
             if (membersLocked) {
-                font.getData().setScale(0.52f);
-                font.setColor(0.85f, 0.70f, 0.10f, 1f);
-                font.draw(batch, "M", cx + CELL_W - 10, cy + CELL_H - 2);
+                // Subtle "M" badge for members-locked skills
+                font.getData().setScale(0.50f);
+                font.setColor(0.75f, 0.62f, 0.18f, 0.80f);
+                font.draw(batch, "M", cx + CELL_W - 9, cy + CELL_H - 2);
             }
         }
+
+        // Total Level cell (bottom-right)
+        {
+            int totalLevel = 0;
+            for (int lvl : skillLevels) totalLevel += lvl;
+            int cx = cellX[23]; int cy = cellY[23];
+            font.getData().setScale(0.58f);
+            font.setColor(0.82f, 0.75f, 0.45f, 1f);
+            font.draw(batch, "Total", cx + 4, cy + CELL_H - 3);
+            font.getData().setScale(0.80f);
+            font.setColor(1f, 0.88f, 0.10f, 1f);
+            font.draw(batch, String.valueOf(totalLevel), cx + 4, cy + CELL_H - 16);
+        }
+
         font.getData().setScale(1f);
         font.setColor(Color.WHITE);
         batch.end();
 
-        // -- Tooltip: show XP info when mouse hovers a skill cell --
+        // -- Tooltip on hover --
         for (int i = 0; i < 23; i++) {
-            if (cellX[i] < 0) continue;
             if (mouseX >= cellX[i] && mouseX < cellX[i] + CELL_W
              && mouseY >= cellY[i] && mouseY < cellY[i] + CELL_H) {
                 renderSkillTooltip(sr, batch, font, proj, i, mouseX, mouseY, screenW, screenH);
                 break;
             }
+        }
+    }
+
+    /**
+     * Draws a per-skill icon symbol inside a sz×sz box at (x, y).
+     * The icon background is drawn by the caller; this draws the symbol on top.
+     * All coordinates are relative to the box's bottom-left corner.
+     */
+    private void drawSkillIcon(ShapeRenderer sr, int skillIdx, float x, float y, float sz) {
+        float h = sz, w = sz;
+        switch (skillIdx) {
+            case 0: // Attack — sword: blade + crossguard + pommel
+                sr.rect(x + w*0.41f, y + h*0.06f, w*0.18f, h*0.74f);
+                sr.rect(x + w*0.10f, y + h*0.52f, w*0.80f, h*0.14f);
+                sr.rect(x + w*0.36f, y + h*0.80f, w*0.28f, h*0.14f);
+                break;
+            case 1: // Strength — dumbbell
+                sr.circle(x + w*0.22f, y + h*0.50f, h*0.19f);
+                sr.rect(x + w*0.20f, y + h*0.43f, w*0.60f, h*0.14f);
+                sr.circle(x + w*0.78f, y + h*0.50f, h*0.19f);
+                break;
+            case 2: // Defence — shield body + point
+                sr.rect(x + w*0.18f, y + h*0.28f, w*0.64f, h*0.50f);
+                sr.rect(x + w*0.28f, y + h*0.10f, w*0.44f, h*0.22f);
+                sr.rect(x + w*0.38f, y + h*0.75f, w*0.24f, h*0.15f);
+                sr.rect(x + w*0.45f, y + h*0.88f, w*0.10f, h*0.10f);
+                break;
+            case 3: // Hitpoints — medical cross
+                sr.rect(x + w*0.38f, y + h*0.06f, w*0.24f, h*0.88f);
+                sr.rect(x + w*0.06f, y + h*0.38f, w*0.88f, h*0.24f);
+                break;
+            case 4: // Ranged — arrow pointing right
+                sr.rect(x + w*0.06f, y + h*0.44f, w*0.60f, h*0.12f);
+                sr.rect(x + w*0.06f, y + h*0.28f, w*0.14f, h*0.14f); // top feather
+                sr.rect(x + w*0.06f, y + h*0.58f, w*0.14f, h*0.14f); // bot feather
+                sr.rect(x + w*0.62f, y + h*0.30f, w*0.18f, h*0.40f); // arrowhead back
+                sr.rect(x + w*0.76f, y + h*0.37f, w*0.18f, h*0.26f); // arrowhead mid
+                break;
+            case 5: // Magic — wand with star rays
+                sr.rect(x + w*0.44f, y + h*0.08f, w*0.12f, h*0.58f);
+                sr.rect(x + w*0.08f, y + h*0.44f, w*0.84f, h*0.12f);
+                sr.circle(x + w*0.50f, y + h*0.72f, h*0.16f);
+                break;
+            case 6: // Prayer — cross
+                sr.rect(x + w*0.41f, y + h*0.06f, w*0.18f, h*0.88f);
+                sr.rect(x + w*0.14f, y + h*0.30f, w*0.72f, h*0.18f);
+                break;
+            case 7: // Woodcutting — axe head + handle
+                sr.rect(x + w*0.44f, y + h*0.06f, w*0.12f, h*0.88f); // handle
+                sr.rect(x + w*0.18f, y + h*0.12f, w*0.42f, h*0.44f); // blade body
+                sr.rect(x + w*0.48f, y + h*0.06f, w*0.16f, h*0.14f); // blade hook
+                break;
+            case 8: // Fishing — rod + vertical line + hook
+                sr.rect(x + w*0.16f, y + h*0.10f, w*0.10f, h*0.78f); // rod
+                sr.rect(x + w*0.22f, y + h*0.82f, w*0.58f, h*0.08f); // rod tip
+                sr.rect(x + w*0.74f, y + h*0.12f, w*0.08f, h*0.72f); // line
+                sr.circle(x + w*0.78f, y + h*0.15f, h*0.09f);         // lure
+                break;
+            case 9: // Cooking — flame + base
+                sr.rect(x + w*0.30f, y + h*0.04f, w*0.40f, h*0.62f); // center flame
+                sr.rect(x + w*0.14f, y + h*0.20f, w*0.24f, h*0.46f); // left flame
+                sr.rect(x + w*0.62f, y + h*0.24f, w*0.24f, h*0.42f); // right flame
+                sr.rect(x + w*0.12f, y + h*0.66f, w*0.76f, h*0.18f); // base/pot
+                break;
+            case 10: // Mining — pickaxe head + handle
+                sr.rect(x + w*0.42f, y + h*0.22f, w*0.10f, h*0.72f); // handle
+                sr.rect(x + w*0.06f, y + h*0.10f, w*0.66f, h*0.18f); // pick head
+                sr.rect(x + w*0.06f, y + h*0.10f, w*0.18f, h*0.36f); // sharp pick point
+                break;
+            case 11: // Smithing — hammer
+                sr.rect(x + w*0.43f, y + h*0.32f, w*0.14f, h*0.62f); // handle
+                sr.rect(x + w*0.14f, y + h*0.06f, w*0.72f, h*0.30f); // hammer head
+                break;
+            case 12: // Firemaking — three flame tips + log
+                sr.rect(x + w*0.32f, y + h*0.06f, w*0.36f, h*0.58f); // center flame
+                sr.rect(x + w*0.12f, y + h*0.22f, w*0.24f, h*0.42f); // left flame
+                sr.rect(x + w*0.64f, y + h*0.26f, w*0.24f, h*0.38f); // right flame
+                sr.rect(x + w*0.08f, y + h*0.66f, w*0.84f, h*0.16f); // log
+                break;
+            case 13: // Crafting — needle body + eye
+                sr.rect(x + w*0.64f, y + h*0.08f, w*0.12f, h*0.78f); // needle
+                sr.circle(x + w*0.70f, y + h*0.82f, h*0.09f);         // eye hole
+                sr.rect(x + w*0.14f, y + h*0.75f, w*0.54f, h*0.10f); // thread
+                break;
+            case 14: // Runecrafting — stylised rune (diamond)
+                sr.rect(x + w*0.20f, y + h*0.38f, w*0.60f, h*0.24f); // horiz
+                sr.rect(x + w*0.38f, y + h*0.20f, w*0.24f, h*0.60f); // vert
+                sr.rect(x + w*0.28f, y + h*0.28f, w*0.44f, h*0.44f); // fill diamond
+                break;
+            case 15: // Fletching — arrow + large feathers
+                sr.rect(x + w*0.10f, y + h*0.46f, w*0.68f, h*0.08f); // shaft
+                sr.rect(x + w*0.70f, y + h*0.32f, w*0.20f, h*0.36f); // arrowhead
+                sr.rect(x + w*0.06f, y + h*0.24f, w*0.16f, h*0.20f); // feather top
+                sr.rect(x + w*0.06f, y + h*0.56f, w*0.16f, h*0.20f); // feather bot
+                sr.rect(x + w*0.04f, y + h*0.30f, w*0.08f, h*0.40f); // feather center
+                break;
+            case 16: // Agility — stylised running figure
+                sr.circle(x + w*0.60f, y + h*0.76f, h*0.14f);         // head
+                sr.rect(x + w*0.30f, y + h*0.32f, w*0.40f, h*0.36f); // torso
+                sr.rect(x + w*0.08f, y + h*0.48f, w*0.24f, h*0.30f); // back arm
+                sr.rect(x + w*0.66f, y + h*0.22f, w*0.24f, h*0.28f); // fwd arm
+                sr.rect(x + w*0.14f, y + h*0.06f, w*0.20f, h*0.28f); // back leg
+                sr.rect(x + w*0.62f, y + h*0.06f, w*0.20f, h*0.28f); // fwd leg
+                break;
+            case 17: // Herblore — flask: cap + neck + body
+                sr.rect(x + w*0.35f, y + h*0.04f, w*0.30f, h*0.10f); // cap
+                sr.rect(x + w*0.40f, y + h*0.12f, w*0.20f, h*0.22f); // neck
+                sr.rect(x + w*0.22f, y + h*0.32f, w*0.56f, h*0.58f); // body
+                break;
+            case 18: // Thieving — coin bag
+                sr.circle(x + w*0.50f, y + h*0.38f, h*0.30f);
+                sr.rect(x + w*0.36f, y + h*0.64f, w*0.28f, h*0.14f);
+                sr.rect(x + w*0.30f, y + h*0.75f, w*0.40f, h*0.12f);
+                break;
+            case 19: // Slayer — simplified skull
+                sr.circle(x + w*0.50f, y + h*0.56f, h*0.30f);
+                sr.rect(x + w*0.22f, y + h*0.40f, w*0.16f, h*0.20f); // left eye dark
+                sr.rect(x + w*0.62f, y + h*0.40f, w*0.16f, h*0.20f); // right eye dark
+                sr.rect(x + w*0.22f, y + h*0.06f, w*0.56f, h*0.18f); // jaw
+                break;
+            case 20: // Farming — plant stem + two leaves
+                sr.rect(x + w*0.46f, y + h*0.04f, w*0.08f, h*0.68f); // stem
+                sr.rect(x + w*0.18f, y + h*0.44f, w*0.30f, h*0.16f); // leaf left
+                sr.rect(x + w*0.52f, y + h*0.28f, w*0.30f, h*0.16f); // leaf right
+                sr.rect(x + w*0.28f, y + h*0.68f, w*0.44f, h*0.20f); // pot/ground
+                break;
+            case 21: // Hunter — paw print
+                sr.circle(x + w*0.50f, y + h*0.32f, h*0.22f);
+                sr.circle(x + w*0.26f, y + h*0.60f, h*0.11f);
+                sr.circle(x + w*0.42f, y + h*0.68f, h*0.10f);
+                sr.circle(x + w*0.58f, y + h*0.68f, h*0.10f);
+                sr.circle(x + w*0.74f, y + h*0.60f, h*0.11f);
+                break;
+            case 22: // Construction — brick wall (2×2 bricks)
+                sr.rect(x + w*0.06f, y + h*0.52f, w*0.88f, h*0.08f); // mortar
+                sr.rect(x + w*0.06f, y + h*0.06f, w*0.40f, h*0.44f); // top-left brick
+                sr.rect(x + w*0.54f, y + h*0.06f, w*0.40f, h*0.44f); // top-right brick
+                sr.rect(x + w*0.06f, y + h*0.62f, w*0.40f, h*0.32f); // bot-left brick
+                sr.rect(x + w*0.54f, y + h*0.62f, w*0.40f, h*0.32f); // bot-right brick
+                break;
+            default:
+                sr.rect(x + w*0.20f, y + h*0.20f, w*0.60f, h*0.60f);
+                break;
         }
     }
 
