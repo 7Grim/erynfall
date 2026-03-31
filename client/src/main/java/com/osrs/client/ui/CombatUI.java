@@ -258,8 +258,8 @@ public class CombatUI {
     public List<String> getMessages() { return combatMessages; }
 
     private long tileKey(float tileX, float tileY) {
-        long x = Float.floatToIntBits(tileX);
-        long y = Float.floatToIntBits(tileY);
+        long x = (int) tileX;
+        long y = (int) tileY;
         return (x << 32) | (y & 0xffffffffL);
     }
 }

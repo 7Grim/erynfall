@@ -59,6 +59,7 @@ public class InventoryUI {
     // Tooltip hover state
     private int hoveredSlot = -1;
     private float hoverTimer = 0f;
+    private final GlyphLayout tooltipLayout = new GlyphLayout();
 
     // -----------------------------------------------------------------------
     // Data mutators (called from GameScreen after syncing handler data)
@@ -181,7 +182,7 @@ public class InventoryUI {
             String itemName = names[hoveredSlot];
 
             font.getData().setScale(FontManager.getScale(FontManager.FontContext.TOOLTIP));
-            GlyphLayout tooltipLayout = new GlyphLayout(font, itemName);
+            tooltipLayout.setText(font, itemName);
 
             float[] slotPos = slotPos(hoveredSlot);
             float tooltipW = tooltipLayout.width + 16f;

@@ -103,6 +103,8 @@ public class GameScreen extends ApplicationAdapter {
     private IsometricRenderer renderer;
     private BitmapFont       font;
     private Matrix4          screenProjection;
+    private final GlyphLayout gl = new GlyphLayout();
+    private final GlyphLayout npcTagLayout = new GlyphLayout();
 
     // -----------------------------------------------------------------------
     // Game objects
@@ -176,7 +178,10 @@ public class GameScreen extends ApplicationAdapter {
 
     // Attack animation state
     private float attackAnimTimer = 0f;
-    private static final float ATTACK_ANIM_DURATION = 1.8f; // ~3 attack cycles
+    private static final float ATTACK_ANIM_DURATION = 0.6f; // 1 OSRS tick
+    private static final int PRAYER_ID_PROTECT_FROM_MAGIC = 15;
+    private static final int PRAYER_ID_PROTECT_FROM_MISSILES = 16;
+    private static final int PRAYER_ID_PROTECT_FROM_MELEE = 17;
     private String currentAttackPose = "idle";
 
     public enum PendingAction {
@@ -2210,12 +2215,27 @@ public class GameScreen extends ApplicationAdapter {
             batch.end();
         }
 
-        if (!localActivePrayers.isEmpty()) {
+        int overheadPrayerId = -1;
+        if (localActivePrayers.contains(PRAYER_ID_PROTECT_FROM_MELEE)) {
+            overheadPrayerId = PRAYER_ID_PROTECT_FROM_MELEE;
+        } else if (localActivePrayers.contains(PRAYER_ID_PROTECT_FROM_MISSILES)) {
+            overheadPrayerId = PRAYER_ID_PROTECT_FROM_MISSILES;
+        } else if (localActivePrayers.contains(PRAYER_ID_PROTECT_FROM_MAGIC)) {
+            overheadPrayerId = PRAYER_ID_PROTECT_FROM_MAGIC;
+        }
+
+        if (overheadPrayerId >= 0) {
             float iconSx = (visualX - visualY) * 16f;
             float iconSy = (visualX + visualY) * 8f + 65f;
             shapeRenderer.setProjectionMatrix(camera.combined);
             shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
-            shapeRenderer.setColor(0.8f, 0.75f, 0.5f, 1f);
+            if (overheadPrayerId == PRAYER_ID_PROTECT_FROM_MELEE) {
+                shapeRenderer.setColor(0.2f, 0.5f, 1.0f, 1f);   // blue — melee
+            } else if (overheadPrayerId == PRAYER_ID_PROTECT_FROM_MISSILES) {
+                shapeRenderer.setColor(0.2f, 0.85f, 0.3f, 1f);  // green — ranged
+            } else {
+                shapeRenderer.setColor(0.85f, 0.2f, 0.2f, 1f);  // red — magic
+            }
             shapeRenderer.circle(iconSx, iconSy, 4f);
             shapeRenderer.end();
         }
@@ -2259,24 +2279,7 @@ public class GameScreen extends ApplicationAdapter {
         ClientPacketHandler h = handler();
         if (h == null) return;
 
-        boolean anyPlayer = false;
-        for (Map.Entry<Integer, int[]> entry : h.getEntityPositions().entrySet()) {
-            int id = entry.getKey();
-            if (!h.isPlayer(id)) continue;
-            if (localPlayerId >= 0 && id == localPlayerId) continue;
-            float[] vis = npcVisual.get(id);
-            if (vis == null) continue;
-            String name = h.getEntityName(id);
-            if (name == null || name.isEmpty()) continue;
-            anyPlayer = true;
-            break;
-        }
-        if (!anyPlayer) return;
-
-        Gdx.gl.glEnable(GL20.GL_BLEND);
-        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
-        batch.setProjectionMatrix(camera.combined);
-        batch.begin();
+        boolean started = false;
         font.getData().setScale(FontManager.getScale(FontManager.FontContext.TOOLTIP));
 
         for (Map.Entry<Integer, int[]> entry : h.getEntityPositions().entrySet()) {
@@ -2288,48 +2291,40 @@ public class GameScreen extends ApplicationAdapter {
             String name = h.getEntityName(id);
             if (name == null || name.isEmpty()) continue;
 
+            if (!started) {
+                Gdx.gl.glEnable(GL20.GL_BLEND);
+                Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
+                batch.setProjectionMatrix(camera.combined);
+                batch.begin();
+                started = true;
+            }
+
             float sx = (vis[0] - vis[1]) * 16f;
             float sy = (vis[0] + vis[1]) * 8f + 28f;   // 28px above player feet
 
-            com.badlogic.gdx.graphics.g2d.GlyphLayout gl =
-                new com.badlogic.gdx.graphics.g2d.GlyphLayout(font, name);
+            npcTagLayout.setText(font, name);
 
             // Shadow
             font.setColor(0f, 0f, 0f, 0.8f);
-            font.draw(batch, name, sx - gl.width * 0.5f + 1f, sy - 1f);
+            font.draw(batch, name, sx - npcTagLayout.width * 0.5f + 1f, sy - 1f);
             // Yellow name
             font.setColor(COLOR_YELLOW);
-            font.draw(batch, name, sx - gl.width * 0.5f, sy);
+            font.draw(batch, name, sx - npcTagLayout.width * 0.5f, sy);
         }
 
         font.getData().setScale(FontManager.getScale(FontManager.FontContext.BASE_UI));
         font.setColor(COLOR_WHITE);
-        batch.end();
-        Gdx.gl.glDisable(GL20.GL_BLEND);
+        if (started) {
+            batch.end();
+            Gdx.gl.glDisable(GL20.GL_BLEND);
+        }
     }
 
     private void renderNpcNametags() {
         ClientPacketHandler h = handler();
         if (h == null) return;
 
-        boolean anyNpc = false;
-        for (Map.Entry<Integer, int[]> entry : h.getEntityPositions().entrySet()) {
-            int id = entry.getKey();
-            if (h.isPlayer(id)) continue;
-            if (h.getResourcePrimarySkill(id) != null) continue;
-            float[] vis = npcVisual.get(id);
-            if (vis == null) continue;
-            String name = h.getEntityName(id);
-            if (name == null || name.isEmpty()) continue;
-            anyNpc = true;
-            break;
-        }
-        if (!anyNpc) return;
-
-        Gdx.gl.glEnable(GL20.GL_BLEND);
-        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
-        batch.setProjectionMatrix(camera.combined);
-        batch.begin();
+        boolean started = false;
         font.getData().setScale(FontManager.getScale(FontManager.FontContext.TOOLTIP));
 
         for (Map.Entry<Integer, int[]> entry : h.getEntityPositions().entrySet()) {
@@ -2342,24 +2337,33 @@ public class GameScreen extends ApplicationAdapter {
             String name = h.getEntityName(id);
             if (name == null || name.isEmpty()) continue;
 
+            if (!started) {
+                Gdx.gl.glEnable(GL20.GL_BLEND);
+                Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
+                batch.setProjectionMatrix(camera.combined);
+                batch.begin();
+                started = true;
+            }
+
             boolean hostile = h.isNpcHostile(id);
             Color nameColor = hostile ? COLOR_RED : COLOR_YELLOW;
             float sx = (vis[0] - vis[1]) * 16f;
             float sy = (vis[0] + vis[1]) * 8f + 28f;
 
-            com.badlogic.gdx.graphics.g2d.GlyphLayout gl =
-                new com.badlogic.gdx.graphics.g2d.GlyphLayout(font, name);
+            npcTagLayout.setText(font, name);
 
             font.setColor(0f, 0f, 0f, 0.8f);
-            font.draw(batch, name, sx - gl.width * 0.5f + 1f, sy - 1f);
+            font.draw(batch, name, sx - npcTagLayout.width * 0.5f + 1f, sy - 1f);
             font.setColor(nameColor);
-            font.draw(batch, name, sx - gl.width * 0.5f, sy);
+            font.draw(batch, name, sx - npcTagLayout.width * 0.5f, sy);
         }
 
         font.getData().setScale(FontManager.getScale(FontManager.FontContext.BASE_UI));
         font.setColor(COLOR_WHITE);
-        batch.end();
-        Gdx.gl.glDisable(GL20.GL_BLEND);
+        if (started) {
+            batch.end();
+            Gdx.gl.glDisable(GL20.GL_BLEND);
+        }
     }
 
     private void renderClickMarkers() {
