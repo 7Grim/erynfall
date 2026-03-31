@@ -164,6 +164,23 @@ public class GameScreen extends ApplicationAdapter {
     private final Map<Integer, int[]>  groundItemsOnMap  = new ConcurrentHashMap<>();
     private final Map<Integer, String> groundItemNamesMap = new ConcurrentHashMap<>();
 
+    // Attack animation state
+    private float attackAnimTimer = 0f;
+    private static final float ATTACK_ANIM_DURATION = 1.8f; // ~3 attack cycles
+    private String currentAttackPose = "idle";
+
+    public enum PendingAction {
+        IDLE,
+        ATTACK,
+        CHOP,
+        FISH,
+        SWORD,
+        BLOCK,
+        PICKUP,
+        BURY,
+        LIGHT_FIRE
+    }
+
     // -----------------------------------------------------------------------
     // Approach-and-act state
     // -----------------------------------------------------------------------
@@ -405,6 +422,10 @@ public class GameScreen extends ApplicationAdapter {
         updateRunEnergy(delta);
         updateNpcVisuals(delta);
         updateClickMarkers(delta);
+        if (attackAnimTimer > 0f) {
+            attackAnimTimer = Math.max(0f, attackAnimTimer - delta);
+            if (attackAnimTimer == 0f) currentAttackPose = "idle";
+        }
 
         // Mouse scroll wheel zoom controls - OSRS-style
         if (pendingScrollAmount != 0) {
@@ -465,7 +486,8 @@ public class GameScreen extends ApplicationAdapter {
         }
 
         // Player (pickup animation plays for 1.8 s after item is clicked)
-        renderer.renderPlayer(visualX, visualY, pickupAnimationTimer > 0, pendingAction);
+        String playerPose = attackAnimTimer > 0f ? currentAttackPose : null;
+        renderer.renderPlayer(visualX, visualY, pickupAnimationTimer > 0, playerPose);
 
         // Firemaking animation — fire on the player's tile
         if (firemakerAnimTimer > 0) {
@@ -1568,6 +1590,7 @@ public class GameScreen extends ApplicationAdapter {
         if (nettyClient != null) {
             if ("attack".equals(pendingAction)) {
                 nettyClient.sendAttack(pendingNpcId);
+                triggerAttackPose("sword");
                 combatTargetId = pendingNpcId;
                 clearPendingAction();
             } else if ("talk".equals(pendingAction)) {
@@ -1577,15 +1600,22 @@ public class GameScreen extends ApplicationAdapter {
                 pendingActionRetryTimer = 0.25f;
             } else if ("chop".equals(pendingAction)) {
                 nettyClient.sendStartSkilling(pendingNpcId, NetworkProto.SkillingType.SKILLING_WOODCUTTING);
+                triggerAttackPose("chop");
                 pendingActionRetryTimer = 0.25f;
             } else if ("fish".equals(pendingAction)) {
                 nettyClient.sendStartSkilling(pendingNpcId, NetworkProto.SkillingType.SKILLING_FISHING);
+                triggerAttackPose("fish");
                 pendingActionRetryTimer = 0.25f;
             } else if ("cook_at".equals(pendingAction)) {
                 nettyClient.sendStartSkilling(pendingNpcId, NetworkProto.SkillingType.SKILLING_COOKING);
                 pendingActionRetryTimer = 0.25f;
             }
         }
+    }
+
+    private void triggerAttackPose(String pose) {
+        currentAttackPose = pose;
+        attackAnimTimer = ATTACK_ANIM_DURATION;
     }
 
     private void clearPendingAction() {

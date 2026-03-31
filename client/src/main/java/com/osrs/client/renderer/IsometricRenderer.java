@@ -193,7 +193,7 @@ public class IsometricRenderer {
             sr.rect(sx - 6, sy - 6, 3, 6);  // left arm reaching down
         }
 
-        // Skilling arm poses
+        // Action arm/weapon poses
         if ("chop".equals(pendingAction)) {
             // Right arm raised -- axe-swing overhead
             sr.setColor(SKIN);
@@ -208,6 +208,23 @@ public class IsometricRenderer {
             // Rod: thin tan line at angle
             sr.setColor(0.75f, 0.60f, 0.35f, 1f);
             sr.rect(sx + 8, bodyY + 3, 2, 8);       // vertical rod shaft
+        } else if ("sword".equals(pendingAction)) {
+            // Right arm forward with short blade slash pose
+            sr.setColor(SKIN);
+            sr.rect(sx + 5, bodyY + 1, 3, 7);
+            sr.setColor(0.82f, 0.84f, 0.88f, 1f);
+            sr.rect(sx + 8, bodyY + 4, 7, 2);
+            sr.setColor(0.58f, 0.48f, 0.20f, 1f);
+            sr.rect(sx + 7, bodyY + 3, 2, 4);
+        } else if ("spear".equals(pendingAction)) {
+            // Two-hand thrust pose with long shaft
+            sr.setColor(SKIN);
+            sr.rect(sx - 7, bodyY + 1, 3, 6);
+            sr.rect(sx + 5, bodyY + 1, 3, 6);
+            sr.setColor(0.70f, 0.55f, 0.30f, 1f);
+            sr.rect(sx - 7, bodyY + 5, 16, 2);
+            sr.setColor(0.85f, 0.86f, 0.92f, 1f);
+            sr.triangle(sx + 9, bodyY + 4, sx + 13, bodyY + 6, sx + 9, bodyY + 8);
         }
 
         sr.end();
