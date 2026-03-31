@@ -1925,7 +1925,7 @@ public class GameScreen extends ApplicationAdapter {
                 sidePanel.setSelectedInventorySlot(selectedInventorySlot);
             }
             case "inv_drop"  -> { if (nettyClient != null) nettyClient.sendDropItem((Integer) item.target); }
-            case "inv_examine" -> LOG.info("Examine: {}", item.label);
+            case "inv_examine" -> { if (nettyClient != null) nettyClient.sendExamineItem((Integer) item.target); }
             case "examine_npc" -> requestNpcExamine((Integer) item.target);
         }
     }

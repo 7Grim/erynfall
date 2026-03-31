@@ -311,6 +311,11 @@ message ExamineNpc {
     int32 npc_id = 1;
 }
 
+// ExamineItem: Client -> Server (request examine text for an inventory item)
+message ExamineItem {
+    int32 inventory_slot = 1;   // 0-27
+}
+
 // LogoutRequest: Client -> Server (explicitly log out and persist state)
 message LogoutRequest {
     int64 sequence = 1;
@@ -384,6 +389,7 @@ message ClientMessage {
         UseItemOnItem use_item_on_item = 16;
         UnequipItem unequip_item   = 17;
         TogglePrayer toggle_prayer = 18;
+        ExamineItem examine_item = 19;
     }
 }
 

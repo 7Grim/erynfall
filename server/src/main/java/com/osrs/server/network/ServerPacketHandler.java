@@ -118,6 +118,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             case SET_COMBAT_STYLE    -> handleSetCombatStyle(packet.getSetCombatStyle());
             case PUBLIC_CHAT         -> handlePublicChat(ctx, packet.getPublicChat());
             case EXAMINE_NPC         -> handleExamineNpc(ctx, packet.getExamineNpc());
+            case EXAMINE_ITEM        -> handleExamineItem(ctx, packet.getExamineItem());
             case LOGOUT_REQUEST      -> handleLogoutRequest(ctx, packet.getLogoutRequest());
             case START_SKILLING      -> handleStartSkilling(ctx, packet.getStartSkilling());
             case TOGGLE_PRAYER       -> handleTogglePrayer(ctx, packet.getTogglePrayer());
@@ -1415,6 +1416,31 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
         }
 
         sendChatMessage(ctx, server.getWorld().getNpcExamineText(npcId), 0);
+    }
+
+    private void handleExamineItem(ChannelHandlerContext ctx, NetworkProto.ExamineItem req) {
+        if (session.getPlayer() == null) return;
+
+        int slot = req.getInventorySlot();
+        if (slot < 0 || slot > 27) return;
+
+        Player player = session.getPlayer();
+        int itemId = player.getInventoryItemId(slot);
+
+        if (itemId == 0) {
+            sendChatMessage(ctx, "You don't see anything interesting.", 0);
+            return;
+        }
+
+        ItemDefinition def = server.getWorld().getItemDef(itemId);
+        String examineText = def.examine;
+
+        if (examineText == null || examineText.isEmpty()) {
+            // Fallback if items.yaml has no examine entry for this item
+            examineText = "It's a " + def.name + ".";
+        }
+
+        sendChatMessage(ctx, examineText, 0);
     }
 
     private void handleLogoutRequest(ChannelHandlerContext ctx, NetworkProto.LogoutRequest req) {

@@ -261,6 +261,15 @@ public class NettyClient {
         LOG.debug("Sent ExamineNpc: npc {}", npcId);
     }
 
+    public void sendExamineItem(int inventorySlot) {
+        if (channel == null || !channel.isActive()) return;
+        channel.writeAndFlush(NetworkProto.ClientMessage.newBuilder()
+            .setExamineItem(NetworkProto.ExamineItem.newBuilder()
+                .setInventorySlot(inventorySlot))
+            .build());
+        LOG.debug("Sent ExamineItem: slot={}", inventorySlot);
+    }
+
     public void sendTogglePrayer(int prayerId) {
         if (channel == null || !channel.isActive()) return;
         channel.writeAndFlush(NetworkProto.ClientMessage.newBuilder()
