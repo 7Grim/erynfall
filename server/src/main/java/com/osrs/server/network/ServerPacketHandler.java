@@ -80,6 +80,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
                     PlayerRepository.savePlayer(player);
                     PlayerRepository.saveInventory(player);
                     PlayerRepository.saveEquipment(player);
+                    PlayerRepository.saveFriends(player);
                     PlayerRepository.saveQuestProgress(player, session.getQuestManager());
                     LOG.info("Saved player {} on disconnect", player.getName());
                 }
@@ -119,6 +120,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             case PUBLIC_CHAT         -> handlePublicChat(ctx, packet.getPublicChat());
             case EXAMINE_NPC         -> handleExamineNpc(ctx, packet.getExamineNpc());
             case EXAMINE_ITEM        -> handleExamineItem(ctx, packet.getExamineItem());
+            case FRIEND_ACTION       -> handleFriendAction(ctx, packet.getFriendAction());
             case LOGOUT_REQUEST      -> handleLogoutRequest(ctx, packet.getLogoutRequest());
             case START_SKILLING      -> handleStartSkilling(ctx, packet.getStartSkilling());
             case TOGGLE_PRAYER       -> handleTogglePrayer(ctx, packet.getTogglePrayer());
@@ -165,6 +167,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             } else {
                 // Load inventory for returning player
                 PlayerRepository.loadInventory(player);
+                PlayerRepository.loadFriends(player);
             }
         } else {
             // DB offline: fall back to in-memory session (no persistence)
@@ -198,6 +201,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
         sendAllSkillUpdates(ctx, player);
         sendFullInventory(ctx, player);
         sendFullEquipment(ctx, player);
+        sendFriendsListUpdate(ctx, player);
 
         sendInitialQuestState(ctx);
 
@@ -269,6 +273,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
         }
 
         PlayerRepository.loadInventory(player);
+        PlayerRepository.loadFriends(player);
         ensureStarterSkillingTools(player);
 
         if (!server.getWorld().canWalkTo(player.getX(), player.getY())) {
@@ -289,6 +294,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
         sendAllSkillUpdates(ctx, player);
         sendFullInventory(ctx, player);
         sendFullEquipment(ctx, player);
+        sendFriendsListUpdate(ctx, player);
         sendInitialQuestState(ctx);
         sendWorldState(ctx);
 
@@ -1443,6 +1449,69 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
         sendChatMessage(ctx, examineText, 0);
     }
 
+    private void handleFriendAction(ChannelHandlerContext ctx, NetworkProto.FriendAction req) {
+        if (session.getPlayer() == null) return;
+        Player player = session.getPlayer();
+
+        boolean success = true;
+        String error = "";
+
+        switch (req.getAction()) {
+            case ADD -> {
+                long friendId = req.getPlayerId();
+                if (friendId <= 0) {
+                    success = false;
+                    error = "Invalid player.";
+                } else if (player.getFriends().size() >= 200) {
+                    success = false;
+                    error = "Friend list at capacity.";
+                } else {
+                    player.addFriend(friendId);
+                }
+            }
+            case REMOVE -> {
+                long friendId = req.getPlayerId();
+                player.removeFriend(friendId);
+                player.removeFromBlock(friendId);
+            }
+            case UNRECOGNIZED -> {
+                success = false;
+                error = "Unknown friend action.";
+            }
+        }
+
+        if (DatabaseManager.isHealthy()) {
+            PlayerRepository.saveFriends(player);
+        }
+
+        ctx.writeAndFlush(NetworkProto.ServerMessage.newBuilder()
+            .setFriendActionResult(NetworkProto.FriendActionResult.newBuilder()
+                .setSuccess(success)
+                .setError(error))
+            .build());
+
+        if (success) {
+            sendFriendsListUpdate(ctx, player);
+        }
+    }
+
+    private void sendFriendsListUpdate(ChannelHandlerContext ctx, Player player) {
+        NetworkProto.FriendsListUpdate.Builder list = NetworkProto.FriendsListUpdate.newBuilder();
+        for (Long friendIdLong : player.getFriends()) {
+            int friendId = (int) (long) friendIdLong;
+            Player online = server.getWorld().getPlayers().get(friendId);
+            String name = online != null ? online.getName() : ("Player " + friendId);
+            list.addFriends(NetworkProto.PlayerEntry.newBuilder()
+                .setName(name)
+                .setPlayerId(friendIdLong)
+                .setOnline(online != null));
+        }
+
+        ctx.writeAndFlush(NetworkProto.ServerMessage.newBuilder()
+            .setFriendsListUpdate(list)
+            .build());
+    }
+
     private void handleLogoutRequest(ChannelHandlerContext ctx, NetworkProto.LogoutRequest req) {
         if (session == null || session.getPlayer() == null) {
             ctx.writeAndFlush(NetworkProto.ServerMessage.newBuilder()
@@ -1461,6 +1530,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
         if (session.isAuthenticated() && DatabaseManager.isHealthy()) {
             PlayerRepository.savePlayer(player);
             PlayerRepository.saveInventory(player);
+            PlayerRepository.saveFriends(player);
             PlayerRepository.saveQuestProgress(player, session.getQuestManager());
             LOG.info("Saved player {} on explicit logout", player.getName());
         }

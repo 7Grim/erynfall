@@ -280,6 +280,18 @@ public class NettyClient {
         LOG.debug("Sent TogglePrayer: id={}", prayerId);
     }
 
+    public void sendFriendAction(NetworkProto.FriendAction.Action action, long playerId, String name) {
+        if (channel == null || !channel.isActive()) return;
+        channel.writeAndFlush(NetworkProto.ClientMessage.newBuilder()
+            .setFriendAction(NetworkProto.FriendAction.newBuilder()
+                .setAction(action)
+                .setPlayerId(playerId)
+                .setName(name == null ? "" : name)
+                .setSequence(System.currentTimeMillis()))
+            .build());
+        LOG.debug("Sent FriendAction: action={} playerId={} name={}", action, playerId, name);
+    }
+
     public void sendLogoutRequest() {
         NetworkProto.ClientMessage msg = NetworkProto.ClientMessage.newBuilder()
             .setLogoutRequest(NetworkProto.LogoutRequest.newBuilder()

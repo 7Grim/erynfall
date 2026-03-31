@@ -9,6 +9,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.sql.*;
+import java.util.ArrayList;
 import java.util.UUID;
 
 /**
@@ -377,6 +378,75 @@ public class PlayerRepository {
             }
         } catch (SQLException e) {
             LOG.error("Failed to load inventory for: {}", player.getName(), e);
+        }
+    }
+
+    public static void saveFriends(Player player) {
+        if (!DatabaseManager.isHealthy()) return;
+        try (Connection conn = DatabaseManager.getConnection()) {
+            int dbId = getDbIdByUsername(conn, player.getName());
+            if (dbId < 0) return;
+
+            try {
+                PreparedStatement del = conn.prepareStatement(
+                    "DELETE FROM osrs.player_friends WHERE player_id = ?"
+                );
+                del.setInt(1, dbId);
+                del.executeUpdate();
+
+                PreparedStatement ins = conn.prepareStatement(
+                    "INSERT INTO osrs.player_friends (player_id, friend_player_id, blocked) VALUES (?, ?, ?)"
+                );
+                for (Long friendId : player.getFriends()) {
+                    ins.setInt(1, dbId);
+                    ins.setLong(2, friendId);
+                    ins.setBoolean(3, false);
+                    ins.addBatch();
+                }
+                for (Long blockedId : player.getBlockedPlayers()) {
+                    ins.setInt(1, dbId);
+                    ins.setLong(2, blockedId);
+                    ins.setBoolean(3, true);
+                    ins.addBatch();
+                }
+                ins.executeBatch();
+                conn.commit();
+            } catch (SQLException schemaMissing) {
+                LOG.debug("player_friends table unavailable; skipping friend persistence for {}", player.getName());
+            }
+        } catch (SQLException e) {
+            LOG.error("Failed to save friends for: {}", player.getName(), e);
+        }
+    }
+
+    public static void loadFriends(Player player) {
+        if (!DatabaseManager.isHealthy()) return;
+        try (Connection conn = DatabaseManager.getConnection()) {
+            int dbId = getDbIdByUsername(conn, player.getName());
+            if (dbId < 0) return;
+
+            player.clearFriends();
+            for (Long blocked : new ArrayList<>(player.getBlockedPlayers())) {
+                player.removeFromBlock(blocked);
+            }
+
+            try {
+                PreparedStatement ps = conn.prepareStatement(
+                    "SELECT friend_player_id, blocked FROM osrs.player_friends WHERE player_id = ?"
+                );
+                ps.setInt(1, dbId);
+                ResultSet rs = ps.executeQuery();
+                while (rs.next()) {
+                    long friendId = rs.getLong("friend_player_id");
+                    boolean blocked = rs.getBoolean("blocked");
+                    if (blocked) player.blockPlayer(friendId);
+                    else player.addFriend(friendId);
+                }
+            } catch (SQLException schemaMissing) {
+                LOG.debug("player_friends table unavailable; loading no persisted friends for {}", player.getName());
+            }
+        } catch (SQLException e) {
+            LOG.error("Failed to load friends for: {}", player.getName(), e);
         }
     }
 

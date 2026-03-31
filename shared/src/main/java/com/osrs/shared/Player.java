@@ -1,5 +1,9 @@
 package com.osrs.shared;
 
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
+
 /**
  * Represents a player character.
  * Extends Entity with player-specific properties like stats, inventory, quests.
@@ -61,6 +65,11 @@ public class Player extends Entity {
     public static final int SKILL_COUNT        = 23;
 
     private boolean member = false;
+
+    // Friends list data
+    private final Set<Long> friends = new HashSet<>();
+    private final Set<Long> blockedPlayers = new HashSet<>();
+    private boolean friendsListVisible = false;
 
     /** Total XP accumulated per skill. */
     private final long[] skillXp    = new long[SKILL_COUNT];
@@ -305,5 +314,59 @@ public class Player extends Entity {
     public int getMaxPrayerPoints() { return skillLevel[SKILL_PRAYER]; }
     public void setPrayerPoints(int points) {
         this.prayerPoints = Math.max(0, Math.min(points, getMaxPrayerPoints()));
+    }
+
+    // -----------------------------------------------------------------------
+    // Friends list
+    // -----------------------------------------------------------------------
+
+    public boolean hasFriend(long playerId) {
+        return friends.contains(playerId);
+    }
+
+    public boolean isBlocked(long playerId) {
+        return blockedPlayers.contains(playerId);
+    }
+
+    public void addFriend(long playerId) {
+        friends.add(playerId);
+        blockedPlayers.remove(playerId);
+        friendsListVisible = true;
+    }
+
+    public void removeFriend(long playerId) {
+        friends.remove(playerId);
+        if (!friendsListVisible) {
+            friendsListVisible = true;
+        }
+    }
+
+    public void clearFriends() {
+        friends.clear();
+    }
+
+    public Set<Long> getFriends() {
+        return Collections.unmodifiableSet(friends);
+    }
+
+    public Set<Long> getBlockedPlayers() {
+        return Collections.unmodifiableSet(blockedPlayers);
+    }
+
+    public void blockPlayer(long playerId) {
+        blockedPlayers.add(playerId);
+        friends.remove(playerId);
+    }
+
+    public void removeFromBlock(long playerId) {
+        blockedPlayers.remove(playerId);
+    }
+
+    public boolean getFriendsListVisible() {
+        return friendsListVisible;
+    }
+
+    public void setFriendsListVisible(boolean visible) {
+        this.friendsListVisible = visible;
     }
 }
