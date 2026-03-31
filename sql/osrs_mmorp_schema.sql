@@ -739,6 +739,33 @@ END
 GO
 
 -- ============================================================================
+-- PROCEDURE 5: sp_delete_player_safe (Hard-delete with NO ACTION friend FK)
+-- ============================================================================
+
+DROP PROCEDURE IF EXISTS osrs.sp_delete_player_safe;
+GO
+
+CREATE PROCEDURE osrs.sp_delete_player_safe
+  @player_id INT
+AS
+BEGIN
+  SET NOCOUNT ON;
+  SET XACT_ABORT ON;
+
+  BEGIN TRY
+    BEGIN TRANSACTION;
+    DELETE FROM osrs.player_friends WHERE friend_player_id = @player_id;
+    DELETE FROM osrs.players WHERE id = @player_id;
+    COMMIT TRANSACTION;
+  END TRY
+  BEGIN CATCH
+    IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
+    THROW;
+  END CATCH
+END
+GO
+
+-- ============================================================================
 -- FINAL VERIFICATION
 -- ============================================================================
 
