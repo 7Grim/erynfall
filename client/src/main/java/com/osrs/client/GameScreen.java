@@ -1062,6 +1062,12 @@ public class GameScreen extends ApplicationAdapter {
         // Update drag position continuously (for inventory drag)
         sidePanel.updateDrag(mx, screenMy);
 
+        if (sidePanel.isInventoryTabActive() && sidePanel.isOverPanel(mx, screenMy) && !sidePanel.isInventoryDragging()) {
+            sidePanel.setInventoryHoveredSlot(sidePanel.getInventorySlotAt(mx, screenMy));
+        } else {
+            sidePanel.setInventoryHoveredSlot(-1);
+        }
+
         if (Gdx.input.isButtonJustPressed(Input.Buttons.RIGHT)) {
             // Check side panel right-click first
             if (sidePanel.isOverPanel(mx, screenMy)) {
@@ -1175,6 +1181,7 @@ public class GameScreen extends ApplicationAdapter {
                     handleInventoryPrimaryAction(inventoryMouseDownSlot);
                 }
             }
+            sidePanel.setInventoryHoveredSlot(-1);
             inventoryMouseDownSlot = -1;
         }
 
@@ -2133,23 +2140,28 @@ public class GameScreen extends ApplicationAdapter {
      *   - Visible for 3 seconds (150 × 20ms client ticks), then removed
      */
     private void renderOverheadText(float delta) {
-        if (overheadTexts.isEmpty()) return;
+        boolean prayerIndicatorVisible = !localActivePrayers.isEmpty();
+        if (overheadTexts.isEmpty() && !prayerIndicatorVisible) return;
 
         ClientPacketHandler h = handler();
 
         // Expire old entries
-        overheadTexts.values().removeIf(ot -> {
-            ot.timer -= delta;
-            return ot.timer <= 0;
-        });
+        if (!overheadTexts.isEmpty()) {
+            overheadTexts.values().removeIf(ot -> {
+                ot.timer -= delta;
+                return ot.timer <= 0;
+            });
+        }
 
-        if (overheadTexts.isEmpty()) return;
+        if (overheadTexts.isEmpty() && !prayerIndicatorVisible) return;
 
         Gdx.gl.glEnable(GL20.GL_BLEND);
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
 
-        batch.setProjectionMatrix(camera.combined);
-        batch.begin();
+        if (!overheadTexts.isEmpty()) {
+            batch.setProjectionMatrix(camera.combined);
+            batch.begin();
+        }
 
         for (Map.Entry<Integer, OverheadText> entry : overheadTexts.entrySet()) {
             int      entityId = entry.getKey();
@@ -2192,7 +2204,20 @@ public class GameScreen extends ApplicationAdapter {
             font.draw(batch, ot.text, textX, textY);
         }
 
-        batch.end();
+        if (!overheadTexts.isEmpty()) {
+            batch.end();
+        }
+
+        if (!localActivePrayers.isEmpty()) {
+            float iconSx = (visualX - visualY) * 16f;
+            float iconSy = (visualX + visualY) * 8f + 65f;
+            shapeRenderer.setProjectionMatrix(camera.combined);
+            shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+            shapeRenderer.setColor(0.8f, 0.75f, 0.5f, 1f);
+            shapeRenderer.circle(iconSx, iconSy, 4f);
+            shapeRenderer.end();
+        }
+
         font.setColor(COLOR_WHITE);
         Gdx.gl.glDisable(GL20.GL_BLEND);
     }

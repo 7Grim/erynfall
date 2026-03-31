@@ -1525,6 +1525,7 @@ public class SidePanel {
     public int[]   handleInventoryMouseUp(int mx, int my) { return inventoryUI.handleMouseUp(mx, my); }
     public int     getInventoryRightClickSlot(int mx, int my) { return inventoryUI.getRightClickSlot(mx, my); }
     public void setSelectedInventorySlot(int slot) { inventoryUI.setSelectedSlot(slot); }
+    public void setInventoryHoveredSlot(int slot) { inventoryUI.setHoveredSlot(slot); }
     public int  getInventorySlotAt(int mx, int my)  { return inventoryUI.getSlotAt(mx, my); }
 
     // -----------------------------------------------------------------------

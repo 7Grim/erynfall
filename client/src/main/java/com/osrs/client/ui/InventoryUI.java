@@ -56,6 +56,10 @@ public class InventoryUI {
     // Cached panel origin (recomputed in render)
     private int panelX, panelY;
 
+    // Tooltip hover state
+    private int hoveredSlot = -1;
+    private float hoverTimer = 0f;
+
     // -----------------------------------------------------------------------
     // Data mutators (called from GameScreen after syncing handler data)
     // -----------------------------------------------------------------------
@@ -73,7 +77,12 @@ public class InventoryUI {
     // -----------------------------------------------------------------------
 
     public void update(float delta) {
-        // No animations currently; reserved for future use.
+        if (hoveredSlot >= 0 && hoveredSlot < SLOTS && itemIds[hoveredSlot] > 0) {
+            hoverTimer += delta;
+        } else {
+            hoverTimer = 0f;
+            hoveredSlot = -1;
+        }
     }
 
     // -----------------------------------------------------------------------
@@ -166,6 +175,40 @@ public class InventoryUI {
             drawItemIcon(sr, pos[0], pos[1], itemIds[slot]);
         }
         sr.end();
+
+        // ----- Tooltip on hover (300ms delay) -----
+        if (hoverTimer >= 0.3f && hoveredSlot >= 0 && hoveredSlot < SLOTS && !names[hoveredSlot].isEmpty()) {
+            String itemName = names[hoveredSlot];
+
+            font.getData().setScale(FontManager.getScale(FontManager.FontContext.TOOLTIP));
+            GlyphLayout tooltipLayout = new GlyphLayout(font, itemName);
+
+            float[] slotPos = slotPos(hoveredSlot);
+            float tooltipW = tooltipLayout.width + 16f;
+            float tooltipH = 20f;
+            float tooltipX = slotPos[0] + SLOT_SIZE * 0.5f - tooltipW * 0.5f;
+            float tooltipY = slotPos[1] - tooltipH - 6f;
+
+            sr.setProjectionMatrix(proj);
+            sr.begin(ShapeRenderer.ShapeType.Filled);
+            sr.setColor(0.15f, 0.12f, 0.08f, 0.95f);
+            sr.rect(tooltipX, tooltipY, tooltipW, tooltipH);
+            sr.end();
+
+            sr.begin(ShapeRenderer.ShapeType.Line);
+            sr.setColor(0.55f, 0.42f, 0.28f, 1f);
+            sr.rect(tooltipX, tooltipY, tooltipW, tooltipH);
+            sr.end();
+
+            batch.setProjectionMatrix(proj);
+            batch.begin();
+            font.setColor(1f, 0.90f, 0.45f, 1f);
+            font.draw(batch, itemName, tooltipX + 8f, tooltipY + 14f);
+            batch.end();
+
+            font.getData().setScale(FontManager.getScale(FontManager.FontContext.BASE_UI));
+            font.setColor(Color.WHITE);
+        }
 
         // ----- Stack counts & names (batch text) -----
         batch.setProjectionMatrix(proj);
@@ -470,6 +513,15 @@ public class InventoryUI {
 
     public boolean isDragging()  { return dragSlot >= 0; }
     public int     getDragSlot() { return dragSlot; }
+    public void setHoveredSlot(int slot) {
+        if (slot != hoveredSlot) {
+            hoverTimer = 0f;
+        }
+        hoveredSlot = slot;
+        if (slot < 0 || slot >= SLOTS) {
+            hoverTimer = 0f;
+        }
+    }
     public int     getPanelWidth() { return PANEL_W; }
     public int     getPanelHeight() { return PANEL_H; }
 
