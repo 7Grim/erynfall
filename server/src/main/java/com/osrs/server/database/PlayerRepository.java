@@ -471,15 +471,15 @@ public class PlayerRepository {
 
     public static String findUsernameByDbId(int dbId) {
         if (dbId <= 0 || !DatabaseManager.isHealthy()) return "";
-        try (Connection conn = DatabaseManager.getConnection()) {
-            PreparedStatement ps = conn.prepareStatement(
-                "SELECT username FROM osrs.players WHERE id = ?"
-            );
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement ps = conn.prepareStatement(
+                 "SELECT username FROM osrs.players WHERE id = ?")) {
             ps.setInt(1, dbId);
-            ResultSet rs = ps.executeQuery();
-            if (!rs.next()) return "";
-            String username = rs.getString("username");
-            return username == null ? "" : username;
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) return "";
+                String username = rs.getString("username");
+                return username == null ? "" : username;
+            }
         } catch (SQLException e) {
             LOG.error("Failed to resolve username for dbId={}", dbId, e);
             return "";
@@ -488,12 +488,13 @@ public class PlayerRepository {
 
     public static boolean playerExistsByDbId(int dbId) {
         if (dbId <= 0 || !DatabaseManager.isHealthy()) return false;
-        try (Connection conn = DatabaseManager.getConnection()) {
-            PreparedStatement ps = conn.prepareStatement(
-                "SELECT 1 FROM osrs.players WHERE id = ?"
-            );
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement ps = conn.prepareStatement(
+                 "SELECT 1 FROM osrs.players WHERE id = ?")) {
             ps.setInt(1, dbId);
-            return ps.executeQuery().next();
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next();
+            }
         } catch (SQLException e) {
             LOG.error("Failed to check player existence for dbId={}", dbId, e);
             return false;
