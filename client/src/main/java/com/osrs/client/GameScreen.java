@@ -134,6 +134,7 @@ public class GameScreen extends ApplicationAdapter {
     // HUD (updated from server each frame)
     private int playerHealth = 10, playerMaxHealth = 10;
     private int playerPrayer = 0,  playerMaxPrayer = 0;
+    private final java.util.Set<Integer> localActivePrayers = new java.util.HashSet<>();
     private int playerRunEnergy = 100; // 0–100; full energy on login
     private boolean isRunning    = false;
     private float   runRestoreAcc = 0f; // accumulates delta time for energy restore
@@ -187,6 +188,12 @@ public class GameScreen extends ApplicationAdapter {
     private float pickupAnimationTimer = 0f;
     /** OSRS pickup animation: 3 OSRS ticks = 1.8 s real time. */
     private static final float PICKUP_ANIM_DURATION = 1.8f;
+
+    // Firemaking animation
+    /** Seconds remaining in the fire animation; 0 = not playing. */
+    private float firemakerAnimTimer = 0f;
+    /** Accumulates time for sin-based flicker. */
+    private float firemakerFlicker   = 0f;
 
     // -----------------------------------------------------------------------
     // Death screen state
@@ -426,6 +433,13 @@ public class GameScreen extends ApplicationAdapter {
         // Player (pickup animation plays for 1.8 s after item is clicked)
         renderer.renderPlayer(visualX, visualY, pickupAnimationTimer > 0, pendingAction);
 
+        // Firemaking animation — fire on the player's tile
+        if (firemakerAnimTimer > 0) {
+            firemakerAnimTimer -= delta;
+            firemakerFlicker   += delta * 8f;
+            renderFireAnimation(visualX, visualY);
+        }
+
         // Hitsplats
         combatUI.update(delta);
         combatUI.render(shapeRenderer, batch, font, camera);
@@ -659,12 +673,17 @@ public class GameScreen extends ApplicationAdapter {
         for (ClientPacketHandler.PrayerPointsEvent pp : h.drainPrayerPoints()) {
             playerPrayer    = pp.current;
             playerMaxPrayer = pp.maximum;
+            if (playerPrayer == 0) localActivePrayers.clear();
         }
         // Keep SidePanel prayer tab in sync with latest values
-        sidePanel.setPrayerState(playerPrayer, playerMaxPrayer, null);
+        sidePanel.setPrayerState(playerPrayer, playerMaxPrayer, localActivePrayers);
         for (ClientPacketHandler.XpDropEvent xp : h.drainXpDrops()) {
             if (xp.skillIndex >= 0 && xp.skillIndex < skillNames.length) {
                 xpDropOverlay.addDrop(xp.skillIndex, xp.xpGained);
+            }
+            if (xp.skillIndex == com.osrs.shared.Player.SKILL_FIREMAKING) {
+                firemakerAnimTimer = 2.5f;
+                firemakerFlicker   = 0f;
             }
         }
 
@@ -948,8 +967,10 @@ public class GameScreen extends ApplicationAdapter {
             inventoryMouseDownSlot = -1;
             // OSRS run: clicking the run energy orb toggles run on/off
             {
-                int rnCy = h - 180;
-                if (Math.hypot(mx - 35, screenMy - rnCy) <= 22) {
+                int orbCx = w - SidePanel.PANEL_W - SidePanel.MARGIN
+                              - MiniMap.RADIUS * 2 - SidePanel.MARGIN - 8 - 22;
+                int rnCy  = h - 140;
+                if (Math.hypot(mx - orbCx, screenMy - rnCy) <= 22) {
                     isRunning = !isRunning;
                     if (playerRunEnergy <= 0) isRunning = false; // can't enable at 0 energy
                     return;
@@ -990,6 +1011,10 @@ public class GameScreen extends ApplicationAdapter {
                     if (nettyClient != null) nettyClient.sendSetCombatStyle(click);
                 } else if (click <= -200) {
                     int prayerId = -(click + 200);
+                    if (playerPrayer > 0) {
+                        if (localActivePrayers.contains(prayerId)) localActivePrayers.remove(prayerId);
+                        else localActivePrayers.add(prayerId);
+                    }
                     if (nettyClient != null) nettyClient.sendTogglePrayer(prayerId);
                 } else if (click <= -100) {
                     int equipSlot = -(click + 100);
@@ -1114,6 +1139,10 @@ public class GameScreen extends ApplicationAdapter {
                         if (nettyClient != null) nettyClient.sendSetCombatStyle(click);
                     } else if (click <= -200) {
                         int prayerId = -(click + 200);
+                        if (playerPrayer > 0) {
+                            if (localActivePrayers.contains(prayerId)) localActivePrayers.remove(prayerId);
+                            else localActivePrayers.add(prayerId);
+                        }
                         if (nettyClient != null) nettyClient.sendTogglePrayer(prayerId);
                     } else if (click <= -100) {
                         int equipSlot = -(click + 100);
@@ -2396,15 +2425,41 @@ public class GameScreen extends ApplicationAdapter {
         font.setColor(COLOR_WHITE);
     }
 
+    /** Draws a flickering fire shape on the given world tile (world-space projection). */
+    private void renderFireAnimation(float wx, float wy) {
+        float sx    = renderer.worldToScreenX(wx, wy);
+        float sy    = renderer.worldToScreenY(wx, wy);
+        float flick = (float) Math.sin(firemakerFlicker);
+
+        shapeRenderer.setProjectionMatrix(camera.combined);
+        shapeRenderer.begin(com.badlogic.gdx.graphics.glutils.ShapeRenderer.ShapeType.Filled);
+        // Base ember
+        shapeRenderer.setColor(0.55f, 0.08f, 0.02f, 0.9f);
+        shapeRenderer.ellipse(sx - 7, sy - 2, 14, 7);
+        // Orange flame body
+        shapeRenderer.setColor(0.95f, 0.45f, 0.05f, 0.85f);
+        float h1 = 10f + flick * 2f;
+        shapeRenderer.ellipse(sx - 5, sy, 10, h1);
+        // Yellow tip
+        shapeRenderer.setColor(1.0f, 0.90f, 0.15f, 0.75f);
+        float h2 = 6f + flick * 1.5f;
+        shapeRenderer.ellipse(sx - 3, sy + h1 - 3f, 6, h2);
+        shapeRenderer.end();
+    }
+
     private void renderHUD() {
         int w = Gdx.graphics.getWidth(), h = Gdx.graphics.getHeight();
 
-        // Orb geometry -- vertical column, top-left, clear of the minimap (top-right)
+        // Orb geometry -- to the LEFT of the minimap (top-right area), OSRS style
         final int ORB_R  = 22;
-        final int ORB_CX = 35;
-        final int HP_CY  = h - 50;
-        final int PR_CY  = h - 115;
-        final int RN_CY  = h - 180;
+        // Minimap left edge: w - PANEL_W - MARGIN - RADIUS - MARGIN = w - 316 - 60 = w - 376
+        // Orb center: left edge - 8px gap - orb radius
+        final int ORB_CX = w - SidePanel.PANEL_W - SidePanel.MARGIN
+                             - MiniMap.RADIUS * 2 - SidePanel.MARGIN - 8 - ORB_R;
+        // Stack orbs along the minimap height; minimap cy = h - RADIUS - MARGIN = h - 68
+        final int HP_CY  = h - 44;   // near top of minimap
+        final int PR_CY  = h - 92;   // mid
+        final int RN_CY  = h - 140;  // near bottom
 
         // Ratios clamped [0,1]
         float hpRatio = playerMaxHealth  > 0 ? Math.min(1f, (float) playerHealth    / playerMaxHealth)  : 0f;
