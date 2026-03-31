@@ -3,6 +3,7 @@ package com.osrs.client;
 import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
+import com.badlogic.gdx.InputAdapter;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.OrthographicCamera;
@@ -140,6 +141,15 @@ public class GameScreen extends ApplicationAdapter {
     private float   runRestoreAcc = 0f; // accumulates delta time for energy restore
     private int attackLevel = 1, strengthLevel = 1, defenceLevel = 1;
 
+    // Camera zoom state
+    private float currentZoom = 1.0f;  // 1.0 = 100% zoom (OSRS default)
+    private float targetZoom = 1.0f;    // Target zoom for smooth interpolation
+    private static final float ZOOM_SPEED = 2.0f;  // Interpolation speed factor
+    private static final float ZOOM_MIN = 0.5f;   // Zoomed out (2x further view distance)
+    private static final float ZOOM_DEFAULT = 1.0f; // Default zoom (OSRS standard)
+    private static final float ZOOM_MAX = 2.0f;   // Zoomed in (2x closer view)
+    private int pendingScrollAmount = 0;
+
     // -----------------------------------------------------------------------
     // NPC smooth movement
     // NPC logical positions come from ClientPacketHandler (server-driven).
@@ -270,6 +280,14 @@ public class GameScreen extends ApplicationAdapter {
         camera.position.set(0, 0, 0);
         camera.update();
 
+        Gdx.input.setInputProcessor(new InputAdapter() {
+            @Override
+            public boolean scrolled(float amountX, float amountY) {
+                pendingScrollAmount += Math.round(amountY);
+                return true;
+            }
+        });
+
         FontManager.initialize();
         font = FontManager.regular();
         font.setColor(COLOR_WHITE);
@@ -388,12 +406,28 @@ public class GameScreen extends ApplicationAdapter {
         updateRunEnergy(delta);
         updateNpcVisuals(delta);
         updateClickMarkers(delta);
+
+        // Mouse scroll wheel zoom controls - OSRS-style
+        if (pendingScrollAmount != 0) {
+            targetZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX,
+                targetZoom + pendingScrollAmount * 0.1f));
+            pendingScrollAmount = 0;
+        }
+
+        // Middle mouse button resets zoom to OSRS default
+        if (Gdx.input.isButtonJustPressed(Input.Buttons.MIDDLE)) {
+            targetZoom = ZOOM_DEFAULT;
+        }
+
+        updateCameraZoom(delta);
         if (pickupAnimationTimer > 0) pickupAnimationTimer = Math.max(0f, pickupAnimationTimer - delta);
 
-        // Camera follows player visual position
+        // Camera always follows the player's interpolated visual position
         camera.position.set(
             renderer.worldToScreenX(visualX, visualY),
-            renderer.worldToScreenY(visualX, visualY), 0);
+            renderer.worldToScreenY(visualX, visualY),
+            0
+        );
         camera.update();
 
         // --- World ---
@@ -480,6 +514,51 @@ public class GameScreen extends ApplicationAdapter {
         renderLogoutMenu();
 
         Gdx.gl.glDisable(GL20.GL_BLEND);
+    }
+
+    /**
+     * Update camera zoom with smooth interpolation.
+     * Gradually moves currentZoom toward targetZoom.
+     */
+    private void updateCameraZoom(float delta) {
+        if (Math.abs(currentZoom - targetZoom) < 0.001f) {
+            // Already at target
+            return;
+        }
+
+        // Smooth interpolation - move current toward target
+        float zoomDiff = targetZoom - currentZoom;
+        float zoomStep = Math.signum(zoomDiff) * Math.min(Math.abs(zoomDiff) * ZOOM_SPEED, delta * 5f);
+
+        currentZoom += zoomStep;
+
+        // Clamp to bounds
+        if (currentZoom < ZOOM_MIN) currentZoom = ZOOM_MIN;
+        if (currentZoom > ZOOM_MAX) currentZoom = ZOOM_MAX;
+
+        // Apply zoom to camera
+        camera.zoom = currentZoom;
+        camera.update();
+
+        // Mark interpolation as done if close enough
+        if (Math.abs(currentZoom - targetZoom) < 0.01f) {
+        }
+    }
+
+    private boolean isInUiArea(int mouseX, int mouseY) {
+        if (mouseY < ChatBox.TOTAL_H && mouseX >= 0 && mouseX < ChatBox.BOX_W) return true;
+        if (sidePanel != null && sidePanel.isOverPanel(mouseX, mouseY)) return true;
+        if (dialogueUI != null && dialogueUI.isVisible() && dialogueUI.isOverDialogue(mouseX, mouseY)) return true;
+        if (contextMenu != null && contextMenu.isVisible()) return true;
+        int w = Gdx.graphics.getWidth();
+        int h = Gdx.graphics.getHeight();
+        if (Math.hypot(mouseX - MiniMap.getCenterX(w), mouseY - MiniMap.getCenterY(h)) <= MiniMap.RADIUS + 2) return true;
+        int miniLeftX = MiniMap.getLeftX(w);
+        int orbCx = miniLeftX - 8 - 22;
+        if (Math.hypot(mouseX - orbCx, mouseY - (h - 44)) <= 22) return true;
+        if (Math.hypot(mouseX - orbCx, mouseY - (h - 92)) <= 22) return true;
+        if (Math.hypot(mouseX - orbCx, mouseY - (h - 140)) <= 22) return true;
+        return false;
     }
 
     // -----------------------------------------------------------------------
@@ -2556,6 +2635,31 @@ public class GameScreen extends ApplicationAdapter {
         font.draw(screenBatch, lbl, ORB_CX - lbl.width / 2f, PR_CY - ORB_R + 4);
         lbl.setText(font, "Run");
         font.draw(screenBatch, lbl, ORB_CX - lbl.width / 2f, RN_CY - ORB_R + 4);
+
+        // Zoom level indicator - shows current zoom level
+        int zoomTextX = 35;
+        int zoomTextY = h - 140;  // Position: left side, near minimap
+        font.getData().setScale(FontManager.getScale(FontManager.FontContext.BASE_UI));
+        // Render zoom level text
+        String zoomLevelText;
+        if (currentZoom >= 1.9f) {
+            zoomLevelText = "2x";  // Zoomed in
+        } else if (currentZoom >= 1.1f) {
+            zoomLevelText = "Zoom";  // Default
+        } else {
+            zoomLevelText = "Zoom Out";  // Zoomed out
+        }
+        font.setColor(currentZoom >= 1.0f ? FontManager.TEXT_YELLOW : FontManager.TEXT_WHITE);
+        font.draw(screenBatch, zoomLevelText, zoomTextX, zoomTextY);
+        // Render mini-zoom icons (optional polish)
+        int iconSize = 12;
+        int iconX = zoomTextX + 50;
+        int iconY = zoomTextY + 5;
+        for (int i = 0; i < 3 && currentZoom >= ZOOM_DEFAULT; i++) {
+            float iconAlpha = (i == 0) ? 1.0f : (i == 1) ? 0.7f : 0.4f;
+            font.setColor(1f, 1f, 1f, iconAlpha);
+            font.draw(screenBatch, "-", iconX + i * (iconSize + 6), iconY + 2);
+        }
 
         // Coordinates debug text -- bottom-right, unchanged
         font.getData().setScale(FontManager.getScale(FontManager.FontContext.BASE_UI));
