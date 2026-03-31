@@ -171,7 +171,7 @@ public class LoginScreen extends ScreenAdapter {
         proj.setToOrtho2D(0, 0, w, h);
 
         // -- Background --
-        Gdx.gl.glClearColor(0.04f, 0.04f, 0.06f, 1f);
+        Gdx.gl.glClearColor(0.06f, 0.05f, 0.05f, 1f);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 
         int panelX = (w - PANEL_W) / 2;
@@ -188,7 +188,7 @@ public class LoginScreen extends ScreenAdapter {
 
         // -- Panel background --
         sr.begin(ShapeRenderer.ShapeType.Filled);
-        sr.setColor(0.10f, 0.08f, 0.05f, 1f);
+        sr.setColor(0.08f, 0.07f, 0.06f, 1f);
         sr.rect(panelX, panelY, PANEL_W, PANEL_H);
         sr.end();
 
@@ -273,8 +273,8 @@ public class LoginScreen extends ScreenAdapter {
         batch.setProjectionMatrix(proj);
         batch.begin();
 
-        // Title -- "Erynfall" in OSRS orange-gold, above the panel
-        font.setColor(0.98f, 0.75f, 0.15f, 1f);
+        // Title -- "Erynfall" in OSRS bright gold, above the panel
+        font.setColor(0.96f, 0.82f, 0.10f, 1f);
         GlyphLayout titleLayout = new GlyphLayout(font, "Erynfall");
         font.draw(batch, "Erynfall",
             panelX + (PANEL_W - titleLayout.width) / 2f,
