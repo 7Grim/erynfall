@@ -630,7 +630,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
                                      NPC npc,
                                      NetworkProto.SkillingType requestedType,
                                      boolean strictType) {
-        if (TreeVariantRegistry.isChoppableDefinitionId(npc.getDefinitionId())) {
+        if (TreeVariantRegistry.getByName(npc.getName()) != null) {
             if (strictType && requestedType != NetworkProto.SkillingType.SKILLING_WOODCUTTING) {
                 return false;
             }

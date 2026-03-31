@@ -111,7 +111,6 @@ public class GameLoop {
     
     public void start() {
         LOG.info("Starting game loop (interval: {} ns)", tickIntervalNs);
-        validateTreeVariantConfiguration();
         running = true;
         
         loopThread = new Thread(this::run, "GameLoop");
@@ -1191,52 +1190,7 @@ public class GameLoop {
     }
 
     private TreeVariantRegistry.TreeVariant resolveTreeVariant(NPC tree) {
-        int configuredDefinitionId = tree.getDefinitionId();
-        TreeVariantRegistry.TreeVariant byDefinition = TreeVariantRegistry.getByDefinitionId(configuredDefinitionId);
-        if (byDefinition == null) {
-            return null;
-        }
-
-        String actualName = tree.getName() == null ? "" : tree.getName().trim();
-        if (!byDefinition.name().equalsIgnoreCase(actualName)) {
-            LOG.error("Tree variant mismatch for npcId={}: definition_id={} expects name='{}', but actual name='{}'",
-                tree.getId(), configuredDefinitionId, byDefinition.name(), tree.getName());
-            return null;
-        }
-        return byDefinition;
-    }
-
-    private void validateTreeVariantConfiguration() {
-        List<String> errors = new ArrayList<>();
-        for (NPC npc : world.getNPCs().values()) {
-            int definitionId = npc.getDefinitionId();
-            TreeVariantRegistry.TreeVariant byDefinition = TreeVariantRegistry.getByDefinitionId(definitionId);
-            TreeVariantRegistry.TreeVariant byName = TreeVariantRegistry.getByName(npc.getName());
-
-            if (byName == null && byDefinition == null) {
-                continue;
-            }
-            if (byDefinition == null && byName != null) {
-                errors.add("npcId=" + npc.getId() + " name='" + npc.getName() + "' uses tree variant '"
-                    + byName.name() + "' but definition_id=" + definitionId + " is unmapped");
-                continue;
-            }
-            if (byDefinition != null && byName == null) {
-                errors.add("npcId=" + npc.getId() + " definition_id=" + definitionId + " maps to '"
-                    + byDefinition.name() + "' but name='" + npc.getName() + "' is not a known tree variant");
-                continue;
-            }
-            if (byDefinition != null && byName != null && byDefinition.definitionId() != byName.definitionId()) {
-                errors.add("npcId=" + npc.getId() + " mismatch: definition_id=" + definitionId + " => '"
-                    + byDefinition.name() + "' but name='" + npc.getName() + "' => '" + byName.name() + "'");
-            }
-        }
-
-        if (!errors.isEmpty()) {
-            String joined = String.join("; ", errors);
-            LOG.error("Invalid tree variant configuration in world data: {}", joined);
-            throw new IllegalStateException("Invalid tree variant configuration: " + joined);
-        }
+        return TreeVariantRegistry.getByName(tree.getName());
     }
 
     private void processFishing(Player player, PlayerSession session) {
