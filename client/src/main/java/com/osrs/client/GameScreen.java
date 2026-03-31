@@ -967,8 +967,8 @@ public class GameScreen extends ApplicationAdapter {
             inventoryMouseDownSlot = -1;
             // OSRS run: clicking the run energy orb toggles run on/off
             {
-                int orbCx = w - SidePanel.PANEL_W - SidePanel.MARGIN
-                              - MiniMap.RADIUS * 2 - SidePanel.MARGIN - 8 - 22;
+                int miniLeftX = MiniMap.getLeftX(w);
+                int orbCx = miniLeftX - 8 - 22;
                 int rnCy  = h - 140;
                 if (Math.hypot(mx - orbCx, screenMy - rnCy) <= 22) {
                     isRunning = !isRunning;
@@ -2452,11 +2452,10 @@ public class GameScreen extends ApplicationAdapter {
 
         // Orb geometry -- to the LEFT of the minimap (top-right area), OSRS style
         final int ORB_R  = 22;
-        // Minimap left edge: w - PANEL_W - MARGIN - RADIUS - MARGIN = w - 316 - 60 = w - 376
-        // Orb center: left edge - 8px gap - orb radius
-        final int ORB_CX = w - SidePanel.PANEL_W - SidePanel.MARGIN
-                             - MiniMap.RADIUS * 2 - SidePanel.MARGIN - 8 - ORB_R;
-        // Stack orbs along the minimap height; minimap cy = h - RADIUS - MARGIN = h - 68
+        int miniLeftX = MiniMap.getLeftX(w);
+        // Orb center: minimap left edge - 8px gap - orb radius
+        final int ORB_CX = miniLeftX - 8 - ORB_R;
+        // Stack orbs along the minimap height; minimap cy = h - RADIUS - MARGIN
         final int HP_CY  = h - 44;   // near top of minimap
         final int PR_CY  = h - 92;   // mid
         final int RN_CY  = h - 140;  // near bottom

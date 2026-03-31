@@ -28,6 +28,18 @@ public class MiniMap {
     private static final Color COLOR_WATER = new Color(0.18f, 0.70f, 0.60f, 1f); // Light blue
     private static final Color COLOR_WALL = new Color(0.31f, 0.31f, 0.31f, 1f);  // Dark gray
 
+    public static int getCenterX(int screenW) {
+        return screenW - RADIUS - SidePanel.MARGIN;
+    }
+
+    public static int getCenterY(int screenH) {
+        return screenH - RADIUS - SidePanel.MARGIN;
+    }
+
+    public static int getLeftX(int screenW) {
+        return getCenterX(screenW) - RADIUS;
+    }
+
     /** Render the minimap.
      *
      * @param sr          ShapeRenderer (caller must not have an active begin/end)
@@ -47,9 +59,9 @@ public class MiniMap {
                        int[][] tileMap, ClientPacketHandler h) {
 
         // -- Centre of the minimap circle --
-        // Anchored: right edge aligns with left edge of side panel minus a margin
-        int cx = screenW - SidePanel.PANEL_W - SidePanel.MARGIN - RADIUS - SidePanel.MARGIN;
-        int cy = screenH - RADIUS - SidePanel.MARGIN;
+        // Anchored directly to the screen's top-right corner.
+        int cx = getCenterX(screenW);
+        int cy = getCenterY(screenH);
 
         sr.setProjectionMatrix(proj);
 
