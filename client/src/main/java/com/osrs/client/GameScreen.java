@@ -147,7 +147,7 @@ public class GameScreen extends ApplicationAdapter {
     private final List<String> friendNamesList = new ArrayList<>();
     private final java.util.Set<Long> friendIds = new java.util.HashSet<>();
     private final Map<Long, String> friendDisplayNames = new HashMap<>();
-    private final Deque<String> pendingFriendActionFeedback = new ArrayDeque<>();
+    private final java.util.LinkedHashMap<Long, String> pendingFriendActionFeedbackBySequence = new java.util.LinkedHashMap<>();
     private static final int MAX_PENDING_FRIEND_FEEDBACK = 16;
 
     // Camera zoom state
@@ -677,7 +677,7 @@ public class GameScreen extends ApplicationAdapter {
         }
 
         for (ClientPacketHandler.FriendActionResultEvent result : h.drainFriendActionResults()) {
-            String queuedFeedback = pendingFriendActionFeedback.pollFirst();
+            String queuedFeedback = pendingFriendActionFeedbackBySequence.remove(result.sequence);
             if (!result.success && result.error != null && !result.error.isEmpty()) {
                 chatBox.addSystemMessage(result.error);
             } else if (result.success) {
@@ -2067,11 +2067,17 @@ public class GameScreen extends ApplicationAdapter {
             case UNRECOGNIZED -> "Friends list updated.";
         };
 
-        if (pendingFriendActionFeedback.size() >= MAX_PENDING_FRIEND_FEEDBACK) {
-            pendingFriendActionFeedback.pollFirst();
+        if (pendingFriendActionFeedbackBySequence.size() >= MAX_PENDING_FRIEND_FEEDBACK) {
+            java.util.Iterator<Long> it = pendingFriendActionFeedbackBySequence.keySet().iterator();
+            if (it.hasNext()) {
+                it.next();
+                it.remove();
+            }
         }
-        pendingFriendActionFeedback.addLast(feedback);
-        nettyClient.sendFriendAction(action, targetPlayerId, targetName);
+        long sequence = nettyClient.sendFriendAction(action, targetPlayerId, targetName);
+        if (sequence > 0) {
+            pendingFriendActionFeedbackBySequence.put(sequence, feedback);
+        }
     }
 
     /**

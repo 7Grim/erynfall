@@ -249,6 +249,29 @@ CREATE INDEX idx_inventory_item ON osrs.inventory(item_id);
 GO
 
 -- ============================================================================
+-- TABLE 6B: PLAYER_FRIENDS (Friends + blocked relationships)
+-- ============================================================================
+
+DROP TABLE IF EXISTS osrs.player_friends;
+GO
+
+CREATE TABLE osrs.player_friends (
+  id INT IDENTITY(1,1) PRIMARY KEY,
+  player_id INT NOT NULL REFERENCES osrs.players(id) ON DELETE CASCADE,
+  friend_player_id INT NOT NULL REFERENCES osrs.players(id) ON DELETE NO ACTION,
+  blocked BIT NOT NULL DEFAULT 0,
+  created_at DATETIME2 DEFAULT GETDATE(),
+
+  CONSTRAINT ck_player_friends_not_self CHECK (player_id <> friend_player_id),
+  UNIQUE (player_id, friend_player_id)
+);
+GO
+
+CREATE INDEX idx_player_friends_owner ON osrs.player_friends(player_id, blocked);
+CREATE INDEX idx_player_friends_target ON osrs.player_friends(friend_player_id);
+GO
+
+-- ============================================================================
 -- TABLE 7: GROUND_LOOT (Items on the ground with despawn)
 -- ============================================================================
 

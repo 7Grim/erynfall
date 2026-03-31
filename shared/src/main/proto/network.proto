@@ -340,6 +340,7 @@ message FriendAction {
 message FriendActionResult {
     bool success = 1;
     string error = 2;
+    int64 sequence = 3;
 }
 
 // LogoutRequest: Client -> Server (explicitly log out and persist state)

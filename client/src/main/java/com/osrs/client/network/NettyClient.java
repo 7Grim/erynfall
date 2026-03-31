@@ -15,6 +15,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Client-side Netty connection to game server.
@@ -47,6 +48,7 @@ public class NettyClient {
     private ClientPacketHandler handler;
     private volatile CountDownLatch handshakeLatch = new CountDownLatch(1);
     private volatile NetworkProto.HandshakeResponse lastHandshakeResponse;
+    private final AtomicLong friendActionSequence = new AtomicLong(1);
     
     public void connect() throws Exception {
         group = new NioEventLoopGroup();
@@ -280,16 +282,18 @@ public class NettyClient {
         LOG.debug("Sent TogglePrayer: id={}", prayerId);
     }
 
-    public void sendFriendAction(NetworkProto.FriendAction.Action action, long playerId, String name) {
-        if (channel == null || !channel.isActive()) return;
+    public long sendFriendAction(NetworkProto.FriendAction.Action action, long playerId, String name) {
+        if (channel == null || !channel.isActive()) return -1L;
+        long sequence = friendActionSequence.getAndIncrement();
         channel.writeAndFlush(NetworkProto.ClientMessage.newBuilder()
             .setFriendAction(NetworkProto.FriendAction.newBuilder()
                 .setAction(action)
                 .setPlayerId(playerId)
                 .setName(name == null ? "" : name)
-                .setSequence(System.currentTimeMillis()))
+                .setSequence(sequence))
             .build());
         LOG.debug("Sent FriendAction: action={} playerId={} name={}", action, playerId, name);
+        return sequence;
     }
 
     public void sendLogoutRequest() {

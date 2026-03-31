@@ -411,8 +411,13 @@ public class PlayerRepository {
                 }
                 ins.executeBatch();
                 conn.commit();
-            } catch (SQLException schemaMissing) {
-                LOG.debug("player_friends table unavailable; skipping friend persistence for {}", player.getName());
+            } catch (SQLException e) {
+                if (isMissingTableError(e)) {
+                    LOG.debug("player_friends table unavailable; skipping friend persistence for {}", player.getName());
+                } else {
+                    conn.rollback();
+                    LOG.error("Failed to save friends for {}", player.getName(), e);
+                }
             }
         } catch (SQLException e) {
             LOG.error("Failed to save friends for: {}", player.getName(), e);
@@ -442,12 +447,62 @@ public class PlayerRepository {
                     if (blocked) player.blockPlayer(friendId);
                     else player.addFriend(friendId);
                 }
-            } catch (SQLException schemaMissing) {
-                LOG.debug("player_friends table unavailable; loading no persisted friends for {}", player.getName());
+            } catch (SQLException e) {
+                if (isMissingTableError(e)) {
+                    LOG.debug("player_friends table unavailable; loading no persisted friends for {}", player.getName());
+                } else {
+                    LOG.error("Failed to load friends for {}", player.getName(), e);
+                }
             }
         } catch (SQLException e) {
             LOG.error("Failed to load friends for: {}", player.getName(), e);
         }
+    }
+
+    public static int findDbIdByUsername(String username) {
+        if (username == null || username.isBlank() || !DatabaseManager.isHealthy()) return -1;
+        try (Connection conn = DatabaseManager.getConnection()) {
+            return getDbIdByUsername(conn, username);
+        } catch (SQLException e) {
+            LOG.error("Failed to resolve DB id by username: {}", username, e);
+            return -1;
+        }
+    }
+
+    public static String findUsernameByDbId(int dbId) {
+        if (dbId <= 0 || !DatabaseManager.isHealthy()) return "";
+        try (Connection conn = DatabaseManager.getConnection()) {
+            PreparedStatement ps = conn.prepareStatement(
+                "SELECT username FROM osrs.players WHERE id = ?"
+            );
+            ps.setInt(1, dbId);
+            ResultSet rs = ps.executeQuery();
+            if (!rs.next()) return "";
+            String username = rs.getString("username");
+            return username == null ? "" : username;
+        } catch (SQLException e) {
+            LOG.error("Failed to resolve username for dbId={}", dbId, e);
+            return "";
+        }
+    }
+
+    public static boolean playerExistsByDbId(int dbId) {
+        if (dbId <= 0 || !DatabaseManager.isHealthy()) return false;
+        try (Connection conn = DatabaseManager.getConnection()) {
+            PreparedStatement ps = conn.prepareStatement(
+                "SELECT 1 FROM osrs.players WHERE id = ?"
+            );
+            ps.setInt(1, dbId);
+            return ps.executeQuery().next();
+        } catch (SQLException e) {
+            LOG.error("Failed to check player existence for dbId={}", dbId, e);
+            return false;
+        }
+    }
+
+    public static int tryMapEntityIdToDbId(int entityId) {
+        int dbId = entityId - PLAYER_ENTITY_ID_OFFSET;
+        return dbId > 0 ? dbId : -1;
     }
 
     public static void saveEquipment(Player player) {
@@ -623,6 +678,11 @@ public class PlayerRepository {
             return -1;
         }
         return rs.getInt("id");
+    }
+
+    private static boolean isMissingTableError(SQLException e) {
+        String msg = e.getMessage();
+        return e.getErrorCode() == 208 || (msg != null && msg.contains("Invalid object name"));
     }
 
     private static int toRuntimeEntityId(int dbId) {

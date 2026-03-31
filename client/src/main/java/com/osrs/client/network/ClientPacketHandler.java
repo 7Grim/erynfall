@@ -736,7 +736,7 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
     }
 
     private void handleFriendActionResult(NetworkProto.FriendActionResult msg) {
-        pendingFriendActionResults.add(new FriendActionResultEvent(msg.getSuccess(), msg.getError()));
+        pendingFriendActionResults.add(new FriendActionResultEvent(msg.getSuccess(), msg.getError(), msg.getSequence()));
     }
 
     /** Drain server chat messages queued this frame. */
@@ -783,10 +783,12 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
     public static class FriendActionResultEvent {
         public final boolean success;
         public final String error;
+        public final long sequence;
 
-        public FriendActionResultEvent(boolean success, String error) {
+        public FriendActionResultEvent(boolean success, String error, long sequence) {
             this.success = success;
             this.error = error;
+            this.sequence = sequence;
         }
     }
 
