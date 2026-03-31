@@ -71,13 +71,21 @@ public class ChatBox {
     // -----------------------------------------------------------------------
     // Message model
     // -----------------------------------------------------------------------
-    public enum MessageType { PUBLIC, SYSTEM }
-    public enum ViewFilter { ALL, GAME, PUBLIC }
+    public enum MessageType { PUBLIC, SYSTEM, PRIVATE }
+
+    // Tab types and state
+    public enum ChatTab { ALL, GAME, PUBLIC, PRIVATE }
+    public enum ChatChannelFilter { ALL_MESSAGES, PUBLIC_CHAT, SYSTEM_MESSAGES, PRIVATE_CHAT }
 
     private static final DateTimeFormatter TS_FMT = DateTimeFormatter.ofPattern("HH:mm");
-    private static final Color TAB_ACTIVE = new Color(0.30f, 0.24f, 0.12f, 0.95f);
-    private static final Color TAB_IDLE = new Color(0.13f, 0.11f, 0.09f, 0.88f);
+    private static final Color TAB_ACTIVE = new Color(0.30f, 0.24f, 0.12f, 1f);
+    private static final Color TAB_IDLE = new Color(0.13f, 0.11f, 0.09f, 0.95f);
+    private static final Color BORDER_ACTIVE = FontManager.TEXT_GOLD;
+    private static final Color BORDER_IDLE = new Color(0.65f, 0.52f, 0.10f, 1f);
+    private static final Color LABEL_ACTIVE = FontManager.TEXT_WHITE;
+    private static final Color LABEL_IDLE = new Color(0.85f, 0.85f, 0.85f, 1f);
     private static final Color TS_COLOR = new Color(0.62f, 0.62f, 0.62f, 1f);
+    private static final Color PRIVATE_COLOR = new Color(0.82f, 0.92f, 1f, 1f);
     private static final int TAB_W = 52;
     private static final int TAB_BTN_H = 14;
     private static final int TAB_GAP = 4;
@@ -120,7 +128,8 @@ public class ChatBox {
     // -----------------------------------------------------------------------
     private boolean chatActive  = false;
     private String  inputBuffer = "";
-    private ViewFilter viewFilter = ViewFilter.ALL;
+    private ChatTab activeTab = ChatTab.ALL;
+    private ChatChannelFilter channelFilter = ChatChannelFilter.ALL_MESSAGES;
 
     // Cursor blink timer
     private float cursorTimer = 0f;
@@ -140,6 +149,11 @@ public class ChatBox {
         addLine(new ChatLine("", text, MessageType.SYSTEM));
     }
 
+    /** Add a private/direct message. */
+    public void addPrivateMessage(String senderName, String text) {
+        addLine(new ChatLine(senderName, text, MessageType.PRIVATE));
+    }
+
     private void addLine(ChatLine line) {
         lines.addLast(line);
         if (lines.size() > MAX_LINES) lines.removeFirst();
@@ -156,7 +170,7 @@ public class ChatBox {
     public boolean isActive()       { return chatActive; }
     public String  getInputBuffer() { return inputBuffer; }
     public void    setInputBuffer(String buf) { this.inputBuffer = buf; }
-    public ViewFilter getViewFilter() { return viewFilter; }
+    public ChatTab getActiveTab() { return activeTab; }
 
     // -----------------------------------------------------------------------
     // Update
@@ -197,15 +211,9 @@ public class ChatBox {
         sr.setColor(SEP_COLOR);
         sr.rect(boxX, boxY + INPUT_H - 1, BOX_W, 1);
 
-        int tabStartX = tabStartX();
-        int tabY = boxY + INPUT_H + 2;
-        for (int i = 0; i < 3; i++) {
-            int x = tabStartX + i * (TAB_W + TAB_GAP);
-            boolean active = viewFilter.ordinal() == i;
-            sr.setColor(active ? TAB_ACTIVE : TAB_IDLE);
-            sr.rect(x, tabY, TAB_W, TAB_BTN_H);
-        }
         sr.end();
+
+        renderTabButtons(sr, batch, font, boxX, boxY, proj);
 
         // ── Text ─────────────────────────────────────────────────────────────
         batch.setProjectionMatrix(proj);
@@ -243,7 +251,11 @@ public class ChatBox {
                     textX += gl.width;
                 }
 
-                font.setColor(MSG_COLOR);
+                if (line.type == MessageType.PRIVATE) {
+                    font.setColor(PRIVATE_COLOR);
+                } else {
+                    font.setColor(MSG_COLOR);
+                }
                 font.draw(batch, line.text, textX, lineY);
             }
         }
@@ -258,13 +270,59 @@ public class ChatBox {
             font.draw(batch, "Press Enter to Chat", boxX + PAD_X, boxY + INPUT_H - PAD_Y - 3);
         }
 
-        font.setColor(HINT_COLOR);
-        font.draw(batch, "All", tabStartX + 18, boxY + INPUT_H + 14);
-        font.draw(batch, "Game", tabStartX + (TAB_W + TAB_GAP) + 11, boxY + INPUT_H + 14);
-        font.draw(batch, "Public", tabStartX + 2 * (TAB_W + TAB_GAP) + 8, boxY + INPUT_H + 14);
-
         batch.end();
         font.setColor(Color.WHITE);
+    }
+
+    // Tab button rendering
+    private void renderTabButtons(ShapeRenderer sr, SpriteBatch batch, BitmapFont font,
+                                  int boxX, int boxY, Matrix4 proj) {
+        int startX = tabStartX();
+        int y = boxY + INPUT_H + 2;
+
+        sr.setProjectionMatrix(proj);
+        sr.begin(ShapeRenderer.ShapeType.Filled);
+        for (int i = 0; i < ChatTab.values().length; i++) {
+            ChatTab tab = ChatTab.values()[i];
+            boolean active = (activeTab == tab);
+            sr.setColor(active ? TAB_ACTIVE : TAB_IDLE);
+            sr.rect(startX + i * (TAB_W + TAB_GAP), y, TAB_W, TAB_BTN_H);
+        }
+        sr.end();
+
+        sr.begin(ShapeRenderer.ShapeType.Line);
+        for (int i = 0; i < ChatTab.values().length; i++) {
+            ChatTab tab = ChatTab.values()[i];
+            boolean active = (activeTab == tab);
+            sr.setColor(active ? BORDER_ACTIVE : BORDER_IDLE);
+            sr.rect(startX + i * (TAB_W + TAB_GAP), y, TAB_W, TAB_BTN_H);
+        }
+        sr.end();
+
+        batch.setProjectionMatrix(proj);
+        batch.begin();
+        font.getData().setScale(0.78f);
+        GlyphLayout gl = new GlyphLayout();
+        for (int i = 0; i < ChatTab.values().length; i++) {
+            ChatTab tab = ChatTab.values()[i];
+            boolean active = (activeTab == tab);
+            String label = tabLabel(tab);
+            float bx = startX + i * (TAB_W + TAB_GAP);
+            gl.setText(font, label);
+            font.setColor(active ? LABEL_ACTIVE : LABEL_IDLE);
+            font.draw(batch, label, bx + (TAB_W - gl.width) / 2f, y + TAB_BTN_H - 3);
+        }
+        font.getData().setScale(1f);
+        batch.end();
+    }
+
+    private String tabLabel(ChatTab tab) {
+        return switch (tab) {
+            case ALL -> "All";
+            case GAME -> "Game";
+            case PUBLIC -> "Public";
+            case PRIVATE -> "Private";
+        };
     }
 
     private List<WrappedLine> buildWrappedLines(BitmapFont font) {
@@ -272,10 +330,7 @@ public class ChatBox {
         List<WrappedLine> out = new ArrayList<>();
 
         for (ChatLine line : lines) {
-            if (viewFilter == ViewFilter.GAME && line.type != MessageType.SYSTEM) {
-                continue;
-            }
-            if (viewFilter == ViewFilter.PUBLIC && line.type != MessageType.PUBLIC) {
+            if (!shouldDisplayLine(line.type)) {
                 continue;
             }
 
@@ -323,6 +378,20 @@ public class ChatBox {
         }
 
         return out;
+    }
+
+    private boolean shouldDisplayLine(MessageType type) {
+        if (activeTab == ChatTab.ALL) return true;
+        if (activeTab == ChatTab.GAME) return type == MessageType.SYSTEM;
+        if (activeTab == ChatTab.PUBLIC) return type == MessageType.PUBLIC;
+        if (activeTab == ChatTab.PRIVATE) return type == MessageType.PRIVATE;
+
+        return switch (channelFilter) {
+            case SYSTEM_MESSAGES -> type == MessageType.SYSTEM;
+            case PUBLIC_CHAT -> type == MessageType.PUBLIC;
+            case PRIVATE_CHAT -> type == MessageType.PRIVATE;
+            case ALL_MESSAGES -> true;
+        };
     }
 
     private List<String> wrapText(BitmapFont font, String text, float maxWidth) {
@@ -379,10 +448,16 @@ public class ChatBox {
         int tabStartX = tabStartX();
         int tabY = INPUT_H + 2;
         if (mouseY >= tabY && mouseY <= tabY + TAB_BTN_H) {
-            for (int i = 0; i < 3; i++) {
+            for (int i = 0; i < ChatTab.values().length; i++) {
                 int x = tabStartX + i * (TAB_W + TAB_GAP);
                 if (mouseX >= x && mouseX <= x + TAB_W) {
-                    viewFilter = ViewFilter.values()[i];
+                    activeTab = ChatTab.values()[i];
+                    channelFilter = switch (activeTab) {
+                        case ALL -> ChatChannelFilter.ALL_MESSAGES;
+                        case GAME -> ChatChannelFilter.SYSTEM_MESSAGES;
+                        case PUBLIC -> ChatChannelFilter.PUBLIC_CHAT;
+                        case PRIVATE -> ChatChannelFilter.PRIVATE_CHAT;
+                    };
                     return true;
                 }
             }
@@ -391,6 +466,7 @@ public class ChatBox {
     }
 
     private int tabStartX() {
-        return BOX_W - (TAB_W * 3 + TAB_GAP * 2 + 10);
+        int count = ChatTab.values().length;
+        return BOX_W - (TAB_W * count + TAB_GAP * (count - 1) + 10);
     }
 }
