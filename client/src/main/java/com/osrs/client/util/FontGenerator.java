@@ -45,9 +45,9 @@ public final class FontGenerator {
 
     public static BitmapFont generateOsrsFont(String variant, Color color) {
         int size = switch (variant) {
-            case "bold"             -> 21;
-            case "small", "tooltip" -> 18;
-            default                 -> 20;
+            case "bold"             -> 15;
+            case "small", "tooltip" -> 13;
+            default                 -> 14;
         };
         return generateOsrsFont(DEFAULT_TTF_PATH, size, color);
     }
