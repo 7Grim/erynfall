@@ -1790,32 +1790,33 @@ public class SidePanel {
             if (sel == null) {
                 selectedQuestId = -1;
             } else {
-                // Measure total scrollable content height so we can clamp and draw scrollbar.
-                // "< Back" is fixed — not included in the measurement.
-                final int scrollAreaTop = listTop - 22; // top of scrollable area, below "< Back"
+                // "< Back" is fixed at listTop and not part of the scrollable measurement.
+                final int scrollAreaTop = listTop - 22;
                 final int scrollAreaH   = scrollAreaTop - listFloor;
 
+                // ── Measure total scrollable height (must exactly match render order) ──
+                // Order: name(18) → qp reward(16) → gap(8) → desc(13/line+gap) → tasks
                 int descLines = countDescLines(sel.description, DESC_CHARS);
-                int totalH = 18                                           // quest name
-                    + (descLines > 0 ? descLines * 13 + 4 : 4)           // description + gap
-                    + (!sel.tasks.isEmpty() ? ROW_H : 0)                 // "Tasks:" header
-                    + sel.tasks.size() * ROW_H                            // task rows
-                    + ROW_H;                                              // reward line
+                int totalH = 18                                          // quest name
+                    + 16 + 8                                             // quest points row + gap
+                    + (descLines > 0 ? descLines * 13 + 4 : 0)          // description + gap
+                    + (!sel.tasks.isEmpty() ? ROW_H : 0)                // "Tasks:" header
+                    + sel.tasks.size() * ROW_H;                         // task rows
                 int maxScroll = Math.max(0, totalH - scrollAreaH);
                 questDetailScrollOffset = Math.max(0, Math.min(questDetailScrollOffset, maxScroll));
 
                 batch.setProjectionMatrix(proj);
                 batch.begin();
 
-                // ── "< Back" — fixed, always at top ──────────────────────
+                // ── "< Back" — fixed, always visible, never scrolls ──────
                 font.getData().setScale(0.75f);
                 font.setColor(0.85f, 0.75f, 0.40f, 1f);
                 font.draw(batch, "< Back", contentX + pad, listTop);
 
-                // ── Scrollable content ────────────────────────────────────
+                // ── Scrollable body ───────────────────────────────────────
                 int y = scrollAreaTop - questDetailScrollOffset;
 
-                // Quest name
+                // Quest name (status-coloured)
                 font.getData().setScale(0.85f);
                 font.setColor(colorForQuest(sel.status));
                 if (y <= scrollAreaTop && y > listFloor) {
@@ -1823,21 +1824,33 @@ public class SidePanel {
                 }
                 y -= 18;
 
-                // Description (word-wrapped)
+                // Quest point reward — gold, prominent, always the second thing you read
+                font.getData().setScale(0.78f);
+                font.setColor(COLOR_TITLE_GOLD);
+                if (y <= scrollAreaTop && y > listFloor) {
+                    String qpText = sel.questPointsReward == 1
+                        ? "Quest Points: 1"
+                        : "Quest Points: " + sel.questPointsReward;
+                    font.draw(batch, qpText, contentX + pad, y);
+                }
+                y -= 16 + 8; // row height + gap before description
+
+                // Description (word-wrapped at DESC_CHARS)
                 font.getData().setScale(0.70f);
                 font.setColor(0.85f, 0.82f, 0.72f, 1f);
                 String desc = sel.description != null ? sel.description : "";
                 while (!desc.isEmpty()) {
-                    int cut = desc.length() > DESC_CHARS ? desc.lastIndexOf(' ', DESC_CHARS) : desc.length();
+                    int cut = desc.length() > DESC_CHARS
+                        ? desc.lastIndexOf(' ', DESC_CHARS) : desc.length();
                     if (cut < 1) cut = Math.min(DESC_CHARS, desc.length());
                     if (y <= scrollAreaTop && y > listFloor) {
                         font.draw(batch, desc.substring(0, cut), contentX + pad, y);
                     }
                     desc = desc.substring(cut).trim();
                     y -= 13;
-                    if (y < listFloor - 200) break; // safety: stop if far below view
+                    if (y < listFloor - 200) break;
                 }
-                y -= 4; // gap after description
+                if (descLines > 0) y -= 4; // gap after description block
 
                 // Tasks header
                 if (!sel.tasks.isEmpty()) {
@@ -1861,14 +1874,6 @@ public class SidePanel {
                     }
                     y -= ROW_H;
                     if (y < listFloor - 200) break;
-                }
-
-                // Reward — last item in scrollable body
-                font.getData().setScale(0.68f);
-                font.setColor(0.75f, 0.75f, 0.75f, 1f);
-                if (y <= scrollAreaTop && y > listFloor) {
-                    font.draw(batch, "Reward: " + sel.questPointsReward + " Quest Point(s)",
-                        contentX + pad, y);
                 }
 
                 font.getData().setScale(1f);
