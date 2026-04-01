@@ -22,7 +22,7 @@ public final class FontGenerator {
         if (!handle.exists()) {
             LOG.warn("TTF font '{}' not found; using BitmapFont fallback", ttfPath);
             BitmapFont fallback = new BitmapFont();
-            fallback.setUseIntegerPositions(false);
+            fallback.setUseIntegerPositions(true);
             fallback.setColor(color);
             return fallback;
         }
@@ -34,9 +34,9 @@ public final class FontGenerator {
             p.color = color;
             p.magFilter = Texture.TextureFilter.Linear;
             p.minFilter = Texture.TextureFilter.Linear;
-            p.hinting = FreeTypeFontGenerator.Hinting.AutoMedium;
+            p.hinting = FreeTypeFontGenerator.Hinting.Full;
             BitmapFont font = generator.generateFont(p);
-            font.setUseIntegerPositions(false);
+            font.setUseIntegerPositions(true);
             return font;
         } finally {
             generator.dispose();
@@ -45,9 +45,9 @@ public final class FontGenerator {
 
     public static BitmapFont generateOsrsFont(String variant, Color color) {
         int size = switch (variant) {
-            case "bold" -> 17;
-            case "small", "tooltip" -> 14;
-            default -> 16;
+            case "bold"             -> 21;
+            case "small", "tooltip" -> 18;
+            default                 -> 20;
         };
         return generateOsrsFont(DEFAULT_TTF_PATH, size, color);
     }
