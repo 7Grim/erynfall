@@ -1479,14 +1479,14 @@ public class SidePanel {
         // — Combat Level / Total Level labels —
         font.getData().setScale(0.68f);
         font.setColor(COLOR_WEIGHT_TEXT);
-        font.draw(batch, "Combat Level", contentX + pad, yLbl1, half - pad, Align.left, false);
-        font.draw(batch, "Total Level",  contentX + half, yLbl1, half, Align.left, false);
+        font.draw(batch, "Combat Level", contentX,        yLbl1, half, Align.center, false);
+        font.draw(batch, "Total Level",  contentX + half, yLbl1, half, Align.center, false);
 
         // — Combat Level / Total Level values —
         font.getData().setScale(0.85f);
         font.setColor(Color.WHITE);
-        font.draw(batch, String.valueOf(combatLvl),  contentX + pad, yVal1, half - pad, Align.left, false);
-        font.draw(batch, String.valueOf(totalLevel), contentX + half, yVal1, half, Align.left, false);
+        font.draw(batch, String.valueOf(combatLvl),  contentX,        yVal1, half, Align.center, false);
+        font.draw(batch, String.valueOf(totalLevel), contentX + half, yVal1, half, Align.center, false);
 
         // — Total XP label —
         font.getData().setScale(0.68f);
@@ -1501,30 +1501,30 @@ public class SidePanel {
         // — Quests / Achievements labels —
         font.getData().setScale(0.68f);
         font.setColor(COLOR_WEIGHT_TEXT);
-        font.draw(batch, "Quests",       contentX + pad, yLbl3, half - pad, Align.left, false);
-        font.draw(batch, "Achievements", contentX + half, yLbl3, half, Align.left, false);
+        font.draw(batch, "Quests",       contentX,        yLbl3, half, Align.center, false);
+        font.draw(batch, "Achievements", contentX + half, yLbl3, half, Align.center, false);
 
         // — Quests / Achievements values —
         font.getData().setScale(0.85f);
         font.setColor(questsDone > 0 && questsDone >= questsTotal ? COLOR_QUEST_COMPLETE : Color.WHITE);
-        font.draw(batch, questsDone + "/" + questsTotal, contentX + pad, yVal3, half - pad, Align.left, false);
+        font.draw(batch, questsDone + "/" + questsTotal, contentX, yVal3, half, Align.center, false);
         font.setColor(Color.WHITE);
         font.draw(batch, achievementsCompleted + "/" + achievementsTotal,
-                  contentX + half, yVal3, half, Align.left, false);
+                  contentX + half, yVal3, half, Align.center, false);
 
         // — Combat Tasks / Collections labels —
         font.getData().setScale(0.68f);
         font.setColor(COLOR_WEIGHT_TEXT);
-        font.draw(batch, "Combat Tasks", contentX + pad, yLbl4, half - pad, Align.left, false);
-        font.draw(batch, "Collections",  contentX + half, yLbl4, half, Align.left, false);
+        font.draw(batch, "Combat Tasks", contentX,        yLbl4, half, Align.center, false);
+        font.draw(batch, "Collections",  contentX + half, yLbl4, half, Align.center, false);
 
         // — Combat Tasks / Collections values —
         font.getData().setScale(0.85f);
         font.setColor(Color.WHITE);
         font.draw(batch, combatTasksCompleted + "/" + combatTasksTotal,
-                  contentX + pad, yVal4, half - pad, Align.left, false);
+                  contentX,        yVal4, half, Align.center, false);
         font.draw(batch, collectionsLogged + "/" + collectionsTotal,
-                  contentX + half, yVal4, half, Align.left, false);
+                  contentX + half, yVal4, half, Align.center, false);
 
         // — Time Played label —
         font.getData().setScale(0.68f);
