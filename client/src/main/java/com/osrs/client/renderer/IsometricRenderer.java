@@ -126,11 +126,11 @@ public class IsometricRenderer {
     private Color tileColor(int type, int x, int y) {
         boolean a = (x + y) % 2 == 0;
         switch (type) {
-            case 1:  return a ? PATH_A  : PATH_B;
-            case 2:  return a ? WATER_A : WATER_B;
-            case 3:  return a ? SAND_A  : SAND_B;
-            case 4:  return a ? WALL_A  : WALL_B;
-            default: return a ? GRASS_A : GRASS_B;
+            case 1:  return a ? WATER_A : WATER_B;  // Water
+            case 2:  return a ? PATH_A  : PATH_B;   // Dust Path
+            case 3:  return a ? WALL_A  : WALL_B;   // Rock Wall
+            case 4:  return a ? SAND_A  : SAND_B;   // Tree / Fence (light wood tone)
+            default: return a ? GRASS_A : GRASS_B;  // Prairie Grass
         }
     }
 

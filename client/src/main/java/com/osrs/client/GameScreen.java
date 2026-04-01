@@ -19,7 +19,7 @@ import com.osrs.client.network.ClientPacketHandler;
 import com.osrs.client.network.NettyClient;
 import com.osrs.client.renderer.CoordinateConverter;
 import com.osrs.client.renderer.IsometricRenderer;
-import com.osrs.client.world.TutorialIslandMap;
+import com.osrs.client.world.MapLoader;
 import com.osrs.client.ui.ChatBox;
 import com.osrs.client.ui.CombatUI;
 import com.osrs.client.ui.ContextMenu;
@@ -119,6 +119,7 @@ public class GameScreen extends ApplicationAdapter {
     private XpDropOverlay xpDropOverlay;
     private LevelUpOverlay levelUpOverlay;
     private int[][]      tileMap;
+    private MapLoader    mapLoader;
 
     // -----------------------------------------------------------------------
     // Player state
@@ -329,7 +330,8 @@ public class GameScreen extends ApplicationAdapter {
             0, 0, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
 
         renderer   = new IsometricRenderer(camera, batch, shapeRenderer);
-        tileMap    = TutorialIslandMap.generate();
+        mapLoader  = MapLoader.load();
+        tileMap    = mapLoader.getLayout();
         contextMenu = new ContextMenu();
         combatUI   = new CombatUI();
         sidePanel  = new SidePanel();
@@ -1774,17 +1776,17 @@ public class GameScreen extends ApplicationAdapter {
      * Returns true if there is any walkable path from (fromX, fromY) to
      * exactly (toX, toY).
      *
-     * Non-walkable tiles: WATER (2) and WALL (4) — matches TutorialIslandMap constants.
+     * Non-walkable tiles are derived from map.yaml walkability definitions.
      */
     private boolean canReachTile(int fromX, int fromY, int toX, int toY) {
         if (!CoordinateConverter.isValidTile(toX, toY)) return false;
         // Item tile itself must not be a hard blocker
         int destType = tileMap[toX][toY];
-        if (destType == TutorialIslandMap.WATER || destType == TutorialIslandMap.WALL) return false;
+        if (!mapLoader.isWalkableTile(destType)) return false;
 
         if (fromX == toX && fromY == toY) return true;
 
-        boolean[][] visited = new boolean[TutorialIslandMap.WIDTH][TutorialIslandMap.HEIGHT];
+        boolean[][] visited = new boolean[MapLoader.WIDTH][MapLoader.HEIGHT];
         Deque<int[]> queue  = new ArrayDeque<>();
         queue.add(new int[]{fromX, fromY});
         visited[fromX][fromY] = true;
@@ -1801,7 +1803,7 @@ public class GameScreen extends ApplicationAdapter {
                 if (!CoordinateConverter.isValidTile(nx, ny)) continue;
                 if (visited[nx][ny]) continue;
                 int t = tileMap[nx][ny];
-                if (t == TutorialIslandMap.WATER || t == TutorialIslandMap.WALL) continue;
+                if (!mapLoader.isWalkableTile(t)) continue;
                 visited[nx][ny] = true;
                 queue.add(new int[]{nx, ny});
             }
@@ -1820,8 +1822,8 @@ public class GameScreen extends ApplicationAdapter {
             return List.of();
         }
 
-        int width = TutorialIslandMap.WIDTH;
-        int height = TutorialIslandMap.HEIGHT;
+        int width = MapLoader.WIDTH;
+        int height = MapLoader.HEIGHT;
         boolean[][] visited = new boolean[width][height];
         int[][] prevX = new int[width][height];
         int[][] prevY = new int[width][height];
@@ -1899,8 +1901,7 @@ public class GameScreen extends ApplicationAdapter {
     }
 
     private boolean isWalkableClientTile(int x, int y) {
-        int tile = tileMap[x][y];
-        return tile != TutorialIslandMap.WATER && tile != TutorialIslandMap.WALL;
+        return mapLoader.isWalkable(x, y);
     }
 
     private boolean isNpcOccupying(int x, int y, int exceptNpcId) {
