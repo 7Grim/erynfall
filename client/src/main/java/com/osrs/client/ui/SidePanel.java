@@ -149,12 +149,6 @@ public class SidePanel {
 
     private final InventoryUI inventoryUI = new InventoryUI();
 
-    private enum CharacterPage {
-        SUMMARY,
-        QUEST_LIST,
-        GEAR,
-        FRIENDS_LIST
-    }
 
     public enum QuestStatus {
         NOT_STARTED,
@@ -302,7 +296,16 @@ public class SidePanel {
     private static final Color COLOR_QUEST_NOT_STARTED = new Color(0.92f, 0.33f, 0.33f, 1f);
     private static final Color COLOR_QUEST_TASK_DONE   = new Color(0.30f, 0.90f, 0.30f, 1f);
     private static final Color COLOR_QUEST_TASK_PEND   = new Color(0.80f, 0.80f, 0.78f, 1f);
-    private CharacterPage characterPage = CharacterPage.SUMMARY;
+    // Character summary stats (placeholder until backend wired)
+    private String playerName              = "";
+    private int    achievementsCompleted   = 0;
+    private int    achievementsTotal       = 0;
+    private int    combatTasksCompleted    = 0;
+    private int    combatTasksTotal        = 0;
+    private int    collectionsLogged       = 0;
+    private int    collectionsTotal        = 0;
+    private long   timePlayedSeconds       = 0L;
+
     private final Map<Integer, QuestView> quests = new HashMap<>();
     private int selectedQuestId = -1;
     private int playerQuestPoints = 0;
@@ -417,10 +420,7 @@ public class SidePanel {
             case EQUIPMENT -> renderEquipmentTab(sr, batch, font, proj);
             case PRAYER    -> renderPrayerTab(sr, batch, font, proj, mouseX, mouseY);
             case FRIENDS   -> renderFriendsTab(sr, batch, font, proj);
-            case SETTINGS  -> {
-                characterPage = CharacterPage.SUMMARY;
-                renderCharacterTab(sr, batch, font, proj);
-            }
+            case SETTINGS  -> renderCharacterTab(sr, batch, font, proj);
             case LOGOUT    -> renderLogoutTab(sr, batch, font, proj);
             default        -> renderStubTab(sr, batch, font, proj, activeTab.label);
         }
@@ -1418,315 +1418,124 @@ public class SidePanel {
     }
 
     private void renderCharacterTab(ShapeRenderer sr, SpriteBatch batch, BitmapFont font, Matrix4 proj) {
-        int contentX = panelX + CONTENT_INSET;
-        final int pad = 8;
-        final int headerY = cY + CONTENT_H - 8;
-        final int subY = cY + CONTENT_H - 34;
-        final int subW = (CONTENT_W - pad * 5) / 4;
-        final int subH = 18;
+        final int contentX = panelX + CONTENT_INSET;
+        final int pad      = 6;
+        final int half     = CONTENT_W / 2;  // 93px per column
 
-        // Title
-        batch.setProjectionMatrix(proj);
-        batch.begin();
-        font.getData().setScale(0.85f);
-        font.setColor(new Color(0.9f, 0.80f, 0.50f, 1f));
-        font.draw(batch, "Character Summary", contentX + pad, headerY);
-        font.getData().setScale(1f);
-        batch.end();
+        // ── Compute live values ───────────────────────────────────────────
+        int combatLvl  = combatLevel();
+        int totalLevel = 0;
+        long totalXp   = 0L;
+        for (int i = 0; i < skillLevels.length; i++) {
+            totalLevel += skillLevels[i];
+            totalXp    += skillXp[i];
+        }
+        int  questsDone  = countCompletedQuests();
+        int  questsTotal = quests.size();
+        long days  = timePlayedSeconds / 86400;
+        long hours = (timePlayedSeconds % 86400) / 3600;
 
-        // Sub-nav buttons
+        // ── Y anchor points (all verified for no collision) ───────────────
+        // Text y = TOP of line; glyphs render DOWNWARD from there.
+        // Scale 0.92f → lineHeight ≈17px; 0.85f → ≈15px; 0.68f → ≈12px.
+        final int yName  = cY + CONTENT_H -   8;  // username top;    bottom ≈ cY+287
+        final int ySep1  = cY + CONTENT_H -  30;  // rect y (1px);    cY+282→283  (gap below username: 4px)
+        final int yLbl1  = cY + CONTENT_H -  39;  // combat/total label top; bottom ≈ cY+261 (gap below sep: 8px)
+        final int yVal1  = cY + CONTENT_H -  55;  // combat/total value top; bottom ≈ cY+249 (gap below lbl: 4px)
+        final int ySep2  = cY + CONTENT_H -  75;  // gap below val1: 6px
+        final int yLbl2  = cY + CONTENT_H -  84;  // XP label top;    bottom ≈ cY+216 (gap below sep: 8px)
+        final int yVal2  = cY + CONTENT_H - 100;  // XP value top;    bottom ≈ cY+200 (gap below lbl: 4px)
+        final int ySep3  = cY + CONTENT_H - 120;  // gap below val2: 6px
+        final int yLbl3  = cY + CONTENT_H - 129;  // quests/achiev label
+        final int yVal3  = cY + CONTENT_H - 145;  // quests/achiev value
+        final int ySep4  = cY + CONTENT_H - 165;
+        final int yLbl4  = cY + CONTENT_H - 174;  // tasks/collections label
+        final int yVal4  = cY + CONTENT_H - 190;  // tasks/collections value
+        final int ySep5  = cY + CONTENT_H - 210;
+        final int yLbl5  = cY + CONTENT_H - 219;  // time played label
+        final int yVal5  = cY + CONTENT_H - 235;  // time played value  → bottom ≈ cY+65; well above cY
+
+        // ── Separator lines ───────────────────────────────────────────────
         sr.setProjectionMatrix(proj);
         sr.begin(ShapeRenderer.ShapeType.Filled);
-        for (int i = 0; i < 4; i++) {
-            int bx = contentX + pad + i * (subW + pad);
-            boolean active = characterPage.ordinal() == i;
-            sr.setColor(active ? new Color(0.32f, 0.25f, 0.06f, 1f) : new Color(0.13f, 0.12f, 0.10f, 1f));
-            sr.rect(bx, subY, subW, subH);
-        }
+        sr.setColor(0.38f, 0.32f, 0.18f, 1f);
+        sr.rect(contentX,       ySep1, CONTENT_W, 1);
+        sr.rect(contentX,       ySep2, CONTENT_W, 1);
+        sr.rect(contentX,       ySep3, CONTENT_W, 1);
+        sr.rect(contentX,       ySep4, CONTENT_W, 1);
+        sr.rect(contentX,       ySep5, CONTENT_W, 1);
         sr.end();
 
-        sr.begin(ShapeRenderer.ShapeType.Line);
-        for (int i = 0; i < 4; i++) {
-            int bx = contentX + pad + i * (subW + pad);
-            boolean active = characterPage.ordinal() == i;
-            sr.setColor(active ? new Color(1f, 0.85f, 0.10f, 1f) : new Color(0.40f, 0.36f, 0.26f, 1f));
-            sr.rect(bx, subY, subW, subH);
-        }
-        sr.end();
-
+        // ── All text in one batch pass ────────────────────────────────────
+        batch.setProjectionMatrix(proj);
         batch.begin();
-        font.getData().setScale(0.72f);
-        String[] labels = {"Summary", "Quests", "Gear", "Friends"};
-        for (int i = 0; i < 4; i++) {
-            int bx = contentX + pad + i * (subW + pad);
-            font.setColor(characterPage.ordinal() == i ? new Color(1f, 0.90f, 0.10f, 1f) : Color.WHITE);
-            font.draw(batch, labels[i], bx + 3, subY + 12);
-        }
 
-        int bodyTop = subY - 8;
-        if (characterPage == CharacterPage.SUMMARY) {
-            font.getData().setScale(0.8f);
-            font.setColor(Color.WHITE);
-            font.draw(batch, "Quest points: " + playerQuestPoints, contentX + pad, bodyTop);
-            font.draw(batch, "Completed quests: " + countCompletedQuests(), contentX + pad, bodyTop - 18);
-            font.draw(batch, "Total tracked quests: " + quests.size(), contentX + pad, bodyTop - 36);
-            font.setColor(0.8f, 0.75f, 0.65f, 1f);
-            font.getData().setScale(0.7f);
-            font.draw(batch, "Open Quests to see progress.", contentX + pad, bodyTop - 60);
+        // — Username —
+        font.getData().setScale(0.92f);
+        font.setColor(COLOR_TITLE_GOLD);
+        String name = playerName.isEmpty() ? "Adventurer" : playerName;
+        font.draw(batch, name, contentX, yName, CONTENT_W, Align.center, false);
 
-            // Logout button
-            int bx = logoutButtonX();
-            int by = logoutButtonY();
-            int bw = logoutButtonW();
-            int bh = logoutButtonH();
+        // — Combat Level / Total Level labels —
+        font.getData().setScale(0.68f);
+        font.setColor(COLOR_WEIGHT_TEXT);
+        font.draw(batch, "Combat Level", contentX + pad, yLbl1, half - pad, Align.left, false);
+        font.draw(batch, "Total Level",  contentX + half, yLbl1, half, Align.left, false);
 
-            batch.end();
-            sr.setProjectionMatrix(proj);
-            sr.begin(ShapeRenderer.ShapeType.Filled);
-            sr.setColor(0.22f, 0.10f, 0.08f, 1f);
-            sr.rect(bx, by, bw, bh);
-            sr.end();
+        // — Combat Level / Total Level values —
+        font.getData().setScale(0.85f);
+        font.setColor(Color.WHITE);
+        font.draw(batch, String.valueOf(combatLvl),  contentX + pad, yVal1, half - pad, Align.left, false);
+        font.draw(batch, String.valueOf(totalLevel), contentX + half, yVal1, half, Align.left, false);
 
-            sr.begin(ShapeRenderer.ShapeType.Line);
-            sr.setColor(0.85f, 0.35f, 0.25f, 1f);
-            sr.rect(bx, by, bw, bh);
-            sr.end();
+        // — Total XP label —
+        font.getData().setScale(0.68f);
+        font.setColor(COLOR_WEIGHT_TEXT);
+        font.draw(batch, "Total XP", contentX, yLbl2, CONTENT_W, Align.center, false);
 
-            batch.begin();
-            font.getData().setScale(0.75f);
-            font.setColor(1f, 0.8f, 0.6f, 1f);
-            font.draw(batch, "Logout", bx + 10, by + 14);
-        } else if (characterPage == CharacterPage.QUEST_LIST) {
-            QuestView sel = selectedQuestId != -1 ? quests.get(selectedQuestId) : null;
-            if (sel == null) {
-                // -- Quest list --
-                List<QuestView> list = sortedQuests();
-                int y = bodyTop;
-                font.getData().setScale(0.78f);
-                for (QuestView q : list) {
-                    if (y < cY + 18) break;
-                    font.setColor(colorForQuest(q.status));
-                    font.draw(batch, q.questName, contentX + pad, y);
-                    y -= 16;
-                }
-                font.setColor(0.75f, 0.75f, 0.75f, 1f);
-                font.getData().setScale(0.65f);
-                font.draw(batch, "Red: not started  Yellow: in progress  Green: complete", contentX + pad, cY + 10);
-            } else {
-                // -- Quest detail --
-                int y = bodyTop;
+        // — Total XP value —
+        font.getData().setScale(0.85f);
+        font.setColor(Color.WHITE);
+        font.draw(batch, String.format("%,d", totalXp), contentX, yVal2, CONTENT_W, Align.center, false);
 
-                // Back button
-                font.getData().setScale(0.75f);
-                font.setColor(0.85f, 0.75f, 0.40f, 1f);
-                font.draw(batch, "< Back", contentX + pad, y);
-                y -= 22;
+        // — Quests / Achievements labels —
+        font.getData().setScale(0.68f);
+        font.setColor(COLOR_WEIGHT_TEXT);
+        font.draw(batch, "Quests",       contentX + pad, yLbl3, half - pad, Align.left, false);
+        font.draw(batch, "Achievements", contentX + half, yLbl3, half, Align.left, false);
 
-                // Quest name
-                font.getData().setScale(0.85f);
-                font.setColor(colorForQuest(sel.status));
-                font.draw(batch, sel.questName, contentX + pad, y);
-                y -= 20;
+        // — Quests / Achievements values —
+        font.getData().setScale(0.85f);
+        font.setColor(questsDone > 0 && questsDone >= questsTotal ? COLOR_QUEST_COMPLETE : Color.WHITE);
+        font.draw(batch, questsDone + "/" + questsTotal, contentX + pad, yVal3, half - pad, Align.left, false);
+        font.setColor(Color.WHITE);
+        font.draw(batch, achievementsCompleted + "/" + achievementsTotal,
+                  contentX + half, yVal3, half, Align.left, false);
 
-                // Description (up to 2 lines, ~32 chars each)
-                font.getData().setScale(0.70f);
-                font.setColor(0.85f, 0.82f, 0.72f, 1f);
-                String desc = sel.description != null ? sel.description : "";
-                if (desc.length() > 32) {
-                    int cut = desc.lastIndexOf(' ', 32);
-                    if (cut < 1) cut = 32;
-                    font.draw(batch, desc.substring(0, cut), contentX + pad, y);
-                    y -= 14;
-                    String rest = desc.substring(cut).trim();
-                    if (!rest.isEmpty() && y >= cY + 18) {
-                        String line2 = rest.length() > 32 ? rest.substring(0, 32) + "..." : rest;
-                        font.draw(batch, line2, contentX + pad, y);
-                        y -= 14;
-                    }
-                } else if (!desc.isEmpty()) {
-                    font.draw(batch, desc, contentX + pad, y);
-                    y -= 14;
-                }
+        // — Combat Tasks / Collections labels —
+        font.getData().setScale(0.68f);
+        font.setColor(COLOR_WEIGHT_TEXT);
+        font.draw(batch, "Combat Tasks", contentX + pad, yLbl4, half - pad, Align.left, false);
+        font.draw(batch, "Collections",  contentX + half, yLbl4, half, Align.left, false);
 
-                // Tasks header
-                y -= 4;
-                font.getData().setScale(0.72f);
-                font.setColor(0.90f, 0.85f, 0.55f, 1f);
-                font.draw(batch, "Tasks:", contentX + pad, y);
-                y -= 16;
+        // — Combat Tasks / Collections values —
+        font.getData().setScale(0.85f);
+        font.setColor(Color.WHITE);
+        font.draw(batch, combatTasksCompleted + "/" + combatTasksTotal,
+                  contentX + pad, yVal4, half - pad, Align.left, false);
+        font.draw(batch, collectionsLogged + "/" + collectionsTotal,
+                  contentX + half, yVal4, half, Align.left, false);
 
-                // Task rows
-                for (QuestTaskView t : sel.tasks) {
-                    if (y < cY + 18) break;
-                    String prefix = t.completed ? "[x] " : "[ ] ";
-                    String progress = t.requiredCount > 1
-                        ? " (" + t.currentCount + "/" + t.requiredCount + ")" : "";
-                    font.setColor(t.completed
-                        ? new Color(0.45f, 0.85f, 0.45f, 1f) : Color.WHITE);
-                    font.draw(batch, prefix + t.description + progress, contentX + pad, y);
-                    y -= 16;
-                }
+        // — Time Played label —
+        font.getData().setScale(0.68f);
+        font.setColor(COLOR_WEIGHT_TEXT);
+        font.draw(batch, "Time Played", contentX, yLbl5, CONTENT_W, Align.center, false);
 
-                // Quest point reward at bottom
-                font.getData().setScale(0.65f);
-                font.setColor(0.75f, 0.75f, 0.75f, 1f);
-                font.draw(batch, "Reward: " + sel.questPointsReward + " Quest Point(s)",
-                    contentX + pad, cY + 10);
-            }
-        } else if (characterPage == CharacterPage.GEAR) {
-            final int SLOT_SIZE = 36;
-            final int toggleY   = cY + 22;
-            final int toggleH   = 14;
-            final int half      = CONTENT_W / 2;
+        // — Time Played value —
+        font.getData().setScale(0.85f);
+        font.setColor(Color.WHITE);
+        font.draw(batch, days + " days, " + hours + " hours", contentX, yVal5, CONTENT_W, Align.center, false);
 
-            // -- Slots / Stats toggle --
-            batch.end();
-            sr.setProjectionMatrix(proj);
-            sr.begin(ShapeRenderer.ShapeType.Filled);
-            sr.setColor(!gearShowStats
-                ? new Color(0.32f, 0.25f, 0.06f, 1f)
-                : new Color(0.13f, 0.12f, 0.10f, 1f));
-            sr.rect(contentX, toggleY, half - 1, toggleH);
-            sr.setColor(gearShowStats
-                ? new Color(0.32f, 0.25f, 0.06f, 1f)
-                : new Color(0.13f, 0.12f, 0.10f, 1f));
-            sr.rect(contentX + half, toggleY, half, toggleH);
-            sr.end();
-            sr.begin(ShapeRenderer.ShapeType.Line);
-            sr.setColor(new Color(0.40f, 0.36f, 0.26f, 1f));
-            sr.rect(contentX, toggleY, half - 1, toggleH);
-            sr.rect(contentX + half, toggleY, half, toggleH);
-            sr.end();
-            batch.setProjectionMatrix(proj);
-            batch.begin();
-            font.getData().setScale(0.65f);
-            font.setColor(!gearShowStats ? new Color(1f, 0.90f, 0.10f, 1f) : Color.WHITE);
-            font.draw(batch, "Equipment", contentX + 18, toggleY + 11);
-            font.setColor(gearShowStats ? new Color(1f, 0.90f, 0.10f, 1f) : Color.WHITE);
-            font.draw(batch, "Bonuses", contentX + half + 22, toggleY + 11);
-
-            if (!gearShowStats) {
-                // -- Visual slot grid --
-                String[] slotAbbrev = {
-                    "Head","Cape","Neck","Ammo","Weapon","Shield",
-                    "Body","Legs","Hands","Feet","Ring"
-                };
-                int[][] slotPos = getGearSlotPositions();
-
-                batch.end();
-                sr.begin(ShapeRenderer.ShapeType.Filled);
-                for (int i = 0; i < 11; i++) {
-                    int sx = slotPos[i][0], sy = slotPos[i][1];
-                    boolean filled = equippedIds[i] > 0;
-                    sr.setColor(filled
-                        ? new Color(0.18f, 0.15f, 0.09f, 1f)
-                        : new Color(0.10f, 0.09f, 0.07f, 1f));
-                    sr.rect(sx, sy, SLOT_SIZE, SLOT_SIZE);
-                    if (filled) {
-                        // tier-colour swatch in centre of slot
-                        Color ic = itemTierColor(equippedNames[i]);
-                        sr.setColor(ic);
-                        sr.rect(sx + 13, sy + 13, 10, 10);
-                    }
-                }
-                sr.end();
-                sr.begin(ShapeRenderer.ShapeType.Line);
-                for (int i = 0; i < 11; i++) {
-                    int sx = slotPos[i][0], sy = slotPos[i][1];
-                    boolean filled = equippedIds[i] > 0;
-                    sr.setColor(filled
-                        ? new Color(0.80f, 0.65f, 0.20f, 1f)
-                        : new Color(0.35f, 0.32f, 0.22f, 1f));
-                    sr.rect(sx, sy, SLOT_SIZE, SLOT_SIZE);
-                }
-                sr.end();
-                batch.setProjectionMatrix(proj);
-                batch.begin();
-                font.getData().setScale(0.58f);
-                for (int i = 0; i < 11; i++) {
-                    int sx = slotPos[i][0], sy = slotPos[i][1];
-                    if (equippedIds[i] > 0) {
-                        font.setColor(Color.WHITE);
-                        String n = equippedNames[i];
-                        if (n.length() > 11) n = n.substring(0, 11);
-                        font.draw(batch, n, sx + 2, sy + 10);
-                    } else {
-                        font.setColor(new Color(0.40f, 0.38f, 0.28f, 1f));
-                        font.draw(batch, slotAbbrev[i], sx + 3, sy + 22);
-                    }
-                }
-                font.getData().setScale(0.58f);
-                font.setColor(new Color(0.60f, 0.55f, 0.35f, 1f));
-                font.draw(batch, "Click slot to unequip", contentX + 8, cY + 14);
-
-            } else {
-                // -- Bonus stats view --
-                int sy2 = bodyTop - 4;
-                final int LH = 14;
-                final int col2 = contentX + 8 + 108;
-
-                batch.end();
-                batch.setProjectionMatrix(proj);
-                batch.begin();
-                String[] atkLbls   = {"Stab",   "Slash",  "Crush",  "Magic",  "Ranged"};
-                String[] defLbls   = {"Stab",   "Slash",  "Crush",  "Magic",  "Ranged"};
-                String[] otherLbls = {"Melee Str", "Range Str", "Magic Dmg", "Prayer"};
-                int[] atkIdx   = {0, 1, 2, 3, 4};
-                int[] defIdx   = {5, 6, 7, 8, 9};
-                int[] otherIdx = {10, 11, 12, 13};
-
-                // Attack bonuses
-                font.getData().setScale(0.68f);
-                font.setColor(new Color(1f, 0.75f, 0.20f, 1f));
-                font.draw(batch, "Attack Bonuses", contentX + 8, sy2);
-                sy2 -= LH;
-                font.getData().setScale(0.63f);
-                for (int i = 0; i < 5; i++) {
-                    int v = equipBonuses[atkIdx[i]];
-                    font.setColor(new Color(0.75f, 0.70f, 0.50f, 1f));
-                    font.draw(batch, atkLbls[i], contentX + 8, sy2);
-                    font.setColor(v >= 0
-                        ? new Color(0.40f, 0.85f, 0.40f, 1f)
-                        : new Color(0.85f, 0.40f, 0.40f, 1f));
-                    font.draw(batch, (v >= 0 ? "+" : "") + v, col2, sy2);
-                    sy2 -= LH;
-                }
-                sy2 -= 4;
-                // Defence bonuses
-                font.getData().setScale(0.68f);
-                font.setColor(new Color(1f, 0.75f, 0.20f, 1f));
-                font.draw(batch, "Defence Bonuses", contentX + 8, sy2);
-                sy2 -= LH;
-                font.getData().setScale(0.63f);
-                for (int i = 0; i < 5; i++) {
-                    int v = equipBonuses[defIdx[i]];
-                    font.setColor(new Color(0.75f, 0.70f, 0.50f, 1f));
-                    font.draw(batch, defLbls[i], contentX + 8, sy2);
-                    font.setColor(v >= 0
-                        ? new Color(0.40f, 0.85f, 0.40f, 1f)
-                        : new Color(0.85f, 0.40f, 0.40f, 1f));
-                    font.draw(batch, (v >= 0 ? "+" : "") + v, col2, sy2);
-                    sy2 -= LH;
-                }
-                sy2 -= 4;
-                // Other bonuses
-                font.getData().setScale(0.68f);
-                font.setColor(new Color(1f, 0.75f, 0.20f, 1f));
-                font.draw(batch, "Other Bonuses", contentX + 8, sy2);
-                sy2 -= LH;
-                font.getData().setScale(0.63f);
-                for (int i = 0; i < 4; i++) {
-                    int v = equipBonuses[otherIdx[i]];
-                    font.setColor(new Color(0.75f, 0.70f, 0.50f, 1f));
-                    font.draw(batch, otherLbls[i], contentX + 8, sy2);
-                    font.setColor(v >= 0
-                        ? new Color(0.40f, 0.85f, 0.40f, 1f)
-                        : new Color(0.85f, 0.40f, 0.40f, 1f));
-                    font.draw(batch, (v >= 0 ? "+" : "") + v, col2, sy2);
-                    sy2 -= LH;
-                }
-            }
-        }
         font.getData().setScale(1f);
         font.setColor(Color.WHITE);
         batch.end();
@@ -1736,7 +1545,8 @@ public class SidePanel {
     // Equipment tab (standalone OSRS-style paperdoll)
     // -----------------------------------------------------------------------
 
-    public void setPlayerWeight(float kg) { playerWeight = kg; }
+    public void setPlayerWeight(float kg)  { playerWeight = kg; }
+    public void setPlayerName(String name) { playerName = name != null ? name : ""; }
 
     private void renderEquipmentTab(ShapeRenderer sr, SpriteBatch batch, BitmapFont font, Matrix4 proj) {
         final int contentX  = panelX + CONTENT_INSET;
@@ -2640,13 +2450,7 @@ public class SidePanel {
                     }
                 }
             }
-            case SETTINGS -> {
-                if (mx >= logoutButtonX() && mx <= logoutButtonX() + logoutButtonW()
-                    && my >= logoutButtonY() && my <= logoutButtonY() + logoutButtonH()) {
-                    activeTab = Tab.LOGOUT;  // route to in-panel confirmation
-                    return -1;
-                }
-            }
+            case SETTINGS -> { /* character summary — no clickable elements */ }
             case LOGOUT -> {
                 int contentX = panelX + CONTENT_INSET;
                 int pad = 12;

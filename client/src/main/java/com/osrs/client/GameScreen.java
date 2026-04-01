@@ -616,6 +616,10 @@ public class GameScreen extends ApplicationAdapter {
         }
         sidePanel.setSkillData(lvls, xps);
         sidePanel.setMember(h.isMember());
+        if (localPlayerId >= 0) {
+            String pname = h.getEntityName(localPlayerId);
+            if (pname != null && !pname.isEmpty()) sidePanel.setPlayerName(pname);
+        }
 
         // Sync inventory to the Inventory tab
         for (int i = 0; i < 28; i++) {
