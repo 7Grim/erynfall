@@ -63,8 +63,24 @@ public class SidePanel {
     private static final Color PR_BAR_FILL = new Color(0.15f, 0.45f, 0.90f, 1f); // OSRS prayer blue
     private static final Color PR_BAR_DARK = new Color(0.08f, 0.24f, 0.58f, 1f); // right-edge shadow strip
     private static final Color BG_COLOR = new Color(0.10f, 0.09f, 0.08f, 1f);  // Fully opaque
-    private static final int FRIEND_ROW_H = 14;
-    private static final int FRIEND_REMOVE_W = 42;
+    private static final int FRIEND_ROW_H       = 18;   // height per friend row
+    private static final int FRIEND_BTN_H       = 22;   // Add/Del button height
+    private static final int FRIEND_LIST_PAD    = 34;   // reserved bottom space (buttons)
+    private static final int FRIEND_SCROLLBAR_W = 7;
+    private static final int FRIEND_REMOVE_W    = 46;   // pixel width of old "Remove" label (kept for compat)
+
+    // Friends tab colours
+    private static final Color FRIEND_TITLE   = new Color(0.90f, 0.82f, 0.48f, 1f);
+    private static final Color FRIEND_ONLINE  = new Color(1.00f, 0.85f, 0.10f, 1f);
+    private static final Color FRIEND_OFFLINE = new Color(0.75f, 0.22f, 0.22f, 1f);
+    private static final Color FRIEND_SEL_BG  = new Color(0.28f, 0.22f, 0.08f, 1f);
+    private static final Color FRIEND_BTN_BG  = new Color(0.16f, 0.14f, 0.10f, 1f);
+    private static final Color FRIEND_BTN_BR  = new Color(0.52f, 0.44f, 0.20f, 1f);
+    private static final Color FRIEND_BTN_LBL = new Color(0.88f, 0.82f, 0.58f, 1f);
+    private static final Color FRIEND_BTN_DIS = new Color(0.36f, 0.34f, 0.28f, 1f);
+    private static final Color OVERLAY_BG     = new Color(0.04f, 0.04f, 0.04f, 0.92f);
+    private static final Color OVERLAY_BORDER = new Color(0.60f, 0.50f, 0.22f, 1f);
+    private static final Color OVERLAY_INPUT  = new Color(0.10f, 0.10f, 0.08f, 1f);
 
     // -----------------------------------------------------------------------
     // OSRS XP table — exact formula: floor(level + 300 * 2^(level/7)) / 4
@@ -248,7 +264,16 @@ public class SidePanel {
     private int playerQuestPoints = 0;
     private boolean logoutRequested = false;
     private final List<FriendEntryView> friendEntries = new ArrayList<>();
-    private long removeFriendRequestedId = -1L;
+    private long    removeFriendRequestedId = -1L;
+
+    // Friends tab state
+    private int     friendScrollOffset   = 0;
+    private int     selectedFriendIdx    = -1;
+    private boolean addFriendOverlay     = false;
+    private String  addFriendInput       = "";
+    private String  pendingAddFriendName = null;
+    private float   overlayCursorTimer   = 0f;
+    private boolean overlayCursorVis     = true;
 
     public static class FriendEntryView {
         public final long playerId;
@@ -290,6 +315,13 @@ public class SidePanel {
 
     public void update(float delta) {
         inventoryUI.update(delta);
+        if (addFriendOverlay) {
+            overlayCursorTimer += delta;
+            if (overlayCursorTimer >= 0.5f) {
+                overlayCursorTimer -= 0.5f;
+                overlayCursorVis = !overlayCursorVis;
+            }
+        }
     }
 
     // -----------------------------------------------------------------------
@@ -339,10 +371,7 @@ public class SidePanel {
                 renderCharacterTab(sr, batch, font, proj);
             }
             case PRAYER    -> renderPrayerTab(sr, batch, font, proj, mouseX, mouseY);
-            case FRIENDS   -> {
-                characterPage = CharacterPage.FRIENDS_LIST;
-                renderCharacterTab(sr, batch, font, proj);
-            }
+            case FRIENDS   -> renderFriendsTab(sr, batch, font, proj);
             case SETTINGS  -> {
                 characterPage = CharacterPage.SUMMARY;
                 renderCharacterTab(sr, batch, font, proj);
@@ -1525,8 +1554,6 @@ public class SidePanel {
                     sy2 -= LH;
                 }
             }
-        } else if (characterPage == CharacterPage.FRIENDS_LIST) {
-            renderFriendsList(batch, font, contentX + pad, bodyTop);
         }
         font.getData().setScale(1f);
         font.setColor(Color.WHITE);
@@ -1539,30 +1566,266 @@ public class SidePanel {
         return list;
     }
 
-    private void renderFriendsList(SpriteBatch batch, BitmapFont font, int leftX, int topY) {
-        font.getData().setScale(0.78f);
-        font.setColor(new Color(0.90f, 0.85f, 0.55f, 1f));
-        font.draw(batch, "Friends List", leftX, topY);
+    // -----------------------------------------------------------------------
+    // Friends tab (full OSRS-style implementation)
+    // -----------------------------------------------------------------------
 
-        int y = topY - 18;
+    private void renderFriendsTab(ShapeRenderer sr, SpriteBatch batch, BitmapFont font, Matrix4 proj) {
+        final int contentX   = panelX + CONTENT_INSET;
+        final int contentW   = CONTENT_W;
+        final int pad        = 6;
+        final int listTop    = panelY + CONTENT_H - 26;   // Y just below the title underline
+        final int btnAreaH   = FRIEND_BTN_H + pad * 2;    // reserved at bottom for Add/Del
+        final int listBottom = panelY + btnAreaH;          // list ends here
+        final int listH      = listTop - listBottom;
+        final int visRows    = Math.max(1, listH / FRIEND_ROW_H);
+        final int totalRows  = friendEntries.size();
+        final int maxScroll  = Math.max(0, totalRows - visRows);
+
+        // Clamp scroll
+        if (friendScrollOffset > maxScroll) friendScrollOffset = maxScroll;
+        if (friendScrollOffset < 0)         friendScrollOffset = 0;
+
+        // ── Title bar ──────────────────────────────────────────────────────
+        sr.setProjectionMatrix(proj);
+        sr.begin(ShapeRenderer.ShapeType.Filled);
+        sr.setColor(FRIEND_TITLE.r * 0.25f, FRIEND_TITLE.g * 0.25f, FRIEND_TITLE.b * 0.25f, 1f);
+        sr.rect(contentX, panelY + CONTENT_H - 22, contentW, 20);
+        sr.end();
+
+        sr.begin(ShapeRenderer.ShapeType.Filled);
+        sr.setColor(0.38f, 0.32f, 0.18f, 1f);
+        sr.rect(contentX, panelY + CONTENT_H - 23, contentW, 1);
+        sr.end();
+
+        batch.setProjectionMatrix(proj);
+        batch.begin();
+        font.getData().setScale(0.82f);
+        font.setColor(FRIEND_TITLE);
+        font.draw(batch, "Friends List", contentX + 6, panelY + CONTENT_H - 6);
         font.getData().setScale(0.68f);
+        font.setColor(0.55f, 0.52f, 0.42f, 1f);
+        String onlineCount = friendEntries.stream().filter(e -> e.online).count() + "/" + friendEntries.size();
+        font.draw(batch, onlineCount + " online", contentX + contentW - 50, panelY + CONTENT_H - 8);
+        font.getData().setScale(1f);
+        font.setColor(Color.WHITE);
+        batch.end();
+
+        // ── List background ────────────────────────────────────────────────
+        sr.begin(ShapeRenderer.ShapeType.Filled);
+        sr.setColor(0.08f, 0.07f, 0.06f, 1f);
+        sr.rect(contentX, listBottom, contentW - FRIEND_SCROLLBAR_W - 1, listH);
+        sr.end();
+
+        // ── Friend rows ────────────────────────────────────────────────────
         if (friendEntries.isEmpty()) {
+            batch.setProjectionMatrix(proj);
+            batch.begin();
+            font.getData().setScale(0.72f);
+            font.setColor(0.55f, 0.52f, 0.42f, 1f);
+            font.draw(batch, "No friends added yet.", contentX + pad, listTop - FRIEND_ROW_H);
+            font.getData().setScale(1f);
             font.setColor(Color.WHITE);
-            font.draw(batch, "No friends added yet.", leftX, y);
-            font.draw(batch, "Right-click players to add.", leftX, y - FRIEND_ROW_H);
-            return;
+            batch.end();
+        } else {
+            // Selection highlight pass (ShapeRenderer)
+            sr.setProjectionMatrix(proj);
+            sr.begin(ShapeRenderer.ShapeType.Filled);
+            for (int i = 0; i < visRows; i++) {
+                int entryIdx = i + friendScrollOffset;
+                if (entryIdx >= totalRows) break;
+                int rowY = listTop - (i + 1) * FRIEND_ROW_H;
+                if (entryIdx == selectedFriendIdx) {
+                    sr.setColor(FRIEND_SEL_BG);
+                    sr.rect(contentX, rowY, contentW - FRIEND_SCROLLBAR_W - 1, FRIEND_ROW_H);
+                }
+                // Subtle alternating row tint
+                else if (i % 2 == 1) {
+                    sr.setColor(0.10f, 0.09f, 0.08f, 1f);
+                    sr.rect(contentX, rowY, contentW - FRIEND_SCROLLBAR_W - 1, FRIEND_ROW_H);
+                }
+            }
+            sr.end();
+
+            // Text pass
+            batch.setProjectionMatrix(proj);
+            batch.begin();
+            font.getData().setScale(0.75f);
+            for (int i = 0; i < visRows; i++) {
+                int entryIdx = i + friendScrollOffset;
+                if (entryIdx >= totalRows) break;
+                FriendEntryView entry = friendEntries.get(entryIdx);
+                int rowY = listTop - (i + 1) * FRIEND_ROW_H + FRIEND_ROW_H - 4;
+
+                font.setColor(entry.online ? FRIEND_ONLINE : FRIEND_OFFLINE);
+                font.draw(batch, entry.name, contentX + pad, rowY);
+
+                String status = entry.online ? "Online" : "Offline";
+                font.setColor(entry.online ? FRIEND_ONLINE : FRIEND_OFFLINE);
+                // right-align status
+                float statusW = status.length() * 5.5f;
+                font.draw(batch, status, contentX + contentW - FRIEND_SCROLLBAR_W - pad - (int) statusW, rowY);
+            }
+            font.getData().setScale(1f);
+            font.setColor(Color.WHITE);
+            batch.end();
+
+            // Thin separator lines between rows
+            sr.setProjectionMatrix(proj);
+            sr.begin(ShapeRenderer.ShapeType.Filled);
+            sr.setColor(0.18f, 0.16f, 0.12f, 1f);
+            for (int i = 1; i <= visRows; i++) {
+                int rowY = listTop - i * FRIEND_ROW_H;
+                sr.rect(contentX, rowY, contentW - FRIEND_SCROLLBAR_W - 1, 1);
+            }
+            sr.end();
         }
 
-        for (FriendEntryView entry : friendEntries) {
-            if (y < panelY + 16) break;
-            font.setColor(entry.online ? new Color(0.50f, 0.95f, 0.50f, 1f) : new Color(0.72f, 0.72f, 0.72f, 1f));
-            String status = entry.online ? "Online" : "Offline";
-            font.draw(batch, entry.name + " - " + status, leftX, y);
-            font.setColor(new Color(0.95f, 0.45f, 0.45f, 1f));
-            int removeX = panelX + CONTENT_INSET + CONTENT_W - 8 - FRIEND_REMOVE_W;
-            font.draw(batch, "Remove", removeX, y);
-            y -= FRIEND_ROW_H;
+        // ── Scrollbar ──────────────────────────────────────────────────────
+        if (totalRows > visRows) {
+            int sbX   = contentX + contentW - FRIEND_SCROLLBAR_W;
+            int sbH   = listH;
+            int sbY   = listBottom;
+            int handleH = Math.max(16, sbH * visRows / Math.max(1, totalRows));
+            int handleY = sbY + sbH - handleH - (int) ((sbH - handleH) * (float) friendScrollOffset / maxScroll);
+
+            sr.begin(ShapeRenderer.ShapeType.Filled);
+            sr.setColor(0.12f, 0.11f, 0.09f, 1f);
+            sr.rect(sbX, sbY, FRIEND_SCROLLBAR_W, sbH);
+            sr.setColor(0.45f, 0.40f, 0.26f, 1f);
+            sr.rect(sbX + 1, handleY, FRIEND_SCROLLBAR_W - 2, handleH);
+            sr.end();
         }
+
+        // ── Add Friend / Del Friend buttons ────────────────────────────────
+        final int btnW    = (contentW - pad * 3) / 2;
+        final int btnAddX = contentX + pad;
+        final int btnDelX = contentX + pad * 2 + btnW;
+        final int btnY    = panelY + pad;
+
+        boolean canDel = (selectedFriendIdx >= 0 && selectedFriendIdx < totalRows);
+
+        sr.begin(ShapeRenderer.ShapeType.Filled);
+        sr.setColor(FRIEND_BTN_BG);
+        sr.rect(btnAddX, btnY, btnW, FRIEND_BTN_H);
+        sr.setColor(canDel ? FRIEND_BTN_BG : new Color(0.08f, 0.07f, 0.06f, 1f));
+        sr.rect(btnDelX, btnY, btnW, FRIEND_BTN_H);
+        sr.end();
+
+        sr.begin(ShapeRenderer.ShapeType.Line);
+        sr.setColor(FRIEND_BTN_BR);
+        sr.rect(btnAddX, btnY, btnW, FRIEND_BTN_H);
+        sr.setColor(canDel ? FRIEND_BTN_BR : FRIEND_BTN_DIS);
+        sr.rect(btnDelX, btnY, btnW, FRIEND_BTN_H);
+        sr.end();
+
+        batch.begin();
+        font.getData().setScale(0.78f);
+        font.setColor(FRIEND_BTN_LBL);
+        font.draw(batch, "Add Friend", btnAddX + 5, btnY + FRIEND_BTN_H - 5);
+        font.setColor(canDel ? FRIEND_BTN_LBL : FRIEND_BTN_DIS);
+        font.draw(batch, "Del Friend", btnDelX + 5, btnY + FRIEND_BTN_H - 5);
+        font.getData().setScale(1f);
+        font.setColor(Color.WHITE);
+        batch.end();
+
+        // ── Add Friend overlay ─────────────────────────────────────────────
+        if (addFriendOverlay) {
+            renderAddFriendOverlay(sr, batch, font, proj);
+        }
+    }
+
+    private void renderAddFriendOverlay(ShapeRenderer sr, SpriteBatch batch, BitmapFont font, Matrix4 proj) {
+        final int contentX = panelX + CONTENT_INSET;
+        final int overlayW = CONTENT_W;
+        final int overlayH = 80;
+        final int overlayX = contentX;
+        final int overlayY = panelY + (CONTENT_H - overlayH) / 2;
+
+        // Dim background
+        sr.setProjectionMatrix(proj);
+        sr.begin(ShapeRenderer.ShapeType.Filled);
+        sr.setColor(OVERLAY_BG);
+        sr.rect(panelX, panelY, PANEL_W, CONTENT_H);
+        sr.end();
+
+        // Overlay box
+        sr.begin(ShapeRenderer.ShapeType.Filled);
+        sr.setColor(0.08f, 0.07f, 0.06f, 1f);
+        sr.rect(overlayX, overlayY, overlayW, overlayH);
+        sr.end();
+
+        sr.begin(ShapeRenderer.ShapeType.Line);
+        sr.setColor(OVERLAY_BORDER);
+        sr.rect(overlayX, overlayY, overlayW, overlayH);
+        sr.end();
+
+        // Title
+        batch.setProjectionMatrix(proj);
+        batch.begin();
+        font.getData().setScale(0.82f);
+        font.setColor(FRIEND_TITLE);
+        font.draw(batch, "Add Friend", overlayX + 6, overlayY + overlayH - 6);
+
+        // "Friend name:" label
+        font.getData().setScale(0.72f);
+        font.setColor(Color.WHITE);
+        font.draw(batch, "Friend name:", overlayX + 6, overlayY + overlayH - 24);
+        font.getData().setScale(1f);
+        font.setColor(Color.WHITE);
+        batch.end();
+
+        // Input box
+        final int inputX = overlayX + 6;
+        final int inputY = overlayY + overlayH - 52;
+        final int inputW = overlayW - 12;
+        final int inputH = 18;
+
+        sr.begin(ShapeRenderer.ShapeType.Filled);
+        sr.setColor(OVERLAY_INPUT);
+        sr.rect(inputX, inputY, inputW, inputH);
+        sr.end();
+        sr.begin(ShapeRenderer.ShapeType.Line);
+        sr.setColor(OVERLAY_BORDER);
+        sr.rect(inputX, inputY, inputW, inputH);
+        sr.end();
+
+        String displayText = addFriendInput + (overlayCursorVis ? "|" : "");
+        batch.begin();
+        font.getData().setScale(0.75f);
+        font.setColor(Color.WHITE);
+        font.draw(batch, displayText, inputX + 4, inputY + inputH - 3);
+
+        // OK / Cancel buttons
+        final int okW   = 40;
+        final int btnH  = 16;
+        final int okX   = overlayX + overlayW / 2 - okW - 4;
+        final int canX  = overlayX + overlayW / 2 + 4;
+        final int bBtnY = overlayY + 6;
+
+        font.getData().setScale(1f);
+        font.setColor(Color.WHITE);
+        batch.end();
+
+        sr.begin(ShapeRenderer.ShapeType.Filled);
+        sr.setColor(FRIEND_BTN_BG);
+        sr.rect(okX,  bBtnY, okW, btnH);
+        sr.rect(canX, bBtnY, okW, btnH);
+        sr.end();
+        sr.begin(ShapeRenderer.ShapeType.Line);
+        sr.setColor(FRIEND_BTN_BR);
+        sr.rect(okX,  bBtnY, okW, btnH);
+        sr.rect(canX, bBtnY, okW, btnH);
+        sr.end();
+
+        batch.begin();
+        font.getData().setScale(0.72f);
+        font.setColor(FRIEND_BTN_LBL);
+        font.draw(batch, "OK",     okX  + 10, bBtnY + btnH - 2);
+        font.draw(batch, "Cancel", canX + 4,  bBtnY + btnH - 2);
+        font.getData().setScale(1f);
+        font.setColor(Color.WHITE);
+        batch.end();
     }
 
     private int countCompletedQuests() {
@@ -1679,18 +1942,74 @@ public class SidePanel {
                 }
             }
             case FRIENDS -> {
-                int subY = panelY + CONTENT_H - 34;
-                int bodyTop = subY - 8;
-                int y = bodyTop - 18;
-                int removeX = panelX + CONTENT_INSET + CONTENT_W - 8 - FRIEND_REMOVE_W;
-                for (FriendEntryView entry : friendEntries) {
-                    if (y < panelY + 16) break;
-                    if (mx >= removeX && mx <= removeX + FRIEND_REMOVE_W
-                        && my >= y - FRIEND_ROW_H + 2 && my <= y + 2) {
-                        removeFriendRequestedId = entry.playerId;
+                final int contentX   = panelX + CONTENT_INSET;
+                final int contentW   = CONTENT_W;
+                final int pad        = 6;
+                final int listTop    = panelY + CONTENT_H - 26;
+                final int btnAreaH   = FRIEND_BTN_H + pad * 2;
+                final int listBottom = panelY + btnAreaH;
+                final int listH      = listTop - listBottom;
+                final int visRows    = Math.max(1, listH / FRIEND_ROW_H);
+                final int totalRows  = friendEntries.size();
+
+                // Handle Add Friend overlay clicks first
+                if (addFriendOverlay) {
+                    final int overlayW = contentW;
+                    final int overlayH = 80;
+                    final int overlayX = contentX;
+                    final int overlayY = panelY + (CONTENT_H - overlayH) / 2;
+                    final int okW      = 40;
+                    final int btnH     = 16;
+                    final int okX      = overlayX + overlayW / 2 - okW - 4;
+                    final int canX     = overlayX + overlayW / 2 + 4;
+                    final int bBtnY    = overlayY + 6;
+
+                    if (mx >= okX && mx <= okX + okW && my >= bBtnY && my <= bBtnY + btnH) {
+                        // OK clicked
+                        if (!addFriendInput.trim().isEmpty()) {
+                            pendingAddFriendName = addFriendInput.trim();
+                        }
+                        addFriendInput = "";
+                        addFriendOverlay = false;
                         return -1;
                     }
-                    y -= FRIEND_ROW_H;
+                    // Any click that isn't on OK closes the overlay (cancel / click-outside)
+                    addFriendInput = "";
+                    addFriendOverlay = false;
+                    return -1;
+                }
+
+                // Buttons at bottom
+                final int btnW    = (contentW - pad * 3) / 2;
+                final int btnAddX = contentX + pad;
+                final int btnDelX = contentX + pad * 2 + btnW;
+                final int btnY    = panelY + pad;
+
+                if (mx >= btnAddX && mx <= btnAddX + btnW && my >= btnY && my <= btnY + FRIEND_BTN_H) {
+                    addFriendInput = "";
+                    addFriendOverlay = true;
+                    overlayCursorTimer = 0f;
+                    overlayCursorVis = true;
+                    return -1;
+                }
+                boolean canDel = selectedFriendIdx >= 0 && selectedFriendIdx < totalRows;
+                if (canDel && mx >= btnDelX && mx <= btnDelX + btnW && my >= btnY && my <= btnY + FRIEND_BTN_H) {
+                    FriendEntryView toRemove = friendEntries.get(selectedFriendIdx);
+                    removeFriendRequestedId = toRemove.playerId;
+                    selectedFriendIdx = -1;
+                    return -1;
+                }
+
+                // Friend row clicks
+                for (int i = 0; i < visRows; i++) {
+                    int entryIdx = i + friendScrollOffset;
+                    if (entryIdx >= totalRows) break;
+                    int rowY = listTop - (i + 1) * FRIEND_ROW_H;
+                    if (mx >= contentX && mx <= contentX + contentW - FRIEND_SCROLLBAR_W - 1
+                        && my >= rowY && my <= rowY + FRIEND_ROW_H) {
+                        selectedFriendIdx = (selectedFriendIdx == entryIdx) ? -1 : entryIdx;
+                        return -1;
+                    }
                 }
             }
             case SETTINGS -> {
@@ -1732,6 +2051,42 @@ public class SidePanel {
         boolean out = logoutRequested;
         logoutRequested = false;
         return out;
+    }
+
+    // Friends tab public API (called from GameScreen)
+    public boolean isAddFriendOverlayActive() { return addFriendOverlay; }
+    public boolean isFriendsTabActive()       { return activeTab == Tab.FRIENDS; }
+
+    public void scrollFriendsList(int amount) {
+        friendScrollOffset = Math.max(0, friendScrollOffset + amount);
+    }
+
+    public void typeAddFriendChar(char c) {
+        if (addFriendInput.length() < 32) addFriendInput += c;
+    }
+
+    public void handleAddFriendKey(int keycode) {
+        switch (keycode) {
+            case com.badlogic.gdx.Input.Keys.ENTER -> {
+                if (!addFriendInput.trim().isEmpty()) pendingAddFriendName = addFriendInput.trim();
+                addFriendInput = "";
+                addFriendOverlay = false;
+            }
+            case com.badlogic.gdx.Input.Keys.ESCAPE -> {
+                addFriendInput = "";
+                addFriendOverlay = false;
+            }
+            case com.badlogic.gdx.Input.Keys.BACKSPACE -> {
+                if (!addFriendInput.isEmpty())
+                    addFriendInput = addFriendInput.substring(0, addFriendInput.length() - 1);
+            }
+        }
+    }
+
+    public String consumeAddFriendRequested() {
+        String name = pendingAddFriendName;
+        pendingAddFriendName = null;
+        return name;
     }
 
     // -----------------------------------------------------------------------

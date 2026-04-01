@@ -319,8 +319,9 @@ public class GameScreen extends ApplicationAdapter {
                 int mx  = Gdx.input.getX();
                 int smy = Gdx.graphics.getHeight() - Gdx.input.getY(); // screen-space Y
                 if (smy < ChatBox.TOTAL_H && mx >= 0 && mx < ChatBox.BOX_W) {
-                    // Scroll over chat area: scroll chat history, not camera zoom
                     chatBox.handleScroll(Math.round(amountY));
+                } else if (sidePanel.isOverPanel(mx, smy) && sidePanel.isFriendsTabActive()) {
+                    sidePanel.scrollFriendsList(Math.round(amountY));
                 } else {
                     pendingScrollAmount += Math.round(amountY);
                 }
@@ -973,6 +974,39 @@ public class GameScreen extends ApplicationAdapter {
             return;
         }
 
+        // ── Add Friend overlay: absorb all keystrokes while open ─────────────
+        if (sidePanel.isAddFriendOverlayActive()) {
+            if (Gdx.input.isKeyJustPressed(Input.Keys.ENTER)) {
+                sidePanel.handleAddFriendKey(Input.Keys.ENTER);
+            } else if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
+                sidePanel.handleAddFriendKey(Input.Keys.ESCAPE);
+            } else if (Gdx.input.isKeyJustPressed(Input.Keys.BACKSPACE)) {
+                sidePanel.handleAddFriendKey(Input.Keys.BACKSPACE);
+            } else {
+                for (int key = Input.Keys.A; key <= Input.Keys.Z; key++) {
+                    if (Gdx.input.isKeyJustPressed(key)) {
+                        char c = Input.Keys.toString(key).charAt(0);
+                        if (!Gdx.input.isKeyPressed(Input.Keys.SHIFT_LEFT)
+                         && !Gdx.input.isKeyPressed(Input.Keys.SHIFT_RIGHT)) {
+                            c = Character.toLowerCase(c);
+                        }
+                        sidePanel.typeAddFriendChar(c);
+                        break;
+                    }
+                }
+                if (Gdx.input.isKeyJustPressed(Input.Keys.SPACE)) sidePanel.typeAddFriendChar(' ');
+                if (Gdx.input.isKeyJustPressed(Input.Keys.MINUS)) sidePanel.typeAddFriendChar('-');
+                if (Gdx.input.isKeyJustPressed(Input.Keys.APOSTROPHE)) sidePanel.typeAddFriendChar('\'');
+                int[] numKeys = {Input.Keys.NUM_0,Input.Keys.NUM_1,Input.Keys.NUM_2,Input.Keys.NUM_3,
+                                 Input.Keys.NUM_4,Input.Keys.NUM_5,Input.Keys.NUM_6,Input.Keys.NUM_7,
+                                 Input.Keys.NUM_8,Input.Keys.NUM_9};
+                for (int i = 0; i < numKeys.length; i++) {
+                    if (Gdx.input.isKeyJustPressed(numKeys[i])) { sidePanel.typeAddFriendChar((char)('0'+i)); break; }
+                }
+            }
+            return;
+        }
+
         // ── Chat input ────────────────────────────────────────────────────────
         if (suppressInitialEnter) {
             if (!Gdx.input.isKeyPressed(Input.Keys.ENTER)) {
@@ -1174,6 +1208,10 @@ public class GameScreen extends ApplicationAdapter {
                         friendDisplayNames.getOrDefault(removeFriendId, "")
                     );
                 }
+                String addFriendName = sidePanel.consumeAddFriendRequested();
+                if (addFriendName != null && !addFriendName.isEmpty()) {
+                    sendFriendActionWithFeedback(NetworkProto.FriendAction.Action.ADD, 0L, addFriendName);
+                }
                 if (sidePanel.consumeLogoutRequested()) {
                     requestLogout();
                 }
@@ -1312,6 +1350,10 @@ public class GameScreen extends ApplicationAdapter {
                             removeFriendId,
                             friendDisplayNames.getOrDefault(removeFriendId, "")
                         );
+                    }
+                    String addFriendName2 = sidePanel.consumeAddFriendRequested();
+                    if (addFriendName2 != null && !addFriendName2.isEmpty()) {
+                        sendFriendActionWithFeedback(NetworkProto.FriendAction.Action.ADD, 0L, addFriendName2);
                     }
                     if (sidePanel.consumeLogoutRequested()) requestLogout();
                 } else {
@@ -2814,12 +2856,6 @@ public class GameScreen extends ApplicationAdapter {
         shapeRenderer.circle(ORB_CX, RN_CY, ORB_R);
         shapeRenderer.end();
 
-        if (friendsListVisible && friendsListText != null && !friendsListText.isEmpty()) {
-            shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
-            shapeRenderer.setColor(0f, 0f, 0f, 0.75f);
-            shapeRenderer.rect(30, h - 120, 300, 80);
-            shapeRenderer.end();
-        }
 
         // -- Pass 4: lightning bolt icon inside orb --
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
@@ -2841,37 +2877,6 @@ public class GameScreen extends ApplicationAdapter {
             font.setColor(0.82f, 1.00f, 0.68f, 1f);
         }
         font.draw(screenBatch, gl, ORB_CX - gl.width / 2f, RN_CY + gl.height / 2f);
-
-        // Zoom level indicator - shows current zoom level
-        int zoomTextX = 35;
-        int zoomTextY = h - 140;  // Position: left side, near minimap
-        font.getData().setScale(FontManager.getScale(FontManager.FontContext.BASE_UI));
-        // Render zoom level text
-        String zoomLevelText;
-        if (currentZoom >= 1.9f) {
-            zoomLevelText = "2x";  // Zoomed in
-        } else if (currentZoom >= 1.1f) {
-            zoomLevelText = "Zoom";  // Default
-        } else {
-            zoomLevelText = "Zoom Out";  // Zoomed out
-        }
-        font.setColor(currentZoom >= 1.0f ? FontManager.TEXT_YELLOW : FontManager.TEXT_WHITE);
-        font.draw(screenBatch, zoomLevelText, zoomTextX, zoomTextY);
-        // Render mini-zoom icons (optional polish)
-        int iconSize = 12;
-        int iconX = zoomTextX + 50;
-        int iconY = zoomTextY + 5;
-        for (int i = 0; i < 3 && currentZoom >= ZOOM_DEFAULT; i++) {
-            float iconAlpha = (i == 0) ? 1.0f : (i == 1) ? 0.7f : 0.4f;
-            font.setColor(1f, 1f, 1f, iconAlpha);
-            font.draw(screenBatch, "-", iconX + i * (iconSize + 6), iconY + 2);
-        }
-
-        if (friendsListVisible && friendsListText != null && !friendsListText.isEmpty()) {
-            font.getData().setScale(FontManager.getScale(FontManager.FontContext.SMALL_LABEL));
-            font.setColor(FontManager.TEXT_WHITE);
-            font.draw(screenBatch, friendsListText, 35, h - 60);
-        }
 
         // Coordinates debug text -- bottom-right, unchanged
         font.getData().setScale(FontManager.getScale(FontManager.FontContext.BASE_UI));

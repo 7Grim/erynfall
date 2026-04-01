@@ -38,6 +38,12 @@ local.properties
 .env.server.local
 .env.client.local
 
-# Claude Code
-.claude/worktrees/
-.claude/plans/
+# AI / editor tool config (local only — not needed in repo)
+.claude/
+.opencode/
+.cursor/
+.copilot/
+.aider*
+.continue/
+CLAUDE.md
+*.md
