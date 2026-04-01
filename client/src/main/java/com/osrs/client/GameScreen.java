@@ -1107,8 +1107,7 @@ public class GameScreen extends ApplicationAdapter {
             {
                 int miniLeftX = MiniMap.getLeftX(w);
                 int orbCx = miniLeftX - 8 - 22;
-                int rnCy  = h - 140;
-                if (Math.hypot(mx - orbCx, screenMy - rnCy) <= 22) {
+                if (Math.hypot(mx - orbCx, screenMy - (h - 44)) <= 22) {
                     isRunning = !isRunning;
                     if (playerRunEnergy <= 0) isRunning = false; // can't enable at 0 energy
                     return;
@@ -2767,37 +2766,25 @@ public class GameScreen extends ApplicationAdapter {
     private void renderHUD() {
         int w = Gdx.graphics.getWidth(), h = Gdx.graphics.getHeight();
 
-        // Orb geometry -- to the LEFT of the minimap (top-right area), OSRS style
+        // Run energy orb -- to the LEFT of the minimap, OSRS style
         final int ORB_R  = 22;
         int miniLeftX = MiniMap.getLeftX(w);
-        // Orb center: minimap left edge - 8px gap - orb radius
         final int ORB_CX = miniLeftX - 8 - ORB_R;
-        // Run energy and special attack orbs (HP and prayer moved to inventory pillars)
         final int RN_CY  = h - 44;
-        final int SP_CY  = h - 92;
 
-        // Ratios clamped [0,1]
         float rnRatio = Math.min(1f, playerRunEnergy / 100f);
-        float spRatio = Math.min(1f, playerSpecialAttack / 100f);
 
         shapeRenderer.setProjectionMatrix(screenProjection);
 
-        // -- Pass 1: dark background circles --
+        // -- Pass 1: dark background circle --
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
         shapeRenderer.setColor(0.07f, 0.10f, 0.04f, 0.92f);
         shapeRenderer.circle(ORB_CX, RN_CY, ORB_R);
-        shapeRenderer.setColor(0.12f, 0.10f, 0.04f, 0.92f);
-        shapeRenderer.circle(ORB_CX, SP_CY, ORB_R);
         shapeRenderer.end();
 
-        // -- Pass 2: colored fill -- arc sector, clock-sweep from 12 o'clock --
-        // arc(x, y, radius, startDeg, sweepDeg, segments)
-        // startDeg = 90 - ratio*360  (adjusts start so the filled sector
-        //            sweeps clockwise from the top as the ratio grows)
-        // sweepDeg = ratio * 360     (counter-clockwise, positive)
-        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+        // -- Pass 2: arc fill (green when idle, yellow when running) --
         if (rnRatio > 0.01f) {
-            // Bright yellow when run is active (OSRS run orb lights up yellow)
+            shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
             if (isRunning) {
                 shapeRenderer.setColor(1.00f, 0.85f, 0.00f, 1f);
             } else {
@@ -2805,27 +2792,19 @@ public class GameScreen extends ApplicationAdapter {
             }
             shapeRenderer.arc(ORB_CX, RN_CY, ORB_R - 3,
                 90f - rnRatio * 360f, rnRatio * 360f, 32);
+            shapeRenderer.end();
         }
-        if (spRatio > 0.01f) {
-            shapeRenderer.setColor(0.90f, 0.80f, 0.10f, 1f);
-            shapeRenderer.arc(ORB_CX, SP_CY, ORB_R - 3,
-                90f - spRatio * 360f, spRatio * 360f, 32);
-        }
-        shapeRenderer.end();
 
-        // -- Pass 3: bright outline rings --
+        // -- Pass 3: outline ring (gold glow when active) --
         shapeRenderer.begin(ShapeRenderer.ShapeType.Line);
         if (isRunning) {
-            // Outer gold glow ring + bright yellow inner ring when run is active
             shapeRenderer.setColor(1.00f, 0.70f, 0.00f, 1f);
             shapeRenderer.circle(ORB_CX, RN_CY, ORB_R + 3);
             shapeRenderer.setColor(1.00f, 0.95f, 0.20f, 1f);
         } else {
-            shapeRenderer.setColor(0.72f, 1.00f, 0.42f, 1f);
+            shapeRenderer.setColor(0.40f, 0.75f, 0.20f, 1f);
         }
         shapeRenderer.circle(ORB_CX, RN_CY, ORB_R);
-        shapeRenderer.setColor(0.95f, 0.85f, 0.30f, 1f);
-        shapeRenderer.circle(ORB_CX, SP_CY, ORB_R);
         shapeRenderer.end();
 
         if (friendsListVisible && friendsListText != null && !friendsListText.isEmpty()) {
@@ -2835,37 +2814,26 @@ public class GameScreen extends ApplicationAdapter {
             shapeRenderer.end();
         }
 
-        // -- Pass 4: inner icons --
+        // -- Pass 4: lightning bolt icon inside orb --
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
-        // Run: green lightning bolt (two triangles)
-        shapeRenderer.setColor(0.28f, 0.82f, 0.14f, 0.42f);
+        shapeRenderer.setColor(0.28f, 0.82f, 0.14f, 0.50f);
         shapeRenderer.triangle(ORB_CX + 4, RN_CY + 9, ORB_CX - 2, RN_CY + 1, ORB_CX + 3, RN_CY + 1);
         shapeRenderer.triangle(ORB_CX - 3, RN_CY, ORB_CX + 4, RN_CY, ORB_CX - 3, RN_CY - 9);
-        // Spec: yellow crossed swords (two bars)
-        shapeRenderer.setColor(0.95f, 0.88f, 0.15f, 0.42f);
-        shapeRenderer.rect(ORB_CX - 8, SP_CY - 1, 16, 3);
-        shapeRenderer.rect(ORB_CX - 1, SP_CY - 8, 3, 16);
         shapeRenderer.end();
 
-        // -- Pass 5: numbers centered in each orb --
+        // -- Pass 5: run energy number centered in orb --
         screenBatch.setProjectionMatrix(screenProjection);
         screenBatch.begin();
 
         font.getData().setScale(FontManager.getScale(FontManager.FontContext.SKILL));
 
-        // Run energy value
         gl.setText(font, String.valueOf(playerRunEnergy));
         if (isRunning) {
-            font.setColor(1.00f, 0.95f, 0.20f, 1f); // bright yellow text when active
+            font.setColor(1.00f, 0.95f, 0.20f, 1f);
         } else {
             font.setColor(0.82f, 1.00f, 0.68f, 1f);
         }
         font.draw(screenBatch, gl, ORB_CX - gl.width / 2f, RN_CY + gl.height / 2f);
-
-        // Special attack value
-        gl.setText(font, String.valueOf(playerSpecialAttack));
-        font.setColor(1.00f, 0.95f, 0.50f, 1f);
-        font.draw(screenBatch, gl, ORB_CX - gl.width / 2f, SP_CY + gl.height / 2f);
 
         // Zoom level indicator - shows current zoom level
         int zoomTextX = 35;

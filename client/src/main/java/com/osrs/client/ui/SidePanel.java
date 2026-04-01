@@ -38,7 +38,11 @@ public class SidePanel {
     // -----------------------------------------------------------------------
 
     /** Width of the side panel in pixels. Matches InventoryUI's internal width. */
-    public static final int PANEL_W   = 240;
+    public static final int PANEL_W       = 240;
+    /** Width of the inner content column shared by ALL tabs (matches InventoryUI slot grid). */
+    public static final int CONTENT_W     = 186;
+    /** Left inset from panel edge to content column — symmetric on both sides. */
+    public static final int CONTENT_INSET = (PANEL_W - CONTENT_W) / 2;
     /** Height of the tab icon row at the top of the panel. */
     public static final int TAB_H     = 36;
     /** Height of the content area (sized to fit 7-row inventory). */
@@ -329,11 +333,7 @@ public class SidePanel {
                 characterPage = CharacterPage.QUEST_LIST;
                 renderCharacterTab(sr, batch, font, proj);
             }
-            case INVENTORY -> {
-                int invX = panelX + (PANEL_W - inventoryUI.getPanelWidth()) / 2;
-                renderStatPillars(sr, proj, invX);
-                inventoryUI.render(sr, batch, font, invX, panelY, proj);
-            }
+            case INVENTORY -> inventoryUI.render(sr, batch, font, panelX + CONTENT_INSET, panelY, proj);
             case EQUIPMENT -> {
                 characterPage = CharacterPage.GEAR;
                 renderCharacterTab(sr, batch, font, proj);
@@ -349,6 +349,9 @@ public class SidePanel {
             }
             default        -> renderStubTab(sr, batch, font, proj, activeTab.label);
         }
+
+        // Stat pillars always last — drawn on top of every tab so they are always visible
+        renderStatPillars(sr, proj);
     }
 
     // -----------------------------------------------------------------------
@@ -502,7 +505,7 @@ public class SidePanel {
         batch.begin();
         font.getData().setScale(0.80f);
         font.setColor(0.55f, 0.52f, 0.42f, 1f);
-        font.draw(batch, tabName + " - Coming Soon", panelX + 10, panelY + CONTENT_H / 2 + 8);
+        font.draw(batch, tabName + " - Coming Soon", panelX + CONTENT_INSET + 10, panelY + CONTENT_H / 2 + 8);
         font.getData().setScale(1f);
         font.setColor(Color.WHITE);
         batch.end();
@@ -516,10 +519,10 @@ public class SidePanel {
      * Draws vertical HP (left) and prayer (right) bars inside the two dark pillars
      * that flank the inventory grid. Bars fill from the bottom; drain from the top.
      */
-    private void renderStatPillars(ShapeRenderer sr, Matrix4 proj, int invX) {
+    private void renderStatPillars(ShapeRenderer sr, Matrix4 proj) {
         int leftX = panelX + BORDER_THICKNESS;
-        int rightX = invX + inventoryUI.getPanelWidth();
-        int pillarW = invX - panelX - BORDER_THICKNESS; // 25px — same on both sides (centred)
+        int rightX = panelX + CONTENT_INSET + CONTENT_W;
+        int pillarW = CONTENT_INSET - BORDER_THICKNESS;
         int pillarH = CONTENT_H;
 
         sr.setProjectionMatrix(proj);
@@ -564,8 +567,9 @@ public class SidePanel {
     }
 
     private void renderCombatTab(ShapeRenderer sr, SpriteBatch batch, BitmapFont font, Matrix4 proj) {
-        int pad  = 10;
-        int btnW = (PANEL_W - pad * 3) / 2;
+        int contentX = panelX + CONTENT_INSET;
+        int pad  = 8;
+        int btnW = (CONTENT_W - pad * 3) / 2;
         int btnH = 56;
 
         String[] names = styleNames();
@@ -578,10 +582,10 @@ public class SidePanel {
         batch.begin();
         font.getData().setScale(0.85f);
         font.setColor(COLOR_TITLE_GOLD);
-        font.draw(batch, "Combat Options", panelX + pad, panelY + CONTENT_H - 8);
+        font.draw(batch, "Combat Options", contentX + pad, panelY + CONTENT_H - 8);
         font.getData().setScale(0.75f);
         font.setColor(0.70f, 0.65f, 0.50f, 1f);
-        font.draw(batch, weaponName, panelX + pad, panelY + CONTENT_H - 24);
+        font.draw(batch, weaponName, contentX + pad, panelY + CONTENT_H - 24);
         font.getData().setScale(1f);
         font.setColor(Color.WHITE);
         batch.end();
@@ -589,7 +593,7 @@ public class SidePanel {
         // Title underline
         sr.begin(ShapeRenderer.ShapeType.Filled);
         sr.setColor(0.45f, 0.38f, 0.22f, 1f);
-        sr.rect(panelX + pad, panelY + CONTENT_H - 34, PANEL_W - pad * 2, 1);
+        sr.rect(contentX + pad, panelY + CONTENT_H - 34, CONTENT_W - pad * 2, 1);
         sr.end();
 
         // 2x2 button grid
@@ -597,7 +601,7 @@ public class SidePanel {
         for (int i = 0; i < 4; i++) {
             int col = i % 2;
             int row = i / 2;
-            int bx  = panelX + pad + col * (btnW + pad);
+            int bx  = contentX + pad + col * (btnW + pad);
             int by  = gridTop - (row + 1) * (btnH + pad);
 
             boolean disabled = names[i] == null;
@@ -626,7 +630,7 @@ public class SidePanel {
             if (names[i] == null) continue;
             int col = i % 2;
             int row = i / 2;
-            int bx  = panelX + pad + col * (btnW + pad);
+            int bx  = contentX + pad + col * (btnW + pad);
             int by  = gridTop - (row + 1) * (btnH + pad);
             boolean sel = i == combatStyle;
 
@@ -645,7 +649,7 @@ public class SidePanel {
         // Auto Retaliate toggle
         int toggleY  = gridTop - 2 * (btnH + pad) - 6;
         int toggleSz = 14;
-        int toggleX  = panelX + pad;
+        int toggleX  = contentX + pad;
 
         sr.begin(ShapeRenderer.ShapeType.Filled);
         sr.setColor(autoRetaliate ? COLOR_TOGGLE_ON : COLOR_BTN_IDLE_BG);
@@ -758,17 +762,18 @@ public class SidePanel {
 
     private void renderPrayerTab(ShapeRenderer sr, SpriteBatch batch, BitmapFont font,
                                   Matrix4 proj, int mouseX, int mouseY) {
-        final int PAD     = 8;
-        final int ROW_H   = 36;
-        final int BAR_H   = 20;
-        final int DOT_SZ  = 20;
+        int contentX = panelX + CONTENT_INSET;
+        final int PAD = 8;
+        final int ROW_H = 36;
+        final int BAR_H = 20;
+        final int DOT_SZ = 20;
 
         // -- Header --
         batch.setProjectionMatrix(proj);
         batch.begin();
         font.getData().setScale(0.85f);
         font.setColor(0.90f, 0.80f, 0.50f, 1f);
-        font.draw(batch, "Prayer", panelX + PAD, panelY + CONTENT_H - 8);
+        font.draw(batch, "Prayer", contentX + PAD, panelY + CONTENT_H - 8);
         font.getData().setScale(1f);
         font.setColor(Color.WHITE);
         batch.end();
@@ -776,26 +781,25 @@ public class SidePanel {
         sr.setProjectionMatrix(proj);
         sr.begin(ShapeRenderer.ShapeType.Filled);
         sr.setColor(0.45f, 0.38f, 0.22f, 1f);
-        sr.rect(panelX + PAD, panelY + CONTENT_H - 20, PANEL_W - PAD * 2, 1);
+        sr.rect(contentX + PAD, panelY + CONTENT_H - 20, CONTENT_W - PAD * 2, 1);
         sr.end();
 
         // -- Prayer rows --
-        int prayerLevel = skillLevels[6]; // SKILL_PRAYER index
+        int prayerLevel = skillLevels[6];
         int startY = panelY + CONTENT_H - 28;
 
         sr.begin(ShapeRenderer.ShapeType.Filled);
         for (int i = 0; i < PRAYERS.length; i++) {
-            int    prayerId  = (int) PRAYERS[i][0];
-            int    levelReq  = (int) PRAYERS[i][1];
-            boolean active   = activePrayerIds.contains(prayerId);
-            boolean canUse   = prayerLevel >= levelReq && currentPrayerPoints > 0;
-            boolean hovering = mouseX >= panelX + PAD && mouseX <= panelX + PANEL_W - PAD
-                            && mouseY >= startY - (i + 1) * ROW_H
-                            && mouseY <= startY - i * ROW_H - 2;
+            int prayerId = (int) PRAYERS[i][0];
+            int levelReq = (int) PRAYERS[i][1];
+            boolean active = activePrayerIds.contains(prayerId);
+            boolean canUse = prayerLevel >= levelReq && currentPrayerPoints > 0;
+            boolean hovering = mouseX >= contentX + PAD && mouseX <= contentX + CONTENT_W - PAD
+                && mouseY >= startY - (i + 1) * ROW_H
+                && mouseY <= startY - i * ROW_H - 2;
 
             int rowY = startY - (i + 1) * ROW_H + 2;
 
-            // Row background
             if (active) {
                 sr.setColor(0.20f, 0.28f, 0.10f, 1f);
             } else if (hovering && canUse) {
@@ -803,9 +807,8 @@ public class SidePanel {
             } else {
                 sr.setColor(0.10f, 0.09f, 0.07f, 1f);
             }
-            sr.rect(panelX + PAD, rowY, PANEL_W - PAD * 2, ROW_H - 2);
+            sr.rect(contentX + PAD, rowY, CONTENT_W - PAD * 2, ROW_H - 2);
 
-            // Active/inactive indicator dot
             if (active) {
                 sr.setColor(0.55f, 0.88f, 0.20f, 1f);
             } else if (!canUse) {
@@ -813,58 +816,56 @@ public class SidePanel {
             } else {
                 sr.setColor(0.38f, 0.34f, 0.22f, 1f);
             }
-            sr.rect(panelX + PAD + 2, rowY + (ROW_H - 2 - DOT_SZ) / 2f, DOT_SZ, DOT_SZ);
+            sr.rect(contentX + PAD + 2, rowY + (ROW_H - 2 - DOT_SZ) / 2f, DOT_SZ, DOT_SZ);
 
-            // Row border
             sr.setColor(0.38f, 0.32f, 0.18f, 0.70f);
-            sr.rect(panelX + PAD, rowY,            PANEL_W - PAD * 2, 1);
-            sr.rect(panelX + PAD, rowY + ROW_H - 3, PANEL_W - PAD * 2, 1);
+            sr.rect(contentX + PAD, rowY, CONTENT_W - PAD * 2, 1);
+            sr.rect(contentX + PAD, rowY + ROW_H - 3, CONTENT_W - PAD * 2, 1);
         }
         sr.end();
 
         // -- Prayer point bar (bottom) --
-        int barY  = panelY + PAD + 2;
-        int barW  = PANEL_W - PAD * 2;
+        int barY = panelY + PAD + 2;
+        int barW = CONTENT_W - PAD * 2;
         float ratio = maxPrayerPoints > 0 ? (float) currentPrayerPoints / maxPrayerPoints : 0f;
 
         sr.begin(ShapeRenderer.ShapeType.Filled);
         sr.setColor(0.12f, 0.10f, 0.08f, 1f);
-        sr.rect(panelX + PAD, barY, barW, BAR_H);
+        sr.rect(contentX + PAD, barY, barW, BAR_H);
         sr.setColor(0.22f, 0.50f, 0.82f, 1f);
-        sr.rect(panelX + PAD, barY, (int) (barW * ratio), BAR_H);
+        sr.rect(contentX + PAD, barY, (int) (barW * ratio), BAR_H);
         sr.setColor(0.38f, 0.32f, 0.18f, 0.80f);
-        sr.rect(panelX + PAD, barY,       barW, 1);
-        sr.rect(panelX + PAD, barY + BAR_H - 1, barW, 1);
+        sr.rect(contentX + PAD, barY, barW, 1);
+        sr.rect(contentX + PAD, barY + BAR_H - 1, barW, 1);
         sr.end();
 
         // -- Text pass --
         batch.setProjectionMatrix(proj);
         batch.begin();
         for (int i = 0; i < PRAYERS.length; i++) {
-            int    prayerId = (int) PRAYERS[i][0];
-            int    levelReq = (int) PRAYERS[i][1];
-            String name     = (String) PRAYERS[i][2];
-            boolean active  = activePrayerIds.contains(prayerId);
-            boolean canUse  = prayerLevel >= levelReq;
+            int prayerId = (int) PRAYERS[i][0];
+            int levelReq = (int) PRAYERS[i][1];
+            String name = (String) PRAYERS[i][2];
+            boolean active = activePrayerIds.contains(prayerId);
+            boolean canUse = prayerLevel >= levelReq;
             int rowY = startY - (i + 1) * ROW_H + 2;
 
             font.getData().setScale(0.78f);
             font.setColor(active ? new Color(0.75f, 1.00f, 0.35f, 1f)
-                        : canUse ? new Color(0.88f, 0.84f, 0.72f, 1f)
-                                 : new Color(0.45f, 0.42f, 0.35f, 1f));
-            font.draw(batch, name, panelX + PAD + DOT_SZ + 8, rowY + ROW_H - 8);
+                : canUse ? new Color(0.88f, 0.84f, 0.72f, 1f)
+                : new Color(0.45f, 0.42f, 0.35f, 1f));
+            font.draw(batch, name, contentX + PAD + DOT_SZ + 8, rowY + ROW_H - 8);
 
             font.getData().setScale(0.62f);
             font.setColor(canUse ? new Color(0.65f, 0.90f, 0.25f, 1f)
-                                 : new Color(0.75f, 0.58f, 0.18f, 1f));
-            font.draw(batch, "Lv " + levelReq, panelX + PANEL_W - PAD - 26, rowY + ROW_H - 8);
+                : new Color(0.75f, 0.58f, 0.18f, 1f));
+            font.draw(batch, "Lv " + levelReq, contentX + CONTENT_W - PAD - 26, rowY + ROW_H - 8);
         }
 
-        // Prayer points bar label
         font.getData().setScale(0.72f);
         font.setColor(0.78f, 0.88f, 1.00f, 1f);
         font.draw(batch, currentPrayerPoints + " / " + maxPrayerPoints,
-            panelX + PAD + 4, barY + BAR_H - 3);
+            contentX + PAD + 4, barY + BAR_H - 3);
 
         font.getData().setScale(1f);
         font.setColor(Color.WHITE);
@@ -879,7 +880,7 @@ public class SidePanel {
         final int PAD_Y   = 2;
         final int COL_GAP = 2;
         final int ROW_GAP = 1;
-        final int CELL_W  = (PANEL_W - PAD_X * 2 - COL_GAP * (COLS - 1)) / COLS;  // ~76
+        final int CELL_W  = (CONTENT_W - PAD_X * 2 - COL_GAP * (COLS - 1)) / COLS;
         final int CELL_H  = (CONTENT_H - PAD_Y * 2 - ROW_GAP * (ROWS - 1)) / ROWS; // ~37
         final int ICON_SZ = Math.min(CELL_H - 4, 32);
 
@@ -890,7 +891,7 @@ public class SidePanel {
             for (int c = 0; c < COLS; c++) {
                 int idx = SKILL_GRID[r][c];
                 int storeIdx = (idx == -1) ? 23 : idx;
-                cellX[storeIdx] = panelX + PAD_X + c * (CELL_W + COL_GAP);
+                cellX[storeIdx] = panelX + CONTENT_INSET + PAD_X + c * (CELL_W + COL_GAP);
                 cellY[storeIdx] = panelY + CONTENT_H - PAD_Y - (r + 1) * CELL_H - r * ROW_GAP;
             }
         }
@@ -1216,10 +1217,11 @@ public class SidePanel {
     }
 
     private void renderCharacterTab(ShapeRenderer sr, SpriteBatch batch, BitmapFont font, Matrix4 proj) {
+        int contentX = panelX + CONTENT_INSET;
         final int pad = 8;
         final int headerY = panelY + CONTENT_H - 8;
         final int subY = panelY + CONTENT_H - 34;
-        final int subW = (PANEL_W - pad * 5) / 4;
+        final int subW = (CONTENT_W - pad * 5) / 4;
         final int subH = 18;
 
         // Title
@@ -1227,7 +1229,7 @@ public class SidePanel {
         batch.begin();
         font.getData().setScale(0.85f);
         font.setColor(new Color(0.9f, 0.80f, 0.50f, 1f));
-        font.draw(batch, "Character Summary", panelX + pad, headerY);
+        font.draw(batch, "Character Summary", contentX + pad, headerY);
         font.getData().setScale(1f);
         batch.end();
 
@@ -1235,7 +1237,7 @@ public class SidePanel {
         sr.setProjectionMatrix(proj);
         sr.begin(ShapeRenderer.ShapeType.Filled);
         for (int i = 0; i < 4; i++) {
-            int bx = panelX + pad + i * (subW + pad);
+            int bx = contentX + pad + i * (subW + pad);
             boolean active = characterPage.ordinal() == i;
             sr.setColor(active ? new Color(0.32f, 0.25f, 0.06f, 1f) : new Color(0.13f, 0.12f, 0.10f, 1f));
             sr.rect(bx, subY, subW, subH);
@@ -1244,7 +1246,7 @@ public class SidePanel {
 
         sr.begin(ShapeRenderer.ShapeType.Line);
         for (int i = 0; i < 4; i++) {
-            int bx = panelX + pad + i * (subW + pad);
+            int bx = contentX + pad + i * (subW + pad);
             boolean active = characterPage.ordinal() == i;
             sr.setColor(active ? new Color(1f, 0.85f, 0.10f, 1f) : new Color(0.40f, 0.36f, 0.26f, 1f));
             sr.rect(bx, subY, subW, subH);
@@ -1255,7 +1257,7 @@ public class SidePanel {
         font.getData().setScale(0.72f);
         String[] labels = {"Summary", "Quests", "Gear", "Friends"};
         for (int i = 0; i < 4; i++) {
-            int bx = panelX + pad + i * (subW + pad);
+            int bx = contentX + pad + i * (subW + pad);
             font.setColor(characterPage.ordinal() == i ? new Color(1f, 0.90f, 0.10f, 1f) : Color.WHITE);
             font.draw(batch, labels[i], bx + 3, subY + 12);
         }
@@ -1264,12 +1266,12 @@ public class SidePanel {
         if (characterPage == CharacterPage.SUMMARY) {
             font.getData().setScale(0.8f);
             font.setColor(Color.WHITE);
-            font.draw(batch, "Quest points: " + playerQuestPoints, panelX + pad, bodyTop);
-            font.draw(batch, "Completed quests: " + countCompletedQuests(), panelX + pad, bodyTop - 18);
-            font.draw(batch, "Total tracked quests: " + quests.size(), panelX + pad, bodyTop - 36);
+            font.draw(batch, "Quest points: " + playerQuestPoints, contentX + pad, bodyTop);
+            font.draw(batch, "Completed quests: " + countCompletedQuests(), contentX + pad, bodyTop - 18);
+            font.draw(batch, "Total tracked quests: " + quests.size(), contentX + pad, bodyTop - 36);
             font.setColor(0.8f, 0.75f, 0.65f, 1f);
             font.getData().setScale(0.7f);
-            font.draw(batch, "Open Quests to see progress.", panelX + pad, bodyTop - 60);
+            font.draw(batch, "Open Quests to see progress.", contentX + pad, bodyTop - 60);
 
             // Logout button
             int bx = logoutButtonX();
@@ -1303,12 +1305,12 @@ public class SidePanel {
                 for (QuestView q : list) {
                     if (y < panelY + 18) break;
                     font.setColor(colorForQuest(q.status));
-                    font.draw(batch, q.questName, panelX + pad, y);
+                    font.draw(batch, q.questName, contentX + pad, y);
                     y -= 16;
                 }
                 font.setColor(0.75f, 0.75f, 0.75f, 1f);
                 font.getData().setScale(0.65f);
-                font.draw(batch, "Red: not started  Yellow: in progress  Green: complete", panelX + pad, panelY + 10);
+                font.draw(batch, "Red: not started  Yellow: in progress  Green: complete", contentX + pad, panelY + 10);
             } else {
                 // -- Quest detail --
                 int y = bodyTop;
@@ -1316,13 +1318,13 @@ public class SidePanel {
                 // Back button
                 font.getData().setScale(0.75f);
                 font.setColor(0.85f, 0.75f, 0.40f, 1f);
-                font.draw(batch, "< Back", panelX + pad, y);
+                font.draw(batch, "< Back", contentX + pad, y);
                 y -= 22;
 
                 // Quest name
                 font.getData().setScale(0.85f);
                 font.setColor(colorForQuest(sel.status));
-                font.draw(batch, sel.questName, panelX + pad, y);
+                font.draw(batch, sel.questName, contentX + pad, y);
                 y -= 20;
 
                 // Description (up to 2 lines, ~32 chars each)
@@ -1332,16 +1334,16 @@ public class SidePanel {
                 if (desc.length() > 32) {
                     int cut = desc.lastIndexOf(' ', 32);
                     if (cut < 1) cut = 32;
-                    font.draw(batch, desc.substring(0, cut), panelX + pad, y);
+                    font.draw(batch, desc.substring(0, cut), contentX + pad, y);
                     y -= 14;
                     String rest = desc.substring(cut).trim();
                     if (!rest.isEmpty() && y >= panelY + 18) {
                         String line2 = rest.length() > 32 ? rest.substring(0, 32) + "..." : rest;
-                        font.draw(batch, line2, panelX + pad, y);
+                        font.draw(batch, line2, contentX + pad, y);
                         y -= 14;
                     }
                 } else if (!desc.isEmpty()) {
-                    font.draw(batch, desc, panelX + pad, y);
+                    font.draw(batch, desc, contentX + pad, y);
                     y -= 14;
                 }
 
@@ -1349,7 +1351,7 @@ public class SidePanel {
                 y -= 4;
                 font.getData().setScale(0.72f);
                 font.setColor(0.90f, 0.85f, 0.55f, 1f);
-                font.draw(batch, "Tasks:", panelX + pad, y);
+                font.draw(batch, "Tasks:", contentX + pad, y);
                 y -= 16;
 
                 // Task rows
@@ -1360,7 +1362,7 @@ public class SidePanel {
                         ? " (" + t.currentCount + "/" + t.requiredCount + ")" : "";
                     font.setColor(t.completed
                         ? new Color(0.45f, 0.85f, 0.45f, 1f) : Color.WHITE);
-                    font.draw(batch, prefix + t.description + progress, panelX + pad, y);
+                    font.draw(batch, prefix + t.description + progress, contentX + pad, y);
                     y -= 16;
                 }
 
@@ -1368,13 +1370,13 @@ public class SidePanel {
                 font.getData().setScale(0.65f);
                 font.setColor(0.75f, 0.75f, 0.75f, 1f);
                 font.draw(batch, "Reward: " + sel.questPointsReward + " Quest Point(s)",
-                    panelX + pad, panelY + 10);
+                    contentX + pad, panelY + 10);
             }
         } else if (characterPage == CharacterPage.GEAR) {
             final int SLOT_SIZE = 36;
             final int toggleY   = panelY + 22;
             final int toggleH   = 14;
-            final int half      = PANEL_W / 2;
+            final int half      = CONTENT_W / 2;
 
             // -- Slots / Stats toggle --
             batch.end();
@@ -1383,24 +1385,24 @@ public class SidePanel {
             sr.setColor(!gearShowStats
                 ? new Color(0.32f, 0.25f, 0.06f, 1f)
                 : new Color(0.13f, 0.12f, 0.10f, 1f));
-            sr.rect(panelX, toggleY, half - 1, toggleH);
+            sr.rect(contentX, toggleY, half - 1, toggleH);
             sr.setColor(gearShowStats
                 ? new Color(0.32f, 0.25f, 0.06f, 1f)
                 : new Color(0.13f, 0.12f, 0.10f, 1f));
-            sr.rect(panelX + half, toggleY, half, toggleH);
+            sr.rect(contentX + half, toggleY, half, toggleH);
             sr.end();
             sr.begin(ShapeRenderer.ShapeType.Line);
             sr.setColor(new Color(0.40f, 0.36f, 0.26f, 1f));
-            sr.rect(panelX, toggleY, half - 1, toggleH);
-            sr.rect(panelX + half, toggleY, half, toggleH);
+            sr.rect(contentX, toggleY, half - 1, toggleH);
+            sr.rect(contentX + half, toggleY, half, toggleH);
             sr.end();
             batch.setProjectionMatrix(proj);
             batch.begin();
             font.getData().setScale(0.65f);
             font.setColor(!gearShowStats ? new Color(1f, 0.90f, 0.10f, 1f) : Color.WHITE);
-            font.draw(batch, "Equipment", panelX + 18, toggleY + 11);
+            font.draw(batch, "Equipment", contentX + 18, toggleY + 11);
             font.setColor(gearShowStats ? new Color(1f, 0.90f, 0.10f, 1f) : Color.WHITE);
-            font.draw(batch, "Bonuses", panelX + half + 22, toggleY + 11);
+            font.draw(batch, "Bonuses", contentX + half + 22, toggleY + 11);
 
             if (!gearShowStats) {
                 // -- Visual slot grid --
@@ -1454,13 +1456,13 @@ public class SidePanel {
                 }
                 font.getData().setScale(0.58f);
                 font.setColor(new Color(0.60f, 0.55f, 0.35f, 1f));
-                font.draw(batch, "Click slot to unequip", panelX + 8, panelY + 14);
+                font.draw(batch, "Click slot to unequip", contentX + 8, panelY + 14);
 
             } else {
                 // -- Bonus stats view --
                 int sy2 = bodyTop - 4;
                 final int LH = 14;
-                final int col2 = panelX + 8 + 108;
+                final int col2 = contentX + 8 + 108;
 
                 batch.end();
                 batch.setProjectionMatrix(proj);
@@ -1475,13 +1477,13 @@ public class SidePanel {
                 // Attack bonuses
                 font.getData().setScale(0.68f);
                 font.setColor(new Color(1f, 0.75f, 0.20f, 1f));
-                font.draw(batch, "Attack Bonuses", panelX + 8, sy2);
+                font.draw(batch, "Attack Bonuses", contentX + 8, sy2);
                 sy2 -= LH;
                 font.getData().setScale(0.63f);
                 for (int i = 0; i < 5; i++) {
                     int v = equipBonuses[atkIdx[i]];
                     font.setColor(new Color(0.75f, 0.70f, 0.50f, 1f));
-                    font.draw(batch, atkLbls[i], panelX + 8, sy2);
+                    font.draw(batch, atkLbls[i], contentX + 8, sy2);
                     font.setColor(v >= 0
                         ? new Color(0.40f, 0.85f, 0.40f, 1f)
                         : new Color(0.85f, 0.40f, 0.40f, 1f));
@@ -1492,13 +1494,13 @@ public class SidePanel {
                 // Defence bonuses
                 font.getData().setScale(0.68f);
                 font.setColor(new Color(1f, 0.75f, 0.20f, 1f));
-                font.draw(batch, "Defence Bonuses", panelX + 8, sy2);
+                font.draw(batch, "Defence Bonuses", contentX + 8, sy2);
                 sy2 -= LH;
                 font.getData().setScale(0.63f);
                 for (int i = 0; i < 5; i++) {
                     int v = equipBonuses[defIdx[i]];
                     font.setColor(new Color(0.75f, 0.70f, 0.50f, 1f));
-                    font.draw(batch, defLbls[i], panelX + 8, sy2);
+                    font.draw(batch, defLbls[i], contentX + 8, sy2);
                     font.setColor(v >= 0
                         ? new Color(0.40f, 0.85f, 0.40f, 1f)
                         : new Color(0.85f, 0.40f, 0.40f, 1f));
@@ -1509,13 +1511,13 @@ public class SidePanel {
                 // Other bonuses
                 font.getData().setScale(0.68f);
                 font.setColor(new Color(1f, 0.75f, 0.20f, 1f));
-                font.draw(batch, "Other Bonuses", panelX + 8, sy2);
+                font.draw(batch, "Other Bonuses", contentX + 8, sy2);
                 sy2 -= LH;
                 font.getData().setScale(0.63f);
                 for (int i = 0; i < 4; i++) {
                     int v = equipBonuses[otherIdx[i]];
                     font.setColor(new Color(0.75f, 0.70f, 0.50f, 1f));
-                    font.draw(batch, otherLbls[i], panelX + 8, sy2);
+                    font.draw(batch, otherLbls[i], contentX + 8, sy2);
                     font.setColor(v >= 0
                         ? new Color(0.40f, 0.85f, 0.40f, 1f)
                         : new Color(0.85f, 0.40f, 0.40f, 1f));
@@ -1524,7 +1526,7 @@ public class SidePanel {
                 }
             }
         } else if (characterPage == CharacterPage.FRIENDS_LIST) {
-            renderFriendsList(batch, font, panelX + pad, bodyTop);
+            renderFriendsList(batch, font, contentX + pad, bodyTop);
         }
         font.getData().setScale(1f);
         font.setColor(Color.WHITE);
@@ -1557,7 +1559,7 @@ public class SidePanel {
             String status = entry.online ? "Online" : "Offline";
             font.draw(batch, entry.name + " - " + status, leftX, y);
             font.setColor(new Color(0.95f, 0.45f, 0.45f, 1f));
-            int removeX = panelX + PANEL_W - 8 - FRIEND_REMOVE_W;
+            int removeX = panelX + CONTENT_INSET + CONTENT_W - 8 - FRIEND_REMOVE_W;
             font.draw(batch, "Remove", removeX, y);
             y -= FRIEND_ROW_H;
         }
@@ -1603,10 +1605,11 @@ public class SidePanel {
         // ── Content area click ─────────────────────────────────────────────
         switch (activeTab) {
             case COMBAT -> {
-                int pad  = 10;
-                int btnW = (PANEL_W - pad * 3) / 2;
-                int btnH = 70;
-                int gridTop = panelY + CONTENT_H - 38;
+                int contentX = panelX + CONTENT_INSET;
+                int pad  = 8;
+                int btnW = (CONTENT_W - pad * 3) / 2;
+                int btnH = 56;
+                int gridTop = panelY + CONTENT_H - 40;
 
                 String[] names = styleNames();
 
@@ -1614,7 +1617,7 @@ public class SidePanel {
                     if (names[i] == null) continue;
                     int col = i % 2;
                     int row = i / 2;
-                    int bx  = panelX + pad + col * (btnW + pad);
+                    int bx  = contentX + pad + col * (btnW + pad);
                     int by  = gridTop - (row + 1) * (btnH + pad);
 
                     if (mx >= bx && mx <= bx + btnW && my >= by && my <= by + btnH) {
@@ -1625,18 +1628,19 @@ public class SidePanel {
 
                 int toggleY  = gridTop - 2 * (btnH + pad) - 6;
                 int toggleSz = 14;
-                int toggleX  = panelX + pad;
-                if (mx >= toggleX && mx <= panelX + PANEL_W - pad
+                int toggleX  = contentX + pad;
+                if (mx >= toggleX && mx <= contentX + CONTENT_W - pad
                     && my >= toggleY && my <= toggleY + toggleSz + 4) {
                     autoRetaliate = !autoRetaliate;
                     return -50;
                 }
             }
             case EQUIPMENT -> {
+                int contentX = panelX + CONTENT_INSET;
                 int toggleY = panelY + 22;
                 int toggleH = 14;
                 if (my >= toggleY && my <= toggleY + toggleH) {
-                    gearShowStats = mx >= panelX + PANEL_W / 2;
+                    gearShowStats = mx >= contentX + CONTENT_W / 2;
                     return -1;
                 }
                 if (!gearShowStats) {
@@ -1654,8 +1658,9 @@ public class SidePanel {
                 int pad = 8;
                 int subY = panelY + CONTENT_H - 34;
                 int y = subY - 8;
+                int contentX = panelX + CONTENT_INSET;
                 if (selectedQuestId != -1) {
-                    if (mx >= panelX + pad && mx <= panelX + PANEL_W - pad
+                    if (mx >= contentX + pad && mx <= contentX + CONTENT_W - pad
                         && my <= y && my >= y - 16) {
                         selectedQuestId = -1;
                         return -1;
@@ -1663,7 +1668,7 @@ public class SidePanel {
                 } else {
                     List<QuestView> list = sortedQuests();
                     for (QuestView q : list) {
-                        if (mx >= panelX + pad && mx <= panelX + PANEL_W - pad
+                        if (mx >= contentX + pad && mx <= contentX + CONTENT_W - pad
                             && my <= y && my >= y - 16) {
                             selectedQuestId = q.questId;
                             return -1;
@@ -1677,7 +1682,7 @@ public class SidePanel {
                 int subY = panelY + CONTENT_H - 34;
                 int bodyTop = subY - 8;
                 int y = bodyTop - 18;
-                int removeX = panelX + PANEL_W - 8 - FRIEND_REMOVE_W;
+                int removeX = panelX + CONTENT_INSET + CONTENT_W - 8 - FRIEND_REMOVE_W;
                 for (FriendEntryView entry : friendEntries) {
                     if (y < panelY + 16) break;
                     if (mx >= removeX && mx <= removeX + FRIEND_REMOVE_W
@@ -1699,10 +1704,11 @@ public class SidePanel {
                 int prayerLevel = skillLevels[6];
                 int startY = panelY + CONTENT_H - 28;
                 final int ROW_H = 36;
+                int contentX = panelX + CONTENT_INSET;
                 for (int i = 0; i < PRAYERS.length; i++) {
                     int prayerId = (int) PRAYERS[i][0];
                     int rowY = startY - (i + 1) * ROW_H + 2;
-                    if (mx >= panelX + 8 && mx <= panelX + PANEL_W - 8
+                    if (mx >= contentX + 8 && mx <= contentX + CONTENT_W - 8
                      && my >= rowY && my <= rowY + ROW_H - 2) {
                         return -(200 + prayerId);   // GameScreen decodes: prayerId = -(ret+200)
                     }
@@ -1797,7 +1803,7 @@ public class SidePanel {
     public int    getInventoryItemFlags(int slot) { return inventoryUI.getFlags(slot); }
     public int    getCombatStyle()                { return combatStyle; }
 
-    private int logoutButtonX() { return panelX + 8; }
+    private int logoutButtonX() { return panelX + CONTENT_INSET + 8; }
     private int logoutButtonY() { return panelY + 8; }
     private int logoutButtonW() { return 72; }
     private int logoutButtonH() { return 20; }
@@ -1810,9 +1816,10 @@ public class SidePanel {
     private int[][] getGearSlotPositions() {
         final int SLOT_SIZE = 36;
         final int GAP       = 8;
-        final int leftX     = panelX + 8;
-        final int centerX   = panelX + (PANEL_W - SLOT_SIZE) / 2;  // 102
-        final int rightX    = panelX + PANEL_W - SLOT_SIZE - 8;    // 196
+        final int contentX  = panelX + CONTENT_INSET;
+        final int leftX     = contentX + 8;
+        final int centerX   = contentX + (CONTENT_W - SLOT_SIZE) / 2;
+        final int rightX    = contentX + CONTENT_W - SLOT_SIZE - 8;
 
         // bodyTop = panelY + CONTENT_H - 34 - 8 (matches renderCharacterTab's bodyTop)
         int bt    = panelY + CONTENT_H - 42;
