@@ -1026,7 +1026,8 @@ public class GameScreen extends ApplicationAdapter {
         if (Gdx.input.isKeyJustPressed(Input.Keys.ENTER)) {
             // Logout modal has priority focus: Enter confirms Logout.
             if (sidePanel.isLogoutTabActive()) {
-                sidePanel.confirmLogout();
+                sidePanel.cancelLogout(); // dismiss the tab UI
+                requestLogout();          // trigger directly — no flag polling needed
                 return;
             }
             if (suppressInitialEnter) {
