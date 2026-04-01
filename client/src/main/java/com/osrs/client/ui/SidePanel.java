@@ -278,6 +278,9 @@ public class SidePanel {
     private static final Color COLOR_ICON_IDLE = new Color(0.50f, 0.48f, 0.38f, 1f);
     private static final Color COLOR_TOGGLE_ON = new Color(0.18f, 0.55f, 0.22f, 1f);
     private static final Color COLOR_BTN_DISABLED_BORDER = new Color(0.25f, 0.23f, 0.18f, 1f);
+    private static final Color COLOR_AR_ON_TEXT   = new Color(0.72f, 1.00f, 0.72f, 1f); // bright green-white
+    private static final Color COLOR_AR_OFF_TEXT  = new Color(0.65f, 0.25f, 0.25f, 1f); // muted red
+    private static final Color COLOR_AR_LABEL_OFF = new Color(0.65f, 0.62f, 0.58f, 1f); // dimmed label when off
     private CharacterPage characterPage = CharacterPage.SUMMARY;
     private final Map<Integer, QuestView> quests = new HashMap<>();
     private int selectedQuestId = -1;
@@ -715,48 +718,47 @@ public class SidePanel {
         font.setColor(Color.WHITE);
         batch.end();
 
-        // ── Auto Retaliate row ────────────────────────────────────────────
-        int toggleY  = gridTop - 2 * (btnH + pad) - 8;
-        int toggleSz = 14;
-        int toggleX  = contentX + pad;
+        // ── Category line (above Auto Retaliate button) ───────────────────
+        int arBtnH = 26;
+        int arBtnY = panelY + 6;
+        int arBtnX = contentX + pad;
+        int arBtnW = CONTENT_W - pad * 2;
+        int catLineY = arBtnY + arBtnH + 14;
+
+        batch.setProjectionMatrix(proj);
+        batch.begin();
+        font.getData().setScale(0.62f);
+        font.setColor(0.50f, 0.48f, 0.38f, 1f);
+        font.draw(batch, "Category: " + WEAPON_CATEGORY_NAMES[wepCat],
+                  contentX + pad, catLineY);
+        font.getData().setScale(1f);
+        font.setColor(Color.WHITE);
+        batch.end();
 
         sr.setProjectionMatrix(proj);
         sr.begin(ShapeRenderer.ShapeType.Filled);
+        sr.setColor(0.35f, 0.30f, 0.20f, 1f);
+        sr.rect(contentX + pad, catLineY - 4, CONTENT_W - pad * 2, 1);
+        sr.end();
+
+        // ── Auto Retaliate full-width toggle button (anchored at bottom) ──
+        sr.begin(ShapeRenderer.ShapeType.Filled);
         sr.setColor(autoRetaliate ? COLOR_TOGGLE_ON : COLOR_BTN_IDLE_BG);
-        sr.rect(toggleX, toggleY, toggleSz, toggleSz);
+        sr.rect(arBtnX, arBtnY, arBtnW, arBtnH);
         sr.end();
 
         sr.begin(ShapeRenderer.ShapeType.Line);
         sr.setColor(BORDER_COLOR);
-        sr.rect(toggleX, toggleY, toggleSz, toggleSz);
+        sr.rect(arBtnX, arBtnY, arBtnW, arBtnH);
         sr.end();
-
-        if (autoRetaliate) {
-            sr.begin(ShapeRenderer.ShapeType.Filled);
-            sr.setColor(Color.WHITE);
-            // Checkmark: short left stroke + tall right stroke
-            sr.rect(toggleX + 2, toggleY + 3, 3, 2);
-            sr.rect(toggleX + 4, toggleY + 2, 2, 6);
-            sr.end();
-        }
 
         batch.setProjectionMatrix(proj);
         batch.begin();
         font.getData().setScale(0.78f);
-        font.setColor(Color.WHITE);
-        String arText = "Auto Retaliate";
-        font.draw(batch, arText, toggleX + toggleSz + 6, toggleY + toggleSz - 1);
-        font.getData().setScale(0.68f);
-        font.setColor(autoRetaliate ? COLOR_TOGGLE_ON : new Color(0.65f, 0.25f, 0.25f, 1f));
-        font.draw(batch, autoRetaliate ? "(On)" : "(Off)",
-                  toggleX + toggleSz + 6, toggleY + 1);
-
-        // ── Category line ──────────────────────────────────────────────────
-        font.getData().setScale(0.65f);
-        font.setColor(0.50f, 0.48f, 0.38f, 1f);
-        font.draw(batch, "Category: " + WEAPON_CATEGORY_NAMES[wepCat],
-                  contentX + pad, toggleY - 6);
-
+        font.setColor(autoRetaliate ? Color.WHITE : COLOR_AR_LABEL_OFF);
+        font.draw(batch, "Auto Retaliate", arBtnX + 6, arBtnY + arBtnH - 7);
+        font.setColor(autoRetaliate ? COLOR_AR_ON_TEXT : COLOR_AR_OFF_TEXT);
+        font.draw(batch, autoRetaliate ? "(On)" : "(Off)", arBtnX + arBtnW - 38, arBtnY + arBtnH - 7);
         font.getData().setScale(1f);
         font.setColor(Color.WHITE);
         batch.end();
@@ -1964,11 +1966,13 @@ public class SidePanel {
                     }
                 }
 
-                int toggleY  = gridTop - 2 * (btnH + pad) - 8;
-                int toggleSz = 14;
-                int toggleX  = contentX + pad;
-                if (mx >= toggleX && mx <= contentX + CONTENT_W - pad
-                    && my >= toggleY && my <= toggleY + toggleSz + 4) {
+                // Auto Retaliate button — fixed at bottom of content area
+                int arBtnH = 26;
+                int arBtnY = panelY + 6;
+                int arBtnX = contentX + pad;
+                int arBtnW = CONTENT_W - pad * 2;
+                if (mx >= arBtnX && mx <= arBtnX + arBtnW
+                    && my >= arBtnY && my <= arBtnY + arBtnH) {
                     autoRetaliate = !autoRetaliate;
                     return -50;
                 }
