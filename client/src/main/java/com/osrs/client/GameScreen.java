@@ -321,6 +321,8 @@ public class GameScreen extends ApplicationAdapter {
                     chatBox.handleScroll(Math.round(amountY));
                 } else if (sidePanel.isOverPanel(mx, smy) && sidePanel.isFriendsTabActive()) {
                     sidePanel.scrollFriendsList(Math.round(amountY));
+                } else if (sidePanel.isOverPanel(mx, smy) && sidePanel.isQuestsTabActive()) {
+                    sidePanel.scrollQuestList(Math.round(amountY));
                 } else {
                     pendingScrollAmount += Math.round(amountY);
                 }

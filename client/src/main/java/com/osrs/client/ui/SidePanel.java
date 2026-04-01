@@ -282,9 +282,15 @@ public class SidePanel {
     private static final Color COLOR_AR_ON_TEXT   = new Color(0.72f, 1.00f, 0.72f, 1f); // bright green-white
     private static final Color COLOR_AR_OFF_TEXT  = new Color(0.65f, 0.25f, 0.25f, 1f); // muted red
     private static final Color COLOR_AR_LABEL_OFF  = new Color(0.65f, 0.62f, 0.58f, 1f); // dimmed label when off
-    private static final Color COLOR_LOGOUT_BTN_BG = new Color(0.35f, 0.10f, 0.08f, 1f); // dark red confirm bg
-    private static final Color COLOR_LOGOUT_BTN_BR = new Color(0.75f, 0.20f, 0.15f, 1f); // red confirm border
-    private static final Color COLOR_LOGOUT_CONFIRM= new Color(1.00f, 0.50f, 0.45f, 1f); // confirm label
+    private static final Color COLOR_LOGOUT_BTN_BG    = new Color(0.35f, 0.10f, 0.08f, 1f);
+    private static final Color COLOR_LOGOUT_BTN_BR    = new Color(0.75f, 0.20f, 0.15f, 1f);
+    private static final Color COLOR_LOGOUT_CONFIRM   = new Color(1.00f, 0.50f, 0.45f, 1f);
+    // Quest status colours (pre-allocated — never use new Color in colorForQuest)
+    private static final Color COLOR_QUEST_COMPLETE    = new Color(0.30f, 0.90f, 0.30f, 1f);
+    private static final Color COLOR_QUEST_IN_PROGRESS = new Color(0.95f, 0.85f, 0.20f, 1f);
+    private static final Color COLOR_QUEST_NOT_STARTED = new Color(0.92f, 0.33f, 0.33f, 1f);
+    private static final Color COLOR_QUEST_TASK_DONE   = new Color(0.30f, 0.90f, 0.30f, 1f);
+    private static final Color COLOR_QUEST_TASK_PEND   = new Color(0.80f, 0.80f, 0.78f, 1f);
     private CharacterPage characterPage = CharacterPage.SUMMARY;
     private final Map<Integer, QuestView> quests = new HashMap<>();
     private int selectedQuestId = -1;
@@ -293,6 +299,9 @@ public class SidePanel {
     private boolean logoutConfirmed  = false;
     private final List<FriendEntryView> friendEntries = new ArrayList<>();
     private long    removeFriendRequestedId = -1L;
+
+    // Quest tab state
+    private int     questScrollOffset    = 0;
 
     // Friends tab state
     private int     friendScrollOffset   = 0;
@@ -391,10 +400,7 @@ public class SidePanel {
         switch (activeTab) {
             case COMBAT    -> renderCombatTab(sr, batch, font, proj);
             case SKILLS    -> renderSkillsTab(sr, batch, font, proj, screenW, screenH, mouseX, mouseY);
-            case QUESTS    -> {
-                characterPage = CharacterPage.QUEST_LIST;
-                renderCharacterTab(sr, batch, font, proj);
-            }
+            case QUESTS    -> renderQuestTab(sr, batch, font, proj);
             case INVENTORY -> inventoryUI.render(sr, batch, font, panelX + CONTENT_INSET, cY, proj);
             case EQUIPMENT -> {
                 characterPage = CharacterPage.GEAR;
@@ -1724,6 +1730,153 @@ public class SidePanel {
     }
 
     // -----------------------------------------------------------------------
+    // Quest tab
+    // -----------------------------------------------------------------------
+
+    private void renderQuestTab(ShapeRenderer sr, SpriteBatch batch, BitmapFont font, Matrix4 proj) {
+        final int contentX = panelX + CONTENT_INSET;
+        final int pad      = 8;
+        final int ROW_H    = 15;
+
+        // Header: title + quest point count
+        batch.setProjectionMatrix(proj);
+        batch.begin();
+        font.getData().setScale(0.85f);
+        font.setColor(COLOR_TITLE_GOLD);
+        font.draw(batch, "Quest Journal", contentX + pad, cY + CONTENT_H - 8);
+        font.getData().setScale(0.78f);
+        font.setColor(COLOR_QUEST_COMPLETE);
+        font.draw(batch, "Quest Points: " + playerQuestPoints, contentX + pad, cY + CONTENT_H - 24);
+        font.getData().setScale(1f);
+        font.setColor(Color.WHITE);
+        batch.end();
+
+        // Header underline
+        sr.setProjectionMatrix(proj);
+        sr.begin(ShapeRenderer.ShapeType.Filled);
+        sr.setColor(0.45f, 0.38f, 0.22f, 1f);
+        sr.rect(contentX + pad, cY + CONTENT_H - 34, CONTENT_W - pad * 2, 1);
+        sr.end();
+
+        // List top sits just below the header
+        final int listTop = cY + CONTENT_H - 40;
+        // Legend row at bottom
+        final int legendY = cY + 4;
+
+        if (selectedQuestId != -1) {
+            // ── Quest detail view ──────────────────────────────────────────
+            QuestView sel = quests.get(selectedQuestId);
+            if (sel == null) {
+                selectedQuestId = -1;
+            } else {
+                int y = listTop;
+                batch.setProjectionMatrix(proj);
+                batch.begin();
+
+                // Back link
+                font.getData().setScale(0.75f);
+                font.setColor(0.85f, 0.75f, 0.40f, 1f);
+                font.draw(batch, "< Back", contentX + pad, y);
+                y -= 20;
+
+                // Quest name
+                font.getData().setScale(0.85f);
+                font.setColor(colorForQuest(sel.status));
+                font.draw(batch, sel.questName, contentX + pad, y);
+                y -= 18;
+
+                // Description — wrap at ~30 chars
+                font.getData().setScale(0.70f);
+                font.setColor(0.85f, 0.82f, 0.72f, 1f);
+                String desc = sel.description != null ? sel.description : "";
+                while (!desc.isEmpty() && y > legendY + ROW_H * 3) {
+                    int cut = desc.length() > 30 ? desc.lastIndexOf(' ', 30) : desc.length();
+                    if (cut < 1) cut = Math.min(30, desc.length());
+                    font.draw(batch, desc.substring(0, cut), contentX + pad, y);
+                    desc = desc.substring(cut).trim();
+                    y -= 13;
+                }
+                y -= 4;
+
+                // Tasks header
+                if (y > legendY + ROW_H) {
+                    font.getData().setScale(0.72f);
+                    font.setColor(0.90f, 0.85f, 0.55f, 1f);
+                    font.draw(batch, "Tasks:", contentX + pad, y);
+                    y -= ROW_H;
+                }
+
+                // Task rows
+                font.getData().setScale(0.70f);
+                for (QuestTaskView t : sel.tasks) {
+                    if (y <= legendY + ROW_H) break;
+                    String prefix = t.completed ? "[x] " : "[ ] ";
+                    String progress = t.requiredCount > 1
+                        ? " (" + t.currentCount + "/" + t.requiredCount + ")" : "";
+                    font.setColor(t.completed ? COLOR_QUEST_TASK_DONE : COLOR_QUEST_TASK_PEND);
+                    font.draw(batch, prefix + t.description + progress, contentX + pad, y);
+                    y -= ROW_H;
+                }
+
+                // Reward at bottom
+                font.getData().setScale(0.65f);
+                font.setColor(0.75f, 0.75f, 0.75f, 1f);
+                font.draw(batch, "Reward: " + sel.questPointsReward + " Quest Point(s)",
+                    contentX + pad, legendY + 2);
+
+                font.getData().setScale(1f);
+                font.setColor(Color.WHITE);
+                batch.end();
+            }
+        } else {
+            // ── Quest list view ────────────────────────────────────────────
+            List<QuestView> list = sortedQuests();
+            int totalRows  = list.size();
+            int visRows    = (listTop - legendY - ROW_H - 2) / ROW_H;
+            questScrollOffset = Math.max(0, Math.min(questScrollOffset, Math.max(0, totalRows - visRows)));
+
+            batch.setProjectionMatrix(proj);
+            batch.begin();
+            font.getData().setScale(0.78f);
+
+            int y = listTop;
+            for (int i = questScrollOffset; i < totalRows && y > legendY + ROW_H; i++) {
+                QuestView q = list.get(i);
+                font.setColor(colorForQuest(q.status));
+                font.draw(batch, q.questName, contentX + pad, y);
+                y -= ROW_H;
+            }
+
+            // Legend
+            font.getData().setScale(0.62f);
+            font.setColor(0.75f, 0.75f, 0.75f, 1f);
+            font.draw(batch, "Red=Not started  Yellow=In progress  Green=Complete",
+                contentX + pad, legendY + 2);
+
+            font.getData().setScale(1f);
+            font.setColor(Color.WHITE);
+            batch.end();
+
+            // Scrollbar (only if list doesn't fit)
+            if (totalRows > visRows) {
+                int sbX  = contentX + CONTENT_W - 6;
+                int sbH  = listTop - legendY - ROW_H - 2;
+                int sbY  = legendY + ROW_H + 2;
+                int thumbH = Math.max(14, sbH * visRows / totalRows);
+                int thumbY = sbY + (sbH - thumbH) * (totalRows - visRows - questScrollOffset)
+                    / Math.max(1, totalRows - visRows);
+                sr.setProjectionMatrix(proj);
+                sr.begin(ShapeRenderer.ShapeType.Filled);
+                sr.setColor(0.18f, 0.17f, 0.14f, 1f);
+                sr.rect(sbX, sbY, 4, sbH);
+                sr.setColor(0.55f, 0.50f, 0.38f, 1f);
+                sr.rect(sbX, thumbY, 4, thumbH);
+                sr.end();
+            }
+        }
+    }
+
+    // -----------------------------------------------------------------------
     // Friends tab (full OSRS-style implementation)
     // -----------------------------------------------------------------------
 
@@ -1995,9 +2148,9 @@ public class SidePanel {
 
     private Color colorForQuest(QuestStatus status) {
         return switch (status) {
-            case COMPLETED -> new Color(0.30f, 0.90f, 0.30f, 1f);
-            case IN_PROGRESS -> new Color(0.95f, 0.85f, 0.20f, 1f);
-            case NOT_STARTED -> new Color(0.92f, 0.33f, 0.33f, 1f);
+            case COMPLETED   -> COLOR_QUEST_COMPLETE;
+            case IN_PROGRESS -> COLOR_QUEST_IN_PROGRESS;
+            case NOT_STARTED -> COLOR_QUEST_NOT_STARTED;
         };
     }
 
@@ -2100,26 +2253,29 @@ public class SidePanel {
                 }
             }
             case QUESTS -> {
-                int pad = 8;
-                int subY = cY + CONTENT_H - 34;
-                int y = subY - 8;
-                int contentX = panelX + CONTENT_INSET;
+                final int pad      = 8;
+                final int ROW_H    = 15;
+                final int listTop  = cY + CONTENT_H - 40;
+                final int legendY  = cY + 4;
+                final int contentX = panelX + CONTENT_INSET;
                 if (selectedQuestId != -1) {
+                    // "< Back" hit area
                     if (mx >= contentX + pad && mx <= contentX + CONTENT_W - pad
-                        && my <= y && my >= y - 16) {
+                        && my <= listTop && my >= listTop - ROW_H) {
                         selectedQuestId = -1;
                         return -1;
                     }
                 } else {
                     List<QuestView> list = sortedQuests();
-                    for (QuestView q : list) {
+                    int visRows = (listTop - legendY - ROW_H - 2) / ROW_H;
+                    int y = listTop;
+                    for (int i = questScrollOffset; i < list.size() && y > legendY + ROW_H; i++) {
                         if (mx >= contentX + pad && mx <= contentX + CONTENT_W - pad
-                            && my <= y && my >= y - 16) {
-                            selectedQuestId = q.questId;
+                            && my <= y && my >= y - ROW_H) {
+                            selectedQuestId = list.get(i).questId;
                             return -1;
                         }
-                        y -= 16;
-                        if (y < cY + 18) break;
+                        y -= ROW_H;
                     }
                 }
             }
@@ -2264,9 +2420,14 @@ public class SidePanel {
     // Friends tab public API (called from GameScreen)
     public boolean isAddFriendOverlayActive() { return addFriendOverlay; }
     public boolean isFriendsTabActive()       { return activeTab == Tab.FRIENDS; }
+    public boolean isQuestsTabActive()        { return activeTab == Tab.QUESTS; }
 
     public void scrollFriendsList(int amount) {
         friendScrollOffset = Math.max(0, friendScrollOffset + amount);
+    }
+
+    public void scrollQuestList(int amount) {
+        questScrollOffset = Math.max(0, questScrollOffset + amount);
     }
 
     public void typeAddFriendChar(char c) {
