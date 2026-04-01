@@ -24,6 +24,7 @@ public final class TreeVariantRegistry {
 
     private static final Map<String, TreeVariant> BY_NAME = Map.of(
         normalize(OAK_TREE.name()),    OAK_TREE,
+        normalize("tree"),            OAK_TREE,
         normalize(WILLOW_TREE.name()), WILLOW_TREE,
         normalize(MAPLE_TREE.name()),  MAPLE_TREE,
         normalize(YEW_TREE.name()),    YEW_TREE,
