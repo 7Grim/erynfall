@@ -316,7 +316,14 @@ public class GameScreen extends ApplicationAdapter {
         Gdx.input.setInputProcessor(new InputAdapter() {
             @Override
             public boolean scrolled(float amountX, float amountY) {
-                pendingScrollAmount += Math.round(amountY);
+                int mx  = Gdx.input.getX();
+                int smy = Gdx.graphics.getHeight() - Gdx.input.getY(); // screen-space Y
+                if (smy < ChatBox.TOTAL_H && mx >= 0 && mx < ChatBox.BOX_W) {
+                    // Scroll over chat area: scroll chat history, not camera zoom
+                    chatBox.handleScroll(Math.round(amountY));
+                } else {
+                    pendingScrollAmount += Math.round(amountY);
+                }
                 return true;
             }
         });
