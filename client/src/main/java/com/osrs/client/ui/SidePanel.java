@@ -1773,7 +1773,7 @@ public class SidePanel {
         font.getData().setScale(0.65f);
         font.setColor(COLOR_WEIGHT_TEXT);
         String wText = String.format("Weight: %.1f kg", playerWeight);
-        font.draw(batch, wText, contentX, toggleY + toggleH + 5, CONTENT_W, Align.center, false);
+        font.draw(batch, wText, contentX, toggleY + toggleH + 17, CONTENT_W, Align.center, false);
         font.getData().setScale(1f);
         font.setColor(Color.WHITE);
         batch.end();
@@ -1928,7 +1928,7 @@ public class SidePanel {
             font.getData().setScale(0.65f);
             font.setColor(COLOR_WEIGHT_TEXT);
             font.draw(batch, String.format("Weight: %.1f kg", playerWeight),
-                contentX, toggleY + toggleH + 5, CONTENT_W, Align.center, false);
+                contentX, toggleY + toggleH + 17, CONTENT_W, Align.center, false);
             font.getData().setScale(1f);
             font.setColor(Color.WHITE);
             batch.end();
