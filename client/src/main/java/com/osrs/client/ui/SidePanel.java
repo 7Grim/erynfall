@@ -1734,11 +1734,19 @@ public class SidePanel {
     // -----------------------------------------------------------------------
 
     private void renderQuestTab(ShapeRenderer sr, SpriteBatch batch, BitmapFont font, Matrix4 proj) {
-        final int contentX = panelX + CONTENT_INSET;
-        final int pad      = 8;
-        final int ROW_H    = 15;
+        final int contentX  = panelX + CONTENT_INSET;
+        final int pad       = 8;
+        final int ROW_H     = 15;
+        // Bottom zone: 3 legend lines (14px each) + separator + margins = 46px reserved
+        final int LEGEND_H  = 46;
+        // sepY is the horizontal separator that divides the legend from the list
+        final int sepY      = cY + 4 + LEGEND_H;      // = cY + 50
+        // listFloor: list rows must have their TOP above this, ensuring their
+        // bottom (top - ~12px glyph height) stays clear of the separator
+        final int listFloor = sepY + 14;               // = cY + 64
+        final int listTop   = cY + CONTENT_H - 40;    // = cY + 272
 
-        // Header: title + quest point count
+        // ── Header ──────────────────────────────────────────────────────────
         batch.setProjectionMatrix(proj);
         batch.begin();
         font.getData().setScale(0.85f);
@@ -1751,20 +1759,36 @@ public class SidePanel {
         font.setColor(Color.WHITE);
         batch.end();
 
-        // Header underline
         sr.setProjectionMatrix(proj);
         sr.begin(ShapeRenderer.ShapeType.Filled);
+        // Header underline
         sr.setColor(0.45f, 0.38f, 0.22f, 1f);
         sr.rect(contentX + pad, cY + CONTENT_H - 34, CONTENT_W - pad * 2, 1);
+        // Legend separator (always visible)
+        sr.setColor(0.30f, 0.28f, 0.22f, 1f);
+        sr.rect(contentX + pad, sepY, CONTENT_W - pad * 2, 1);
         sr.end();
 
-        // List top sits just below the header
-        final int listTop = cY + CONTENT_H - 40;
-        // Legend row at bottom
-        final int legendY = cY + 4;
+        // ── Legend (always visible, pinned at bottom) ────────────────────
+        // Three stacked lines, each short enough to fit CONTENT_W comfortably
+        batch.setProjectionMatrix(proj);
+        batch.begin();
+        font.getData().setScale(0.72f);
+        int ly = sepY - 4;                         // first line just below separator
+        font.setColor(COLOR_QUEST_NOT_STARTED);
+        font.draw(batch, "Not started", contentX + pad, ly);
+        ly -= 14;
+        font.setColor(COLOR_QUEST_IN_PROGRESS);
+        font.draw(batch, "In progress", contentX + pad, ly);
+        ly -= 14;
+        font.setColor(COLOR_QUEST_COMPLETE);
+        font.draw(batch, "Complete", contentX + pad, ly);
+        font.getData().setScale(1f);
+        font.setColor(Color.WHITE);
+        batch.end();
 
+        // ── Content (list or detail) ─────────────────────────────────────
         if (selectedQuestId != -1) {
-            // ── Quest detail view ──────────────────────────────────────────
             QuestView sel = quests.get(selectedQuestId);
             if (sel == null) {
                 selectedQuestId = -1;
@@ -1785,13 +1809,13 @@ public class SidePanel {
                 font.draw(batch, sel.questName, contentX + pad, y);
                 y -= 18;
 
-                // Description — wrap at ~30 chars
+                // Description — wrap at ~28 chars to stay inside content width
                 font.getData().setScale(0.70f);
                 font.setColor(0.85f, 0.82f, 0.72f, 1f);
                 String desc = sel.description != null ? sel.description : "";
-                while (!desc.isEmpty() && y > legendY + ROW_H * 3) {
-                    int cut = desc.length() > 30 ? desc.lastIndexOf(' ', 30) : desc.length();
-                    if (cut < 1) cut = Math.min(30, desc.length());
+                while (!desc.isEmpty() && y > listFloor + ROW_H * 2) {
+                    int cut = desc.length() > 28 ? desc.lastIndexOf(' ', 28) : desc.length();
+                    if (cut < 1) cut = Math.min(28, desc.length());
                     font.draw(batch, desc.substring(0, cut), contentX + pad, y);
                     desc = desc.substring(cut).trim();
                     y -= 13;
@@ -1799,17 +1823,17 @@ public class SidePanel {
                 y -= 4;
 
                 // Tasks header
-                if (y > legendY + ROW_H) {
+                if (y > listFloor + ROW_H) {
                     font.getData().setScale(0.72f);
                     font.setColor(0.90f, 0.85f, 0.55f, 1f);
                     font.draw(batch, "Tasks:", contentX + pad, y);
                     y -= ROW_H;
                 }
 
-                // Task rows
+                // Task rows — stop before listFloor so text bottom clears the separator
                 font.getData().setScale(0.70f);
                 for (QuestTaskView t : sel.tasks) {
-                    if (y <= legendY + ROW_H) break;
+                    if (y <= listFloor) break;
                     String prefix = t.completed ? "[x] " : "[ ] ";
                     String progress = t.requiredCount > 1
                         ? " (" + t.currentCount + "/" + t.requiredCount + ")" : "";
@@ -1818,21 +1842,21 @@ public class SidePanel {
                     y -= ROW_H;
                 }
 
-                // Reward at bottom
-                font.getData().setScale(0.65f);
+                // Reward line — rendered into the legend zone (replaces legend in detail view)
+                font.getData().setScale(0.68f);
                 font.setColor(0.75f, 0.75f, 0.75f, 1f);
-                font.draw(batch, "Reward: " + sel.questPointsReward + " Quest Point(s)",
-                    contentX + pad, legendY + 2);
+                font.draw(batch, "Reward: " + sel.questPointsReward + " QP",
+                    contentX + pad, sepY - 4);
 
                 font.getData().setScale(1f);
                 font.setColor(Color.WHITE);
                 batch.end();
             }
         } else {
-            // ── Quest list view ────────────────────────────────────────────
+            // ── Quest list ───────────────────────────────────────────────
             List<QuestView> list = sortedQuests();
-            int totalRows  = list.size();
-            int visRows    = (listTop - legendY - ROW_H - 2) / ROW_H;
+            int totalRows = list.size();
+            int visRows   = (listTop - listFloor) / ROW_H;
             questScrollOffset = Math.max(0, Math.min(questScrollOffset, Math.max(0, totalRows - visRows)));
 
             batch.setProjectionMatrix(proj);
@@ -1840,28 +1864,22 @@ public class SidePanel {
             font.getData().setScale(0.78f);
 
             int y = listTop;
-            for (int i = questScrollOffset; i < totalRows && y > legendY + ROW_H; i++) {
+            for (int i = questScrollOffset; i < totalRows && y > listFloor; i++) {
                 QuestView q = list.get(i);
                 font.setColor(colorForQuest(q.status));
                 font.draw(batch, q.questName, contentX + pad, y);
                 y -= ROW_H;
             }
 
-            // Legend
-            font.getData().setScale(0.62f);
-            font.setColor(0.75f, 0.75f, 0.75f, 1f);
-            font.draw(batch, "Red=Not started  Yellow=In progress  Green=Complete",
-                contentX + pad, legendY + 2);
-
             font.getData().setScale(1f);
             font.setColor(Color.WHITE);
             batch.end();
 
-            // Scrollbar (only if list doesn't fit)
+            // Scrollbar (only when list overflows visible area)
             if (totalRows > visRows) {
-                int sbX  = contentX + CONTENT_W - 6;
-                int sbH  = listTop - legendY - ROW_H - 2;
-                int sbY  = legendY + ROW_H + 2;
+                int sbH    = listTop - listFloor;
+                int sbY    = listFloor;
+                int sbX    = contentX + CONTENT_W - 6;
                 int thumbH = Math.max(14, sbH * visRows / totalRows);
                 int thumbY = sbY + (sbH - thumbH) * (totalRows - visRows - questScrollOffset)
                     / Math.max(1, totalRows - visRows);
@@ -2253,13 +2271,15 @@ public class SidePanel {
                 }
             }
             case QUESTS -> {
-                final int pad      = 8;
-                final int ROW_H    = 15;
-                final int listTop  = cY + CONTENT_H - 40;
-                final int legendY  = cY + 4;
-                final int contentX = panelX + CONTENT_INSET;
+                final int pad       = 8;
+                final int ROW_H     = 15;
+                final int LEGEND_H  = 46;
+                final int sepY      = cY + 4 + LEGEND_H;   // = cY + 50
+                final int listFloor = sepY + 14;            // = cY + 64
+                final int listTop   = cY + CONTENT_H - 40;
+                final int contentX  = panelX + CONTENT_INSET;
                 if (selectedQuestId != -1) {
-                    // "< Back" hit area
+                    // "< Back" hit area (top row of content)
                     if (mx >= contentX + pad && mx <= contentX + CONTENT_W - pad
                         && my <= listTop && my >= listTop - ROW_H) {
                         selectedQuestId = -1;
@@ -2267,9 +2287,8 @@ public class SidePanel {
                     }
                 } else {
                     List<QuestView> list = sortedQuests();
-                    int visRows = (listTop - legendY - ROW_H - 2) / ROW_H;
                     int y = listTop;
-                    for (int i = questScrollOffset; i < list.size() && y > legendY + ROW_H; i++) {
+                    for (int i = questScrollOffset; i < list.size() && y > listFloor; i++) {
                         if (mx >= contentX + pad && mx <= contentX + CONTENT_W - pad
                             && my <= y && my >= y - ROW_H) {
                             selectedQuestId = list.get(i).questId;
