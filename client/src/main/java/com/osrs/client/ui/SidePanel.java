@@ -12,7 +12,6 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -50,7 +49,15 @@ public class SidePanel {
     public static final int MARGIN    = 8;
 
     private static final Color BORDER_COLOR = new Color(0.55f, 0.46f, 0.28f, 1f);  // Brown-gold
-    private static final int BORDER_THICKNESS = 2;  // OSRS uses 2px border
+    private static final int BORDER_THICKNESS = 2;
+    // Stat pillar bar colours (pre-allocated — never allocate Color in render)
+    private static final Color HP_BAR_BG = new Color(0.08f, 0.02f, 0.02f, 1f);
+    private static final Color HP_BAR_FILL = new Color(0.82f, 0.08f, 0.08f, 1f);
+    private static final Color HP_BAR_LOW = new Color(1.00f, 0.14f, 0.08f, 1f); // flashes brighter when <=25%
+    private static final Color HP_BAR_DARK = new Color(0.50f, 0.04f, 0.04f, 1f); // right-edge shadow strip
+    private static final Color PR_BAR_BG = new Color(0.02f, 0.02f, 0.10f, 1f);
+    private static final Color PR_BAR_FILL = new Color(0.15f, 0.45f, 0.90f, 1f); // OSRS prayer blue
+    private static final Color PR_BAR_DARK = new Color(0.08f, 0.24f, 0.58f, 1f); // right-edge shadow strip
     private static final Color BG_COLOR = new Color(0.10f, 0.09f, 0.08f, 1f);  // Fully opaque
     private static final int FRIEND_ROW_H = 14;
     private static final int FRIEND_REMOVE_W = 42;
@@ -220,16 +227,17 @@ public class SidePanel {
     private int combatStyle = 1;   // default: Aggressive
     private boolean autoRetaliate = true;
 
-    // Pre-allocated combat tab colors (avoid per-frame new Color() allocation)
-    private static final Color COLOR_GOLD = new Color(0.9f, 0.80f, 0.50f, 1f);
+    // Pre-allocated colors to avoid per-frame GC in renderCombatTab
     private static final Color COLOR_BTN_SEL_BG = new Color(0.35f, 0.27f, 0.04f, 1f);
-    private static final Color COLOR_BTN_IDLE_BG = new Color(0.14f, 0.12f, 0.10f, 1f);
+    private static final Color COLOR_BTN_IDLE_BG = new Color(0.17f, 0.15f, 0.13f, 1f);
     private static final Color COLOR_BTN_SEL_BORDER = new Color(1f, 0.85f, 0.10f, 1f);
-    private static final Color COLOR_BTN_IDLE_BORDER = new Color(0.38f, 0.34f, 0.22f, 1f);
+    private static final Color COLOR_BTN_IDLE_BORDER = new Color(0.40f, 0.36f, 0.26f, 1f);
     private static final Color COLOR_BTN_SEL_TEXT = new Color(1f, 0.90f, 0.10f, 1f);
+    private static final Color COLOR_TITLE_GOLD = new Color(0.9f, 0.80f, 0.50f, 1f);
     private static final Color COLOR_ICON_ACTIVE = new Color(1f, 0.85f, 0.15f, 1f);
-    private static final Color COLOR_ICON_IDLE = new Color(0.45f, 0.43f, 0.32f, 1f);
+    private static final Color COLOR_ICON_IDLE = new Color(0.50f, 0.48f, 0.38f, 1f);
     private static final Color COLOR_TOGGLE_ON = new Color(0.18f, 0.55f, 0.22f, 1f);
+    private static final Color COLOR_BTN_DISABLED_BORDER = new Color(0.25f, 0.23f, 0.18f, 1f);
     private CharacterPage characterPage = CharacterPage.SUMMARY;
     private final Map<Integer, QuestView> quests = new HashMap<>();
     private int selectedQuestId = -1;
@@ -249,10 +257,19 @@ public class SidePanel {
             this.online = online;
         }
     }
+    // HP state (synced from GameScreen each frame)
+    private int currentHp = 0;
+    private int maxHp = 0;
+
     // Prayer tab state (synced from GameScreen)
     private int currentPrayerPoints = 0;
     private int maxPrayerPoints     = 0;
     private final java.util.Set<Integer> activePrayerIds = new java.util.HashSet<>();
+    public void setHpState(int current, int max) {
+        this.currentHp = current;
+        this.maxHp = max;
+    }
+
     public void setPrayerState(int current, int max, java.util.Set<Integer> active) {
         this.currentPrayerPoints = current;
         this.maxPrayerPoints     = max;
@@ -314,6 +331,7 @@ public class SidePanel {
             }
             case INVENTORY -> {
                 int invX = panelX + (PANEL_W - inventoryUI.getPanelWidth()) / 2;
+                renderStatPillars(sr, proj, invX);
                 inventoryUI.render(sr, batch, font, invX, panelY, proj);
             }
             case EQUIPMENT -> {
@@ -494,36 +512,88 @@ public class SidePanel {
     // Combat tab
     // -----------------------------------------------------------------------
 
+    /**
+     * Draws vertical HP (left) and prayer (right) bars inside the two dark pillars
+     * that flank the inventory grid. Bars fill from the bottom; drain from the top.
+     */
+    private void renderStatPillars(ShapeRenderer sr, Matrix4 proj, int invX) {
+        int leftX = panelX + BORDER_THICKNESS;
+        int rightX = invX + inventoryUI.getPanelWidth();
+        int pillarW = invX - panelX - BORDER_THICKNESS; // 25px — same on both sides (centred)
+        int pillarH = CONTENT_H;
+
+        sr.setProjectionMatrix(proj);
+        sr.begin(ShapeRenderer.ShapeType.Filled);
+
+        // --- Left pillar: HP bar ---
+        sr.setColor(HP_BAR_BG);
+        sr.rect(leftX, panelY, pillarW, pillarH);
+
+        if (maxHp > 0 && currentHp > 0) {
+            float fraction = Math.min(1f, (float) currentHp / maxHp);
+            int fillH = Math.max(1, (int) (pillarH * fraction) - 1);
+            sr.setColor(fraction <= 0.25f ? HP_BAR_LOW : HP_BAR_FILL);
+            sr.rect(leftX + 2, panelY + 1, pillarW - 4, fillH);
+            // Right-edge shadow strip (gives a 3-D depth feel)
+            sr.setColor(HP_BAR_DARK);
+            sr.rect(leftX + pillarW - 4, panelY + 1, 2, fillH);
+        }
+
+        // --- Right pillar: Prayer bar ---
+        sr.setColor(PR_BAR_BG);
+        sr.rect(rightX, panelY, pillarW, pillarH);
+
+        if (maxPrayerPoints > 0 && currentPrayerPoints > 0) {
+            float fraction = Math.min(1f, (float) currentPrayerPoints / maxPrayerPoints);
+            int fillH = Math.max(1, (int) (pillarH * fraction) - 1);
+            sr.setColor(PR_BAR_FILL);
+            sr.rect(rightX + 2, panelY + 1, pillarW - 4, fillH);
+            // Right-edge shadow strip
+            sr.setColor(PR_BAR_DARK);
+            sr.rect(rightX + pillarW - 4, panelY + 1, 2, fillH);
+        }
+
+        sr.end();
+
+        // Thin gold border around each pillar
+        sr.begin(ShapeRenderer.ShapeType.Line);
+        sr.setColor(BORDER_COLOR);
+        sr.rect(leftX, panelY, pillarW, pillarH);
+        sr.rect(rightX, panelY, pillarW, pillarH);
+        sr.end();
+    }
+
     private void renderCombatTab(ShapeRenderer sr, SpriteBatch batch, BitmapFont font, Matrix4 proj) {
         int pad  = 10;
         int btnW = (PANEL_W - pad * 3) / 2;
-        int btnH = 70;
+        int btnH = 56;
 
         String[] names = styleNames();
+        String[] xpLabels = styleXp();
         String weaponName = (equippedNames[4] != null && !equippedNames[4].isEmpty())
             ? equippedNames[4] : "Unarmed";
 
-        // -- Header: title + equipped weapon name --
+        // Title + weapon label
         batch.setProjectionMatrix(proj);
         batch.begin();
         font.getData().setScale(0.85f);
-        font.setColor(COLOR_GOLD);
+        font.setColor(COLOR_TITLE_GOLD);
         font.draw(batch, "Combat Options", panelX + pad, panelY + CONTENT_H - 8);
-        font.getData().setScale(0.72f);
+        font.getData().setScale(0.75f);
         font.setColor(0.70f, 0.65f, 0.50f, 1f);
-        font.draw(batch, weaponName, panelX + pad, panelY + CONTENT_H - 22);
+        font.draw(batch, weaponName, panelX + pad, panelY + CONTENT_H - 24);
         font.getData().setScale(1f);
         font.setColor(Color.WHITE);
         batch.end();
 
-        // Header underline
+        // Title underline
         sr.begin(ShapeRenderer.ShapeType.Filled);
         sr.setColor(0.45f, 0.38f, 0.22f, 1f);
-        sr.rect(panelX + pad, panelY + CONTENT_H - 32, PANEL_W - pad * 2, 1);
+        sr.rect(panelX + pad, panelY + CONTENT_H - 34, PANEL_W - pad * 2, 1);
         sr.end();
 
         // 2x2 button grid
-        int gridTop = panelY + CONTENT_H - 38;
+        int gridTop = panelY + CONTENT_H - 40;
         for (int i = 0; i < 4; i++) {
             int col = i % 2;
             int row = i / 2;
@@ -531,7 +601,7 @@ public class SidePanel {
             int by  = gridTop - (row + 1) * (btnH + pad);
 
             boolean disabled = names[i] == null;
-            boolean sel = !disabled && styleIndexForPosition(i) == combatStyle;
+            boolean sel = !disabled && i == combatStyle;
 
             sr.begin(ShapeRenderer.ShapeType.Filled);
             sr.setColor(sel ? COLOR_BTN_SEL_BG : COLOR_BTN_IDLE_BG);
@@ -539,13 +609,13 @@ public class SidePanel {
             sr.end();
 
             sr.begin(ShapeRenderer.ShapeType.Line);
-            if (disabled) sr.setColor(0.22f, 0.20f, 0.15f, 1f);
+            if (disabled) sr.setColor(COLOR_BTN_DISABLED_BORDER);
             else sr.setColor(sel ? COLOR_BTN_SEL_BORDER : COLOR_BTN_IDLE_BORDER);
             sr.rect(bx, by, btnW, btnH);
             sr.end();
 
             if (!disabled) {
-                drawCombatStyleIcon(sr, i, bx + btnW / 2, by + btnH - 22, sel);
+                drawCombatStyleIcon(sr, i, bx + btnW / 2, by + btnH - 20, sel);
             }
         }
 
@@ -558,7 +628,7 @@ public class SidePanel {
             int row = i / 2;
             int bx  = panelX + pad + col * (btnW + pad);
             int by  = gridTop - (row + 1) * (btnH + pad);
-            boolean sel = styleIndexForPosition(i) == combatStyle;
+            boolean sel = i == combatStyle;
 
             font.getData().setScale(0.85f);
             font.setColor(sel ? COLOR_BTN_SEL_TEXT : Color.WHITE);
@@ -566,7 +636,7 @@ public class SidePanel {
 
             font.getData().setScale(0.70f);
             font.setColor(0.60f, 0.60f, 0.60f, 1f);
-            font.draw(batch, xpLabelForPosition(i), bx + 6, by + 14);
+            font.draw(batch, xpLabels[i], bx + 6, by + 14);
         }
         font.getData().setScale(1f);
         font.setColor(Color.WHITE);
@@ -610,34 +680,33 @@ public class SidePanel {
      * style = visual grid position (0=TL, 1=TR, 2=BL, 3=BR).
      */
     private void drawCombatStyleIcon(ShapeRenderer sr, int style, int cx, int cy, boolean active) {
+        Color c = active ? COLOR_ICON_ACTIVE : COLOR_ICON_IDLE;
         sr.begin(ShapeRenderer.ShapeType.Filled);
-        sr.setColor(active ? COLOR_ICON_ACTIVE : COLOR_ICON_IDLE);
+        sr.setColor(c);
         switch (style) {
             case 0 -> {
-                sr.rect(cx - 8, cy - 1, 4, 3);
-                sr.rect(cx + 4, cy - 1, 4, 3);
-                sr.rect(cx - 1, cy + 4, 3, 4);
-                sr.rect(cx - 1, cy - 7, 3, 4);
-                sr.rect(cx - 2, cy - 2, 5, 5);
+                sr.rect(cx - 1, cy + 4, 3, 3);
+                sr.rect(cx + 3, cy, 3, 3);
+                sr.rect(cx - 1, cy - 4, 3, 3);
+                sr.rect(cx - 5, cy, 3, 3);
+                sr.rect(cx - 1, cy, 3, 3);
             }
             case 1 -> {
-                sr.rect(cx - 1, cy + 6, 3, 4);
-                sr.rect(cx - 2, cy + 1, 5, 6);
-                sr.rect(cx - 6, cy - 2, 13, 4);
-                sr.rect(cx - 1, cy - 7, 3, 6);
+                sr.rect(cx - 5, cy - 4, 11, 5);
+                sr.rect(cx - 2, cy + 1, 5, 5);
+                sr.rect(cx - 4, cy + 3, 9, 2);
             }
             case 2 -> {
-                sr.rect(cx - 8, cy + 2, 17, 3);
-                sr.rect(cx - 1, cy + 5, 3, 3);
-                sr.rect(cx - 8, cy - 5, 5, 8);
-                sr.rect(cx + 3, cy - 5, 5, 8);
+                sr.rect(cx - 7, cy + 1, 15, 2);
+                sr.rect(cx - 6, cy - 4, 4, 6);
+                sr.rect(cx + 2, cy - 4, 4, 6);
+                sr.rect(cx - 1, cy + 3, 3, 2);
             }
             case 3 -> {
-                sr.rect(cx - 6, cy + 4, 13, 6);
-                sr.rect(cx - 5, cy, 11, 5);
-                sr.rect(cx - 4, cy - 4, 9, 5);
-                sr.rect(cx - 2, cy - 7, 5, 4);
-                sr.rect(cx - 1, cy - 9, 3, 3);
+                sr.rect(cx - 5, cy + 1, 11, 5);
+                sr.rect(cx - 4, cy - 2, 9, 4);
+                sr.rect(cx - 3, cy - 5, 7, 4);
+                sr.rect(cx - 1, cy - 7, 3, 3);
             }
         }
         sr.end();
@@ -645,57 +714,19 @@ public class SidePanel {
 
     /** Returns style names in visual grid order [TL, TR, BL, BR]. */
     private String[] styleNames() {
-        String w = equippedNames[4];
-        if (w == null || w.isEmpty()) {
+        String weapon = equippedNames[4];
+        if (weapon == null || weapon.isEmpty()) {
             return new String[]{"Punch", "Kick", "Block", null};
         }
-        String wl = w.toLowerCase(Locale.ROOT);
-        if (wl.contains("whip")) {
-            return new String[]{"Flick", "Lash", "Deflect", null};
-        }
-        if (wl.contains("axe") || wl.contains("hatchet")) {
-            return new String[]{"Chop", "Hack", "Smash", "Block"};
-        }
-        if (wl.contains("dagger") || wl.contains("knife")) {
-            return new String[]{"Stab", "Lunge", "Slash", "Block"};
-        }
-        if (wl.contains("mace") || wl.contains("hammer") || wl.contains("maul") || wl.contains("club")) {
-            return new String[]{"Pound", "Pummel", "Spike", "Block"};
-        }
-        if (wl.contains("spear") || wl.contains("halberd") || wl.contains("hasta")) {
-            return new String[]{"Lunge", "Swipe", "Pound", "Block"};
-        }
-        return new String[]{"Chop", "Slash", "Lunge", "Block"};
+        return new String[]{"Accurate", "Aggressive", "Controlled", "Defensive"};
     }
 
-    /** Maps visual position (0..3) to server CombatStyle index. Returns -1 for disabled slots. */
-    private int styleIndexForPosition(int pos) {
-        String w = equippedNames[4];
-        if (w == null || w.isEmpty()) {
-            int[] map = {0, 1, 2, -1};
-            return map[pos];
+    private String[] styleXp() {
+        String weapon = equippedNames[4];
+        if (weapon == null || weapon.isEmpty()) {
+            return new String[]{"Attack XP", "Strength XP", "Defence XP", null};
         }
-        String wl = w.toLowerCase(Locale.ROOT);
-        if (wl.contains("whip")) {
-            int[] map = {0, 3, 2, -1};
-            return map[pos];
-        }
-        if (wl.contains("spear") || wl.contains("halberd") || wl.contains("hasta")) {
-            int[] map = {3, 3, 3, 2};
-            return map[pos];
-        }
-        int[] map = {0, 1, 3, 2};
-        return map[pos];
-    }
-
-    private String xpLabelForPosition(int pos) {
-        return switch (styleIndexForPosition(pos)) {
-            case 0 -> "Attack XP";
-            case 1 -> "Strength XP";
-            case 2 -> "Defence XP";
-            case 3 -> "Shared XP";
-            default -> "";
-        };
+        return new String[]{"Attack XP", "Strength XP", "Shared XP", "Defence XP"};
     }
 
     public boolean isAutoRetaliate() { return autoRetaliate; }
@@ -1587,9 +1618,8 @@ public class SidePanel {
                     int by  = gridTop - (row + 1) * (btnH + pad);
 
                     if (mx >= bx && mx <= bx + btnW && my >= by && my <= by + btnH) {
-                        int styleIdx = styleIndexForPosition(i);
-                        combatStyle = styleIdx;
-                        return styleIdx;
+                        combatStyle = i;
+                        return i;
                     }
                 }
 

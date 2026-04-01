@@ -31,6 +31,11 @@ public class InventoryUI {
     private static final int PANEL_W = COLS * SLOT_SIZE + (COLS + 1) * SLOT_GAP + PANEL_PAD * 2;
     private static final int PANEL_H = ROWS * SLOT_SIZE + (ROWS + 1) * SLOT_GAP + PANEL_PAD * 2;
 
+    // Stack quantity colour thresholds (OSRS)
+    private static final Color QTY_YELLOW = new Color(1f, 1f, 0f, 1f);   // < 100k
+    private static final Color QTY_GREEN = new Color(0f, 0.80f, 0f, 1f); // 100k - 9.99M
+    private static final Color QTY_CYAN = new Color(0f, 1f, 1f, 1f);     // >= 10M
+
     // OSRS material tier colors
     private static final Color BRONZE_COLOR = new Color(0.55f, 0.46f, 0.28f, 1f);
     private static final Color IRON_COLOR = new Color(0.30f, 0.30f, 0.30f, 1f);
@@ -60,6 +65,7 @@ public class InventoryUI {
     private int hoveredSlot = -1;
     private float hoverTimer = 0f;
     private final GlyphLayout tooltipLayout = new GlyphLayout();
+    private final GlyphLayout qtyLayout = new GlyphLayout();
 
     // -----------------------------------------------------------------------
     // Data mutators (called from GameScreen after syncing handler data)
@@ -211,20 +217,23 @@ public class InventoryUI {
             font.setColor(Color.WHITE);
         }
 
-        // ----- Stack counts & names (batch text) -----
+        // ----- Stack counts (top-left, OSRS colours: yellow/green/cyan) -----
         batch.setProjectionMatrix(proj);
         batch.begin();
-        GlyphLayout layout = new GlyphLayout();
-        font.getData().setScale(0.8f);
+        font.getData().setScale(0.75f);
         for (int slot = 0; slot < SLOTS; slot++) {
             if (slot == dragSlot) continue;
             if (itemIds[slot] == 0) continue;
             float[] pos = slotPos(slot);
             if (quantities[slot] > 1) {
-                font.setColor(0.35f, 0.35f, 0.35f, 1f);
                 String qty = formatStackCount(quantities[slot]);
-                layout.setText(font, qty);
-                font.draw(batch, qty, pos[0] + SLOT_SIZE - 3 - layout.width, pos[1] + 10);
+                qtyLayout.setText(font, qty);
+                // 1px black drop-shadow
+                font.setColor(0f, 0f, 0f, 1f);
+                font.draw(batch, qty, pos[0] + 3, pos[1] + SLOT_SIZE - 2);
+                // Colour-coded text
+                font.setColor(qtyColor(quantities[slot]));
+                font.draw(batch, qty, pos[0] + 2, pos[1] + SLOT_SIZE - 1);
             }
         }
 
@@ -233,9 +242,10 @@ public class InventoryUI {
                 float fx = dragMouseX - SLOT_SIZE / 2f;
                 float fy = dragMouseY - SLOT_SIZE / 2f + 6f;
                 String qty = formatStackCount(quantities[dragSlot]);
-                layout.setText(font, qty);
-                font.setColor(0.35f, 0.35f, 0.35f, 1f);
-                font.draw(batch, qty, fx + SLOT_SIZE - 3 - layout.width, fy + 10);
+                font.setColor(0f, 0f, 0f, 1f);
+                font.draw(batch, qty, fx + 3, fy + SLOT_SIZE - 2);
+                font.setColor(qtyColor(quantities[dragSlot]));
+                font.draw(batch, qty, fx + 2, fy + SLOT_SIZE - 1);
             }
         }
         font.getData().setScale(1f);
@@ -273,14 +283,10 @@ public class InventoryUI {
      */
     private void drawItemIcon(ShapeRenderer sr, float slotLeft, float slotBottom,
                                int itemId) {
-        float iconX = slotLeft   + 8;
-        float iconY = slotBottom + 8;
-        float iconW = 24f;
-        float iconH = 24f;
-
-        // Base tile for all icons
-        sr.setColor(0.10f, 0.10f, 0.10f, 0.55f);
-        sr.rect(iconX, iconY, iconW, iconH);
+        float iconX = slotLeft + 4;
+        float iconY = slotBottom + 4;
+        float iconW = 32f;
+        float iconH = 32f;
 
         switch (itemId) {
             case 1511 -> drawLogsIcon(sr, iconX, iconY);
@@ -295,16 +301,21 @@ public class InventoryUI {
             case 315 -> drawCookedShrimpsIcon(sr, iconX, iconY);
             case 7954 -> drawBurntShrimpsIcon(sr, iconX, iconY);
             case 526 -> drawBonesIcon(sr, iconX, iconY);
+            case 995 -> drawCoinsIcon(sr, iconX, iconY);
+            case 1000 -> drawCoinsIcon(sr, iconX, iconY);
             default -> drawGenericIcon(sr, iconX, iconY, getItemIconColor(itemId));
         }
     }
 
     private void drawGenericIcon(ShapeRenderer sr, float x, float y, Color c) {
         sr.setColor(c);
-        sr.rect(x + 3, y + 3, 18, 18);
-        sr.setColor(c.r * 1.2f, c.g * 1.2f, c.b * 1.2f, 1f);
-        sr.rect(x + 3, y + 17, 18, 4);
-        sr.rect(x + 3, y + 3, 4, 18);
+        sr.rect(x + 3, y + 3, 26, 26);
+        float hi = Math.min(c.r * 1.3f, 1f);
+        float hig = Math.min(c.g * 1.3f, 1f);
+        float hib = Math.min(c.b * 1.3f, 1f);
+        sr.setColor(hi, hig, hib, 1f);
+        sr.rect(x + 3, y + 23, 26, 6);
+        sr.rect(x + 3, y + 3, 6, 26);
     }
 
     private void drawLogsIcon(ShapeRenderer sr, float x, float y) {
@@ -431,6 +442,18 @@ public class InventoryUI {
         sr.rect(x + 15, y + 13, 3, 3);
     }
 
+    private void drawCoinsIcon(ShapeRenderer sr, float x, float y) {
+        // Shadow coin (dark gold, offset down-right)
+        sr.setColor(0.72f, 0.52f, 0.02f, 1f);
+        sr.circle(x + 18, y + 14, 9f, 14);
+        // Main gold disc
+        sr.setColor(1f, 0.85f, 0.05f, 1f);
+        sr.circle(x + 16, y + 16, 9f, 14);
+        // Bright highlight (top-left)
+        sr.setColor(1f, 0.97f, 0.60f, 1f);
+        sr.circle(x + 13, y + 19, 3.5f, 10);
+    }
+
     private Color getItemIconColor(int itemId) {
         return switch (itemId) {
             // Bronze tier
@@ -473,6 +496,12 @@ public class InventoryUI {
             return (qty / 1_000) + "k";
         }
         return String.valueOf(qty);
+    }
+
+    private Color qtyColor(int qty) {
+        if (qty >= 10_000_000) return QTY_CYAN;
+        if (qty >= 100_000) return QTY_GREEN;
+        return QTY_YELLOW;
     }
 
     // -----------------------------------------------------------------------

@@ -579,7 +579,6 @@ public class GameScreen extends ApplicationAdapter {
         int orbCx = miniLeftX - 8 - 22;
         if (Math.hypot(mouseX - orbCx, mouseY - (h - 44)) <= 22) return true;
         if (Math.hypot(mouseX - orbCx, mouseY - (h - 92)) <= 22) return true;
-        if (Math.hypot(mouseX - orbCx, mouseY - (h - 140)) <= 22) return true;
         return false;
     }
 
@@ -804,6 +803,7 @@ public class GameScreen extends ApplicationAdapter {
         }
         // Keep SidePanel prayer tab in sync with latest values
         sidePanel.setPrayerState(playerPrayer, playerMaxPrayer, localActivePrayers);
+        sidePanel.setHpState(playerHealth, playerMaxHealth);
         for (ClientPacketHandler.XpDropEvent xp : h.drainXpDrops()) {
             if (xp.skillIndex >= 0 && xp.skillIndex < skillNames.length) {
                 xpDropOverlay.addDrop(xp.skillIndex, xp.xpGained);
@@ -2772,15 +2772,11 @@ public class GameScreen extends ApplicationAdapter {
         int miniLeftX = MiniMap.getLeftX(w);
         // Orb center: minimap left edge - 8px gap - orb radius
         final int ORB_CX = miniLeftX - 8 - ORB_R;
-        // 4 orbs stacked vertically; HP at top, Spec at bottom
-        final int HP_CY  = h - 44;
-        final int PR_CY  = h - 92;
-        final int RN_CY  = h - 140;
-        final int SP_CY  = h - 188;
+        // Run energy and special attack orbs (HP and prayer moved to inventory pillars)
+        final int RN_CY  = h - 44;
+        final int SP_CY  = h - 92;
 
         // Ratios clamped [0,1]
-        float hpRatio = playerMaxHealth > 0 ? Math.min(1f, (float) playerHealth / playerMaxHealth) : 0f;
-        float prRatio = playerMaxPrayer > 0 ? Math.min(1f, (float) playerPrayer / playerMaxPrayer) : 0f;
         float rnRatio = Math.min(1f, playerRunEnergy / 100f);
         float spRatio = Math.min(1f, playerSpecialAttack / 100f);
 
@@ -2788,10 +2784,6 @@ public class GameScreen extends ApplicationAdapter {
 
         // -- Pass 1: dark background circles --
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
-        shapeRenderer.setColor(0.10f, 0.06f, 0.06f, 0.92f);
-        shapeRenderer.circle(ORB_CX, HP_CY, ORB_R);
-        shapeRenderer.setColor(0.06f, 0.06f, 0.14f, 0.92f);
-        shapeRenderer.circle(ORB_CX, PR_CY, ORB_R);
         shapeRenderer.setColor(0.07f, 0.10f, 0.04f, 0.92f);
         shapeRenderer.circle(ORB_CX, RN_CY, ORB_R);
         shapeRenderer.setColor(0.12f, 0.10f, 0.04f, 0.92f);
@@ -2804,16 +2796,6 @@ public class GameScreen extends ApplicationAdapter {
         //            sweeps clockwise from the top as the ratio grows)
         // sweepDeg = ratio * 360     (counter-clockwise, positive)
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
-        if (hpRatio > 0.01f) {
-            shapeRenderer.setColor(0.75f, 0.10f, 0.10f, 1f);
-            shapeRenderer.arc(ORB_CX, HP_CY, ORB_R - 3,
-                90f - hpRatio * 360f, hpRatio * 360f, 32);
-        }
-        if (prRatio > 0.01f) {
-            shapeRenderer.setColor(0.18f, 0.42f, 0.90f, 1f);
-            shapeRenderer.arc(ORB_CX, PR_CY, ORB_R - 3,
-                90f - prRatio * 360f, prRatio * 360f, 32);
-        }
         if (rnRatio > 0.01f) {
             // Bright yellow when run is active (OSRS run orb lights up yellow)
             if (isRunning) {
@@ -2833,10 +2815,6 @@ public class GameScreen extends ApplicationAdapter {
 
         // -- Pass 3: bright outline rings --
         shapeRenderer.begin(ShapeRenderer.ShapeType.Line);
-        shapeRenderer.setColor(0.90f, 0.38f, 0.38f, 1f);
-        shapeRenderer.circle(ORB_CX, HP_CY, ORB_R);
-        shapeRenderer.setColor(0.42f, 0.62f, 1.00f, 1f);
-        shapeRenderer.circle(ORB_CX, PR_CY, ORB_R);
         if (isRunning) {
             // Outer gold glow ring + bright yellow inner ring when run is active
             shapeRenderer.setColor(1.00f, 0.70f, 0.00f, 1f);
@@ -2857,20 +2835,8 @@ public class GameScreen extends ApplicationAdapter {
             shapeRenderer.end();
         }
 
-        // -- Pass 4: inner icons (semi-transparent decorative symbols inside each orb) --
+        // -- Pass 4: inner icons --
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
-        // HP: red heart (two overlapping circles + downward triangle)
-        shapeRenderer.setColor(0.90f, 0.18f, 0.18f, 0.45f);
-        shapeRenderer.circle(ORB_CX - 4, HP_CY + 4, 4.5f, 10);
-        shapeRenderer.circle(ORB_CX + 4, HP_CY + 4, 4.5f, 10);
-        shapeRenderer.triangle(ORB_CX - 8, HP_CY + 4, ORB_CX + 8, HP_CY + 4, ORB_CX, HP_CY - 5);
-        // Prayer: blue bone (bar + four end circles)
-        shapeRenderer.setColor(0.42f, 0.62f, 1.00f, 0.42f);
-        shapeRenderer.rect(ORB_CX - 7, PR_CY - 1, 14, 3);
-        shapeRenderer.circle(ORB_CX - 7, PR_CY + 3, 3.5f, 8);
-        shapeRenderer.circle(ORB_CX - 7, PR_CY - 4, 3.5f, 8);
-        shapeRenderer.circle(ORB_CX + 7, PR_CY + 3, 3.5f, 8);
-        shapeRenderer.circle(ORB_CX + 7, PR_CY - 4, 3.5f, 8);
         // Run: green lightning bolt (two triangles)
         shapeRenderer.setColor(0.28f, 0.82f, 0.14f, 0.42f);
         shapeRenderer.triangle(ORB_CX + 4, RN_CY + 9, ORB_CX - 2, RN_CY + 1, ORB_CX + 3, RN_CY + 1);
@@ -2886,16 +2852,6 @@ public class GameScreen extends ApplicationAdapter {
         screenBatch.begin();
 
         font.getData().setScale(FontManager.getScale(FontManager.FontContext.SKILL));
-
-        // HP value
-        gl.setText(font, String.valueOf(playerHealth));
-        font.setColor(1.00f, 0.82f, 0.82f, 1f);
-        font.draw(screenBatch, gl, ORB_CX - gl.width / 2f, HP_CY + gl.height / 2f);
-
-        // Prayer value
-        gl.setText(font, String.valueOf(playerPrayer));
-        font.setColor(0.72f, 0.85f, 1.00f, 1f);
-        font.draw(screenBatch, gl, ORB_CX - gl.width / 2f, PR_CY + gl.height / 2f);
 
         // Run energy value
         gl.setText(font, String.valueOf(playerRunEnergy));
