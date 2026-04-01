@@ -44,14 +44,14 @@ public class SidePanel {
     public static final int TAB_H     = 36;
     /** Height of the content area (sized to fit 7-row inventory). */
     public static final int CONTENT_H = 312;
-    /** Total panel height including the tab bar. */
-    public static final int TOTAL_H   = TAB_H + CONTENT_H;
+    /** Total panel height: content + two tab rows (top + bottom). */
+    public static final int TOTAL_H   = TAB_H * 2 + CONTENT_H;
     /** Gap between panel edge and screen edge. */
     public static final int MARGIN    = 8;
 
     private static final Color BORDER_COLOR = new Color(0.55f, 0.46f, 0.28f, 1f);  // Brown-gold
     private static final int BORDER_THICKNESS = 2;  // OSRS uses 2px border
-    private static final Color BG_COLOR = new Color(0.10f, 0.09f, 0.08f, 0.75f);  // Semi-transparent (75% opacity)
+    private static final Color BG_COLOR = new Color(0.10f, 0.09f, 0.08f, 1f);  // Fully opaque
     private static final int FRIEND_ROW_H = 14;
     private static final int FRIEND_REMOVE_W = 42;
 
@@ -84,18 +84,33 @@ public class SidePanel {
     // -----------------------------------------------------------------------
 
     public enum Tab {
-        COMBAT    (0, "Combat"),
-        SKILLS    (1, "Skills"),
-        PRAYER    (2, "Prayer"),
-        CHARACTER (3, "Summary"),
-        INVENTORY (4, "Inventory");
+        // Top row — F1–F7 (OSRS order)
+        COMBAT    (0,  "Combat"),
+        SKILLS    (1,  "Skills"),
+        QUESTS    (2,  "Quests"),
+        INVENTORY (3,  "Inventory"),
+        EQUIPMENT (4,  "Equipment"),
+        PRAYER    (5,  "Prayer"),
+        MAGIC     (6,  "Magic"),
+        // Bottom row — F8–F13
+        FRIENDS   (7,  "Friends"),
+        IGNORE    (8,  "Ignore"),
+        CLAN      (9,  "Clan"),
+        SETTINGS  (10, "Settings"),
+        EMOTES    (11, "Emotes"),
+        MUSIC     (12, "Music");
 
         public final int    index;
         public final String label;
         Tab(int i, String l) { this.index = i; this.label = l; }
     }
 
-    private static final Tab[] TABS = Tab.values();
+    private static final Tab[] TOP_TABS = {
+        Tab.COMBAT, Tab.SKILLS, Tab.QUESTS, Tab.INVENTORY, Tab.EQUIPMENT, Tab.PRAYER, Tab.MAGIC
+    };
+    private static final Tab[] BOTTOM_TABS = {
+        Tab.FRIENDS, Tab.IGNORE, Tab.CLAN, Tab.SETTINGS, Tab.EMOTES, Tab.MUSIC
+    };
 
     private Tab activeTab = Tab.INVENTORY;   // default open tab (OSRS default)
 
@@ -279,25 +294,42 @@ public class SidePanel {
         sr.rect(panelX + PANEL_W - BORDER_THICKNESS, panelY, BORDER_THICKNESS, TOTAL_H); // right
         sr.end();
 
-        // --- Tab bar ---
+        // --- Tab bars (two rows) ---
         renderTabBar(sr, batch, font, proj, mouseX, mouseY);
 
-        // --- Divider line between tab bar and content ---
+        // --- Dividers: content ↔ bottom row, and between the two rows ---
         sr.begin(ShapeRenderer.ShapeType.Filled);
         sr.setColor(BORDER_COLOR);
         sr.rect(panelX, panelY + CONTENT_H, PANEL_W, BORDER_THICKNESS);
+        sr.rect(panelX, panelY + CONTENT_H + TAB_H, PANEL_W, BORDER_THICKNESS);
         sr.end();
 
         // --- Active tab content ---
         switch (activeTab) {
             case COMBAT    -> renderCombatTab(sr, batch, font, proj);
             case SKILLS    -> renderSkillsTab(sr, batch, font, proj, screenW, screenH, mouseX, mouseY);
-            case PRAYER    -> renderPrayerTab(sr, batch, font, proj, mouseX, mouseY);
-            case CHARACTER -> renderCharacterTab(sr, batch, font, proj);
+            case QUESTS    -> {
+                characterPage = CharacterPage.QUEST_LIST;
+                renderCharacterTab(sr, batch, font, proj);
+            }
             case INVENTORY -> {
                 int invX = panelX + (PANEL_W - inventoryUI.getPanelWidth()) / 2;
                 inventoryUI.render(sr, batch, font, invX, panelY, proj);
             }
+            case EQUIPMENT -> {
+                characterPage = CharacterPage.GEAR;
+                renderCharacterTab(sr, batch, font, proj);
+            }
+            case PRAYER    -> renderPrayerTab(sr, batch, font, proj, mouseX, mouseY);
+            case FRIENDS   -> {
+                characterPage = CharacterPage.FRIENDS_LIST;
+                renderCharacterTab(sr, batch, font, proj);
+            }
+            case SETTINGS  -> {
+                characterPage = CharacterPage.SUMMARY;
+                renderCharacterTab(sr, batch, font, proj);
+            }
+            default        -> renderStubTab(sr, batch, font, proj, activeTab.label);
         }
     }
 
@@ -307,111 +339,155 @@ public class SidePanel {
 
     private void renderTabBar(ShapeRenderer sr, SpriteBatch batch, BitmapFont font, Matrix4 proj,
                               int mouseX, int mouseY) {
-        int tabBarY = panelY + CONTENT_H;
-        int tabW    = PANEL_W / TABS.length;
-        int lastW   = PANEL_W - tabW * (TABS.length - 1);
-
-        // Background strip behind all tab buttons.
         sr.setProjectionMatrix(proj);
+        // Bottom row rendered first (lower Y), then top row above it
+        renderTabRow(sr, mouseX, mouseY, BOTTOM_TABS, panelY + CONTENT_H);
+        renderTabRow(sr, mouseX, mouseY, TOP_TABS, panelY + CONTENT_H + TAB_H);
+    }
+
+    private void renderTabRow(ShapeRenderer sr, int mouseX, int mouseY,
+                              Tab[] rowTabs, int rowY) {
+        int tabW = PANEL_W / rowTabs.length;
+        int lastW = PANEL_W - tabW * (rowTabs.length - 1);
+
+        // Strip background
         sr.begin(ShapeRenderer.ShapeType.Filled);
-        sr.setColor(0.11f, 0.09f, 0.08f, 0.90f);
-        sr.rect(panelX + 1, tabBarY + 1, PANEL_W - 2, TAB_H - 2);
-        sr.end();
+        sr.setColor(0.09f, 0.08f, 0.07f, 1f);
+        sr.rect(panelX + 1, rowY + 1, PANEL_W - 2, TAB_H - 2);
 
-        // -- Pass 1: all filled button backgrounds + icons --
-        sr.setProjectionMatrix(proj);
-        sr.begin(ShapeRenderer.ShapeType.Filled);
-        for (int i = 0; i < TABS.length; i++) {
-            int     tx     = panelX + i * tabW;
-            int     tw     = (i == TABS.length - 1) ? lastW : tabW;
-            boolean active = (TABS[i] == activeTab);
-            boolean hover  = mouseX >= tx && mouseX < tx + tw && mouseY >= tabBarY && mouseY <= tabBarY + TAB_H;
+        // Button backgrounds + icons
+        for (int i = 0; i < rowTabs.length; i++) {
+            int tx = panelX + i * tabW;
+            int tw = (i == rowTabs.length - 1) ? lastW : tabW;
+            boolean active = (rowTabs[i] == activeTab);
+            boolean hover = mouseX >= tx && mouseX < tx + tw
+                && mouseY >= rowY && mouseY <= rowY + TAB_H;
 
-            if (active) {
-                sr.setColor(0.34f, 0.28f, 0.08f, 1f);
-            } else if (hover) {
-                sr.setColor(0.22f, 0.18f, 0.14f, 1f);
-            } else {
-                sr.setColor(0.15f, 0.13f, 0.11f, 1f);
-            }
-            sr.rect(tx + 2, tabBarY + 2, tw - 4, TAB_H - 4);
+            if (active) sr.setColor(0.34f, 0.28f, 0.08f, 1f);
+            else if (hover) sr.setColor(0.22f, 0.18f, 0.14f, 1f);
+            else sr.setColor(0.15f, 0.13f, 0.11f, 1f);
+            sr.rect(tx + 1, rowY + 1, tw - 2, TAB_H - 2);
 
-            // Icon
-            int     cx = tx + tw / 2;
-            int     cy = tabBarY + TAB_H / 2;
-            Color   c  = active ? new Color(1f, 0.88f, 0.15f, 1f)
-                                 : hover ? new Color(0.80f, 0.72f, 0.50f, 1f)
-                                         : new Color(0.55f, 0.50f, 0.40f, 1f);
-            sr.setColor(c);
-            switch (i) {
-                case 0 -> {
-                    // Combat icon: crossed blades
-                    sr.rect(cx - 8, cy - 1, 16, 2);
-                    sr.rect(cx - 1, cy - 8, 2, 16);
-                    sr.setColor(c.r * 0.7f, c.g * 0.7f, c.b * 0.7f, 1f);
-                    sr.rect(cx - 5, cy - 6, 2, 3);
-                    sr.rect(cx + 3, cy + 3, 2, 3);
-                }
-                case 1 -> {
-                    // Skills icon: stat bars
-                    sr.rect(cx - 7, cy - 6, 4, 4);
-                    sr.rect(cx - 2, cy - 6, 4, 8);
-                    sr.rect(cx + 3, cy - 6, 4, 12);
-                }
-                case 2 -> {
-                    // Prayer icon: prayer/star
-                    sr.circle(cx, cy + 3, 3);
-                    sr.rect(cx - 1, cy - 6, 2, 10);
-                    sr.rect(cx - 5, cy - 2, 10, 2);
-                }
-                case 3 -> {
-                    // Character icon: head + torso
-                    sr.circle(cx, cy + 4, 3);
-                    sr.rect(cx - 4, cy - 8, 8, 9);
-                }
-                case 4 -> {
-                    // Inventory icon: backpack
-                    sr.rect(cx - 6, cy - 7, 12, 13);
-                    sr.setColor(c.r * 0.8f, c.g * 0.8f, c.b * 0.8f, 1f);
-                    sr.rect(cx - 3, cy + 6, 6, 2);
-                    sr.rect(cx - 1, cy - 2, 2, 3);
-                }
-            }
+            int cx = tx + tw / 2;
+            int cy = rowY + TAB_H / 2;
+            float r = active ? 1.00f : hover ? 0.80f : 0.55f;
+            float g = active ? 0.88f : hover ? 0.72f : 0.50f;
+            float b = active ? 0.15f : hover ? 0.50f : 0.40f;
+            sr.setColor(r, g, b, 1f);
+            drawTabIcon(sr, rowTabs[i], cx, cy);
         }
         sr.end();
 
-        // -- Pass 2: all tab borders (2px selected, 1px idle/hover) --
+        // Borders
         sr.begin(ShapeRenderer.ShapeType.Filled);
-        for (int i = 0; i < TABS.length; i++) {
-            int     tx     = panelX + i * tabW;
-            int     tw     = (i == TABS.length - 1) ? lastW : tabW;
-            boolean active = (TABS[i] == activeTab);
-            boolean hover  = mouseX >= tx && mouseX < tx + tw && mouseY >= tabBarY && mouseY <= tabBarY + TAB_H;
-            int b = active ? 2 : 1;
-            if (active) {
-                sr.setColor(1.0f, 0.85f, 0.10f, 1f);
-            } else if (hover) {
-                sr.setColor(0.65f, 0.57f, 0.35f, 1f);
-            } else {
-                sr.setColor(0.42f, 0.36f, 0.22f, 1f);
-            }
-
-            int x = tx + 2;
-            int y = tabBarY + 2;
-            int w = tw - 4;
-            int h = TAB_H - 4;
-            sr.rect(x, y, w, b); // bottom
-            sr.rect(x, y + h - b, w, b); // top
-            sr.rect(x, y, b, h); // left
-            sr.rect(x + w - b, y, b, h); // right
+        for (int i = 0; i < rowTabs.length; i++) {
+            int tx = panelX + i * tabW;
+            int tw = (i == rowTabs.length - 1) ? lastW : tabW;
+            boolean active = (rowTabs[i] == activeTab);
+            boolean hover = mouseX >= tx && mouseX < tx + tw
+                && mouseY >= rowY && mouseY <= rowY + TAB_H;
+            if (active) sr.setColor(1.0f, 0.85f, 0.10f, 1f);
+            else if (hover) sr.setColor(0.65f, 0.57f, 0.35f, 1f);
+            else sr.setColor(0.38f, 0.32f, 0.18f, 1f);
+            int bw = active ? 2 : 1;
+            int x = tx + 1;
+            int y = rowY + 1;
+            int w = tw - 2;
+            int h = TAB_H - 2;
+            sr.rect(x, y, w, bw);
+            sr.rect(x, y + h - bw, w, bw);
+            sr.rect(x, y, bw, h);
+            sr.rect(x + w - bw, y, bw, h);
         }
-        // Vertical separators between tabs
-        sr.setColor(0.32f, 0.28f, 0.18f, 1f);
-        for (int i = 1; i < TABS.length; i++) {
-            int x = panelX + i * tabW;
-            sr.rect(x, tabBarY + 4, 1, TAB_H - 8);
+        // Vertical separators
+        sr.setColor(0.30f, 0.26f, 0.16f, 1f);
+        for (int i = 1; i < rowTabs.length; i++) {
+            sr.rect(panelX + i * tabW, rowY + 3, 1, TAB_H - 6);
         }
         sr.end();
+    }
+
+    /** Draw the icon for a given tab at pixel center (cx, cy). ShapeRenderer must be in Filled mode. */
+    private void drawTabIcon(ShapeRenderer sr, Tab tab, int cx, int cy) {
+        switch (tab) {
+            case COMBAT -> {
+                sr.rect(cx - 7, cy - 1, 14, 2);
+                sr.rect(cx - 1, cy - 7, 2, 14);
+            }
+            case SKILLS -> {
+                sr.rect(cx - 6, cy - 5, 3, 3);
+                sr.rect(cx - 2, cy - 5, 3, 7);
+                sr.rect(cx + 2, cy - 5, 3, 11);
+            }
+            case QUESTS -> {
+                sr.rect(cx - 5, cy - 6, 10, 12);
+                sr.rect(cx - 3, cy - 1, 6, 2);
+                sr.rect(cx - 3, cy + 3, 5, 2);
+            }
+            case INVENTORY -> {
+                sr.rect(cx - 5, cy - 6, 10, 12);
+                sr.rect(cx - 2, cy + 5, 4, 2);
+                sr.rect(cx - 1, cy - 1, 2, 3);
+            }
+            case EQUIPMENT -> {
+                sr.rect(cx - 5, cy + 2, 10, 4);
+                sr.rect(cx - 4, cy - 3, 8, 6);
+                sr.rect(cx - 2, cy - 6, 4, 4);
+            }
+            case PRAYER -> {
+                sr.circle(cx, cy + 3, 3);
+                sr.rect(cx - 1, cy - 5, 2, 8);
+                sr.rect(cx - 4, cy - 1, 8, 2);
+            }
+            case MAGIC -> {
+                sr.circle(cx, cy + 4, 3);
+                sr.rect(cx - 1, cy - 6, 2, 11);
+                sr.rect(cx + 1, cy - 3, 4, 2);
+            }
+            case FRIENDS -> {
+                sr.circle(cx, cy + 4, 3, 8);
+                sr.rect(cx - 4, cy - 6, 8, 8);
+            }
+            case IGNORE -> {
+                sr.circle(cx - 2, cy + 4, 3, 8);
+                sr.rect(cx - 5, cy - 5, 7, 7);
+                sr.rect(cx + 2, cy + 2, 5, 2);
+                sr.rect(cx + 4, cy - 1, 2, 4);
+            }
+            case CLAN -> {
+                sr.rect(cx - 2, cy - 6, 3, 12);
+                sr.rect(cx + 1, cy + 2, 6, 3);
+                sr.rect(cx + 1, cy - 2, 5, 3);
+            }
+            case SETTINGS -> {
+                sr.circle(cx, cy, 5, 12);
+                sr.rect(cx - 1, cy + 5, 2, 3);
+                sr.rect(cx - 1, cy - 7, 2, 3);
+                sr.rect(cx + 5, cy - 1, 3, 2);
+                sr.rect(cx - 8, cy - 1, 3, 2);
+            }
+            case EMOTES -> {
+                sr.circle(cx - 3, cy + 2, 2, 8);
+                sr.circle(cx + 3, cy + 2, 2, 8);
+                sr.rect(cx - 4, cy - 4, 8, 2);
+            }
+            case MUSIC -> {
+                sr.rect(cx - 5, cy - 4, 3, 10);
+                sr.rect(cx, cy - 2, 3, 8);
+                sr.rect(cx - 5, cy + 4, 8, 2);
+            }
+        }
+    }
+
+    private void renderStubTab(ShapeRenderer sr, SpriteBatch batch, BitmapFont font, Matrix4 proj, String tabName) {
+        batch.setProjectionMatrix(proj);
+        batch.begin();
+        font.getData().setScale(0.80f);
+        font.setColor(0.55f, 0.52f, 0.42f, 1f);
+        font.draw(batch, tabName + " - Coming Soon", panelX + 10, panelY + CONTENT_H / 2 + 8);
+        font.getData().setScale(1f);
+        font.setColor(Color.WHITE);
+        batch.end();
     }
 
     // -----------------------------------------------------------------------
@@ -1486,9 +1562,10 @@ public class SidePanel {
 
         // ── Tab bar click ──────────────────────────────────────────────────
         if (my >= panelY + CONTENT_H) {
-            int tabW   = PANEL_W / TABS.length;
-            int tabIdx = Math.min((mx - panelX) / tabW, TABS.length - 1);
-            if (tabIdx >= 0) activeTab = TABS[tabIdx];
+            Tab[] row = my >= panelY + CONTENT_H + TAB_H ? TOP_TABS : BOTTOM_TABS;
+            int tW = PANEL_W / row.length;
+            int idx = Math.min((mx - panelX) / tW, row.length - 1);
+            if (idx >= 0) activeTab = row[idx];
             return -1;
         }
 
@@ -1525,82 +1602,64 @@ public class SidePanel {
                     return -50;
                 }
             }
-            case CHARACTER -> {
+            case EQUIPMENT -> {
+                int toggleY = panelY + 22;
+                int toggleH = 14;
+                if (my >= toggleY && my <= toggleY + toggleH) {
+                    gearShowStats = mx >= panelX + PANEL_W / 2;
+                    return -1;
+                }
+                if (!gearShowStats) {
+                    int[][] slotPos = getGearSlotPositions();
+                    final int SLOT_SIZE = 36;
+                    for (int i = 0; i < 11; i++) {
+                        int sx = slotPos[i][0], sy = slotPos[i][1];
+                        if (mx >= sx && mx <= sx + SLOT_SIZE && my >= sy && my <= sy + SLOT_SIZE) {
+                            return -(100 + i);
+                        }
+                    }
+                }
+            }
+            case QUESTS -> {
                 int pad = 8;
                 int subY = panelY + CONTENT_H - 34;
-                int subW = (PANEL_W - pad * 5) / 4;
-                int subH = 18;
-
-                for (int i = 0; i < 4; i++) {
-                    int bx = panelX + pad + i * (subW + pad);
-                    if (mx >= bx && mx <= bx + subW && my >= subY && my <= subY + subH) {
-                        characterPage = CharacterPage.values()[i];
+                int y = subY - 8;
+                if (selectedQuestId != -1) {
+                    if (mx >= panelX + pad && mx <= panelX + PANEL_W - pad
+                        && my <= y && my >= y - 16) {
+                        selectedQuestId = -1;
                         return -1;
                     }
-                }
-
-                if (characterPage == CharacterPage.GEAR) {
-                    // Slots/Stats toggle at bottom of content (y = panelY+22, h=14)
-                    int toggleY = panelY + 22;
-                    int toggleH = 14;
-                    int half = PANEL_W / 2;
-                    if (my >= toggleY && my <= toggleY + toggleH) {
-                        gearShowStats = mx >= panelX + half;
-                        return -1;
-                    }
-                    // Equipment slot click (slot grid only)
-                    if (!gearShowStats) {
-                        int[][] slotPos = getGearSlotPositions();
-                        final int SLOT_SIZE = 36;
-                        for (int i = 0; i < 11; i++) {
-                            int sx = slotPos[i][0], sy = slotPos[i][1];
-                            if (mx >= sx && mx <= sx + SLOT_SIZE && my >= sy && my <= sy + SLOT_SIZE) {
-                                return -(100 + i);  // special signal to GameScreen; slot index = -(ret+100)
-                            }
-                        }
-                    }
-                }
-
-                if (characterPage == CharacterPage.QUEST_LIST) {
-                    int y = subY - 8;   // = bodyTop
-                    if (selectedQuestId != -1) {
-                        // Back button occupies the first row of bodyTop
+                } else {
+                    List<QuestView> list = sortedQuests();
+                    for (QuestView q : list) {
                         if (mx >= panelX + pad && mx <= panelX + PANEL_W - pad
-                                && my <= y && my >= y - 16) {
-                            selectedQuestId = -1;
+                            && my <= y && my >= y - 16) {
+                            selectedQuestId = q.questId;
                             return -1;
                         }
-                    } else {
-                        List<QuestView> list = sortedQuests();
-                        for (QuestView q : list) {
-                            if (mx >= panelX + pad && mx <= panelX + PANEL_W - pad
-                                    && my <= y && my >= y - 16) {
-                                selectedQuestId = q.questId;
-                                return -1;
-                            }
-                            y -= 16;
-                            if (y < panelY + 18) break;
-                        }
+                        y -= 16;
+                        if (y < panelY + 18) break;
                     }
                 }
-
-                if (characterPage == CharacterPage.FRIENDS_LIST) {
-                    int bodyTop = subY - 8;
-                    int y = bodyTop - 18;
-                    int removeX = panelX + PANEL_W - 8 - FRIEND_REMOVE_W;
-                    for (FriendEntryView entry : friendEntries) {
-                        if (y < panelY + 16) break;
-                        if (mx >= removeX && mx <= removeX + FRIEND_REMOVE_W
-                            && my >= y - FRIEND_ROW_H + 2 && my <= y + 2) {
-                            removeFriendRequestedId = entry.playerId;
-                            return -1;
-                        }
-                        y -= FRIEND_ROW_H;
+            }
+            case FRIENDS -> {
+                int subY = panelY + CONTENT_H - 34;
+                int bodyTop = subY - 8;
+                int y = bodyTop - 18;
+                int removeX = panelX + PANEL_W - 8 - FRIEND_REMOVE_W;
+                for (FriendEntryView entry : friendEntries) {
+                    if (y < panelY + 16) break;
+                    if (mx >= removeX && mx <= removeX + FRIEND_REMOVE_W
+                        && my >= y - FRIEND_ROW_H + 2 && my <= y + 2) {
+                        removeFriendRequestedId = entry.playerId;
+                        return -1;
                     }
+                    y -= FRIEND_ROW_H;
                 }
-
-                if (characterPage == CharacterPage.SUMMARY
-                    && mx >= logoutButtonX() && mx <= logoutButtonX() + logoutButtonW()
+            }
+            case SETTINGS -> {
+                if (mx >= logoutButtonX() && mx <= logoutButtonX() + logoutButtonW()
                     && my >= logoutButtonY() && my <= logoutButtonY() + logoutButtonH()) {
                     logoutRequested = true;
                     return -1;

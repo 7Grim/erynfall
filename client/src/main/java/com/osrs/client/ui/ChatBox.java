@@ -74,7 +74,19 @@ public class ChatBox {
     public enum MessageType { PUBLIC, SYSTEM, PRIVATE }
 
     // Tab types and state
-    public enum ChatTab { ALL, GAME, PUBLIC, PRIVATE }
+    public enum ChatTab { ALL, GAME, PUBLIC, PRIVATE, CHANNEL, CLAN, TRADE }
+
+    /** Per-tab on/off state — true = channel visible, false = hidden. */
+    private final boolean[] tabEnabled = {
+        true,  // ALL (always on)
+        true,  // GAME
+        true,  // PUBLIC
+        false, // PRIVATE
+        false, // CHANNEL
+        false, // CLAN
+        false  // TRADE
+    };
+
     public enum ChatChannelFilter { ALL_MESSAGES, PUBLIC_CHAT, SYSTEM_MESSAGES, PRIVATE_CHAT }
 
     private static final DateTimeFormatter TS_FMT = DateTimeFormatter.ofPattern("HH:mm");
@@ -279,21 +291,27 @@ public class ChatBox {
                                   int boxX, int boxY, Matrix4 proj) {
         int startX = tabStartX();
         int y = boxY + INPUT_H + 2;
+        ChatTab[] tabs = ChatTab.values();
 
         sr.setProjectionMatrix(proj);
         sr.begin(ShapeRenderer.ShapeType.Filled);
-        for (int i = 0; i < ChatTab.values().length; i++) {
-            ChatTab tab = ChatTab.values()[i];
-            boolean active = (activeTab == tab);
+        for (int i = 0; i < tabs.length; i++) {
+            boolean active = (activeTab == tabs[i]);
             sr.setColor(active ? TAB_ACTIVE : TAB_IDLE);
             sr.rect(startX + i * (TAB_W + TAB_GAP), y, TAB_W, TAB_BTN_H);
+            // Status dot: green = on, grey = off (not drawn for ALL tab)
+            if (i > 0) {
+                sr.setColor(tabEnabled[i] ? 0.20f : 0.45f,
+                    tabEnabled[i] ? 0.72f : 0.43f,
+                    tabEnabled[i] ? 0.18f : 0.38f, 1f);
+                sr.circle(startX + i * (TAB_W + TAB_GAP) + 4, y + TAB_BTN_H - 4, 2.5f, 8);
+            }
         }
         sr.end();
 
         sr.begin(ShapeRenderer.ShapeType.Line);
-        for (int i = 0; i < ChatTab.values().length; i++) {
-            ChatTab tab = ChatTab.values()[i];
-            boolean active = (activeTab == tab);
+        for (int i = 0; i < tabs.length; i++) {
+            boolean active = (activeTab == tabs[i]);
             sr.setColor(active ? BORDER_ACTIVE : BORDER_IDLE);
             sr.rect(startX + i * (TAB_W + TAB_GAP), y, TAB_W, TAB_BTN_H);
         }
@@ -303,14 +321,15 @@ public class ChatBox {
         batch.begin();
         font.getData().setScale(0.78f);
         GlyphLayout gl = new GlyphLayout();
-        for (int i = 0; i < ChatTab.values().length; i++) {
-            ChatTab tab = ChatTab.values()[i];
-            boolean active = (activeTab == tab);
-            String label = tabLabel(tab);
+        for (int i = 0; i < tabs.length; i++) {
+            boolean active = (activeTab == tabs[i]);
+            String label = tabLabel(tabs[i]);
             float bx = startX + i * (TAB_W + TAB_GAP);
+            // Shift label right for tabs with status dot
+            float labelOffsetX = i > 0 ? 5f : 0f;
             gl.setText(font, label);
             font.setColor(active ? LABEL_ACTIVE : LABEL_IDLE);
-            font.draw(batch, label, bx + (TAB_W - gl.width) / 2f, y + TAB_BTN_H - 3);
+            font.draw(batch, label, bx + labelOffsetX + (TAB_W - labelOffsetX - gl.width) / 2f, y + TAB_BTN_H - 3);
         }
         font.getData().setScale(1f);
         batch.end();
@@ -322,6 +341,9 @@ public class ChatBox {
             case GAME -> "Game";
             case PUBLIC -> "Public";
             case PRIVATE -> "Private";
+            case CHANNEL -> "Channel";
+            case CLAN -> "Clan";
+            case TRADE -> "Trade";
         };
     }
 
@@ -382,16 +404,12 @@ public class ChatBox {
 
     private boolean shouldDisplayLine(MessageType type) {
         if (activeTab == ChatTab.ALL) return true;
-        if (activeTab == ChatTab.GAME) return type == MessageType.SYSTEM;
-        if (activeTab == ChatTab.PUBLIC) return type == MessageType.PUBLIC;
+        if (!tabEnabled[activeTab.ordinal()]) return false;
+        if (activeTab == ChatTab.GAME)    return type == MessageType.SYSTEM;
+        if (activeTab == ChatTab.PUBLIC)  return type == MessageType.PUBLIC;
         if (activeTab == ChatTab.PRIVATE) return type == MessageType.PRIVATE;
-
-        return switch (channelFilter) {
-            case SYSTEM_MESSAGES -> type == MessageType.SYSTEM;
-            case PUBLIC_CHAT -> type == MessageType.PUBLIC;
-            case PRIVATE_CHAT -> type == MessageType.PRIVATE;
-            case ALL_MESSAGES -> true;
-        };
+        // CHANNEL, CLAN, TRADE: no messages yet; show nothing
+        return false;
     }
 
     private List<String> wrapText(BitmapFont font, String text, float maxWidth) {
@@ -443,20 +461,35 @@ public class ChatBox {
      * Handle a click in chatbox-local coordinates. Returns true if click was consumed.
      */
     public boolean handleClick(int mouseX, int mouseY) {
+        return handleClick(mouseX, mouseY, false);
+    }
+
+    /**
+     * Handle a click in chatbox-local coordinates.
+     * Right-click is used to toggle tab status dots.
+     */
+    public boolean handleClick(int mouseX, int mouseY, boolean rightClick) {
         if (mouseY < 0 || mouseY > TOTAL_H || mouseX < 0 || mouseX > BOX_W) return false;
 
         int tabStartX = tabStartX();
         int tabY = INPUT_H + 2;
         if (mouseY >= tabY && mouseY <= tabY + TAB_BTN_H) {
-            for (int i = 0; i < ChatTab.values().length; i++) {
+            ChatTab[] tabs = ChatTab.values();
+            for (int i = 0; i < tabs.length; i++) {
                 int x = tabStartX + i * (TAB_W + TAB_GAP);
                 if (mouseX >= x && mouseX <= x + TAB_W) {
-                    activeTab = ChatTab.values()[i];
+                    boolean onDotArea = i > 0 && mouseX <= x + 10 && mouseY >= tabY + TAB_BTN_H - 8;
+                    if (rightClick && onDotArea) {
+                        tabEnabled[i] = !tabEnabled[i];
+                        return true;
+                    }
+                    activeTab = tabs[i];
                     channelFilter = switch (activeTab) {
                         case ALL -> ChatChannelFilter.ALL_MESSAGES;
                         case GAME -> ChatChannelFilter.SYSTEM_MESSAGES;
                         case PUBLIC -> ChatChannelFilter.PUBLIC_CHAT;
                         case PRIVATE -> ChatChannelFilter.PRIVATE_CHAT;
+                        default -> ChatChannelFilter.ALL_MESSAGES;
                     };
                     return true;
                 }

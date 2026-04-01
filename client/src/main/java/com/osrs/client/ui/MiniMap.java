@@ -28,6 +28,8 @@ public class MiniMap {
     private static final Color COLOR_WATER = new Color(0.18f, 0.70f, 0.60f, 1f); // Light blue
     private static final Color COLOR_WALL = new Color(0.31f, 0.31f, 0.31f, 1f);  // Dark gray
 
+    private final GlyphLayout compassGlyph = new GlyphLayout();
+
     public static int getCenterX(int screenW) {
         return screenW - RADIUS - SidePanel.MARGIN;
     }
@@ -135,13 +137,16 @@ public class MiniMap {
 
         sr.end();
 
-        // -- Compass ring border --
+        // -- Compass ring border: 3-ring stone frame --
         sr.begin(ShapeRenderer.ShapeType.Line);
-        sr.setColor(0.20f, 0.16f, 0.08f, 1f);
-        sr.circle(cx, cy, RADIUS);
-        // 1px gold outline for OSRS compass styling
-        sr.setColor(0.80f, 0.68f, 0.28f, 1f);
+        sr.setColor(0.04f, 0.03f, 0.02f, 1f);     // outermost dark
+        sr.circle(cx, cy, RADIUS + 3);
+        sr.setColor(0.18f, 0.14f, 0.06f, 1f);     // dark brown mid
+        sr.circle(cx, cy, RADIUS + 2);
+        sr.setColor(0.40f, 0.32f, 0.12f, 1f);     // brown
         sr.circle(cx, cy, RADIUS + 1);
+        sr.setColor(0.80f, 0.68f, 0.28f, 1f);     // gold inner edge
+        sr.circle(cx, cy, RADIUS);
         sr.end();
 
         // -- "N" compass label --
@@ -149,8 +154,8 @@ public class MiniMap {
         batch.begin();
         font.getData().setScale(0.75f);
         font.setColor(1f, 0.92f, 0.20f, 1f);     // gold
-        GlyphLayout nGlyph = new GlyphLayout(font, "N");
-        font.draw(batch, "N", cx - nGlyph.width / 2f, cy + RADIUS - 2);
+        compassGlyph.setText(font, "N");
+        font.draw(batch, "N", cx - compassGlyph.width / 2f, cy + RADIUS - 2);
         font.getData().setScale(1f);
         font.setColor(Color.WHITE);
         batch.end();

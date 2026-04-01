@@ -140,6 +140,7 @@ public class GameScreen extends ApplicationAdapter {
     private int playerPrayer = 0,  playerMaxPrayer = 0;
     private final java.util.Set<Integer> localActivePrayers = new java.util.HashSet<>();
     private int playerRunEnergy = 100; // 0–100; full energy on login
+    private int playerSpecialAttack = 100; // 0–100; always full until spec system is wired
     private boolean isRunning    = false;
     private float   runRestoreAcc = 0f; // accumulates delta time for energy restore
     private int attackLevel = 1, strengthLevel = 1, defenceLevel = 1;
@@ -1076,6 +1077,11 @@ public class GameScreen extends ApplicationAdapter {
         }
 
         if (Gdx.input.isButtonJustPressed(Input.Buttons.RIGHT)) {
+            if (screenMy < ChatBox.TOTAL_H && mx >= 0 && mx < ChatBox.BOX_W) {
+                if (chatBox.handleClick(mx, screenMy, true)) {
+                    return;
+                }
+            }
             // Check side panel right-click first
             if (sidePanel.isOverPanel(mx, screenMy)) {
                 if (sidePanel.isInventoryTabActive()) {
@@ -2765,15 +2771,17 @@ public class GameScreen extends ApplicationAdapter {
         int miniLeftX = MiniMap.getLeftX(w);
         // Orb center: minimap left edge - 8px gap - orb radius
         final int ORB_CX = miniLeftX - 8 - ORB_R;
-        // Stack orbs along the minimap height; minimap cy = h - RADIUS - MARGIN
-        final int HP_CY  = h - 44;   // near top of minimap
-        final int PR_CY  = h - 92;   // mid
-        final int RN_CY  = h - 140;  // near bottom
+        // 4 orbs stacked vertically; HP at top, Spec at bottom
+        final int HP_CY  = h - 44;
+        final int PR_CY  = h - 92;
+        final int RN_CY  = h - 140;
+        final int SP_CY  = h - 188;
 
         // Ratios clamped [0,1]
-        float hpRatio = playerMaxHealth  > 0 ? Math.min(1f, (float) playerHealth    / playerMaxHealth)  : 0f;
-        float prRatio = playerMaxPrayer  > 0 ? Math.min(1f, (float) playerPrayer    / playerMaxPrayer)  : 0f;
+        float hpRatio = playerMaxHealth > 0 ? Math.min(1f, (float) playerHealth / playerMaxHealth) : 0f;
+        float prRatio = playerMaxPrayer > 0 ? Math.min(1f, (float) playerPrayer / playerMaxPrayer) : 0f;
         float rnRatio = Math.min(1f, playerRunEnergy / 100f);
+        float spRatio = Math.min(1f, playerSpecialAttack / 100f);
 
         shapeRenderer.setProjectionMatrix(screenProjection);
 
@@ -2785,6 +2793,8 @@ public class GameScreen extends ApplicationAdapter {
         shapeRenderer.circle(ORB_CX, PR_CY, ORB_R);
         shapeRenderer.setColor(0.07f, 0.10f, 0.04f, 0.92f);
         shapeRenderer.circle(ORB_CX, RN_CY, ORB_R);
+        shapeRenderer.setColor(0.12f, 0.10f, 0.04f, 0.92f);
+        shapeRenderer.circle(ORB_CX, SP_CY, ORB_R);
         shapeRenderer.end();
 
         // -- Pass 2: colored fill -- arc sector, clock-sweep from 12 o'clock --
@@ -2813,6 +2823,11 @@ public class GameScreen extends ApplicationAdapter {
             shapeRenderer.arc(ORB_CX, RN_CY, ORB_R - 3,
                 90f - rnRatio * 360f, rnRatio * 360f, 32);
         }
+        if (spRatio > 0.01f) {
+            shapeRenderer.setColor(0.90f, 0.80f, 0.10f, 1f);
+            shapeRenderer.arc(ORB_CX, SP_CY, ORB_R - 3,
+                90f - spRatio * 360f, spRatio * 360f, 32);
+        }
         shapeRenderer.end();
 
         // -- Pass 3: bright outline rings --
@@ -2830,6 +2845,8 @@ public class GameScreen extends ApplicationAdapter {
             shapeRenderer.setColor(0.72f, 1.00f, 0.42f, 1f);
         }
         shapeRenderer.circle(ORB_CX, RN_CY, ORB_R);
+        shapeRenderer.setColor(0.95f, 0.85f, 0.30f, 1f);
+        shapeRenderer.circle(ORB_CX, SP_CY, ORB_R);
         shapeRenderer.end();
 
         if (friendsListVisible && friendsListText != null && !friendsListText.isEmpty()) {
@@ -2839,14 +2856,38 @@ public class GameScreen extends ApplicationAdapter {
             shapeRenderer.end();
         }
 
-        // -- Pass 4: numbers and labels --
+        // -- Pass 4: inner icons (semi-transparent decorative symbols inside each orb) --
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+        // HP: red heart (two overlapping circles + downward triangle)
+        shapeRenderer.setColor(0.90f, 0.18f, 0.18f, 0.45f);
+        shapeRenderer.circle(ORB_CX - 4, HP_CY + 4, 4.5f, 10);
+        shapeRenderer.circle(ORB_CX + 4, HP_CY + 4, 4.5f, 10);
+        shapeRenderer.triangle(ORB_CX - 8, HP_CY + 4, ORB_CX + 8, HP_CY + 4, ORB_CX, HP_CY - 5);
+        // Prayer: blue bone (bar + four end circles)
+        shapeRenderer.setColor(0.42f, 0.62f, 1.00f, 0.42f);
+        shapeRenderer.rect(ORB_CX - 7, PR_CY - 1, 14, 3);
+        shapeRenderer.circle(ORB_CX - 7, PR_CY + 3, 3.5f, 8);
+        shapeRenderer.circle(ORB_CX - 7, PR_CY - 4, 3.5f, 8);
+        shapeRenderer.circle(ORB_CX + 7, PR_CY + 3, 3.5f, 8);
+        shapeRenderer.circle(ORB_CX + 7, PR_CY - 4, 3.5f, 8);
+        // Run: green lightning bolt (two triangles)
+        shapeRenderer.setColor(0.28f, 0.82f, 0.14f, 0.42f);
+        shapeRenderer.triangle(ORB_CX + 4, RN_CY + 9, ORB_CX - 2, RN_CY + 1, ORB_CX + 3, RN_CY + 1);
+        shapeRenderer.triangle(ORB_CX - 3, RN_CY, ORB_CX + 4, RN_CY, ORB_CX - 3, RN_CY - 9);
+        // Spec: yellow crossed swords (two bars)
+        shapeRenderer.setColor(0.95f, 0.88f, 0.15f, 0.42f);
+        shapeRenderer.rect(ORB_CX - 8, SP_CY - 1, 16, 3);
+        shapeRenderer.rect(ORB_CX - 1, SP_CY - 8, 3, 16);
+        shapeRenderer.end();
+
+        // -- Pass 5: numbers centered in each orb --
         screenBatch.setProjectionMatrix(screenProjection);
         screenBatch.begin();
 
         font.getData().setScale(FontManager.getScale(FontManager.FontContext.SKILL));
 
-        // HP value centered in orb
-        GlyphLayout gl = new GlyphLayout(font, String.valueOf(playerHealth));
+        // HP value
+        gl.setText(font, String.valueOf(playerHealth));
         font.setColor(1.00f, 0.82f, 0.82f, 1f);
         font.draw(screenBatch, gl, ORB_CX - gl.width / 2f, HP_CY + gl.height / 2f);
 
@@ -2864,15 +2905,10 @@ public class GameScreen extends ApplicationAdapter {
         }
         font.draw(screenBatch, gl, ORB_CX - gl.width / 2f, RN_CY + gl.height / 2f);
 
-        // Small labels below each orb
-        font.getData().setScale(FontManager.getScale(FontManager.FontContext.SMALL_LABEL));
-        font.setColor(0.52f, 0.52f, 0.52f, 0.85f);
-        GlyphLayout lbl = new GlyphLayout(font, "HP");
-        font.draw(screenBatch, lbl, ORB_CX - lbl.width / 2f, HP_CY - ORB_R + 4);
-        lbl.setText(font, "Pray");
-        font.draw(screenBatch, lbl, ORB_CX - lbl.width / 2f, PR_CY - ORB_R + 4);
-        lbl.setText(font, "Run");
-        font.draw(screenBatch, lbl, ORB_CX - lbl.width / 2f, RN_CY - ORB_R + 4);
+        // Special attack value
+        gl.setText(font, String.valueOf(playerSpecialAttack));
+        font.setColor(1.00f, 0.95f, 0.50f, 1f);
+        font.draw(screenBatch, gl, ORB_CX - gl.width / 2f, SP_CY + gl.height / 2f);
 
         // Zoom level indicator - shows current zoom level
         int zoomTextX = 35;
