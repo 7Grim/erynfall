@@ -12,6 +12,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -200,8 +201,20 @@ public class SidePanel {
         new Color(0.80f, 0.68f, 0.38f, 1f),   // Construction – sandstone
     };
 
-    // Combat style (0=Accurate 1=Aggressive 2=Defensive 3=Controlled)
+    // Combat style: server index (0=Accurate 1=Aggressive 2=Defensive 3=Controlled)
     private int combatStyle = 1;   // default: Aggressive
+    private boolean autoRetaliate = true;
+
+    // Pre-allocated combat tab colors (avoid per-frame new Color() allocation)
+    private static final Color COLOR_GOLD = new Color(0.9f, 0.80f, 0.50f, 1f);
+    private static final Color COLOR_BTN_SEL_BG = new Color(0.35f, 0.27f, 0.04f, 1f);
+    private static final Color COLOR_BTN_IDLE_BG = new Color(0.14f, 0.12f, 0.10f, 1f);
+    private static final Color COLOR_BTN_SEL_BORDER = new Color(1f, 0.85f, 0.10f, 1f);
+    private static final Color COLOR_BTN_IDLE_BORDER = new Color(0.38f, 0.34f, 0.22f, 1f);
+    private static final Color COLOR_BTN_SEL_TEXT = new Color(1f, 0.90f, 0.10f, 1f);
+    private static final Color COLOR_ICON_ACTIVE = new Color(1f, 0.85f, 0.15f, 1f);
+    private static final Color COLOR_ICON_IDLE = new Color(0.45f, 0.43f, 0.32f, 1f);
+    private static final Color COLOR_TOGGLE_ON = new Color(0.18f, 0.55f, 0.22f, 1f);
     private CharacterPage characterPage = CharacterPage.SUMMARY;
     private final Map<Integer, QuestView> quests = new HashMap<>();
     private int selectedQuestId = -1;
@@ -231,13 +244,6 @@ public class SidePanel {
         this.activePrayerIds.clear();
         if (active != null) this.activePrayerIds.addAll(active);
     }
-
-    private static final String[] STYLE_NAMES = {
-        "Accurate", "Aggressive", "Defensive", "Controlled"
-    };
-    private static final String[] STYLE_XP = {
-        "Attack XP", "Strength XP", "Defence XP", "Shared XP"
-    };
 
     // Cached panel origin (set each render call)
     private int panelX, panelY;
@@ -414,105 +420,209 @@ public class SidePanel {
 
     private void renderCombatTab(ShapeRenderer sr, SpriteBatch batch, BitmapFont font, Matrix4 proj) {
         int pad  = 10;
-        int btnW = (PANEL_W - pad * 3) / 2;   // ~80 px
-        int btnH = 48;
+        int btnW = (PANEL_W - pad * 3) / 2;
+        int btnH = 70;
 
-        // Title
+        String[] names = styleNames();
+        String weaponName = (equippedNames[4] != null && !equippedNames[4].isEmpty())
+            ? equippedNames[4] : "Unarmed";
+
+        // -- Header: title + equipped weapon name --
         batch.setProjectionMatrix(proj);
         batch.begin();
         font.getData().setScale(0.85f);
-        font.setColor(new Color(0.9f, 0.80f, 0.50f, 1f));
+        font.setColor(COLOR_GOLD);
         font.draw(batch, "Combat Options", panelX + pad, panelY + CONTENT_H - 8);
+        font.getData().setScale(0.72f);
+        font.setColor(0.70f, 0.65f, 0.50f, 1f);
+        font.draw(batch, weaponName, panelX + pad, panelY + CONTENT_H - 22);
         font.getData().setScale(1f);
         font.setColor(Color.WHITE);
         batch.end();
 
-        // Title underline
+        // Header underline
         sr.begin(ShapeRenderer.ShapeType.Filled);
         sr.setColor(0.45f, 0.38f, 0.22f, 1f);
-        sr.rect(panelX + pad, panelY + CONTENT_H - 20, PANEL_W - pad * 2, 1);
+        sr.rect(panelX + pad, panelY + CONTENT_H - 32, PANEL_W - pad * 2, 1);
         sr.end();
 
-        // 2×2 button grid — top-left of the content area, below the title
-        int gridTop = panelY + CONTENT_H - 28;
+        // 2x2 button grid
+        int gridTop = panelY + CONTENT_H - 38;
         for (int i = 0; i < 4; i++) {
             int col = i % 2;
             int row = i / 2;
             int bx  = panelX + pad + col * (btnW + pad);
             int by  = gridTop - (row + 1) * (btnH + pad);
 
-            boolean sel = (i == combatStyle);
+            boolean disabled = names[i] == null;
+            boolean sel = !disabled && styleIndexForPosition(i) == combatStyle;
 
-            // Button background
             sr.begin(ShapeRenderer.ShapeType.Filled);
-            sr.setColor(sel
-                ? new Color(0.35f, 0.27f, 0.04f, 1f)
-                : new Color(0.17f, 0.15f, 0.13f, 1f));
+            sr.setColor(sel ? COLOR_BTN_SEL_BG : COLOR_BTN_IDLE_BG);
             sr.rect(bx, by, btnW, btnH);
             sr.end();
 
-            // Button border
             sr.begin(ShapeRenderer.ShapeType.Line);
-            sr.setColor(sel
-                ? new Color(1f, 0.85f, 0.10f, 1f)
-                : new Color(0.40f, 0.36f, 0.26f, 1f));
+            if (disabled) sr.setColor(0.22f, 0.20f, 0.15f, 1f);
+            else sr.setColor(sel ? COLOR_BTN_SEL_BORDER : COLOR_BTN_IDLE_BORDER);
             sr.rect(bx, by, btnW, btnH);
             sr.end();
 
-            // Draw a small icon per style
-            drawCombatStyleIcon(sr, i, bx + btnW / 2, by + btnH - 16, sel);
+            if (!disabled) {
+                drawCombatStyleIcon(sr, i, bx + btnW / 2, by + btnH - 22, sel);
+            }
         }
 
         // Button labels
         batch.setProjectionMatrix(proj);
         batch.begin();
         for (int i = 0; i < 4; i++) {
+            if (names[i] == null) continue;
             int col = i % 2;
             int row = i / 2;
             int bx  = panelX + pad + col * (btnW + pad);
             int by  = gridTop - (row + 1) * (btnH + pad);
-            boolean sel = (i == combatStyle);
+            boolean sel = styleIndexForPosition(i) == combatStyle;
 
             font.getData().setScale(0.85f);
-            font.setColor(sel ? new Color(1f, 0.90f, 0.10f, 1f) : Color.WHITE);
-            font.draw(batch, STYLE_NAMES[i], bx + 6, by + btnH - 6);
+            font.setColor(sel ? COLOR_BTN_SEL_TEXT : Color.WHITE);
+            font.draw(batch, names[i], bx + 6, by + btnH - 6);
 
             font.getData().setScale(0.70f);
             font.setColor(0.60f, 0.60f, 0.60f, 1f);
-            font.draw(batch, STYLE_XP[i], bx + 6, by + 14);
+            font.draw(batch, xpLabelForPosition(i), bx + 6, by + 14);
         }
+        font.getData().setScale(1f);
+        font.setColor(Color.WHITE);
+        batch.end();
+
+        // Auto Retaliate toggle
+        int toggleY  = gridTop - 2 * (btnH + pad) - 6;
+        int toggleSz = 14;
+        int toggleX  = panelX + pad;
+
+        sr.begin(ShapeRenderer.ShapeType.Filled);
+        sr.setColor(autoRetaliate ? COLOR_TOGGLE_ON : COLOR_BTN_IDLE_BG);
+        sr.rect(toggleX, toggleY, toggleSz, toggleSz);
+        sr.end();
+
+        sr.begin(ShapeRenderer.ShapeType.Line);
+        sr.setColor(0.55f, 0.46f, 0.28f, 1f);
+        sr.rect(toggleX, toggleY, toggleSz, toggleSz);
+        sr.end();
+
+        if (autoRetaliate) {
+            sr.begin(ShapeRenderer.ShapeType.Filled);
+            sr.setColor(Color.WHITE);
+            sr.rect(toggleX + 2, toggleY + 3, 3, 2);
+            sr.rect(toggleX + 4, toggleY + 2, 2, 6);
+            sr.end();
+        }
+
+        batch.setProjectionMatrix(proj);
+        batch.begin();
+        font.getData().setScale(0.85f);
+        font.setColor(Color.WHITE);
+        font.draw(batch, "Auto Retaliate", toggleX + toggleSz + 6, toggleY + toggleSz - 1);
         font.getData().setScale(1f);
         font.setColor(Color.WHITE);
         batch.end();
     }
 
-    /** Small decorative icon inside each combat style button. */
+    /**
+     * Combat style icon drawn in the upper portion of each button.
+     * style = visual grid position (0=TL, 1=TR, 2=BL, 3=BR).
+     */
     private void drawCombatStyleIcon(ShapeRenderer sr, int style, int cx, int cy, boolean active) {
-        Color c = active ? new Color(1f, 0.85f, 0.15f, 1f) : new Color(0.50f, 0.48f, 0.38f, 1f);
         sr.begin(ShapeRenderer.ShapeType.Filled);
-        sr.setColor(c);
+        sr.setColor(active ? COLOR_ICON_ACTIVE : COLOR_ICON_IDLE);
         switch (style) {
-            case 0 -> { // Accurate: target/aim — small diamond
-                sr.rect(cx - 1, cy + 2, 3, 3);
-                sr.rect(cx - 3, cy, 7, 3);
-                sr.rect(cx - 1, cy - 2, 3, 3);
+            case 0 -> {
+                sr.rect(cx - 8, cy - 1, 4, 3);
+                sr.rect(cx + 4, cy - 1, 4, 3);
+                sr.rect(cx - 1, cy + 4, 3, 4);
+                sr.rect(cx - 1, cy - 7, 3, 4);
+                sr.rect(cx - 2, cy - 2, 5, 5);
             }
-            case 1 -> { // Aggressive: power — upward arrow
-                sr.rect(cx - 4, cy - 3, 9, 4);
-                sr.rect(cx - 1, cy + 1, 3, 4);
+            case 1 -> {
+                sr.rect(cx - 1, cy + 6, 3, 4);
+                sr.rect(cx - 2, cy + 1, 5, 6);
+                sr.rect(cx - 6, cy - 2, 13, 4);
+                sr.rect(cx - 1, cy - 7, 3, 6);
             }
-            case 2 -> { // Defensive: shield — rectangle with rounded top suggestion
-                sr.rect(cx - 4, cy - 3, 9, 7);
-                sr.rect(cx - 3, cy + 4, 7, 2);
+            case 2 -> {
+                sr.rect(cx - 8, cy + 2, 17, 3);
+                sr.rect(cx - 1, cy + 5, 3, 3);
+                sr.rect(cx - 8, cy - 5, 5, 8);
+                sr.rect(cx + 3, cy - 5, 5, 8);
             }
-            case 3 -> { // Controlled: balance — horizontal bar with two legs
-                sr.rect(cx - 5, cy + 1, 11, 2);
-                sr.rect(cx - 4, cy - 3, 2, 5);
-                sr.rect(cx + 2, cy - 3, 2, 5);
+            case 3 -> {
+                sr.rect(cx - 6, cy + 4, 13, 6);
+                sr.rect(cx - 5, cy, 11, 5);
+                sr.rect(cx - 4, cy - 4, 9, 5);
+                sr.rect(cx - 2, cy - 7, 5, 4);
+                sr.rect(cx - 1, cy - 9, 3, 3);
             }
         }
         sr.end();
     }
+
+    /** Returns style names in visual grid order [TL, TR, BL, BR]. */
+    private String[] styleNames() {
+        String w = equippedNames[4];
+        if (w == null || w.isEmpty()) {
+            return new String[]{"Punch", "Kick", "Block", null};
+        }
+        String wl = w.toLowerCase(Locale.ROOT);
+        if (wl.contains("whip")) {
+            return new String[]{"Flick", "Lash", "Deflect", null};
+        }
+        if (wl.contains("axe") || wl.contains("hatchet")) {
+            return new String[]{"Chop", "Hack", "Smash", "Block"};
+        }
+        if (wl.contains("dagger") || wl.contains("knife")) {
+            return new String[]{"Stab", "Lunge", "Slash", "Block"};
+        }
+        if (wl.contains("mace") || wl.contains("hammer") || wl.contains("maul") || wl.contains("club")) {
+            return new String[]{"Pound", "Pummel", "Spike", "Block"};
+        }
+        if (wl.contains("spear") || wl.contains("halberd") || wl.contains("hasta")) {
+            return new String[]{"Lunge", "Swipe", "Pound", "Block"};
+        }
+        return new String[]{"Chop", "Slash", "Lunge", "Block"};
+    }
+
+    /** Maps visual position (0..3) to server CombatStyle index. Returns -1 for disabled slots. */
+    private int styleIndexForPosition(int pos) {
+        String w = equippedNames[4];
+        if (w == null || w.isEmpty()) {
+            int[] map = {0, 1, 2, -1};
+            return map[pos];
+        }
+        String wl = w.toLowerCase(Locale.ROOT);
+        if (wl.contains("whip")) {
+            int[] map = {0, 3, 2, -1};
+            return map[pos];
+        }
+        if (wl.contains("spear") || wl.contains("halberd") || wl.contains("hasta")) {
+            int[] map = {3, 3, 3, 2};
+            return map[pos];
+        }
+        int[] map = {0, 1, 3, 2};
+        return map[pos];
+    }
+
+    private String xpLabelForPosition(int pos) {
+        return switch (styleIndexForPosition(pos)) {
+            case 0 -> "Attack XP";
+            case 1 -> "Strength XP";
+            case 2 -> "Defence XP";
+            case 3 -> "Shared XP";
+            default -> "";
+        };
+    }
+
+    public boolean isAutoRetaliate() { return autoRetaliate; }
 
     /**
      * OSRS skills-tab grid: 3 columns × 8 rows, OSRS canonical ordering.
@@ -1387,19 +1497,32 @@ public class SidePanel {
             case COMBAT -> {
                 int pad  = 10;
                 int btnW = (PANEL_W - pad * 3) / 2;
-                int btnH = 48;
-                int gridTop = panelY + CONTENT_H - 28;
+                int btnH = 70;
+                int gridTop = panelY + CONTENT_H - 38;
+
+                String[] names = styleNames();
 
                 for (int i = 0; i < 4; i++) {
+                    if (names[i] == null) continue;
                     int col = i % 2;
                     int row = i / 2;
                     int bx  = panelX + pad + col * (btnW + pad);
                     int by  = gridTop - (row + 1) * (btnH + pad);
 
                     if (mx >= bx && mx <= bx + btnW && my >= by && my <= by + btnH) {
-                        combatStyle = i;
-                        return i;
+                        int styleIdx = styleIndexForPosition(i);
+                        combatStyle = styleIdx;
+                        return styleIdx;
                     }
+                }
+
+                int toggleY  = gridTop - 2 * (btnH + pad) - 6;
+                int toggleSz = 14;
+                int toggleX  = panelX + pad;
+                if (mx >= toggleX && mx <= panelX + PANEL_W - pad
+                    && my >= toggleY && my <= toggleY + toggleSz + 4) {
+                    autoRetaliate = !autoRetaliate;
+                    return -50;
                 }
             }
             case CHARACTER -> {

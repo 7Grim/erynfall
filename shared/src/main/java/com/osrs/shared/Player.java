@@ -21,6 +21,7 @@ public class Player extends Entity {
     private int combatTarget = -1;
     private long lastAttackTick = 0;
     private CombatStyle combatStyle = CombatStyle.AGGRESSIVE;
+    private boolean autoRetaliate = true;
     /** Attack range (tiles) based on currently equipped weapon. Default 1 = melee. */
     private int weaponAttackRange = 1;
     /** PID — lower value = higher priority in simultaneous action resolution. Re-randomized every 100-150 OSRS ticks. */
@@ -216,6 +217,8 @@ public class Player extends Entity {
 
     public CombatStyle getCombatStyle() { return combatStyle; }
     public void setCombatStyle(CombatStyle style) { this.combatStyle = style; }
+    public boolean isAutoRetaliate() { return autoRetaliate; }
+    public void setAutoRetaliate(boolean enabled) { this.autoRetaliate = enabled; }
 
     public int getWeaponAttackRange() { return weaponAttackRange; }
     public void setWeaponAttackRange(int range) { this.weaponAttackRange = range; }

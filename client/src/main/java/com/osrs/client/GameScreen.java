@@ -1139,6 +1139,8 @@ public class GameScreen extends ApplicationAdapter {
                 if (click >= 0) {
                     sidePanel.setCombatStyle(click);
                     if (nettyClient != null) nettyClient.sendSetCombatStyle(click);
+                } else if (click == -50) {
+                    if (nettyClient != null) nettyClient.sendSetAutoRetaliate(sidePanel.isAutoRetaliate());
                 } else if (click <= -200) {
                     int prayerId = -(click + 200);
                     if (playerPrayer > 0) {
@@ -1276,6 +1278,8 @@ public class GameScreen extends ApplicationAdapter {
                     if (click >= 0) {
                         sidePanel.setCombatStyle(click);
                         if (nettyClient != null) nettyClient.sendSetCombatStyle(click);
+                    } else if (click == -50) {
+                        if (nettyClient != null) nettyClient.sendSetAutoRetaliate(sidePanel.isAutoRetaliate());
                     } else if (click <= -200) {
                         int prayerId = -(click + 200);
                         if (playerPrayer > 0) {

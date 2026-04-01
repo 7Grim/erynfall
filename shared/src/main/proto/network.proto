@@ -348,6 +348,11 @@ message LogoutRequest {
     int64 sequence = 1;
 }
 
+// SetAutoRetaliate: Client -> Server (toggle auto-retaliate on/off)
+message SetAutoRetaliate {
+    bool enabled = 1;
+}
+
 // ChatBroadcast: Server → Client (public chat from a nearby player, broadcast to all in range)
 message ChatBroadcast {
     int32  sender_id   = 1;   // Entity ID of the sender (for overhead text placement)
@@ -418,6 +423,7 @@ message ClientMessage {
         TogglePrayer toggle_prayer = 18;
         ExamineItem examine_item = 19;
         FriendAction friend_action = 20;
+        SetAutoRetaliate set_auto_retaliate = 21;
     }
 }
 

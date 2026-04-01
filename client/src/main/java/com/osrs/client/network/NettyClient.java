@@ -282,6 +282,15 @@ public class NettyClient {
         LOG.debug("Sent TogglePrayer: id={}", prayerId);
     }
 
+    public void sendSetAutoRetaliate(boolean enabled) {
+        if (channel == null || !channel.isActive()) return;
+        channel.writeAndFlush(NetworkProto.ClientMessage.newBuilder()
+            .setSetAutoRetaliate(NetworkProto.SetAutoRetaliate.newBuilder()
+                .setEnabled(enabled))
+            .build());
+        LOG.debug("Sent SetAutoRetaliate: {}", enabled);
+    }
+
     public long sendFriendAction(NetworkProto.FriendAction.Action action, long playerId, String name) {
         if (channel == null || !channel.isActive()) return -1L;
         long sequence = friendActionSequence.getAndIncrement();

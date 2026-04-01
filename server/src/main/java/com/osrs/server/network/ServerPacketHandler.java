@@ -126,6 +126,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             case LOGOUT_REQUEST      -> handleLogoutRequest(ctx, packet.getLogoutRequest());
             case START_SKILLING      -> handleStartSkilling(ctx, packet.getStartSkilling());
             case TOGGLE_PRAYER       -> handleTogglePrayer(ctx, packet.getTogglePrayer());
+            case SET_AUTO_RETALIATE  -> handleSetAutoRetaliate(packet.getSetAutoRetaliate());
             default -> LOG.warn("Unhandled payload case: {}", packet.getPayloadCase());
         }
     }
@@ -630,7 +631,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
                                      NPC npc,
                                      NetworkProto.SkillingType requestedType,
                                      boolean strictType) {
-        if (TreeVariantRegistry.getByName(npc.getName()) != null) {
+        if (TreeVariantRegistry.isChoppableDefinitionId(npc.getDefinitionId())) {
             if (strictType && requestedType != NetworkProto.SkillingType.SKILLING_WOODCUTTING) {
                 return false;
             }
@@ -1419,6 +1420,12 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
         CombatStyle style = CombatStyle.fromIndex(req.getStyle());
         session.getPlayer().setCombatStyle(style);
         LOG.info("Player {} set combat style to {}", session.getPlayer().getId(), style.displayName);
+    }
+
+    private void handleSetAutoRetaliate(NetworkProto.SetAutoRetaliate req) {
+        if (session.getPlayer() == null) return;
+        session.getPlayer().setAutoRetaliate(req.getEnabled());
+        LOG.debug("Player {} autoRetaliate={}", session.getPlayer().getId(), req.getEnabled());
     }
 
     private void handleExamineNpc(ChannelHandlerContext ctx, NetworkProto.ExamineNpc req) {

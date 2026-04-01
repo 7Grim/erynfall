@@ -1,6 +1,5 @@
 package com.osrs.server.skilling;
 
-import java.util.Collection;
 import java.util.Locale;
 import java.util.Map;
 
@@ -24,30 +23,25 @@ public final class TreeVariantRegistry {
     );
 
     private static final Map<String, TreeVariant> BY_NAME = Map.of(
-        normalize(OAK_TREE.name()), OAK_TREE,
+        normalize(OAK_TREE.name()),    OAK_TREE,
         normalize(WILLOW_TREE.name()), WILLOW_TREE,
-        normalize(MAPLE_TREE.name()), MAPLE_TREE,
-        normalize(YEW_TREE.name()), YEW_TREE,
-        normalize(MAGIC_TREE.name()), MAGIC_TREE
+        normalize(MAPLE_TREE.name()),  MAPLE_TREE,
+        normalize(YEW_TREE.name()),    YEW_TREE,
+        normalize(MAGIC_TREE.name()),  MAGIC_TREE
     );
 
-    private TreeVariantRegistry() {
+    private TreeVariantRegistry() {}
+
+    public static TreeVariant getByName(String name) {
+        return BY_NAME.get(normalize(name));
     }
 
     public static TreeVariant getByDefinitionId(int definitionId) {
         return BY_DEFINITION_ID.get(definitionId);
     }
 
-    public static TreeVariant getByName(String name) {
-        return BY_NAME.get(normalize(name));
-    }
-
     public static boolean isChoppableDefinitionId(int definitionId) {
         return BY_DEFINITION_ID.containsKey(definitionId);
-    }
-
-    public static Collection<TreeVariant> all() {
-        return BY_DEFINITION_ID.values();
     }
 
     private static String normalize(String name) {
@@ -55,6 +49,5 @@ public final class TreeVariantRegistry {
         return name.trim().toLowerCase(Locale.ROOT);
     }
 
-    public record TreeVariant(int definitionId, String name, int logItemId, int levelRequirement, long xp) {
-    }
+    public record TreeVariant(int definitionId, String name, int logItemId, int levelRequirement, long xp) {}
 }
