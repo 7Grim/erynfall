@@ -281,12 +281,16 @@ public class SidePanel {
     private static final Color COLOR_BTN_DISABLED_BORDER = new Color(0.25f, 0.23f, 0.18f, 1f);
     private static final Color COLOR_AR_ON_TEXT   = new Color(0.72f, 1.00f, 0.72f, 1f); // bright green-white
     private static final Color COLOR_AR_OFF_TEXT  = new Color(0.65f, 0.25f, 0.25f, 1f); // muted red
-    private static final Color COLOR_AR_LABEL_OFF = new Color(0.65f, 0.62f, 0.58f, 1f); // dimmed label when off
+    private static final Color COLOR_AR_LABEL_OFF  = new Color(0.65f, 0.62f, 0.58f, 1f); // dimmed label when off
+    private static final Color COLOR_LOGOUT_BTN_BG = new Color(0.35f, 0.10f, 0.08f, 1f); // dark red confirm bg
+    private static final Color COLOR_LOGOUT_BTN_BR = new Color(0.75f, 0.20f, 0.15f, 1f); // red confirm border
+    private static final Color COLOR_LOGOUT_CONFIRM= new Color(1.00f, 0.50f, 0.45f, 1f); // confirm label
     private CharacterPage characterPage = CharacterPage.SUMMARY;
     private final Map<Integer, QuestView> quests = new HashMap<>();
     private int selectedQuestId = -1;
     private int playerQuestPoints = 0;
-    private boolean logoutRequested = false;
+    private boolean logoutRequested  = false;
+    private boolean logoutConfirmed  = false;
     private final List<FriendEntryView> friendEntries = new ArrayList<>();
     private long    removeFriendRequestedId = -1L;
 
@@ -402,7 +406,7 @@ public class SidePanel {
                 characterPage = CharacterPage.SUMMARY;
                 renderCharacterTab(sr, batch, font, proj);
             }
-            case LOGOUT    -> renderStubTab(sr, batch, font, proj, "Logout");
+            case LOGOUT    -> renderLogoutTab(sr, batch, font, proj);
             default        -> renderStubTab(sr, batch, font, proj, activeTab.label);
         }
 
@@ -569,6 +573,71 @@ public class SidePanel {
         font.getData().setScale(0.80f);
         font.setColor(0.55f, 0.52f, 0.42f, 1f);
         font.draw(batch, tabName + " - Coming Soon", panelX + CONTENT_INSET + 10, cY + CONTENT_H / 2 + 8);
+        font.getData().setScale(1f);
+        font.setColor(Color.WHITE);
+        batch.end();
+    }
+
+    private void renderLogoutTab(ShapeRenderer sr, SpriteBatch batch, BitmapFont font, Matrix4 proj) {
+        int contentX = panelX + CONTENT_INSET;
+        int pad = 12;
+        int midY = cY + CONTENT_H / 2; // vertical centre of content area
+
+        // Header
+        batch.setProjectionMatrix(proj);
+        batch.begin();
+        font.getData().setScale(0.85f);
+        font.setColor(COLOR_TITLE_GOLD);
+        font.draw(batch, "Logout", contentX + pad, cY + CONTENT_H - 10);
+        font.getData().setScale(1f);
+        font.setColor(Color.WHITE);
+        batch.end();
+
+        sr.setProjectionMatrix(proj);
+        sr.begin(ShapeRenderer.ShapeType.Filled);
+        sr.setColor(0.45f, 0.38f, 0.22f, 1f);
+        sr.rect(contentX + pad, cY + CONTENT_H - 22, CONTENT_W - pad * 2, 1);
+        sr.end();
+
+        // Question text — centred just above the button row
+        batch.setProjectionMatrix(proj);
+        batch.begin();
+        font.getData().setScale(0.80f);
+        font.setColor(0.88f, 0.84f, 0.72f, 1f);
+        font.draw(batch, "Are you sure you want", contentX + pad, midY + 44);
+        font.draw(batch, "to logout?",            contentX + pad, midY + 26);
+        font.getData().setScale(1f);
+        font.setColor(Color.WHITE);
+        batch.end();
+
+        // Confirm / Cancel buttons
+        int btnH = 28;
+        int btnW = (CONTENT_W - pad * 3) / 2;  // ~75px each
+        int confirmX = contentX + pad;
+        int cancelX  = contentX + pad * 2 + btnW;
+        int btnY     = midY - 20;
+
+        sr.begin(ShapeRenderer.ShapeType.Filled);
+        sr.setColor(COLOR_LOGOUT_BTN_BG);
+        sr.rect(confirmX, btnY, btnW, btnH);
+        sr.setColor(COLOR_BTN_IDLE_BG);
+        sr.rect(cancelX,  btnY, btnW, btnH);
+        sr.end();
+
+        sr.begin(ShapeRenderer.ShapeType.Line);
+        sr.setColor(COLOR_LOGOUT_BTN_BR);
+        sr.rect(confirmX, btnY, btnW, btnH);
+        sr.setColor(BORDER_COLOR);
+        sr.rect(cancelX,  btnY, btnW, btnH);
+        sr.end();
+
+        batch.setProjectionMatrix(proj);
+        batch.begin();
+        font.getData().setScale(0.78f);
+        font.setColor(COLOR_LOGOUT_CONFIRM);
+        font.draw(batch, "Confirm", confirmX + 8, btnY + btnH - 8);
+        font.setColor(Color.WHITE);
+        font.draw(batch, "Cancel",  cancelX  + 8, btnY + btnH - 8);
         font.getData().setScale(1f);
         font.setColor(Color.WHITE);
         batch.end();
@@ -1954,7 +2023,6 @@ public class SidePanel {
                 int tw = (i == row.length - 1) ? lastW : tabW;
                 int tx = panelX + i * tabW;
                 if (mx >= tx && mx <= tx + tw) {
-                    if (row[i] == Tab.LOGOUT) { logoutRequested = true; return -1; }
                     activeTab = row[i];
                     return -1;
                 }
@@ -1970,7 +2038,6 @@ public class SidePanel {
                 int tw = (i == row.length - 1) ? lastW : tabW;
                 int tx = panelX + i * tabW;
                 if (mx >= tx && mx <= tx + tw) {
-                    if (row[i] == Tab.LOGOUT) { logoutRequested = true; return -1; }
                     activeTab = row[i];
                     return -1;
                 }
@@ -2130,7 +2197,26 @@ public class SidePanel {
             case SETTINGS -> {
                 if (mx >= logoutButtonX() && mx <= logoutButtonX() + logoutButtonW()
                     && my >= logoutButtonY() && my <= logoutButtonY() + logoutButtonH()) {
-                    logoutRequested = true;
+                    activeTab = Tab.LOGOUT;  // route to in-panel confirmation
+                    return -1;
+                }
+            }
+            case LOGOUT -> {
+                int contentX = panelX + CONTENT_INSET;
+                int pad = 12;
+                int midY = cY + CONTENT_H / 2;
+                int btnH = 28;
+                int btnW = (CONTENT_W - pad * 3) / 2;
+                int confirmX = contentX + pad;
+                int cancelX  = contentX + pad * 2 + btnW;
+                int btnY     = midY - 20;
+                if (mx >= confirmX && mx <= confirmX + btnW && my >= btnY && my <= btnY + btnH) {
+                    logoutConfirmed = true;
+                    activeTab = Tab.INVENTORY;
+                    return -1;
+                }
+                if (mx >= cancelX && mx <= cancelX + btnW && my >= btnY && my <= btnY + btnH) {
+                    activeTab = Tab.INVENTORY;
                     return -1;
                 }
             }
@@ -2163,10 +2249,17 @@ public class SidePanel {
     public boolean isInventoryTabActive() { return activeTab == Tab.INVENTORY; }
     public int     getPanelX()            { return panelX; }
     public boolean consumeLogoutRequested() {
-        boolean out = logoutRequested;
+        boolean out = logoutRequested || logoutConfirmed;
         logoutRequested = false;
+        logoutConfirmed = false;
         return out;
     }
+
+    // Logout tab public API (called from GameScreen)
+    public void    showLogoutTab()       { activeTab = Tab.LOGOUT; }
+    public boolean isLogoutTabActive()   { return activeTab == Tab.LOGOUT; }
+    public void    confirmLogout()       { logoutConfirmed = true; activeTab = Tab.INVENTORY; }
+    public void    cancelLogout()        { if (activeTab == Tab.LOGOUT) activeTab = Tab.INVENTORY; }
 
     // Friends tab public API (called from GameScreen)
     public boolean isAddFriendOverlayActive() { return addFriendOverlay; }
