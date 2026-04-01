@@ -247,6 +247,26 @@ public class SidePanel {
     private int combatStyle = 1;   // default: Aggressive
     private boolean autoRetaliate = true;
 
+    // ── Weapon attack-style tables (OSRS-accurate, per weapon category) ──────
+    // Category indices: 0=Unarmed 1=Axe 2=Sword/Scimitar 3=Bow 4=Default-Melee
+    private static final String[][] WEAPON_STYLE_NAMES = {
+        {"Punch",    "Kick",       "Block",     null},          // 0 Unarmed
+        {"Chop",     "Hack",       "Smash",     "Block"},       // 1 Axe
+        {"Chop",     "Slash",      "Lunge",     "Block"},       // 2 Sword/Scimitar
+        {"Accurate", "Rapid",      "Longrange", null},          // 3 Bow
+        {"Accurate", "Aggressive", "Controlled","Defensive"},   // 4 Default melee
+    };
+    private static final String[][] WEAPON_STYLE_XP = {
+        {"Attack XP",  "Strength XP", "Defence XP",  null},         // 0 Unarmed
+        {"Attack XP",  "Strength XP", "Strength XP", "Defence XP"}, // 1 Axe
+        {"Attack XP",  "Strength XP", "Shared XP",   "Defence XP"}, // 2 Sword
+        {"Ranged XP",  "Ranged XP",   "Rng+Def XP",  null},         // 3 Bow
+        {"Attack XP",  "Strength XP", "Shared XP",   "Defence XP"}, // 4 Default
+    };
+    private static final String[] WEAPON_CATEGORY_NAMES = {
+        "Unarmed", "Axe", "Sword", "Ranged", "Melee"
+    };
+
     // Pre-allocated colors to avoid per-frame GC in renderCombatTab
     private static final Color COLOR_BTN_SEL_BG = new Color(0.35f, 0.27f, 0.04f, 1f);
     private static final Color COLOR_BTN_IDLE_BG = new Color(0.17f, 0.15f, 0.13f, 1f);
@@ -599,34 +619,50 @@ public class SidePanel {
         int contentX = panelX + CONTENT_INSET;
         int pad  = 8;
         int btnW = (CONTENT_W - pad * 3) / 2;
-        int btnH = 56;
+        int btnH = 60;
 
-        String[] names = styleNames();
-        String[] xpLabels = styleXp();
+        int     wepCat    = weaponCategory();
+        String[] names    = WEAPON_STYLE_NAMES[wepCat];
+        String[] xpLabels = WEAPON_STYLE_XP[wepCat];
         String weaponName = (equippedNames[4] != null && !equippedNames[4].isEmpty())
             ? equippedNames[4] : "Unarmed";
+        int combatLvl = combatLevel();
 
-        // Title + weapon label
+        // ── Header (title / weapon / combat level) ────────────────────────
         batch.setProjectionMatrix(proj);
         batch.begin();
         font.getData().setScale(0.85f);
         font.setColor(COLOR_TITLE_GOLD);
-        font.draw(batch, "Combat Options", contentX + pad, panelY + CONTENT_H - 8);
+        // Draw each word separately to avoid space-glyph rendering artefact
+        font.draw(batch, "Combat", contentX + pad, panelY + CONTENT_H - 6);
+        font.draw(batch, "Options", contentX + pad + 55, panelY + CONTENT_H - 6);
+
         font.getData().setScale(0.75f);
-        font.setColor(0.70f, 0.65f, 0.50f, 1f);
-        font.draw(batch, weaponName, contentX + pad, panelY + CONTENT_H - 24);
+        font.setColor(0.75f, 0.68f, 0.48f, 1f);
+        font.draw(batch, weaponName, contentX + pad, panelY + CONTENT_H - 20);
+
+        font.getData().setScale(0.70f);
+        font.setColor(0.82f, 0.62f, 0.22f, 1f);
+        font.draw(batch, "Combat Lvl:", contentX + pad, panelY + CONTENT_H - 33);
+        font.setColor(Color.WHITE);
+        font.draw(batch, String.valueOf(combatLvl), contentX + pad + 66, panelY + CONTENT_H - 33);
+
         font.getData().setScale(1f);
         font.setColor(Color.WHITE);
         batch.end();
 
-        // Title underline
+        // Header underline
+        sr.setProjectionMatrix(proj);
         sr.begin(ShapeRenderer.ShapeType.Filled);
         sr.setColor(0.45f, 0.38f, 0.22f, 1f);
-        sr.rect(contentX + pad, panelY + CONTENT_H - 34, CONTENT_W - pad * 2, 1);
+        sr.rect(contentX + pad, panelY + CONTENT_H - 42, CONTENT_W - pad * 2, 1);
         sr.end();
 
-        // 2x2 button grid
-        int gridTop = panelY + CONTENT_H - 40;
+        // ── 2×2 button grid ───────────────────────────────────────────────
+        // gridTop is the y-coordinate just below the header underline
+        int gridTop = panelY + CONTENT_H - 48;
+
+        // Pass 1: fills and borders
         for (int i = 0; i < 4; i++) {
             int col = i % 2;
             int row = i / 2;
@@ -634,7 +670,7 @@ public class SidePanel {
             int by  = gridTop - (row + 1) * (btnH + pad);
 
             boolean disabled = names[i] == null;
-            boolean sel = !disabled && i == combatStyle;
+            boolean sel      = !disabled && i == combatStyle;
 
             sr.begin(ShapeRenderer.ShapeType.Filled);
             sr.setColor(sel ? COLOR_BTN_SEL_BG : COLOR_BTN_IDLE_BG);
@@ -642,17 +678,19 @@ public class SidePanel {
             sr.end();
 
             sr.begin(ShapeRenderer.ShapeType.Line);
-            if (disabled) sr.setColor(COLOR_BTN_DISABLED_BORDER);
-            else sr.setColor(sel ? COLOR_BTN_SEL_BORDER : COLOR_BTN_IDLE_BORDER);
+            sr.setColor(disabled ? COLOR_BTN_DISABLED_BORDER
+                      : sel      ? COLOR_BTN_SEL_BORDER
+                                 : COLOR_BTN_IDLE_BORDER);
             sr.rect(bx, by, btnW, btnH);
             sr.end();
 
+            // Icon centred in the button (upper half so text doesn't overlap)
             if (!disabled) {
-                drawCombatStyleIcon(sr, i, bx + btnW / 2, by + btnH - 20, sel);
+                drawCombatStyleIcon(sr, i, bx + btnW / 2, by + btnH / 2 + 4, sel);
             }
         }
 
-        // Button labels
+        // Pass 2: text labels
         batch.setProjectionMatrix(proj);
         batch.begin();
         for (int i = 0; i < 4; i++) {
@@ -663,36 +701,40 @@ public class SidePanel {
             int by  = gridTop - (row + 1) * (btnH + pad);
             boolean sel = i == combatStyle;
 
-            font.getData().setScale(0.85f);
+            // Style name — top of button
+            font.getData().setScale(0.78f);
             font.setColor(sel ? COLOR_BTN_SEL_TEXT : Color.WHITE);
-            font.draw(batch, names[i], bx + 6, by + btnH - 6);
+            font.draw(batch, names[i], bx + 5, by + btnH - 5);
 
-            font.getData().setScale(0.70f);
-            font.setColor(0.60f, 0.60f, 0.60f, 1f);
-            font.draw(batch, xpLabels[i], bx + 6, by + 14);
+            // XP label — bottom of button
+            font.getData().setScale(0.62f);
+            font.setColor(0.55f, 0.55f, 0.55f, 1f);
+            font.draw(batch, xpLabels[i], bx + 5, by + 11);
         }
         font.getData().setScale(1f);
         font.setColor(Color.WHITE);
         batch.end();
 
-        // Auto Retaliate toggle
-        int toggleY  = gridTop - 2 * (btnH + pad) - 6;
+        // ── Auto Retaliate row ────────────────────────────────────────────
+        int toggleY  = gridTop - 2 * (btnH + pad) - 8;
         int toggleSz = 14;
         int toggleX  = contentX + pad;
 
+        sr.setProjectionMatrix(proj);
         sr.begin(ShapeRenderer.ShapeType.Filled);
         sr.setColor(autoRetaliate ? COLOR_TOGGLE_ON : COLOR_BTN_IDLE_BG);
         sr.rect(toggleX, toggleY, toggleSz, toggleSz);
         sr.end();
 
         sr.begin(ShapeRenderer.ShapeType.Line);
-        sr.setColor(0.55f, 0.46f, 0.28f, 1f);
+        sr.setColor(BORDER_COLOR);
         sr.rect(toggleX, toggleY, toggleSz, toggleSz);
         sr.end();
 
         if (autoRetaliate) {
             sr.begin(ShapeRenderer.ShapeType.Filled);
             sr.setColor(Color.WHITE);
+            // Checkmark: short left stroke + tall right stroke
             sr.rect(toggleX + 2, toggleY + 3, 3, 2);
             sr.rect(toggleX + 4, toggleY + 2, 2, 6);
             sr.end();
@@ -700,9 +742,21 @@ public class SidePanel {
 
         batch.setProjectionMatrix(proj);
         batch.begin();
-        font.getData().setScale(0.85f);
+        font.getData().setScale(0.78f);
         font.setColor(Color.WHITE);
-        font.draw(batch, "Auto Retaliate", toggleX + toggleSz + 6, toggleY + toggleSz - 1);
+        String arText = "Auto Retaliate";
+        font.draw(batch, arText, toggleX + toggleSz + 6, toggleY + toggleSz - 1);
+        font.getData().setScale(0.68f);
+        font.setColor(autoRetaliate ? COLOR_TOGGLE_ON : new Color(0.65f, 0.25f, 0.25f, 1f));
+        font.draw(batch, autoRetaliate ? "(On)" : "(Off)",
+                  toggleX + toggleSz + 6, toggleY + 1);
+
+        // ── Category line ──────────────────────────────────────────────────
+        font.getData().setScale(0.65f);
+        font.setColor(0.50f, 0.48f, 0.38f, 1f);
+        font.draw(batch, "Category: " + WEAPON_CATEGORY_NAMES[wepCat],
+                  contentX + pad, toggleY - 6);
+
         font.getData().setScale(1f);
         font.setColor(Color.WHITE);
         batch.end();
@@ -745,21 +799,42 @@ public class SidePanel {
         sr.end();
     }
 
-    /** Returns style names in visual grid order [TL, TR, BL, BR]. */
-    private String[] styleNames() {
-        String weapon = equippedNames[4];
-        if (weapon == null || weapon.isEmpty()) {
-            return new String[]{"Punch", "Kick", "Block", null};
-        }
-        return new String[]{"Accurate", "Aggressive", "Controlled", "Defensive"};
+    /**
+     * Returns a category index into WEAPON_STYLE_NAMES / WEAPON_STYLE_XP based on
+     * the name of the equipped weapon. Keyword matching is intentionally broad so
+     * future weapons slot in automatically.
+     */
+    private int weaponCategory() {
+        String w = equippedNames[4];
+        if (w == null || w.isEmpty()) return 0; // Unarmed
+        String l = w.toLowerCase();
+        if (l.contains("axe"))                              return 1; // Axe
+        if (l.contains("scimitar") || l.contains("sword")) return 2; // Sword
+        if (l.contains("bow"))                              return 3; // Bow/Ranged
+        return 4; // Generic melee fallback
     }
 
-    private String[] styleXp() {
-        String weapon = equippedNames[4];
-        if (weapon == null || weapon.isEmpty()) {
-            return new String[]{"Attack XP", "Strength XP", "Defence XP", null};
-        }
-        return new String[]{"Attack XP", "Strength XP", "Shared XP", "Defence XP"};
+    /**
+     * Player combat level — OSRS formula (from wiki):
+     *   base   = 0.25 × (Defence + Hitpoints + ⌊Prayer ÷ 2⌋)
+     *   melee  = 0.325 × (Attack + Strength)
+     *   magic  = 0.325 × ⌊Magic  × 1.5⌋
+     *   ranged = 0.325 × ⌊Ranged × 1.5⌋
+     *   level  = ⌊ base + max(melee, magic, ranged) ⌋   (minimum 3)
+     */
+    private int combatLevel() {
+        int atk  = Math.max(1,  skillLevels[0]);  // SKILL_ATTACK
+        int str  = Math.max(1,  skillLevels[1]);  // SKILL_STRENGTH
+        int def  = Math.max(1,  skillLevels[2]);  // SKILL_DEFENCE
+        int hp   = Math.max(10, skillLevels[3]);  // SKILL_HITPOINTS (minimum 10 in OSRS)
+        int rang = Math.max(1,  skillLevels[4]);  // SKILL_RANGED
+        int mag  = Math.max(1,  skillLevels[5]);  // SKILL_MAGIC
+        int pray = Math.max(1,  skillLevels[6]);  // SKILL_PRAYER
+        double base   = 0.25  * (def + hp + Math.floor(pray / 2.0));
+        double melee  = 0.325 * (atk + str);
+        double magic  = 0.325 * Math.floor(mag  * 1.5);
+        double ranged = 0.325 * Math.floor(rang * 1.5);
+        return Math.max(3, (int) Math.floor(base + Math.max(melee, Math.max(magic, ranged))));
     }
 
     public boolean isAutoRetaliate() { return autoRetaliate; }
@@ -1871,10 +1946,10 @@ public class SidePanel {
                 int contentX = panelX + CONTENT_INSET;
                 int pad  = 8;
                 int btnW = (CONTENT_W - pad * 3) / 2;
-                int btnH = 56;
-                int gridTop = panelY + CONTENT_H - 40;
+                int btnH = 60;
+                int gridTop = panelY + CONTENT_H - 48;
 
-                String[] names = styleNames();
+                String[] names = WEAPON_STYLE_NAMES[weaponCategory()];
 
                 for (int i = 0; i < 4; i++) {
                     if (names[i] == null) continue;
@@ -1889,7 +1964,7 @@ public class SidePanel {
                     }
                 }
 
-                int toggleY  = gridTop - 2 * (btnH + pad) - 6;
+                int toggleY  = gridTop - 2 * (btnH + pad) - 8;
                 int toggleSz = 14;
                 int toggleX  = contentX + pad;
                 if (mx >= toggleX && mx <= contentX + CONTENT_W - pad
