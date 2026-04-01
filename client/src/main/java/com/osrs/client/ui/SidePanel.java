@@ -121,11 +121,12 @@ public class SidePanel {
         MAGIC     (6,  "Magic"),
         // Bottom row — F8–F13
         FRIENDS   (7,  "Friends"),
-        IGNORE    (8,  "Ignore"),
+        IGNORE    (8,  "Options"),
         CLAN      (9,  "Clan"),
-        SETTINGS  (10, "Settings"),
+        SETTINGS  (10, "Account"),
         EMOTES    (11, "Emotes"),
-        MUSIC     (12, "Music");
+        MUSIC     (12, "Music"),
+        LOGOUT    (13, "Logout");
 
         public final int    index;
         public final String label;
@@ -136,7 +137,7 @@ public class SidePanel {
         Tab.COMBAT, Tab.SKILLS, Tab.QUESTS, Tab.INVENTORY, Tab.EQUIPMENT, Tab.PRAYER, Tab.MAGIC
     };
     private static final Tab[] BOTTOM_TABS = {
-        Tab.FRIENDS, Tab.IGNORE, Tab.CLAN, Tab.SETTINGS, Tab.EMOTES, Tab.MUSIC
+        Tab.CLAN, Tab.FRIENDS, Tab.SETTINGS, Tab.LOGOUT, Tab.IGNORE, Tab.EMOTES, Tab.MUSIC
     };
 
     private Tab activeTab = Tab.INVENTORY;   // default open tab (OSRS default)
@@ -331,6 +332,7 @@ public class SidePanel {
 
     // Cached panel origin (set each render call)
     private int panelX, panelY;
+    private int cY; // bottom of content area = panelY + TAB_H
 
     // -----------------------------------------------------------------------
     // Lifecycle
@@ -355,6 +357,7 @@ public class SidePanel {
                        int screenW, int screenH, Matrix4 proj, int mouseX, int mouseY) {
         panelX = screenW - PANEL_W - MARGIN;
         panelY = MARGIN;
+        cY = panelY + TAB_H;
 
         // --- Panel background ---
         sr.setProjectionMatrix(proj);
@@ -373,11 +376,11 @@ public class SidePanel {
         // --- Tab bars (two rows) ---
         renderTabBar(sr, batch, font, proj, mouseX, mouseY);
 
-        // --- Dividers: content ↔ bottom row, and between the two rows ---
+        // --- Dividers: bottom tab ↔ content, and content ↔ top tab ---
         sr.begin(ShapeRenderer.ShapeType.Filled);
         sr.setColor(BORDER_COLOR);
-        sr.rect(panelX, panelY + CONTENT_H, PANEL_W, BORDER_THICKNESS);
-        sr.rect(panelX, panelY + CONTENT_H + TAB_H, PANEL_W, BORDER_THICKNESS);
+        sr.rect(panelX, cY, PANEL_W, BORDER_THICKNESS);             // bottom tab ↔ content
+        sr.rect(panelX, cY + CONTENT_H, PANEL_W, BORDER_THICKNESS); // content ↔ top tab
         sr.end();
 
         // --- Active tab content ---
@@ -388,7 +391,7 @@ public class SidePanel {
                 characterPage = CharacterPage.QUEST_LIST;
                 renderCharacterTab(sr, batch, font, proj);
             }
-            case INVENTORY -> inventoryUI.render(sr, batch, font, panelX + CONTENT_INSET, panelY, proj);
+            case INVENTORY -> inventoryUI.render(sr, batch, font, panelX + CONTENT_INSET, cY, proj);
             case EQUIPMENT -> {
                 characterPage = CharacterPage.GEAR;
                 renderCharacterTab(sr, batch, font, proj);
@@ -399,6 +402,7 @@ public class SidePanel {
                 characterPage = CharacterPage.SUMMARY;
                 renderCharacterTab(sr, batch, font, proj);
             }
+            case LOGOUT    -> renderStubTab(sr, batch, font, proj, "Logout");
             default        -> renderStubTab(sr, batch, font, proj, activeTab.label);
         }
 
@@ -413,9 +417,9 @@ public class SidePanel {
     private void renderTabBar(ShapeRenderer sr, SpriteBatch batch, BitmapFont font, Matrix4 proj,
                               int mouseX, int mouseY) {
         sr.setProjectionMatrix(proj);
-        // Bottom row rendered first (lower Y), then top row above it
-        renderTabRow(sr, mouseX, mouseY, BOTTOM_TABS, panelY + CONTENT_H);
-        renderTabRow(sr, mouseX, mouseY, TOP_TABS, panelY + CONTENT_H + TAB_H);
+        // Bottom row rendered first (at panel bottom), then top row above content
+        renderTabRow(sr, mouseX, mouseY, BOTTOM_TABS, panelY);
+        renderTabRow(sr, mouseX, mouseY, TOP_TABS, cY + CONTENT_H);
     }
 
     private void renderTabRow(ShapeRenderer sr, int mouseX, int mouseY,
@@ -549,6 +553,13 @@ public class SidePanel {
                 sr.rect(cx, cy - 2, 3, 8);
                 sr.rect(cx - 5, cy + 4, 8, 2);
             }
+            case LOGOUT -> {
+                // Door: rectangle with small arch, arrow pointing right (exit)
+                sr.rect(cx - 5, cy - 7, 8, 14);      // door frame
+                sr.rect(cx + 3, cy - 3, 5, 2);        // arrow shaft
+                sr.rect(cx + 5, cy - 5, 2, 2);        // arrow head up
+                sr.rect(cx + 5, cy + 1, 2, 2);        // arrow head down
+            }
         }
     }
 
@@ -557,7 +568,7 @@ public class SidePanel {
         batch.begin();
         font.getData().setScale(0.80f);
         font.setColor(0.55f, 0.52f, 0.42f, 1f);
-        font.draw(batch, tabName + " - Coming Soon", panelX + CONTENT_INSET + 10, panelY + CONTENT_H / 2 + 8);
+        font.draw(batch, tabName + " - Coming Soon", panelX + CONTENT_INSET + 10, cY + CONTENT_H / 2 + 8);
         font.getData().setScale(1f);
         font.setColor(Color.WHITE);
         batch.end();
@@ -582,30 +593,30 @@ public class SidePanel {
 
         // --- Left pillar: HP bar ---
         sr.setColor(HP_BAR_BG);
-        sr.rect(leftX, panelY, pillarW, pillarH);
+        sr.rect(leftX, cY, pillarW, pillarH);
 
         if (maxHp > 0 && currentHp > 0) {
             float fraction = Math.min(1f, (float) currentHp / maxHp);
             int fillH = Math.max(1, (int) (pillarH * fraction) - 1);
             sr.setColor(fraction <= 0.25f ? HP_BAR_LOW : HP_BAR_FILL);
-            sr.rect(leftX + 2, panelY + 1, pillarW - 4, fillH);
+            sr.rect(leftX + 2, cY + 1, pillarW - 4, fillH);
             // Right-edge shadow strip (gives a 3-D depth feel)
             sr.setColor(HP_BAR_DARK);
-            sr.rect(leftX + pillarW - 4, panelY + 1, 2, fillH);
+            sr.rect(leftX + pillarW - 4, cY + 1, 2, fillH);
         }
 
         // --- Right pillar: Prayer bar ---
         sr.setColor(PR_BAR_BG);
-        sr.rect(rightX, panelY, pillarW, pillarH);
+        sr.rect(rightX, cY, pillarW, pillarH);
 
         if (maxPrayerPoints > 0 && currentPrayerPoints > 0) {
             float fraction = Math.min(1f, (float) currentPrayerPoints / maxPrayerPoints);
             int fillH = Math.max(1, (int) (pillarH * fraction) - 1);
             sr.setColor(PR_BAR_FILL);
-            sr.rect(rightX + 2, panelY + 1, pillarW - 4, fillH);
+            sr.rect(rightX + 2, cY + 1, pillarW - 4, fillH);
             // Right-edge shadow strip
             sr.setColor(PR_BAR_DARK);
-            sr.rect(rightX + pillarW - 4, panelY + 1, 2, fillH);
+            sr.rect(rightX + pillarW - 4, cY + 1, 2, fillH);
         }
 
         sr.end();
@@ -613,8 +624,8 @@ public class SidePanel {
         // Thin gold border around each pillar
         sr.begin(ShapeRenderer.ShapeType.Line);
         sr.setColor(BORDER_COLOR);
-        sr.rect(leftX, panelY, pillarW, pillarH);
-        sr.rect(rightX, panelY, pillarW, pillarH);
+        sr.rect(leftX, cY, pillarW, pillarH);
+        sr.rect(rightX, cY, pillarW, pillarH);
         sr.end();
     }
 
@@ -637,18 +648,18 @@ public class SidePanel {
         font.getData().setScale(0.85f);
         font.setColor(COLOR_TITLE_GOLD);
         // Draw each word separately to avoid space-glyph rendering artefact
-        font.draw(batch, "Combat", contentX + pad, panelY + CONTENT_H - 6);
-        font.draw(batch, "Options", contentX + pad + 55, panelY + CONTENT_H - 6);
+        font.draw(batch, "Combat", contentX + pad, cY + CONTENT_H - 6);
+        font.draw(batch, "Options", contentX + pad + 55, cY + CONTENT_H - 6);
 
         font.getData().setScale(0.75f);
         font.setColor(0.75f, 0.68f, 0.48f, 1f);
-        font.draw(batch, weaponName, contentX + pad, panelY + CONTENT_H - 20);
+        font.draw(batch, weaponName, contentX + pad, cY + CONTENT_H - 20);
 
         font.getData().setScale(0.70f);
         font.setColor(0.82f, 0.62f, 0.22f, 1f);
-        font.draw(batch, "Combat Lvl:", contentX + pad, panelY + CONTENT_H - 33);
+        font.draw(batch, "Combat Lvl:", contentX + pad, cY + CONTENT_H - 33);
         font.setColor(Color.WHITE);
-        font.draw(batch, String.valueOf(combatLvl), contentX + pad + 66, panelY + CONTENT_H - 33);
+        font.draw(batch, String.valueOf(combatLvl), contentX + pad + 66, cY + CONTENT_H - 33);
 
         font.getData().setScale(1f);
         font.setColor(Color.WHITE);
@@ -658,12 +669,12 @@ public class SidePanel {
         sr.setProjectionMatrix(proj);
         sr.begin(ShapeRenderer.ShapeType.Filled);
         sr.setColor(0.45f, 0.38f, 0.22f, 1f);
-        sr.rect(contentX + pad, panelY + CONTENT_H - 42, CONTENT_W - pad * 2, 1);
+        sr.rect(contentX + pad, cY + CONTENT_H - 42, CONTENT_W - pad * 2, 1);
         sr.end();
 
         // ── 2×2 button grid ───────────────────────────────────────────────
         // gridTop is the y-coordinate just below the header underline
-        int gridTop = panelY + CONTENT_H - 48;
+        int gridTop = cY + CONTENT_H - 48;
 
         // Pass 1: fills and borders
         for (int i = 0; i < 4; i++) {
@@ -720,7 +731,7 @@ public class SidePanel {
 
         // ── Category line (above Auto Retaliate button) ───────────────────
         int arBtnH = 26;
-        int arBtnY = panelY + 6;
+        int arBtnY = cY + 6;
         int arBtnX = contentX + pad;
         int arBtnW = CONTENT_W - pad * 2;
         int catLineY = arBtnY + arBtnH + 14;
@@ -879,7 +890,7 @@ public class SidePanel {
         batch.begin();
         font.getData().setScale(0.85f);
         font.setColor(0.90f, 0.80f, 0.50f, 1f);
-        font.draw(batch, "Prayer", contentX + PAD, panelY + CONTENT_H - 8);
+        font.draw(batch, "Prayer", contentX + PAD, cY + CONTENT_H - 8);
         font.getData().setScale(1f);
         font.setColor(Color.WHITE);
         batch.end();
@@ -887,12 +898,12 @@ public class SidePanel {
         sr.setProjectionMatrix(proj);
         sr.begin(ShapeRenderer.ShapeType.Filled);
         sr.setColor(0.45f, 0.38f, 0.22f, 1f);
-        sr.rect(contentX + PAD, panelY + CONTENT_H - 20, CONTENT_W - PAD * 2, 1);
+        sr.rect(contentX + PAD, cY + CONTENT_H - 20, CONTENT_W - PAD * 2, 1);
         sr.end();
 
         // -- Prayer rows --
         int prayerLevel = skillLevels[6];
-        int startY = panelY + CONTENT_H - 28;
+        int startY = cY + CONTENT_H - 28;
 
         sr.begin(ShapeRenderer.ShapeType.Filled);
         for (int i = 0; i < PRAYERS.length; i++) {
@@ -931,7 +942,7 @@ public class SidePanel {
         sr.end();
 
         // -- Prayer point bar (bottom) --
-        int barY = panelY + PAD + 2;
+        int barY = cY + PAD + 2;
         int barW = CONTENT_W - PAD * 2;
         float ratio = maxPrayerPoints > 0 ? (float) currentPrayerPoints / maxPrayerPoints : 0f;
 
@@ -998,7 +1009,7 @@ public class SidePanel {
                 int idx = SKILL_GRID[r][c];
                 int storeIdx = (idx == -1) ? 23 : idx;
                 cellX[storeIdx] = panelX + CONTENT_INSET + PAD_X + c * (CELL_W + COL_GAP);
-                cellY[storeIdx] = panelY + CONTENT_H - PAD_Y - (r + 1) * CELL_H - r * ROW_GAP;
+                cellY[storeIdx] = cY + CONTENT_H - PAD_Y - (r + 1) * CELL_H - r * ROW_GAP;
             }
         }
 
@@ -1325,8 +1336,8 @@ public class SidePanel {
     private void renderCharacterTab(ShapeRenderer sr, SpriteBatch batch, BitmapFont font, Matrix4 proj) {
         int contentX = panelX + CONTENT_INSET;
         final int pad = 8;
-        final int headerY = panelY + CONTENT_H - 8;
-        final int subY = panelY + CONTENT_H - 34;
+        final int headerY = cY + CONTENT_H - 8;
+        final int subY = cY + CONTENT_H - 34;
         final int subW = (CONTENT_W - pad * 5) / 4;
         final int subH = 18;
 
@@ -1409,14 +1420,14 @@ public class SidePanel {
                 int y = bodyTop;
                 font.getData().setScale(0.78f);
                 for (QuestView q : list) {
-                    if (y < panelY + 18) break;
+                    if (y < cY + 18) break;
                     font.setColor(colorForQuest(q.status));
                     font.draw(batch, q.questName, contentX + pad, y);
                     y -= 16;
                 }
                 font.setColor(0.75f, 0.75f, 0.75f, 1f);
                 font.getData().setScale(0.65f);
-                font.draw(batch, "Red: not started  Yellow: in progress  Green: complete", contentX + pad, panelY + 10);
+                font.draw(batch, "Red: not started  Yellow: in progress  Green: complete", contentX + pad, cY + 10);
             } else {
                 // -- Quest detail --
                 int y = bodyTop;
@@ -1443,7 +1454,7 @@ public class SidePanel {
                     font.draw(batch, desc.substring(0, cut), contentX + pad, y);
                     y -= 14;
                     String rest = desc.substring(cut).trim();
-                    if (!rest.isEmpty() && y >= panelY + 18) {
+                    if (!rest.isEmpty() && y >= cY + 18) {
                         String line2 = rest.length() > 32 ? rest.substring(0, 32) + "..." : rest;
                         font.draw(batch, line2, contentX + pad, y);
                         y -= 14;
@@ -1462,7 +1473,7 @@ public class SidePanel {
 
                 // Task rows
                 for (QuestTaskView t : sel.tasks) {
-                    if (y < panelY + 18) break;
+                    if (y < cY + 18) break;
                     String prefix = t.completed ? "[x] " : "[ ] ";
                     String progress = t.requiredCount > 1
                         ? " (" + t.currentCount + "/" + t.requiredCount + ")" : "";
@@ -1476,11 +1487,11 @@ public class SidePanel {
                 font.getData().setScale(0.65f);
                 font.setColor(0.75f, 0.75f, 0.75f, 1f);
                 font.draw(batch, "Reward: " + sel.questPointsReward + " Quest Point(s)",
-                    contentX + pad, panelY + 10);
+                    contentX + pad, cY + 10);
             }
         } else if (characterPage == CharacterPage.GEAR) {
             final int SLOT_SIZE = 36;
-            final int toggleY   = panelY + 22;
+            final int toggleY   = cY + 22;
             final int toggleH   = 14;
             final int half      = CONTENT_W / 2;
 
@@ -1562,7 +1573,7 @@ public class SidePanel {
                 }
                 font.getData().setScale(0.58f);
                 font.setColor(new Color(0.60f, 0.55f, 0.35f, 1f));
-                font.draw(batch, "Click slot to unequip", contentX + 8, panelY + 14);
+                font.draw(batch, "Click slot to unequip", contentX + 8, cY + 14);
 
             } else {
                 // -- Bonus stats view --
@@ -1651,9 +1662,9 @@ public class SidePanel {
         final int contentX   = panelX + CONTENT_INSET;
         final int contentW   = CONTENT_W;
         final int pad        = 6;
-        final int listTop    = panelY + CONTENT_H - 26;   // Y just below the title underline
+        final int listTop    = cY + CONTENT_H - 26;        // Y just below the title underline
         final int btnAreaH   = FRIEND_BTN_H + pad * 2;    // reserved at bottom for Add/Del
-        final int listBottom = panelY + btnAreaH;          // list ends here
+        final int listBottom = cY + btnAreaH;              // list ends here
         final int listH      = listTop - listBottom;
         final int visRows    = Math.max(1, listH / FRIEND_ROW_H);
         final int totalRows  = friendEntries.size();
@@ -1667,23 +1678,23 @@ public class SidePanel {
         sr.setProjectionMatrix(proj);
         sr.begin(ShapeRenderer.ShapeType.Filled);
         sr.setColor(FRIEND_TITLE.r * 0.25f, FRIEND_TITLE.g * 0.25f, FRIEND_TITLE.b * 0.25f, 1f);
-        sr.rect(contentX, panelY + CONTENT_H - 22, contentW, 20);
+        sr.rect(contentX, cY + CONTENT_H - 22, contentW, 20);
         sr.end();
 
         sr.begin(ShapeRenderer.ShapeType.Filled);
         sr.setColor(0.38f, 0.32f, 0.18f, 1f);
-        sr.rect(contentX, panelY + CONTENT_H - 23, contentW, 1);
+        sr.rect(contentX, cY + CONTENT_H - 23, contentW, 1);
         sr.end();
 
         batch.setProjectionMatrix(proj);
         batch.begin();
         font.getData().setScale(0.82f);
         font.setColor(FRIEND_TITLE);
-        font.draw(batch, "Friends List", contentX + 6, panelY + CONTENT_H - 6);
+        font.draw(batch, "Friends List", contentX + 6, cY + CONTENT_H - 6);
         font.getData().setScale(0.68f);
         font.setColor(0.55f, 0.52f, 0.42f, 1f);
         String onlineCount = friendEntries.stream().filter(e -> e.online).count() + "/" + friendEntries.size();
-        font.draw(batch, onlineCount + " online", contentX + contentW - 50, panelY + CONTENT_H - 8);
+        font.draw(batch, onlineCount + " online", contentX + contentW - 50, cY + CONTENT_H - 8);
         font.getData().setScale(1f);
         font.setColor(Color.WHITE);
         batch.end();
@@ -1778,7 +1789,7 @@ public class SidePanel {
         final int btnW    = (contentW - pad * 3) / 2;
         final int btnAddX = contentX + pad;
         final int btnDelX = contentX + pad * 2 + btnW;
-        final int btnY    = panelY + pad;
+        final int btnY    = cY + pad;
 
         boolean canDel = (selectedFriendIdx >= 0 && selectedFriendIdx < totalRows);
 
@@ -1817,13 +1828,13 @@ public class SidePanel {
         final int overlayW = CONTENT_W;
         final int overlayH = 80;
         final int overlayX = contentX;
-        final int overlayY = panelY + (CONTENT_H - overlayH) / 2;
+        final int overlayY = cY + (CONTENT_H - overlayH) / 2;
 
         // Dim background
         sr.setProjectionMatrix(proj);
         sr.begin(ShapeRenderer.ShapeType.Filled);
         sr.setColor(OVERLAY_BG);
-        sr.rect(panelX, panelY, PANEL_W, CONTENT_H);
+        sr.rect(panelX, cY, PANEL_W, CONTENT_H);
         sr.end();
 
         // Overlay box
@@ -1934,11 +1945,36 @@ public class SidePanel {
         if (!isOverPanel(mx, my)) return -1;
 
         // ── Tab bar click ──────────────────────────────────────────────────
-        if (my >= panelY + CONTENT_H) {
-            Tab[] row = my >= panelY + CONTENT_H + TAB_H ? TOP_TABS : BOTTOM_TABS;
-            int tW = PANEL_W / row.length;
-            int idx = Math.min((mx - panelX) / tW, row.length - 1);
-            if (idx >= 0) activeTab = row[idx];
+        // Top tab row click
+        if (my >= cY + CONTENT_H && my < panelY + TOTAL_H) {
+            Tab[] row = TOP_TABS;
+            int tabW = PANEL_W / row.length;
+            int lastW = PANEL_W - tabW * (row.length - 1);
+            for (int i = 0; i < row.length; i++) {
+                int tw = (i == row.length - 1) ? lastW : tabW;
+                int tx = panelX + i * tabW;
+                if (mx >= tx && mx <= tx + tw) {
+                    if (row[i] == Tab.LOGOUT) { logoutRequested = true; return -1; }
+                    activeTab = row[i];
+                    return -1;
+                }
+            }
+            return -1;
+        }
+        // Bottom tab row click
+        if (my >= panelY && my < cY) {
+            Tab[] row = BOTTOM_TABS;
+            int tabW = PANEL_W / row.length;
+            int lastW = PANEL_W - tabW * (row.length - 1);
+            for (int i = 0; i < row.length; i++) {
+                int tw = (i == row.length - 1) ? lastW : tabW;
+                int tx = panelX + i * tabW;
+                if (mx >= tx && mx <= tx + tw) {
+                    if (row[i] == Tab.LOGOUT) { logoutRequested = true; return -1; }
+                    activeTab = row[i];
+                    return -1;
+                }
+            }
             return -1;
         }
 
@@ -1949,7 +1985,7 @@ public class SidePanel {
                 int pad  = 8;
                 int btnW = (CONTENT_W - pad * 3) / 2;
                 int btnH = 60;
-                int gridTop = panelY + CONTENT_H - 48;
+                int gridTop = cY + CONTENT_H - 48;
 
                 String[] names = WEAPON_STYLE_NAMES[weaponCategory()];
 
@@ -1968,7 +2004,7 @@ public class SidePanel {
 
                 // Auto Retaliate button — fixed at bottom of content area
                 int arBtnH = 26;
-                int arBtnY = panelY + 6;
+                int arBtnY = cY + 6;
                 int arBtnX = contentX + pad;
                 int arBtnW = CONTENT_W - pad * 2;
                 if (mx >= arBtnX && mx <= arBtnX + arBtnW
@@ -1979,7 +2015,7 @@ public class SidePanel {
             }
             case EQUIPMENT -> {
                 int contentX = panelX + CONTENT_INSET;
-                int toggleY = panelY + 22;
+                int toggleY = cY + 22;
                 int toggleH = 14;
                 if (my >= toggleY && my <= toggleY + toggleH) {
                     gearShowStats = mx >= contentX + CONTENT_W / 2;
@@ -1998,7 +2034,7 @@ public class SidePanel {
             }
             case QUESTS -> {
                 int pad = 8;
-                int subY = panelY + CONTENT_H - 34;
+                int subY = cY + CONTENT_H - 34;
                 int y = subY - 8;
                 int contentX = panelX + CONTENT_INSET;
                 if (selectedQuestId != -1) {
@@ -2016,7 +2052,7 @@ public class SidePanel {
                             return -1;
                         }
                         y -= 16;
-                        if (y < panelY + 18) break;
+                        if (y < cY + 18) break;
                     }
                 }
             }
@@ -2024,9 +2060,9 @@ public class SidePanel {
                 final int contentX   = panelX + CONTENT_INSET;
                 final int contentW   = CONTENT_W;
                 final int pad        = 6;
-                final int listTop    = panelY + CONTENT_H - 26;
+                final int listTop    = cY + CONTENT_H - 26;
                 final int btnAreaH   = FRIEND_BTN_H + pad * 2;
-                final int listBottom = panelY + btnAreaH;
+                final int listBottom = cY + btnAreaH;
                 final int listH      = listTop - listBottom;
                 final int visRows    = Math.max(1, listH / FRIEND_ROW_H);
                 final int totalRows  = friendEntries.size();
@@ -2036,7 +2072,7 @@ public class SidePanel {
                     final int overlayW = contentW;
                     final int overlayH = 80;
                     final int overlayX = contentX;
-                    final int overlayY = panelY + (CONTENT_H - overlayH) / 2;
+                    final int overlayY = cY + (CONTENT_H - overlayH) / 2;
                     final int okW      = 40;
                     final int btnH     = 16;
                     final int okX      = overlayX + overlayW / 2 - okW - 4;
@@ -2062,7 +2098,7 @@ public class SidePanel {
                 final int btnW    = (contentW - pad * 3) / 2;
                 final int btnAddX = contentX + pad;
                 final int btnDelX = contentX + pad * 2 + btnW;
-                final int btnY    = panelY + pad;
+                final int btnY    = cY + pad;
 
                 if (mx >= btnAddX && mx <= btnAddX + btnW && my >= btnY && my <= btnY + FRIEND_BTN_H) {
                     addFriendInput = "";
@@ -2100,7 +2136,7 @@ public class SidePanel {
             }
             case PRAYER -> {
                 int prayerLevel = skillLevels[6];
-                int startY = panelY + CONTENT_H - 28;
+                int startY = cY + CONTENT_H - 28;
                 final int ROW_H = 36;
                 int contentX = panelX + CONTENT_INSET;
                 for (int i = 0; i < PRAYERS.length; i++) {
@@ -2238,7 +2274,7 @@ public class SidePanel {
     public int    getCombatStyle()                { return combatStyle; }
 
     private int logoutButtonX() { return panelX + CONTENT_INSET + 8; }
-    private int logoutButtonY() { return panelY + 8; }
+    private int logoutButtonY() { return cY + 8; }
     private int logoutButtonW() { return 72; }
     private int logoutButtonH() { return 20; }
 
@@ -2255,8 +2291,8 @@ public class SidePanel {
         final int centerX   = contentX + (CONTENT_W - SLOT_SIZE) / 2;
         final int rightX    = contentX + CONTENT_W - SLOT_SIZE - 8;
 
-        // bodyTop = panelY + CONTENT_H - 34 - 8 (matches renderCharacterTab's bodyTop)
-        int bt    = panelY + CONTENT_H - 42;
+        // bodyTop = cY + CONTENT_H - 34 - 8 (matches renderCharacterTab's bodyTop)
+        int bt    = cY + CONTENT_H - 42;
         int row0Y = bt - SLOT_SIZE;                       // HEAD / CAPE / NECK
         int row1Y = row0Y - SLOT_SIZE - GAP;              // AMMO (right col only)
         int row2Y = row1Y - SLOT_SIZE - GAP;              // WEAPON / BODY / SHIELD
