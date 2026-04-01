@@ -206,7 +206,8 @@ public class SidePanel {
     private final int[]    equippedIds   = new int[11];
     private final String[] equippedNames = new String[11];
     private int[]   equipBonuses  = new int[14]; // indices 0-13: stab_attack...prayer
-    private boolean gearShowStats = false;        // false=slot grid, true=bonus stats
+    private boolean gearShowStats  = false;        // false=slot grid, true=bonus stats
+    private float   playerWeight   = 0f;           // carried weight in kg (synced from server)
     private boolean memberPlayer = false;
 
     private static final String[] SLOT_LABELS = {
@@ -280,6 +281,15 @@ public class SidePanel {
     private static final Color COLOR_ICON_IDLE = new Color(0.50f, 0.48f, 0.38f, 1f);
     private static final Color COLOR_TOGGLE_ON = new Color(0.18f, 0.55f, 0.22f, 1f);
     private static final Color COLOR_BTN_DISABLED_BORDER = new Color(0.25f, 0.23f, 0.18f, 1f);
+    // Equipment tab slot colours
+    private static final Color COLOR_SLOT_EMPTY_BG     = new Color(0.10f, 0.09f, 0.07f, 1f);
+    private static final Color COLOR_SLOT_FILLED_BG    = new Color(0.17f, 0.15f, 0.10f, 1f);
+    private static final Color COLOR_SLOT_EMPTY_BORDER = new Color(0.28f, 0.25f, 0.17f, 1f);
+    private static final Color COLOR_SLOT_FILLED_BORDER= new Color(0.78f, 0.62f, 0.20f, 1f);
+    private static final Color COLOR_CONNECTOR         = new Color(0.30f, 0.27f, 0.18f, 1f);
+    private static final Color COLOR_SLOT_ICON         = new Color(0.24f, 0.22f, 0.15f, 1f);
+    private static final Color COLOR_WEIGHT_TEXT       = new Color(0.70f, 0.68f, 0.55f, 1f);
+
     private static final Color COLOR_AR_ON_TEXT   = new Color(0.72f, 1.00f, 0.72f, 1f); // bright green-white
     private static final Color COLOR_AR_OFF_TEXT  = new Color(0.65f, 0.25f, 0.25f, 1f); // muted red
     private static final Color COLOR_AR_LABEL_OFF  = new Color(0.65f, 0.62f, 0.58f, 1f); // dimmed label when off
@@ -404,10 +414,7 @@ public class SidePanel {
             case SKILLS    -> renderSkillsTab(sr, batch, font, proj, screenW, screenH, mouseX, mouseY);
             case QUESTS    -> renderQuestTab(sr, batch, font, proj);
             case INVENTORY -> inventoryUI.render(sr, batch, font, panelX + CONTENT_INSET, cY, proj);
-            case EQUIPMENT -> {
-                characterPage = CharacterPage.GEAR;
-                renderCharacterTab(sr, batch, font, proj);
-            }
+            case EQUIPMENT -> renderEquipmentTab(sr, batch, font, proj);
             case PRAYER    -> renderPrayerTab(sr, batch, font, proj, mouseX, mouseY);
             case FRIENDS   -> renderFriendsTab(sr, batch, font, proj);
             case SETTINGS  -> {
@@ -1725,6 +1732,209 @@ public class SidePanel {
         batch.end();
     }
 
+    // -----------------------------------------------------------------------
+    // Equipment tab (standalone OSRS-style paperdoll)
+    // -----------------------------------------------------------------------
+
+    public void setPlayerWeight(float kg) { playerWeight = kg; }
+
+    private void renderEquipmentTab(ShapeRenderer sr, SpriteBatch batch, BitmapFont font, Matrix4 proj) {
+        final int contentX  = panelX + CONTENT_INSET;
+        final int SS        = 38;    // slot size
+        final int GAP       = 14;    // gap between rows
+        final int toggleH   = 22;
+        final int toggleY   = cY + 4;
+        final int half      = CONTENT_W / 2;
+
+        // ── Equipment / Bonuses toggle (kept) ─────────────────────────────
+        sr.setProjectionMatrix(proj);
+        sr.begin(ShapeRenderer.ShapeType.Filled);
+        sr.setColor(!gearShowStats ? COLOR_BTN_SEL_BG : COLOR_BTN_IDLE_BG);
+        sr.rect(contentX, toggleY, half - 1, toggleH);
+        sr.setColor(gearShowStats ? COLOR_BTN_SEL_BG : COLOR_BTN_IDLE_BG);
+        sr.rect(contentX + half, toggleY, half, toggleH);
+        sr.end();
+        sr.begin(ShapeRenderer.ShapeType.Line);
+        sr.setColor(!gearShowStats ? COLOR_BTN_SEL_BORDER : COLOR_BTN_IDLE_BORDER);
+        sr.rect(contentX, toggleY, half - 1, toggleH);
+        sr.setColor(gearShowStats ? COLOR_BTN_SEL_BORDER : COLOR_BTN_IDLE_BORDER);
+        sr.rect(contentX + half, toggleY, half, toggleH);
+        sr.end();
+
+        batch.setProjectionMatrix(proj);
+        batch.begin();
+        font.getData().setScale(0.70f);
+        font.setColor(!gearShowStats ? COLOR_BTN_SEL_TEXT : Color.WHITE);
+        font.draw(batch, "Equipment", contentX, toggleY + 16, half - 1, Align.center, false);
+        font.setColor(gearShowStats ? COLOR_BTN_SEL_TEXT : Color.WHITE);
+        font.draw(batch, "Bonuses", contentX + half, toggleY + 16, half, Align.center, false);
+
+        // ── Weight line (just above toggle) ──────────────────────────────
+        font.getData().setScale(0.65f);
+        font.setColor(COLOR_WEIGHT_TEXT);
+        String wText = String.format("Weight: %.1f kg", playerWeight);
+        font.draw(batch, wText, contentX, toggleY + toggleH + 5, CONTENT_W, Align.center, false);
+        font.getData().setScale(1f);
+        font.setColor(Color.WHITE);
+        batch.end();
+
+        if (!gearShowStats) {
+            // ── Connector lines ───────────────────────────────────────────
+            int[][] sp    = getGearSlotPositions();
+            int leftX     = contentX + 6;
+            int centerX   = contentX + (CONTENT_W - SS) / 2;
+            int rightX    = contentX + CONTENT_W - SS - 6;
+            int sy0 = sp[0][1], sy1 = sp[1][1], sy2 = sp[4][1], sy3 = sp[7][1], sy4 = sp[8][1];
+            int midH = SS / 2;  // half-slot height (center of slot on Y axis)
+
+            sr.setProjectionMatrix(proj);
+            sr.begin(ShapeRenderer.ShapeType.Filled);
+            sr.setColor(COLOR_CONNECTOR);
+            // Vertical: HEAD→NECK (center col, between rows 0 and 1)
+            sr.rect(centerX + midH - 1, sy1 + SS, 2, GAP);
+            // Vertical: NECK→BODY (center col, between rows 1 and 2)
+            sr.rect(centerX + midH - 1, sy2 + SS, 2, GAP);
+            // Vertical: BODY→LEGS (center col, between rows 2 and 3)
+            sr.rect(centerX + midH - 1, sy3 + SS, 2, GAP);
+            // Vertical: LEGS→FEET (center col, between rows 3 and 4)
+            sr.rect(centerX + midH - 1, sy4 + SS, 2, GAP);
+            // Horizontal row 1: CAPE—NECK and NECK—AMMO (at slot mid-height)
+            sr.rect(leftX + SS,         sy1 + midH - 1, centerX - leftX - SS, 2);
+            sr.rect(centerX + SS,       sy1 + midH - 1, rightX - centerX - SS, 2);
+            // Horizontal row 2: WEAPON—BODY and BODY—SHIELD
+            sr.rect(leftX + SS,         sy2 + midH - 1, centerX - leftX - SS, 2);
+            sr.rect(centerX + SS,       sy2 + midH - 1, rightX - centerX - SS, 2);
+            // Horizontal row 4: HANDS—FEET and FEET—RING
+            sr.rect(leftX + SS,         sy4 + midH - 1, centerX - leftX - SS, 2);
+            sr.rect(centerX + SS,       sy4 + midH - 1, rightX - centerX - SS, 2);
+            sr.end();
+
+            // ── Slot backgrounds (filled) ─────────────────────────────────
+            sr.begin(ShapeRenderer.ShapeType.Filled);
+            for (int i = 0; i < 11; i++) {
+                int sx = sp[i][0], sy = sp[i][1];
+                boolean filled = equippedIds[i] > 0;
+                sr.setColor(filled ? COLOR_SLOT_FILLED_BG : COLOR_SLOT_EMPTY_BG);
+                sr.rect(sx, sy, SS, SS);
+                // Inset bevel: lighter top/left edge, darker bottom/right
+                sr.setColor(0.18f, 0.16f, 0.11f, 1f);
+                sr.rect(sx + 1, sy + SS - 2, SS - 2, 1); // top inner edge (lighter)
+                sr.rect(sx + 1, sy + 1,      1, SS - 2); // left inner edge
+                sr.setColor(0.07f, 0.06f, 0.04f, 1f);
+                sr.rect(sx + 2, sy,          SS - 2, 1); // bottom inner edge (darker)
+                sr.rect(sx + SS - 2, sy + 1, 1, SS - 2); // right inner edge
+            }
+            sr.end();
+
+            // ── Slot borders ─────────────────────────────────────────────
+            sr.begin(ShapeRenderer.ShapeType.Line);
+            for (int i = 0; i < 11; i++) {
+                int sx = sp[i][0], sy = sp[i][1];
+                sr.setColor(equippedIds[i] > 0 ? COLOR_SLOT_FILLED_BORDER : COLOR_SLOT_EMPTY_BORDER);
+                sr.rect(sx, sy, SS, SS);
+            }
+            sr.end();
+
+            // ── Slot icons (empty) + tier-color dots (filled) ────────────
+            sr.begin(ShapeRenderer.ShapeType.Filled);
+            for (int i = 0; i < 11; i++) {
+                int cx = sp[i][0] + SS / 2;
+                int cy = sp[i][1] + SS / 2 + 3; // shift icon up slightly to leave room for name
+                if (equippedIds[i] > 0) {
+                    // Tier-colour indicator dot (center of slot, top area)
+                    Color tc = itemTierColor(equippedNames[i]);
+                    sr.setColor(tc);
+                    sr.rect(cx - 5, cy + 3, 10, 10);
+                } else {
+                    drawSlotIcon(sr, i, cx, cy);
+                }
+            }
+            sr.end();
+
+            // ── Item names (inside filled slots, bottom area) ─────────────
+            batch.setProjectionMatrix(proj);
+            batch.begin();
+            font.getData().setScale(0.52f);
+            for (int i = 0; i < 11; i++) {
+                if (equippedIds[i] > 0) {
+                    int sx = sp[i][0], sy = sp[i][1];
+                    String n = equippedNames[i] != null ? equippedNames[i] : "";
+                    if (n.length() > 9) n = n.substring(0, 9);
+                    font.setColor(Color.WHITE);
+                    font.draw(batch, n, sx, sy + 11, SS, Align.center, false);
+                }
+            }
+            font.getData().setScale(1f);
+            font.setColor(Color.WHITE);
+            batch.end();
+
+        } else {
+            // ── Bonuses view ──────────────────────────────────────────────
+            final int bodyTop = cY + CONTENT_H - 8;
+            int sy2 = bodyTop - 4;
+            final int LH   = 14;
+            final int col2 = contentX + 8 + 108;
+
+            batch.setProjectionMatrix(proj);
+            batch.begin();
+            String[] atkLbls   = {"Stab", "Slash", "Crush", "Magic", "Ranged"};
+            String[] defLbls   = {"Stab", "Slash", "Crush", "Magic", "Ranged"};
+            String[] otherLbls = {"Melee Str", "Range Str", "Magic Dmg", "Prayer"};
+            int[] atkIdx   = {0, 1, 2, 3, 4};
+            int[] defIdx   = {5, 6, 7, 8, 9};
+            int[] otherIdx = {10, 11, 12, 13};
+
+            font.getData().setScale(0.68f);
+            font.setColor(COLOR_TITLE_GOLD);
+            font.draw(batch, "Attack Bonuses", contentX + 8, sy2);
+            sy2 -= LH;
+            font.getData().setScale(0.63f);
+            for (int i = 0; i < 5; i++) {
+                int v = equipBonuses[atkIdx[i]];
+                font.setColor(COLOR_WEIGHT_TEXT);
+                font.draw(batch, atkLbls[i], contentX + 8, sy2);
+                font.setColor(v >= 0 ? COLOR_QUEST_COMPLETE : COLOR_QUEST_NOT_STARTED);
+                font.draw(batch, (v >= 0 ? "+" : "") + v, col2, sy2);
+                sy2 -= LH;
+            }
+            sy2 -= 4;
+            font.getData().setScale(0.68f);
+            font.setColor(COLOR_TITLE_GOLD);
+            font.draw(batch, "Defence Bonuses", contentX + 8, sy2);
+            sy2 -= LH;
+            font.getData().setScale(0.63f);
+            for (int i = 0; i < 5; i++) {
+                int v = equipBonuses[defIdx[i]];
+                font.setColor(COLOR_WEIGHT_TEXT);
+                font.draw(batch, defLbls[i], contentX + 8, sy2);
+                font.setColor(v >= 0 ? COLOR_QUEST_COMPLETE : COLOR_QUEST_NOT_STARTED);
+                font.draw(batch, (v >= 0 ? "+" : "") + v, col2, sy2);
+                sy2 -= LH;
+            }
+            sy2 -= 4;
+            font.getData().setScale(0.68f);
+            font.setColor(COLOR_TITLE_GOLD);
+            font.draw(batch, "Other Bonuses", contentX + 8, sy2);
+            sy2 -= LH;
+            font.getData().setScale(0.63f);
+            for (int i = 0; i < 4; i++) {
+                int v = equipBonuses[otherIdx[i]];
+                font.setColor(COLOR_WEIGHT_TEXT);
+                font.draw(batch, otherLbls[i], contentX + 8, sy2);
+                font.setColor(v >= 0 ? COLOR_QUEST_COMPLETE : COLOR_QUEST_NOT_STARTED);
+                font.draw(batch, (v >= 0 ? "+" : "") + v, col2, sy2);
+                sy2 -= LH;
+            }
+            font.getData().setScale(0.65f);
+            font.setColor(COLOR_WEIGHT_TEXT);
+            font.draw(batch, String.format("Weight: %.1f kg", playerWeight),
+                contentX, toggleY + toggleH + 5, CONTENT_W, Align.center, false);
+            font.getData().setScale(1f);
+            font.setColor(Color.WHITE);
+            batch.end();
+        }
+    }
+
     private List<QuestView> sortedQuests() {
         List<QuestView> list = new ArrayList<>(quests.values());
         list.sort(Comparator.comparing(q -> q.questName));
@@ -2311,19 +2521,19 @@ public class SidePanel {
                 }
             }
             case EQUIPMENT -> {
-                int contentX = panelX + CONTENT_INSET;
-                int toggleY = cY + 22;
-                int toggleH = 14;
+                final int contentX = panelX + CONTENT_INSET;
+                final int toggleY  = cY + 4;
+                final int toggleH  = 22;
                 if (my >= toggleY && my <= toggleY + toggleH) {
                     gearShowStats = mx >= contentX + CONTENT_W / 2;
                     return -1;
                 }
                 if (!gearShowStats) {
                     int[][] slotPos = getGearSlotPositions();
-                    final int SLOT_SIZE = 36;
+                    final int SS = 38;
                     for (int i = 0; i < 11; i++) {
                         int sx = slotPos[i][0], sy = slotPos[i][1];
-                        if (mx >= sx && mx <= sx + SLOT_SIZE && my >= sy && my <= sy + SLOT_SIZE) {
+                        if (mx >= sx && mx <= sx + SS && my >= sy && my <= sy + SS) {
                             return -(100 + i);
                         }
                     }
@@ -2619,39 +2829,108 @@ public class SidePanel {
     private int logoutButtonH() { return 20; }
 
     /**
-     * Returns screen [x, y] (bottom-left corner of each 36x36 slot box) for all
-     * 11 equipment slots in EquipmentSlot order (HEAD=0 ... RING=10).
-     * Mirrors the OSRS worn-equipment layout.
+     * Returns screen [x, y] (bottom-left corner of each 38x38 slot box) for all
+     * 11 equipment slots in EquipmentSlot order (HEAD=0 … RING=10).
+     * Correct OSRS paperdoll layout: HEAD alone top, CAPE/NECK/AMMO row 2,
+     * WEAPON/BODY/SHIELD row 3, LEGS alone, HANDS/FEET/RING bottom.
      */
     private int[][] getGearSlotPositions() {
-        final int SLOT_SIZE = 36;
-        final int GAP       = 8;
+        final int SS        = 38;   // slot size
+        final int GAP       = 14;   // vertical gap between rows
         final int contentX  = panelX + CONTENT_INSET;
-        final int leftX     = contentX + 8;
-        final int centerX   = contentX + (CONTENT_W - SLOT_SIZE) / 2;
-        final int rightX    = contentX + CONTENT_W - SLOT_SIZE - 8;
+        final int leftX     = contentX + 6;
+        final int centerX   = contentX + (CONTENT_W - SS) / 2;   // contentX + 74
+        final int rightX    = contentX + CONTENT_W - SS - 6;      // contentX + 142
 
-        // bodyTop = cY + CONTENT_H - 34 - 8 (matches renderCharacterTab's bodyTop)
-        int bt    = cY + CONTENT_H - 42;
-        int row0Y = bt - SLOT_SIZE;                       // HEAD / CAPE / NECK
-        int row1Y = row0Y - SLOT_SIZE - GAP;              // AMMO (right col only)
-        int row2Y = row1Y - SLOT_SIZE - GAP;              // WEAPON / BODY / SHIELD
-        int row3Y = row2Y - SLOT_SIZE - GAP;              // LEGS (centre only)
-        int row4Y = row3Y - SLOT_SIZE - GAP;              // HANDS / FEET / RING
+        // Grid starts 8px from top of content area, rows go downward
+        int sy0 = cY + CONTENT_H - 8  - SS;         // HEAD row
+        int sy1 = sy0 - GAP - SS;                    // CAPE / NECK / AMMO
+        int sy2 = sy1 - GAP - SS;                    // WEAPON / BODY / SHIELD
+        int sy3 = sy2 - GAP - SS;                    // LEGS
+        int sy4 = sy3 - GAP - SS;                    // HANDS / FEET / RING
 
         return new int[][] {
-            {centerX, row0Y},   // 0 HEAD
-            {leftX,   row0Y},   // 1 CAPE
-            {rightX,  row0Y},   // 2 NECK
-            {rightX,  row1Y},   // 3 AMMO
-            {leftX,   row2Y},   // 4 WEAPON
-            {rightX,  row2Y},   // 5 SHIELD
-            {centerX, row2Y},   // 6 BODY
-            {centerX, row3Y},   // 7 LEGS
-            {leftX,   row4Y},   // 8 HANDS
-            {centerX, row4Y},   // 9 FEET
-            {rightX,  row4Y},   // 10 RING
+            {centerX, sy0},  // 0 HEAD
+            {leftX,   sy1},  // 1 CAPE
+            {centerX, sy1},  // 2 NECK
+            {rightX,  sy1},  // 3 AMMO
+            {leftX,   sy2},  // 4 WEAPON
+            {rightX,  sy2},  // 5 SHIELD
+            {centerX, sy2},  // 6 BODY
+            {centerX, sy3},  // 7 LEGS
+            {leftX,   sy4},  // 8 HANDS
+            {centerX, sy4},  // 9 FEET
+            {rightX,  sy4},  // 10 RING
         };
+    }
+
+    /**
+     * Draw a simple geometric icon representing each equipment slot type.
+     * cx, cy = centre of the slot box in screen coords.
+     * Drawn using whichever ShapeRenderer.Filled pass is currently active.
+     */
+    private void drawSlotIcon(ShapeRenderer sr, int slot, int cx, int cy) {
+        sr.setColor(COLOR_SLOT_ICON);
+        switch (slot) {
+            case 0 -> { // HEAD — stacked dome
+                sr.rect(cx - 5, cy + 5, 10, 4);
+                sr.rect(cx - 7, cy + 1, 14, 4);
+                sr.rect(cx - 5, cy - 3, 10, 4);
+            }
+            case 1 -> { // CAPE — downward trapezoid
+                sr.rect(cx - 8, cy + 6, 16, 3);
+                sr.rect(cx - 6, cy + 3, 12, 3);
+                sr.rect(cx - 4, cy,      8, 3);
+                sr.rect(cx - 2, cy - 3,  4, 3);
+            }
+            case 2 -> { // NECK/AMULET — diamond pendant
+                sr.rect(cx - 1, cy + 7,  2, 2);
+                sr.rect(cx - 3, cy + 5,  6, 2);
+                sr.rect(cx - 4, cy + 3,  8, 2);
+                sr.rect(cx - 3, cy + 1,  6, 2);
+                sr.rect(cx - 1, cy - 1,  2, 2);
+                sr.rect(cx - 1, cy + 9,  2, 3); // chain
+            }
+            case 3 -> { // AMMO — two arrow shafts with tips
+                sr.rect(cx - 4, cy - 7, 3, 13);
+                sr.rect(cx + 1, cy - 7, 3, 13);
+                sr.rect(cx - 5, cy + 6, 5, 2);  // left tip
+                sr.rect(cx,     cy + 6, 5, 2);  // right tip
+            }
+            case 4 -> { // WEAPON — vertical sword
+                sr.rect(cx - 1, cy - 7, 3, 14); // blade
+                sr.rect(cx - 6, cy + 1, 12, 3); // cross-guard
+                sr.rect(cx - 2, cy - 9, 4, 3);  // pommel
+            }
+            case 5 -> { // SHIELD — kite shape
+                sr.rect(cx - 6, cy + 4, 12, 5);
+                sr.rect(cx - 6, cy + 0, 12, 4);
+                sr.rect(cx - 4, cy - 4,  8, 4);
+                sr.rect(cx - 2, cy - 7,  4, 3);
+                sr.rect(cx - 1, cy - 9,  2, 2);
+            }
+            case 6 -> { // BODY — chest plate
+                sr.rect(cx - 8, cy + 5, 16, 3);  // shoulders
+                sr.rect(cx - 7, cy - 6, 14, 11); // torso
+                sr.rect(cx - 4, cy - 8,  8, 2);  // bottom hem
+            }
+            case 7 -> { // LEGS — trousers
+                sr.rect(cx - 7, cy + 7, 14, 3);  // waistband
+                sr.rect(cx - 7, cy - 8,  6, 15); // left leg
+                sr.rect(cx + 1, cy - 8,  6, 15); // right leg
+            }
+            case 8 -> { // HANDS — gauntlets (two rectangles)
+                sr.rect(cx - 9, cy - 4, 8, 8);
+                sr.rect(cx + 1, cy - 4, 8, 8);
+            }
+            case 9 -> { // FEET — boot silhouette
+                sr.rect(cx - 4, cy + 1,  5, 8); // shaft
+                sr.rect(cx - 4, cy - 3, 10, 4); // foot/sole
+            }
+            case 10 -> { // RING — circle
+                sr.circle(cx, cy, 6, 10);
+            }
+        }
     }
 
     private Color itemTierColor(String name) {
