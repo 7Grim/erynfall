@@ -46,7 +46,7 @@ npcs:
   # --- Resource nodes: Oak Trees (woodcutting) ---
   - id: 14
     name: "Oak Tree"
-    definition_id: 1
+    definition_id: 101
     combat_level: 0
     max_hp: 1
     max_hit: 0
@@ -60,7 +60,7 @@ npcs:
 
   - id: 15
     name: "Oak Tree"
-    definition_id: 1
+    definition_id: 101
     combat_level: 0
     max_hp: 1
     max_hit: 0
@@ -142,7 +142,7 @@ npcs:
 
   - id: 21
     name: "Oak Tree"
-    definition_id: 1
+    definition_id: 101
     combat_level: 0
     max_hp: 1
     max_hit: 0
