@@ -974,8 +974,9 @@ public class GameScreen extends ApplicationAdapter {
             return;
         }
 
-        // ── Add Friend overlay: absorb all keystrokes while open ─────────────
+        // ── Add Friend overlay: handle keys AND mouse clicks, then skip world input ──
         if (sidePanel.isAddFriendOverlayActive()) {
+            // Keyboard
             if (Gdx.input.isKeyJustPressed(Input.Keys.ENTER)) {
                 sidePanel.handleAddFriendKey(Input.Keys.ENTER);
             } else if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
@@ -1004,7 +1005,17 @@ public class GameScreen extends ApplicationAdapter {
                     if (Gdx.input.isKeyJustPressed(numKeys[i])) { sidePanel.typeAddFriendChar((char)('0'+i)); break; }
                 }
             }
-            return;
+            // Mouse click — routes through the normal panel click path so Cancel works
+            if (Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)) {
+                int ox = Gdx.input.getX();
+                int oy = Gdx.graphics.getHeight() - Gdx.input.getY();
+                sidePanel.handleLeftClick(ox, oy);
+                String addFriendName = sidePanel.consumeAddFriendRequested();
+                if (addFriendName != null && !addFriendName.isEmpty()) {
+                    sendFriendActionWithFeedback(NetworkProto.FriendAction.Action.ADD, 0L, addFriendName);
+                }
+            }
+            return; // skip all world/camera input while overlay is open
         }
 
         // ── Chat input ────────────────────────────────────────────────────────
