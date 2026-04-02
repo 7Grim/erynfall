@@ -1237,6 +1237,11 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
                     + " to wield this.", 0);
                 return;
             }
+            if (def.strengthReq > 0 && player.getSkillLevel(Player.SKILL_STRENGTH) < def.strengthReq) {
+                sendChatMessage(ctx, "You need a Strength level of " + def.strengthReq
+                    + " to wield this.", 0);
+                return;
+            }
             int equipSlot = def.equipSlot;
             if (equipSlot < 0 || equipSlot >= EquipmentSlot.COUNT) return;
 

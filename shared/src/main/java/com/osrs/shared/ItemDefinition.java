@@ -59,9 +59,15 @@ public class ItemDefinition {
     /** OSRS store sell price — used to rank items for the keep-on-death rule. */
     public int storeValue = 1;
     /** Minimum Defence level required to wear this item. */
-    public int defenceReq = 1;
+    public int defenceReq  = 1;
     /** Minimum Attack level required to wield this weapon. */
-    public int attackReq  = 1;
+    public int attackReq   = 1;
+    /**
+     * Minimum Strength level required to wield this item (e.g. Granite hammer = 50).
+     * 0 = no requirement. Note: axes/pickaxes use attackReq, NOT strengthReq — OSRS has
+     * no strength requirement for any standard axe or pickaxe.
+     */
+    public int strengthReq = 0;
 
     // -----------------------------------------------------------------------
     // Utility

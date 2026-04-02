@@ -212,6 +212,134 @@ npcs:
     wander_radius: 0
     is_aggressive: false
 
+  # ==========================================================================
+  # SANDBOX TESTING GROVE — y=20, 30 tiles south of spawn
+  # One of every tree tier in ascending level order (west to east, x=20..55).
+  # Used to verify: correct log drops, XP values, level unlock gates,
+  # axe tier selection, and depletion/respawn behaviour.
+  # Future: place a Bank Chest at approx (60, 20) once banking is implemented.
+  # ==========================================================================
+
+  # Tree (Lv 1, def 100) — normal logs (1511), 25.0 XP, SINGLE_LOG depletion
+  - id: 29
+    name: "Tree"
+    definition_id: 100
+    combat_level: 0
+    max_hp: 1
+    max_hit: 0
+    respawn_delay_ticks: 0
+    location: "tutorial_island"
+    x: 20
+    y: 20
+    examine: "A tree."
+    wander_radius: 0
+    is_aggressive: false
+
+  # Oak Tree (Lv 15, def 101) — oak logs (1521), 37.5 XP, 1/8 depletion
+  - id: 30
+    name: "Oak Tree"
+    definition_id: 101
+    combat_level: 0
+    max_hp: 1
+    max_hit: 0
+    respawn_delay_ticks: 0
+    location: "tutorial_island"
+    x: 25
+    y: 20
+    examine: "A sturdy oak tree."
+    wander_radius: 0
+    is_aggressive: false
+
+  # Willow Tree (Lv 30, def 102) — willow logs (1522), 67.5 XP, 1/8 depletion
+  - id: 31
+    name: "Willow Tree"
+    definition_id: 102
+    combat_level: 0
+    max_hp: 1
+    max_hit: 0
+    respawn_delay_ticks: 0
+    location: "tutorial_island"
+    x: 30
+    y: 20
+    examine: "A graceful willow tree."
+    wander_radius: 0
+    is_aggressive: false
+
+  # Teak Tree (Lv 35, def 106) — teak logs (1526), 85.0 XP, 1/8 depletion
+  - id: 32
+    name: "Teak Tree"
+    definition_id: 106
+    combat_level: 0
+    max_hp: 1
+    max_hit: 0
+    respawn_delay_ticks: 0
+    location: "tutorial_island"
+    x: 35
+    y: 20
+    examine: "A tropical teak tree."
+    wander_radius: 0
+    is_aggressive: false
+
+  # Maple Tree (Lv 45, def 103) — maple logs (1523), 100.0 XP, 1/8 depletion
+  - id: 33
+    name: "Maple Tree"
+    definition_id: 103
+    combat_level: 0
+    max_hp: 1
+    max_hit: 0
+    respawn_delay_ticks: 0
+    location: "tutorial_island"
+    x: 40
+    y: 20
+    examine: "A vibrant maple tree."
+    wander_radius: 0
+    is_aggressive: false
+
+  # Mahogany Tree (Lv 50, def 107) — mahogany logs (1527), 125.0 XP, 1/8 depletion
+  - id: 34
+    name: "Mahogany Tree"
+    definition_id: 107
+    combat_level: 0
+    max_hp: 1
+    max_hit: 0
+    respawn_delay_ticks: 0
+    location: "tutorial_island"
+    x: 45
+    y: 20
+    examine: "A rich mahogany tree."
+    wander_radius: 0
+    is_aggressive: false
+
+  # Yew Tree (Lv 60, def 104) — yew logs (1524), 175.0 XP, 1/8 depletion
+  - id: 35
+    name: "Yew Tree"
+    definition_id: 104
+    combat_level: 0
+    max_hp: 1
+    max_hit: 0
+    respawn_delay_ticks: 0
+    location: "tutorial_island"
+    x: 50
+    y: 20
+    examine: "An ancient yew tree."
+    wander_radius: 0
+    is_aggressive: false
+
+  # Magic Tree (Lv 75, def 105) — magic logs (1525), 250.0 XP, 1/8 depletion
+  - id: 36
+    name: "Magic Tree"
+    definition_id: 105
+    combat_level: 0
+    max_hp: 1
+    max_hit: 0
+    respawn_delay_ticks: 0
+    location: "tutorial_island"
+    x: 55
+    y: 20
+    examine: "A mystical magic tree."
+    wander_radius: 0
+    is_aggressive: false
+
   # --- Additional Tutorial rats for kill_rats objective density ---
   - id: 22
     definition_id: 3

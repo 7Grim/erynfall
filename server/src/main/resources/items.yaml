@@ -137,6 +137,22 @@ items:
     equipable: false
     consumable: false
 
+  - id: 1526
+    name: "Teak logs"
+    examine: "Logs from a tropical teak tree."
+    stackable: false
+    store_value: 20
+    equipable: false
+    consumable: false
+
+  - id: 1527
+    name: "Mahogany logs"
+    examine: "Logs from a rich mahogany tree."
+    stackable: false
+    store_value: 60
+    equipable: false
+    consumable: false
+
   - id: 590
     name: "Tinderbox"
     examine: "Useful for lighting fires."
@@ -233,6 +249,41 @@ items:
     slash_attack: 32
     melee_strength: 24
     attack_req: 40
+
+  # Black axe — OSRS stats: Slash +11, Melee Str +12. Requires Attack 10 to wield.
+  # Requires Woodcutting 11 to use for chopping (WoodcuttingRegistry). These are independent.
+  - id: 1361
+    name: "Black axe"
+    examine: "A woodcutting axe made of black metal."
+    stackable: false
+    store_value: 384
+    equipable: true
+    consumable: false
+    equip_slot: 4
+    weapon_type: "slash"
+    attack_range: 1
+    stab_attack: -4
+    slash_attack: 11
+    melee_strength: 12
+    attack_req: 10
+
+  # Dragon axe — OSRS stats: Slash +72, Melee Str +81. Requires Attack 60 to wield.
+  # Requires Woodcutting 61 to use for chopping (WoodcuttingRegistry).
+  # Special attack ("Clobber") boosts visible WC level by 3 for 1 minute — not yet implemented.
+  - id: 6739
+    name: "Dragon axe"
+    examine: "A powerful axe used by the most skilled woodcutters."
+    stackable: false
+    store_value: 200000
+    equipable: true
+    consumable: false
+    equip_slot: 4
+    weapon_type: "slash"
+    attack_range: 1
+    stab_attack: -2
+    slash_attack: 72
+    melee_strength: 81
+    attack_req: 60
 
   # ── Food ─────────────────────────────────────────────────────────────────
 
