@@ -29,6 +29,7 @@ public class ServerConfig {
     public String dbUrl = "jdbc:postgresql://localhost:5432/osrs_mmorp";
     public String dbUser = "postgres";
     public String dbPassword = "password";
+    public String dbSchema = "erynfall";
     public int maxConnections = 10;
     
     // Network config
@@ -79,6 +80,7 @@ public class ServerConfig {
                 config.dbUrl = getString(db, "url", "jdbc:postgresql://localhost:5432/osrs_mmorp");
                 config.dbUser = getString(db, "user", "postgres");
                 config.dbPassword = getString(db, "password", "");
+                config.dbSchema = sanitizeSchema(getString(db, "schema", "erynfall"));
                 config.maxConnections = getInt(db, "max_connections", 10);
             }
 
@@ -89,6 +91,13 @@ public class ServerConfig {
             } else if (config.dbPassword.isEmpty()) {
                 LOG.warn("DB_PASSWORD environment variable not set and no password in config — DB connection will fail");
             }
+
+            // DB_SCHEMA env override — wins over YAML when present
+            String envSchema = System.getenv("DB_SCHEMA");
+            if (envSchema != null && !envSchema.isEmpty()) {
+                config.dbSchema = sanitizeSchema(envSchema);
+            }
+            LOG.info("Database schema: {}", config.dbSchema);
             
             // Load network section
             if (yaml.containsKey("network")) {
@@ -148,5 +157,13 @@ public class ServerConfig {
         if (!map.containsKey(key)) return defaultValue;
         Object val = map.get(key);
         return val != null ? val.toString() : defaultValue;
+    }
+
+    private static String sanitizeSchema(String schema) {
+        if (schema == null || schema.isBlank()) return "erynfall";
+        if (!schema.matches("[A-Za-z_][A-Za-z0-9_]*")) {
+            throw new IllegalArgumentException("Invalid DB_SCHEMA value: " + schema);
+        }
+        return schema;
     }
 }

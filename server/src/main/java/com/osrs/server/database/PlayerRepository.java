@@ -1,6 +1,7 @@
 package com.osrs.server.database;
 
 import at.favre.lib.crypto.bcrypt.BCrypt;
+import com.osrs.server.config.ServerConfig;
 import com.osrs.server.quest.Quest;
 import com.osrs.server.quest.QuestManager;
 import com.osrs.shared.EquipmentSlot;
@@ -25,6 +26,11 @@ public class PlayerRepository {
     private static final int BCRYPT_COST = 10;
     private static final int PLAYER_ENTITY_ID_OFFSET = 100_000;
 
+    /** Returns the fully-qualified table name using the configured DB schema. */
+    private static String table(String name) {
+        return ServerConfig.get().dbSchema + "." + name;
+    }
+
     // -----------------------------------------------------------------------
     // Auth: login / register
     // -----------------------------------------------------------------------
@@ -39,8 +45,7 @@ public class PlayerRepository {
     public static Player login(String username, String plainPassword, int assignedId) {
         try (Connection conn = DatabaseManager.getConnection()) {
             PreparedStatement ps = conn.prepareStatement(
-                "SELECT * " +
-                "FROM osrs.players WHERE LOWER(username) = LOWER(?)"
+                "SELECT * FROM " + table("players") + " WHERE LOWER(username) = LOWER(?)"
             );
             ps.setString(1, username);
             ResultSet rs = ps.executeQuery();
@@ -63,7 +68,7 @@ public class PlayerRepository {
 
             // Update last_login timestamp
             PreparedStatement upd = conn.prepareStatement(
-                "UPDATE osrs.players SET last_login = GETDATE() WHERE id = ?"
+                "UPDATE " + table("players") + " SET last_login = GETDATE() WHERE id = ?"
             );
             upd.setInt(1, dbId);
             upd.executeUpdate();
@@ -86,8 +91,7 @@ public class PlayerRepository {
 
         try (Connection conn = DatabaseManager.getConnection()) {
             PreparedStatement ps = conn.prepareStatement(
-                "SELECT * " +
-                    "FROM osrs.players WHERE LOWER(username) = LOWER(?)"
+                "SELECT * FROM " + table("players") + " WHERE LOWER(username) = LOWER(?)"
             );
             ps.setString(1, characterName);
             ResultSet rs = ps.executeQuery();
@@ -97,7 +101,7 @@ public class PlayerRepository {
                 int dbId = rs.getInt("id");
 
                 PreparedStatement upd = conn.prepareStatement(
-                    "UPDATE osrs.players SET last_login = GETDATE() WHERE id = ?"
+                    "UPDATE " + table("players") + " SET last_login = GETDATE() WHERE id = ?"
                 );
                 upd.setInt(1, dbId);
                 upd.executeUpdate();
@@ -113,7 +117,7 @@ public class PlayerRepository {
                 UUID.randomUUID().toString().toCharArray()
             );
             PreparedStatement ins = conn.prepareStatement(
-                "INSERT INTO osrs.players (username, password_hash, x, y, hitpoints_xp) VALUES (?, ?, 50, 50, 1154)",
+                "INSERT INTO " + table("players") + " (username, password_hash, x, y, hitpoints_xp) VALUES (?, ?, 50, 50, 1154)",
                 Statement.RETURN_GENERATED_KEYS
             );
             ins.setString(1, characterName);
@@ -184,7 +188,7 @@ public class PlayerRepository {
         try (Connection conn = DatabaseManager.getConnection()) {
             // Check for duplicate username
             PreparedStatement check = conn.prepareStatement(
-                "SELECT 1 FROM osrs.players WHERE LOWER(username) = LOWER(?)"
+                "SELECT 1 FROM " + table("players") + " WHERE LOWER(username) = LOWER(?)"
             );
             check.setString(1, username);
             if (check.executeQuery().next()) {
@@ -194,7 +198,7 @@ public class PlayerRepository {
 
             // Insert new player at local world spawn (Tutorial Island center)
             PreparedStatement ins = conn.prepareStatement(
-                "INSERT INTO osrs.players (username, password_hash, x, y, hitpoints_xp) " +
+                "INSERT INTO " + table("players") + " (username, password_hash, x, y, hitpoints_xp) " +
                 "VALUES (?, ?, 50, 50, 1154)",
                 Statement.RETURN_GENERATED_KEYS
             );
@@ -234,7 +238,7 @@ public class PlayerRepository {
         try (Connection conn = DatabaseManager.getConnection()) {
             try {
                 PreparedStatement ps = conn.prepareStatement(
-                    "UPDATE osrs.players SET " +
+                    "UPDATE " + table("players") + " SET " +
                         "x = ?, y = ?, last_logout = GETDATE(), " +
                         "attack_xp = ?, strength_xp = ?, defence_xp = ?, " +
                         "hitpoints_xp = ?, ranged_xp = ?, magic_xp = ?, " +
@@ -275,7 +279,7 @@ public class PlayerRepository {
                 ps.executeUpdate();
             } catch (SQLException extendedErr) {
                 PreparedStatement ps = conn.prepareStatement(
-                    "UPDATE osrs.players SET " +
+                    "UPDATE " + table("players") + " SET " +
                         "x = ?, y = ?, last_logout = GETDATE(), " +
                         "attack_xp = ?, strength_xp = ?, defence_xp = ?, " +
                         "hitpoints_xp = ?, ranged_xp = ?, magic_xp = ? " +
@@ -307,7 +311,7 @@ public class PlayerRepository {
         try (Connection conn = DatabaseManager.getConnection()) {
             // Look up DB id by username
             PreparedStatement idPs = conn.prepareStatement(
-                "SELECT id FROM osrs.players WHERE LOWER(username) = LOWER(?)"
+                "SELECT id FROM " + table("players") + " WHERE LOWER(username) = LOWER(?)"
             );
             idPs.setString(1, player.getName());
             ResultSet rs = idPs.executeQuery();
@@ -316,19 +320,19 @@ public class PlayerRepository {
 
             // Wipe existing inventory rows
             PreparedStatement del = conn.prepareStatement(
-                "DELETE FROM osrs.inventory WHERE player_id = ?"
+                "DELETE FROM " + table("inventory") + " WHERE player_id = ?"
             );
             del.setInt(1, dbId);
             del.executeUpdate();
 
             // Re-insert occupied slots
             PreparedStatement ensureItem = conn.prepareStatement(
-                "IF NOT EXISTS (SELECT 1 FROM osrs.items WHERE id = ?) " +
-                    "INSERT INTO osrs.items (id, name, examine_text, stackable, weight_kg, tradeable, high_alchemy_value, low_alchemy_value) " +
+                "IF NOT EXISTS (SELECT 1 FROM " + table("items") + " WHERE id = ?) " +
+                    "INSERT INTO " + table("items") + " (id, name, examine_text, stackable, weight_kg, tradeable, high_alchemy_value, low_alchemy_value) " +
                     "VALUES (?, ?, ?, ?, 0, 1, 0, 0)"
             );
             PreparedStatement ins = conn.prepareStatement(
-                "INSERT INTO osrs.inventory (player_id, slot_index, item_id, quantity) VALUES (?, ?, ?, ?)"
+                "INSERT INTO " + table("inventory") + " (player_id, slot_index, item_id, quantity) VALUES (?, ?, ?, ?)"
             );
             for (int slot = 0; slot < 28; slot++) {
                 int itemId = player.getInventoryItemId(slot);
@@ -361,7 +365,7 @@ public class PlayerRepository {
     public static void loadInventory(Player player) {
         try (Connection conn = DatabaseManager.getConnection()) {
             PreparedStatement idPs = conn.prepareStatement(
-                "SELECT id FROM osrs.players WHERE LOWER(username) = LOWER(?)"
+                "SELECT id FROM " + table("players") + " WHERE LOWER(username) = LOWER(?)"
             );
             idPs.setString(1, player.getName());
             ResultSet idRs = idPs.executeQuery();
@@ -369,7 +373,7 @@ public class PlayerRepository {
             int dbId = idRs.getInt("id");
 
             PreparedStatement ps = conn.prepareStatement(
-                "SELECT slot_index, item_id, quantity FROM osrs.inventory WHERE player_id = ?"
+                "SELECT slot_index, item_id, quantity FROM " + table("inventory") + " WHERE player_id = ?"
             );
             ps.setInt(1, dbId);
             ResultSet rs = ps.executeQuery();
@@ -389,13 +393,13 @@ public class PlayerRepository {
 
             try {
                 PreparedStatement del = conn.prepareStatement(
-                    "DELETE FROM osrs.player_friends WHERE player_id = ?"
+                    "DELETE FROM " + table("player_friends") + " WHERE player_id = ?"
                 );
                 del.setInt(1, dbId);
                 del.executeUpdate();
 
                 PreparedStatement ins = conn.prepareStatement(
-                    "INSERT INTO osrs.player_friends (player_id, friend_player_id, blocked) VALUES (?, ?, ?)"
+                    "INSERT INTO " + table("player_friends") + " (player_id, friend_player_id, blocked) VALUES (?, ?, ?)"
                 );
                 for (Long friendId : player.getFriends()) {
                     ins.setInt(1, dbId);
@@ -437,7 +441,7 @@ public class PlayerRepository {
 
             try {
                 PreparedStatement ps = conn.prepareStatement(
-                    "SELECT friend_player_id, blocked FROM osrs.player_friends WHERE player_id = ?"
+                    "SELECT friend_player_id, blocked FROM " + table("player_friends") + " WHERE player_id = ?"
                 );
                 ps.setInt(1, dbId);
                 ResultSet rs = ps.executeQuery();
@@ -473,7 +477,7 @@ public class PlayerRepository {
         if (dbId <= 0 || !DatabaseManager.isHealthy()) return "";
         try (Connection conn = DatabaseManager.getConnection();
              PreparedStatement ps = conn.prepareStatement(
-                 "SELECT username FROM osrs.players WHERE id = ?")) {
+                 "SELECT username FROM " + table("players") + " WHERE id = ?")) {
             ps.setInt(1, dbId);
             try (ResultSet rs = ps.executeQuery()) {
                 if (!rs.next()) return "";
@@ -490,7 +494,7 @@ public class PlayerRepository {
         if (dbId <= 0 || !DatabaseManager.isHealthy()) return false;
         try (Connection conn = DatabaseManager.getConnection();
              PreparedStatement ps = conn.prepareStatement(
-                 "SELECT 1 FROM osrs.players WHERE id = ?")) {
+                 "SELECT 1 FROM " + table("players") + " WHERE id = ?")) {
             ps.setInt(1, dbId);
             try (ResultSet rs = ps.executeQuery()) {
                 return rs.next();
@@ -508,7 +512,7 @@ public class PlayerRepository {
 
     public static void saveEquipment(Player player) {
         if (!DatabaseManager.isHealthy()) return;
-        String sql = "UPDATE osrs.players SET " +
+        String sql = "UPDATE " + table("players") + " SET " +
             "equip_head=?, equip_cape=?, equip_neck=?, equip_ammo=?, equip_weapon=?," +
             "equip_shield=?, equip_body=?, equip_legs=?, equip_hands=?, equip_feet=?, equip_ring=?" +
             " WHERE id=?";
@@ -557,13 +561,13 @@ public class PlayerRepository {
             if (dbId < 0) return;
 
             PreparedStatement upd = conn.prepareStatement(
-                "UPDATE osrs.player_quests SET status = ?, completed_objectives = ?, " +
+                "UPDATE " + table("player_quests") + " SET status = ?, completed_objectives = ?, " +
                 "completed_at = CASE WHEN ? = 2 AND completed_at IS NULL THEN GETDATE() ELSE completed_at END " +
                 "WHERE player_id = ? AND quest_id = ?"
             );
 
             PreparedStatement ins = conn.prepareStatement(
-                "INSERT INTO osrs.player_quests (player_id, quest_id, status, completed_objectives, completed_at) " +
+                "INSERT INTO " + table("player_quests") + " (player_id, quest_id, status, completed_objectives, completed_at) " +
                 "VALUES (?, ?, ?, ?, ?)"
             );
 
@@ -598,13 +602,13 @@ public class PlayerRepository {
             // This table is optional for older databases; failures should not block core save.
             try {
                 PreparedStatement delTasks = conn.prepareStatement(
-                    "DELETE FROM osrs.player_quest_tasks WHERE player_id = ?"
+                    "DELETE FROM " + table("player_quest_tasks") + " WHERE player_id = ?"
                 );
                 delTasks.setInt(1, dbId);
                 delTasks.executeUpdate();
 
                 PreparedStatement insTask = conn.prepareStatement(
-                    "INSERT INTO osrs.player_quest_tasks (player_id, quest_id, task_id, progress_count) VALUES (?, ?, ?, ?)"
+                    "INSERT INTO " + table("player_quest_tasks") + " (player_id, quest_id, task_id, progress_count) VALUES (?, ?, ?, ?)"
                 );
                 for (Quest quest : questManager.getQuests().values()) {
                     for (Quest.Task task : quest.tasks) {
@@ -636,7 +640,7 @@ public class PlayerRepository {
             if (dbId < 0) return;
 
             PreparedStatement ps = conn.prepareStatement(
-                "SELECT quest_id, status, completed_objectives FROM osrs.player_quests WHERE player_id = ?"
+                "SELECT quest_id, status, completed_objectives FROM " + table("player_quests") + " WHERE player_id = ?"
             );
             ps.setInt(1, dbId);
 
@@ -650,7 +654,7 @@ public class PlayerRepository {
 
             try {
                 PreparedStatement taskPs = conn.prepareStatement(
-                    "SELECT quest_id, task_id, progress_count FROM osrs.player_quest_tasks WHERE player_id = ?"
+                    "SELECT quest_id, task_id, progress_count FROM " + table("player_quest_tasks") + " WHERE player_id = ?"
                 );
                 taskPs.setInt(1, dbId);
                 ResultSet taskRs = taskPs.executeQuery();
@@ -671,7 +675,7 @@ public class PlayerRepository {
 
     private static int getDbIdByUsername(Connection conn, String username) throws SQLException {
         PreparedStatement idPs = conn.prepareStatement(
-            "SELECT id FROM osrs.players WHERE LOWER(username) = LOWER(?)"
+            "SELECT id FROM " + table("players") + " WHERE LOWER(username) = LOWER(?)"
         );
         idPs.setString(1, username);
         ResultSet rs = idPs.executeQuery();

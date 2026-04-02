@@ -504,80 +504,114 @@ public class SidePanel {
     }
 
     /** Draw the icon for a given tab at pixel center (cx, cy). ShapeRenderer must be in Filled mode. */
+    /** Draw the icon for a given tab at pixel center (cx, cy). ShapeRenderer must be in Filled mode.
+     *  Rotated-rect helper: sr.rect(x, y, originX, originY, w, h, 1, 1, degrees)
+     *  where the rotation pivot is at (x+originX, y+originY). */
     private void drawTabIcon(ShapeRenderer sr, Tab tab, int cx, int cy) {
         switch (tab) {
             case COMBAT -> {
-                sr.rect(cx - 7, cy - 1, 14, 2);
-                sr.rect(cx - 1, cy - 7, 2, 14);
+                // Crossed swords: two diagonal blades (rotated ±45°) + cross-guard
+                sr.rect(cx - 1, cy - 7, 1, 7, 2, 14, 1, 1, 45f);
+                sr.rect(cx - 1, cy - 7, 1, 7, 2, 14, 1, 1, -45f);
+                sr.rect(cx - 5, cy - 2, 10, 2);       // cross-guard
             }
             case SKILLS -> {
-                sr.rect(cx - 6, cy - 5, 3, 3);
-                sr.rect(cx - 2, cy - 5, 3, 7);
-                sr.rect(cx + 2, cy - 5, 3, 11);
+                // Bar chart: three bars of increasing height + baseline
+                sr.rect(cx - 8, cy - 7, 3,  5);
+                sr.rect(cx - 3, cy - 7, 3,  9);
+                sr.rect(cx + 2, cy - 7, 3, 13);
+                sr.rect(cx - 9, cy - 8, 14, 1);       // baseline
             }
             case QUESTS -> {
-                sr.rect(cx - 5, cy - 6, 10, 12);
-                sr.rect(cx - 3, cy - 1, 6, 2);
-                sr.rect(cx - 3, cy + 3, 5, 2);
+                // Scroll: main body + rolled top and bottom curls + three text lines
+                sr.rect(cx - 5, cy - 4, 10,  8);      // body
+                sr.rect(cx - 6, cy + 3, 12,  3);      // top curl (wide)
+                sr.rect(cx - 5, cy + 5, 10,  2);      // top curl (narrow cap)
+                sr.rect(cx - 6, cy - 6, 12,  2);      // bottom curl
+                sr.rect(cx - 4, cy + 1,  8,  1);      // text line 1
+                sr.rect(cx - 4, cy - 1,  8,  1);      // text line 2
+                sr.rect(cx - 4, cy - 3,  6,  1);      // text line 3 (shorter)
             }
             case INVENTORY -> {
-                sr.rect(cx - 5, cy - 6, 10, 12);
-                sr.rect(cx - 2, cy + 5, 4, 2);
-                sr.rect(cx - 1, cy - 1, 2, 3);
+                // Backpack: body + flap + strap loop + front clasp
+                sr.rect(cx - 6, cy - 7, 12, 11);      // bag body
+                sr.rect(cx - 5, cy + 3, 10,  4);      // flap
+                sr.rect(cx - 4, cy + 6,  8,  2);      // flap top curve
+                sr.rect(cx - 2, cy + 7,  4,  2);      // strap loop
+                sr.rect(cx - 2, cy - 2,  4,  3);      // front clasp
             }
             case EQUIPMENT -> {
-                sr.rect(cx - 5, cy + 2, 10, 4);
-                sr.rect(cx - 4, cy - 3, 8, 6);
-                sr.rect(cx - 2, cy - 6, 4, 4);
+                // Heater shield: wide top tapering to a bottom point + central boss
+                sr.rect(cx - 6, cy + 0, 12,  7);      // top section (wide)
+                sr.rect(cx - 5, cy - 4, 10,  5);      // upper-mid section
+                sr.rect(cx - 3, cy - 7,  6,  4);      // lower-mid section
+                sr.rect(cx - 1, cy - 9,  2,  3);      // bottom tip
+                sr.circle(cx, cy + 3, 2, 6);           // central boss
             }
             case PRAYER -> {
-                sr.circle(cx, cy + 3, 3);
-                sr.rect(cx - 1, cy - 5, 2, 8);
-                sr.rect(cx - 4, cy - 1, 8, 2);
+                // Ankh: oval at top + vertical stem + horizontal crossbar
+                sr.circle(cx, cy + 5, 3, 8);           // oval/loop at top
+                sr.rect(cx - 1, cy - 8,  2, 11);      // vertical stem
+                sr.rect(cx - 5, cy + 1, 10,  2);      // crossbar
             }
             case MAGIC -> {
-                sr.circle(cx, cy + 4, 3);
-                sr.rect(cx - 1, cy - 6, 2, 11);
-                sr.rect(cx + 1, cy - 3, 4, 2);
-            }
-            case FRIENDS -> {
-                sr.circle(cx, cy + 4, 3, 8);
-                sr.rect(cx - 4, cy - 6, 8, 8);
-            }
-            case IGNORE -> {
-                sr.circle(cx - 2, cy + 4, 3, 8);
-                sr.rect(cx - 5, cy - 5, 7, 7);
-                sr.rect(cx + 2, cy + 2, 5, 2);
-                sr.rect(cx + 4, cy - 1, 2, 4);
+                // Wizard hat: wide brim + rectangular base + triangular cone
+                sr.rect(cx - 7, cy - 7, 14, 3);       // brim
+                sr.rect(cx - 4, cy - 4,  8, 4);       // hat base
+                sr.triangle(cx - 3, cy, cx + 3, cy, cx, cy + 9); // cone
             }
             case CLAN -> {
-                sr.rect(cx - 2, cy - 6, 3, 12);
-                sr.rect(cx + 1, cy + 2, 6, 3);
-                sr.rect(cx + 1, cy - 2, 5, 3);
+                // Speech/chat bubble: body + tail + two text lines inside
+                sr.rect(cx - 6, cy + 0, 12, 9);       // bubble body
+                sr.rect(cx - 4, cy - 3,  4, 4);       // bubble tail
+                sr.rect(cx - 4, cy + 5,  8, 2);       // text line 1
+                sr.rect(cx - 4, cy + 2,  6, 2);       // text line 2
+            }
+            case FRIENDS -> {
+                // Person silhouette (left) + plus mark (right, add-friend)
+                sr.circle(cx - 2, cy + 5, 3, 8);       // head
+                sr.rect(cx - 5, cy - 5,  7, 8);       // body
+                sr.rect(cx + 2, cy + 2,  5, 2);       // plus horizontal
+                sr.rect(cx + 4, cy + 0,  2, 5);       // plus vertical
             }
             case SETTINGS -> {
+                // Gear: circle body + 4 cardinal teeth
                 sr.circle(cx, cy, 5, 12);
-                sr.rect(cx - 1, cy + 5, 2, 3);
-                sr.rect(cx - 1, cy - 7, 2, 3);
-                sr.rect(cx + 5, cy - 1, 3, 2);
-                sr.rect(cx - 8, cy - 1, 3, 2);
-            }
-            case EMOTES -> {
-                sr.circle(cx - 3, cy + 2, 2, 8);
-                sr.circle(cx + 3, cy + 2, 2, 8);
-                sr.rect(cx - 4, cy - 4, 8, 2);
-            }
-            case MUSIC -> {
-                sr.rect(cx - 5, cy - 4, 3, 10);
-                sr.rect(cx, cy - 2, 3, 8);
-                sr.rect(cx - 5, cy + 4, 8, 2);
+                sr.rect(cx - 1, cy + 5, 2, 4);        // top tooth
+                sr.rect(cx - 1, cy - 8, 2, 4);        // bottom tooth
+                sr.rect(cx + 5, cy - 1, 4, 2);        // right tooth
+                sr.rect(cx - 8, cy - 1, 4, 2);        // left tooth
             }
             case LOGOUT -> {
-                // Door: rectangle with small arch, arrow pointing right (exit)
-                sr.rect(cx - 5, cy - 7, 8, 14);      // door frame
-                sr.rect(cx + 3, cy - 3, 5, 2);        // arrow shaft
-                sr.rect(cx + 5, cy - 5, 2, 2);        // arrow head up
-                sr.rect(cx + 5, cy + 1, 2, 2);        // arrow head down
+                // Door frame + door handle + exit arrow pointing right
+                sr.rect(cx - 7, cy - 8, 9, 16);       // door
+                sr.circle(cx, cy, 1, 5);               // door handle
+                sr.rect(cx + 2, cy - 1, 7, 2);        // arrow shaft
+                sr.rect(cx + 7, cy - 3, 2, 2);        // arrowhead upper
+                sr.rect(cx + 7, cy + 1, 2, 2);        // arrowhead lower
+            }
+            case IGNORE -> {
+                // Person silhouette (left) + X mark (right, rotated rects)
+                sr.circle(cx - 2, cy + 5, 3, 8);       // head
+                sr.rect(cx - 5, cy - 5,  7, 8);       // body
+                sr.rect(cx + 4, cy - 2, 1, 3, 2, 6, 1, 1,  45f);  // X slash 1
+                sr.rect(cx + 4, cy - 2, 1, 3, 2, 6, 1, 1, -45f);  // X slash 2
+            }
+            case EMOTES -> {
+                // Dancing stick figure: head + torso + raised arms + spread legs
+                sr.circle(cx, cy + 7, 2, 7);           // head
+                sr.rect(cx - 1, cy + 0, 2, 5);        // torso
+                sr.rect(cx - 6, cy + 3, 5, 2);        // left arm (raised)
+                sr.rect(cx + 2, cy + 2, 5, 2);        // right arm
+                sr.rect(cx - 4, cy - 6, 4, 7);        // left leg
+                sr.rect(cx + 1, cy - 5, 4, 6);        // right leg
+            }
+            case MUSIC -> {
+                // Eighth note: filled note head + vertical stem + flag
+                sr.circle(cx - 4, cy - 5, 3, 8);      // note head
+                sr.rect(cx - 1, cy - 6, 2, 13);       // stem
+                sr.rect(cx + 1, cy + 5, 6, 2);        // flag horizontal
+                sr.rect(cx + 5, cy + 2, 2, 4);        // flag tail
             }
         }
     }

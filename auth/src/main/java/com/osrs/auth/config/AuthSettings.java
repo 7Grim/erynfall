@@ -10,7 +10,7 @@ public class AuthSettings {
     private final String dbUrl = env("DB_URL");
     private final String dbUser = env("DB_USER");
     private final String dbPassword = env("DB_PASSWORD");
-    private final String dbSchema = sanitizeSchema(defaultIfBlank(env("DB_SCHEMA"), "osrs"));
+    private final String dbSchema = sanitizeSchema(defaultIfBlank(env("DB_SCHEMA"), "erynfall"));
     private final String jwtIssuer = defaultIfBlank(env("JWT_ISSUER"), "http://localhost:8080");
     private final String jwtAudience = defaultIfBlank(env("JWT_AUDIENCE"), "erynfall-game");
     private final String jwtSigningKey = env("JWT_SIGNING_KEY");
@@ -54,7 +54,7 @@ public class AuthSettings {
     }
 
     private static String sanitizeSchema(String schema) {
-        if (schema == null || schema.isBlank()) return "osrs";
+        if (schema == null || schema.isBlank()) return "erynfall";
         if (!schema.matches("[A-Za-z_][A-Za-z0-9_]*")) {
             throw new IllegalArgumentException("Invalid DB_SCHEMA value");
         }

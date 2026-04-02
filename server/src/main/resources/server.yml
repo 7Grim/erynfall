@@ -12,6 +12,7 @@ database:
   url: "jdbc:sqlserver://erynfall.database.windows.net:1433;databaseName=erynfall;encrypt=true;trustServerCertificate=false;loginTimeout=60"
   user: "erynfalladmin"
   password: ""
+  schema: "erynfall"
   max_connections: 10
 
 network:
