@@ -1074,73 +1074,87 @@ public class GameScreen extends ApplicationAdapter {
         }
 
         if (chatBox.isActive()) {
-            if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
-                chatBox.setActive(false);
-                return;
-            }
-            if (Gdx.input.isKeyJustPressed(Input.Keys.BACKSPACE)) {
-                String buf = chatBox.getInputBuffer();
-                if (!buf.isEmpty())
-                    chatBox.setInputBuffer(buf.substring(0, buf.length() - 1));
-                return;
-            }
-            // ── Letters: A-Z (key codes 29-54 in LibGDX) ──────────────────
-            // NOTE: Input.Keys.SPACE=62, Input.Keys.A=29, Input.Keys.Z=54.
-            // The range must start at A (29), NOT SPACE (62).
-            for (int key = Input.Keys.A; key <= Input.Keys.Z; key++) {
-                if (Gdx.input.isKeyJustPressed(key)) {
-                    if (chatBox.getInputBuffer().length() >= 80) return;
-                    char c = Input.Keys.toString(key).charAt(0);  // returns uppercase e.g. "A"
-                    if (!Gdx.input.isKeyPressed(Input.Keys.SHIFT_LEFT)
-                     && !Gdx.input.isKeyPressed(Input.Keys.SHIFT_RIGHT)) {
-                        c = Character.toLowerCase(c);
+            // A left click outside the chat area deactivates chat and lets the click propagate
+            // to normal mouse handlers below — do NOT return in that case.
+            if (Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)) {
+                int mx2 = Gdx.input.getX();
+                int screenMy2 = Gdx.graphics.getHeight() - Gdx.input.getY();
+                boolean inChatArea = screenMy2 < ChatBox.TOTAL_H && mx2 >= 0 && mx2 < ChatBox.BOX_W;
+                if (!inChatArea) {
+                    chatBox.setActive(false);
+                    // Fall through — do not return; let the LEFT click block below handle the click
+                }
+                // Click inside chat area: also fall through so the LEFT click handler can route it
+            } else {
+                // No mouse click this frame — handle keyboard input and absorb
+                if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
+                    chatBox.setActive(false);
+                    return;
+                }
+                if (Gdx.input.isKeyJustPressed(Input.Keys.BACKSPACE)) {
+                    String buf = chatBox.getInputBuffer();
+                    if (!buf.isEmpty())
+                        chatBox.setInputBuffer(buf.substring(0, buf.length() - 1));
+                    return;
+                }
+                // ── Letters: A-Z (key codes 29-54 in LibGDX) ──────────────────
+                // NOTE: Input.Keys.SPACE=62, Input.Keys.A=29, Input.Keys.Z=54.
+                // The range must start at A (29), NOT SPACE (62).
+                for (int key = Input.Keys.A; key <= Input.Keys.Z; key++) {
+                    if (Gdx.input.isKeyJustPressed(key)) {
+                        if (chatBox.getInputBuffer().length() >= 80) return;
+                        char c = Input.Keys.toString(key).charAt(0);  // returns uppercase e.g. "A"
+                        if (!Gdx.input.isKeyPressed(Input.Keys.SHIFT_LEFT)
+                         && !Gdx.input.isKeyPressed(Input.Keys.SHIFT_RIGHT)) {
+                            c = Character.toLowerCase(c);
+                        }
+                        chatBox.setInputBuffer(chatBox.getInputBuffer() + c);
+                        return;
                     }
-                    chatBox.setInputBuffer(chatBox.getInputBuffer() + c);
-                    return;
                 }
-            }
-            // ── Space ──────────────────────────────────────────────────────
-            if (Gdx.input.isKeyJustPressed(Input.Keys.SPACE)) {
-                if (chatBox.getInputBuffer().length() < 80)
-                    chatBox.setInputBuffer(chatBox.getInputBuffer() + ' ');
-                return;
-            }
-            // ── Digits 0-9 ─────────────────────────────────────────────────
-            int[] numKeys  = {Input.Keys.NUM_0, Input.Keys.NUM_1, Input.Keys.NUM_2,
-                              Input.Keys.NUM_3, Input.Keys.NUM_4, Input.Keys.NUM_5,
-                              Input.Keys.NUM_6, Input.Keys.NUM_7, Input.Keys.NUM_8,
-                              Input.Keys.NUM_9};
-            char[] numChars = {'0','1','2','3','4','5','6','7','8','9'};
-            for (int i = 0; i < numKeys.length; i++) {
-                if (Gdx.input.isKeyJustPressed(numKeys[i])) {
+                // ── Space ──────────────────────────────────────────────────────
+                if (Gdx.input.isKeyJustPressed(Input.Keys.SPACE)) {
                     if (chatBox.getInputBuffer().length() < 80)
-                        chatBox.setInputBuffer(chatBox.getInputBuffer() + numChars[i]);
+                        chatBox.setInputBuffer(chatBox.getInputBuffer() + ' ');
                     return;
                 }
-            }
-            // ── Common punctuation ─────────────────────────────────────────
-            if (Gdx.input.isKeyJustPressed(Input.Keys.APOSTROPHE)) {
-                if (chatBox.getInputBuffer().length() < 80)
-                    chatBox.setInputBuffer(chatBox.getInputBuffer() + '\'');
+                // ── Digits 0-9 ─────────────────────────────────────────────────
+                int[] numKeys  = {Input.Keys.NUM_0, Input.Keys.NUM_1, Input.Keys.NUM_2,
+                                  Input.Keys.NUM_3, Input.Keys.NUM_4, Input.Keys.NUM_5,
+                                  Input.Keys.NUM_6, Input.Keys.NUM_7, Input.Keys.NUM_8,
+                                  Input.Keys.NUM_9};
+                char[] numChars = {'0','1','2','3','4','5','6','7','8','9'};
+                for (int i = 0; i < numKeys.length; i++) {
+                    if (Gdx.input.isKeyJustPressed(numKeys[i])) {
+                        if (chatBox.getInputBuffer().length() < 80)
+                            chatBox.setInputBuffer(chatBox.getInputBuffer() + numChars[i]);
+                        return;
+                    }
+                }
+                // ── Common punctuation ─────────────────────────────────────────
+                if (Gdx.input.isKeyJustPressed(Input.Keys.APOSTROPHE)) {
+                    if (chatBox.getInputBuffer().length() < 80)
+                        chatBox.setInputBuffer(chatBox.getInputBuffer() + '\'');
+                    return;
+                }
+                if (Gdx.input.isKeyJustPressed(Input.Keys.COMMA)) {
+                    if (chatBox.getInputBuffer().length() < 80)
+                        chatBox.setInputBuffer(chatBox.getInputBuffer() + ',');
+                    return;
+                }
+                if (Gdx.input.isKeyJustPressed(Input.Keys.PERIOD)) {
+                    if (chatBox.getInputBuffer().length() < 80)
+                        chatBox.setInputBuffer(chatBox.getInputBuffer() + '.');
+                    return;
+                }
+                if (Gdx.input.isKeyJustPressed(Input.Keys.MINUS)) {
+                    if (chatBox.getInputBuffer().length() < 80)
+                        chatBox.setInputBuffer(chatBox.getInputBuffer() + '-');
+                    return;
+                }
+                // Absorb all other keys while chat is open
                 return;
             }
-            if (Gdx.input.isKeyJustPressed(Input.Keys.COMMA)) {
-                if (chatBox.getInputBuffer().length() < 80)
-                    chatBox.setInputBuffer(chatBox.getInputBuffer() + ',');
-                return;
-            }
-            if (Gdx.input.isKeyJustPressed(Input.Keys.PERIOD)) {
-                if (chatBox.getInputBuffer().length() < 80)
-                    chatBox.setInputBuffer(chatBox.getInputBuffer() + '.');
-                return;
-            }
-            if (Gdx.input.isKeyJustPressed(Input.Keys.MINUS)) {
-                if (chatBox.getInputBuffer().length() < 80)
-                    chatBox.setInputBuffer(chatBox.getInputBuffer() + '-');
-                return;
-            }
-            // Absorb all other keys while chat is open
-            return;
         }
         // ── End chat input ────────────────────────────────────────────────────
 
@@ -1189,11 +1203,6 @@ public class GameScreen extends ApplicationAdapter {
             if (levelUpOverlay.isActive() && levelUpOverlay.handleClick(mx, screenMy)) return;
             // Skill detail popup: inside click consumed, outside click dismisses and propagates
             if (skillDetailPopup.isVisible() && skillDetailPopup.handleClick(mx, screenMy)) return;
-            // Click outside chat box deactivates chat input — let the click propagate normally
-            if (chatBox.isActive()) {
-                boolean inChatArea = screenMy < ChatBox.TOTAL_H && mx >= 0 && mx < ChatBox.BOX_W;
-                if (!inChatArea) chatBox.setActive(false);
-            }
             // OSRS run: clicking the run energy orb toggles run on/off
             {
                 int miniLeftX = MiniMap.getLeftX(w);
@@ -1800,7 +1809,8 @@ public class GameScreen extends ApplicationAdapter {
         pendingNpcId = -1; pendingAction = null;
         pendingWalkTargX = -1; pendingWalkTargY = -1;
         pendingActionRetryTimer = 0f;
-        isWoodcuttingActive = false;
+        // isWoodcuttingActive is intentionally NOT cleared here — only the STOPPED
+        // skilling event from the server should stop the animation loop.
     }
 
     private boolean isInRange(int px, int py, int nx, int ny) {
