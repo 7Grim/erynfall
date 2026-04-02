@@ -214,10 +214,11 @@ npcs:
 
   # ==========================================================================
   # SANDBOX TESTING GROVE — y=20, 30 tiles south of spawn
-  # One of every tree tier in ascending level order (west to east, x=20..55).
+  # One of every tree tier in ascending level order (west to east, x=20..41).
+  # 3-tile spacing — close enough to test quickly, not overlapping.
   # Used to verify: correct log drops, XP values, level unlock gates,
   # axe tier selection, and depletion/respawn behaviour.
-  # Future: place a Bank Chest at approx (60, 20) once banking is implemented.
+  # Future: place a Bank Chest at approx (45, 20) once banking is implemented.
   # ==========================================================================
 
   # Tree (Lv 1, def 100) — normal logs (1511), 25.0 XP, SINGLE_LOG depletion
@@ -244,7 +245,7 @@ npcs:
     max_hit: 0
     respawn_delay_ticks: 0
     location: "tutorial_island"
-    x: 25
+    x: 23
     y: 20
     examine: "A sturdy oak tree."
     wander_radius: 0
@@ -259,7 +260,7 @@ npcs:
     max_hit: 0
     respawn_delay_ticks: 0
     location: "tutorial_island"
-    x: 30
+    x: 26
     y: 20
     examine: "A graceful willow tree."
     wander_radius: 0
@@ -274,7 +275,7 @@ npcs:
     max_hit: 0
     respawn_delay_ticks: 0
     location: "tutorial_island"
-    x: 35
+    x: 29
     y: 20
     examine: "A tropical teak tree."
     wander_radius: 0
@@ -289,7 +290,7 @@ npcs:
     max_hit: 0
     respawn_delay_ticks: 0
     location: "tutorial_island"
-    x: 40
+    x: 32
     y: 20
     examine: "A vibrant maple tree."
     wander_radius: 0
@@ -304,7 +305,7 @@ npcs:
     max_hit: 0
     respawn_delay_ticks: 0
     location: "tutorial_island"
-    x: 45
+    x: 35
     y: 20
     examine: "A rich mahogany tree."
     wander_radius: 0
@@ -319,7 +320,7 @@ npcs:
     max_hit: 0
     respawn_delay_ticks: 0
     location: "tutorial_island"
-    x: 50
+    x: 38
     y: 20
     examine: "An ancient yew tree."
     wander_radius: 0
@@ -334,7 +335,7 @@ npcs:
     max_hit: 0
     respawn_delay_ticks: 0
     location: "tutorial_island"
-    x: 55
+    x: 41
     y: 20
     examine: "A mystical magic tree."
     wander_radius: 0

@@ -233,6 +233,10 @@ public class GameScreen extends ApplicationAdapter {
     /** OSRS pickup animation: 3 OSRS ticks = 1.8 s real time. */
     private static final float PICKUP_ANIM_DURATION = 1.8f;
 
+    // Skilling animation state — set by server ACTIVE/STOPPED signals, not by client click
+    /** True while the server has confirmed woodcutting is active. Drives looping chop animation. */
+    private boolean isWoodcuttingActive = false;
+
     // Firemaking animation
     /** Seconds remaining in the fire animation; 0 = not playing. */
     private float firemakerAnimTimer = 0f;
@@ -452,9 +456,14 @@ public class GameScreen extends ApplicationAdapter {
         updateRunEnergy(delta);
         updateNpcVisuals(delta);
         updateClickMarkers(delta);
+        if (isWoodcuttingActive) {
+            // Loop the chop animation for as long as the server says we're actively woodcutting.
+            // Re-trigger when the 0.6s window expires so it plays every OSRS tick.
+            if (attackAnimTimer == 0f) triggerAttackPose("chop");
+        }
         if (attackAnimTimer > 0f) {
             attackAnimTimer = Math.max(0f, attackAnimTimer - delta);
-            if (attackAnimTimer == 0f) currentAttackPose = "idle";
+            if (attackAnimTimer == 0f && !isWoodcuttingActive) currentAttackPose = "idle";
         }
 
         // Mouse scroll wheel zoom controls - OSRS-style
@@ -720,6 +729,15 @@ public class GameScreen extends ApplicationAdapter {
         }
 
         for (ClientPacketHandler.SkillingStateEvent skillingEvent : h.drainSkillingStateEvents()) {
+            boolean isWoodcutEvent = skillingEvent.type == NetworkProto.SkillingType.SKILLING_WOODCUTTING;
+            if (isWoodcutEvent && skillingEvent.state == NetworkProto.SkillingState.SKILLING_STATE_ACTIVE) {
+                isWoodcuttingActive = true;
+                triggerAttackPose("chop");  // start animation on server confirmation, not on click
+            }
+            if (isWoodcutEvent && skillingEvent.state == NetworkProto.SkillingState.SKILLING_STATE_STOPPED) {
+                isWoodcuttingActive = false;
+            }
+
             if (pendingAction == null) {
                 continue;
             }
@@ -765,7 +783,10 @@ public class GameScreen extends ApplicationAdapter {
             if ("You need an axe to chop this tree.".equals(msg)
                 || "You need a small fishing net to fish here.".equals(msg)
                 || "Your inventory is too full to hold any more fish.".equals(msg)
-                || "You have no raw shrimps to cook.".equals(msg)) {
+                || "You have no raw shrimps to cook.".equals(msg)
+                || msg.startsWith("You need a Woodcutting level of")
+                || msg.startsWith("You need a Fishing level of")
+                || msg.startsWith("You need a Mining level of")) {
                 clearPendingAction();
             }
         }
@@ -1168,6 +1189,11 @@ public class GameScreen extends ApplicationAdapter {
             if (levelUpOverlay.isActive() && levelUpOverlay.handleClick(mx, screenMy)) return;
             // Skill detail popup: inside click consumed, outside click dismisses and propagates
             if (skillDetailPopup.isVisible() && skillDetailPopup.handleClick(mx, screenMy)) return;
+            // Click outside chat box deactivates chat input — let the click propagate normally
+            if (chatBox.isActive()) {
+                boolean inChatArea = screenMy < ChatBox.TOTAL_H && mx >= 0 && mx < ChatBox.BOX_W;
+                if (!inChatArea) chatBox.setActive(false);
+            }
             // OSRS run: clicking the run energy orb toggles run on/off
             {
                 int miniLeftX = MiniMap.getLeftX(w);
@@ -1752,7 +1778,7 @@ public class GameScreen extends ApplicationAdapter {
                 pendingActionRetryTimer = 0.25f;
             } else if ("chop".equals(pendingAction)) {
                 nettyClient.sendStartSkilling(pendingNpcId, NetworkProto.SkillingType.SKILLING_WOODCUTTING);
-                triggerAttackPose("chop");
+                // Animation is triggered when server confirms SKILLING_STATE_ACTIVE, not here
                 pendingActionRetryTimer = 0.25f;
             } else if ("fish".equals(pendingAction)) {
                 nettyClient.sendStartSkilling(pendingNpcId, NetworkProto.SkillingType.SKILLING_FISHING);
@@ -1774,6 +1800,7 @@ public class GameScreen extends ApplicationAdapter {
         pendingNpcId = -1; pendingAction = null;
         pendingWalkTargX = -1; pendingWalkTargY = -1;
         pendingActionRetryTimer = 0f;
+        isWoodcuttingActive = false;
     }
 
     private boolean isInRange(int px, int py, int nx, int ny) {

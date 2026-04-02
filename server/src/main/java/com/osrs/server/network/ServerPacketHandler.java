@@ -631,7 +631,8 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
                                      NPC npc,
                                      NetworkProto.SkillingType requestedType,
                                      boolean strictType) {
-        if (WoodcuttingRegistry.getTreeByDefinitionId(npc.getDefinitionId()) != null) {
+        WoodcuttingRegistry.TreeTier treeTier = WoodcuttingRegistry.getTreeByDefinitionId(npc.getDefinitionId());
+        if (treeTier != null) {
             if (strictType && requestedType != NetworkProto.SkillingType.SKILLING_WOODCUTTING) {
                 return false;
             }
@@ -643,8 +644,16 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
                 sendChatMessage(ctx, "You are too busy fighting.", 1);
                 return true;
             }
+            // Check all registry axe tiers (not just bronze) — bronze-only check was wrong
             if (!hasUsableAxe(player)) {
                 sendChatMessage(ctx, "You need an axe to chop this tree.", 1);
+                return true;
+            }
+            // Level check here (before starting action) so only one message is ever sent
+            int wcLevel = Math.max(1, player.getSkillLevel(Player.SKILL_WOODCUTTING));
+            if (wcLevel < treeTier.levelRequirement()) {
+                sendChatMessage(ctx, "You need a Woodcutting level of " + treeTier.levelRequirement()
+                    + " to chop this tree.", 1);
                 return true;
             }
             if (!canReachAnyAdjacentTile(player, npc)) {
@@ -949,12 +958,13 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
     }
 
     private boolean hasUsableAxe(Player player) {
-        if (player.getEquipment(EquipmentSlot.WEAPON) == BRONZE_AXE_ITEM_ID) {
-            return true;
-        }
-        for (int i = 0; i < 28; i++) {
-            if (player.getInventoryItemId(i) == BRONZE_AXE_ITEM_ID) {
-                return true;
+        // Check equipped weapon slot and all inventory slots against every registry axe ID.
+        // WC level requirement is checked separately — any axe in possession qualifies here.
+        for (WoodcuttingRegistry.AxeTier axe : WoodcuttingRegistry.axes()) {
+            int id = axe.itemId();
+            if (player.getEquipment(EquipmentSlot.WEAPON) == id) return true;
+            for (int s = 0; s < 28; s++) {
+                if (player.getInventoryItemId(s) == id) return true;
             }
         }
         return false;
