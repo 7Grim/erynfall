@@ -9,7 +9,6 @@ import com.osrs.server.database.PlayerRepository;
 import com.osrs.server.quest.DialogueEngine;
 import com.osrs.server.quest.Quest;
 import com.osrs.server.quest.QuestManager;
-import com.osrs.server.skilling.TreeVariantRegistry;
 import com.osrs.server.world.GroundItem;
 import com.osrs.server.world.World;
 import com.osrs.shared.CombatStyle;
@@ -18,6 +17,7 @@ import com.osrs.shared.ItemDefinition;
 import com.osrs.shared.NPC;
 import com.osrs.shared.Player;
 import com.osrs.shared.SkillingAction;
+import com.osrs.shared.WoodcuttingRegistry;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
@@ -631,7 +631,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
                                      NPC npc,
                                      NetworkProto.SkillingType requestedType,
                                      boolean strictType) {
-        if (TreeVariantRegistry.isChoppableDefinitionId(npc.getDefinitionId())) {
+        if (WoodcuttingRegistry.getTreeByDefinitionId(npc.getDefinitionId()) != null) {
             if (strictType && requestedType != NetworkProto.SkillingType.SKILLING_WOODCUTTING) {
                 return false;
             }

@@ -8,7 +8,6 @@ import com.osrs.server.network.NettyServer;
 import com.osrs.server.network.PlayerSession;
 import com.osrs.server.quest.Quest;
 import com.osrs.server.quest.QuestManager;
-import com.osrs.server.skilling.TreeVariantRegistry;
 import com.osrs.server.world.GroundItem;
 import com.osrs.server.world.World;
 import com.osrs.shared.ItemDefinition;
@@ -17,6 +16,7 @@ import com.osrs.shared.EquipmentSlot;
 import com.osrs.shared.NPC;
 import com.osrs.shared.Player;
 import com.osrs.shared.SkillingAction;
+import com.osrs.shared.WoodcuttingRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -79,18 +79,10 @@ public class GameLoop {
     private static final long PID_ROTATE_MAX = 23100L;
     private long nextPidRotateTick = 0;
 
-    // Woodcutting (MVP first slice)
-    private static final int BRONZE_AXE_ITEM_ID = 1351;
-    /** Axe tiers ordered best-to-worst. Each entry: {itemId, minWoodcuttingLevel}. */
-    private static final int[][] AXE_TIERS = {
-        {1359, 41},   // Rune axe
-        {1357, 35},   // Adamant axe
-        {1355, 31},   // Mithril axe
-        {1353, 11},   // Steel axe
-        {1349,  6},   // Iron axe
-        {1351,  1},   // Bronze axe
-    };
-    private static final int TREE_REGROW_TICKS = 640;
+    // Server tick ↔ OSRS tick conversion: 256 Hz × 0.6 s/tick = 153.6 ≈ 154 server ticks per OSRS tick
+    private static final int OSRS_TICKS_TO_SERVER = 154;
+    // Fixed chop attempt interval: 4 OSRS ticks per roll (OSRS standard)
+    private static final int CHOP_ATTEMPT_INTERVAL = WoodcuttingRegistry.CHOP_ATTEMPT_OSRS_TICKS * OSRS_TICKS_TO_SERVER;
 
     // Fishing (MVP first slice)
     private static final int SMALL_FISHING_NET_ITEM_ID = 303;
@@ -1104,17 +1096,17 @@ public class GameLoop {
             return;
         }
 
-        TreeVariantRegistry.TreeVariant treeVariant = resolveTreeVariant(tree);
-        if (treeVariant == null) {
+        WoodcuttingRegistry.TreeTier treeTier = resolveTreeTier(tree);
+        if (treeTier == null) {
             stopSkilling(player, session, "target-invalid");
             return;
         }
 
-        int requiredLevel = treeVariant.levelRequirement();
+        int requiredLevel = treeTier.levelRequirement();
         int wcLevel = Math.max(1, player.getSkillLevel(Player.SKILL_WOODCUTTING));
         if (wcLevel < requiredLevel) {
             sendChatMessageToPlayer(session.getChannel(),
-                "You need a woodcutting level of " + requiredLevel + " to chop this tree.", 1);
+                "You need a Woodcutting level of " + requiredLevel + " to chop this tree.", 1);
             stopSkilling(player, session, "level-requirement");
             return;
         }
@@ -1154,17 +1146,20 @@ public class GameLoop {
             return;
         }
 
-        int axeTierBonus = 0;
-        for (int t = 0; t < AXE_TIERS.length; t++) {
-            if (AXE_TIERS[AXE_TIERS.length - 1 - t][0] == axeId) {
-                axeTierBonus = t;
-                break;
-            }
+        // OSRS success formula: roll 0-254, succeed if roll < threshold
+        // threshold = low + floor((high - low) * wcLevel / 99)
+        WoodcuttingRegistry.SuccessRate rate = WoodcuttingRegistry.getSuccessRate(treeTier.definitionId(), axeId);
+        boolean success;
+        if (rate == null) {
+            success = random.nextInt(255) < 128;  // fallback: ~50% if no rate data
+        } else {
+            int threshold = rate.low() + (int) Math.floor((rate.high() - rate.low()) * (double) wcLevel / 99.0);
+            success = random.nextInt(255) < threshold;
         }
-        int successThreshold = Math.max(5, 50 - wcLevel - axeTierBonus * 3);
-        boolean success = random.nextInt(100) >= successThreshold;
+
+        player.setSkillingNextAttemptTick(tickCount + CHOP_ATTEMPT_INTERVAL);
+
         if (!success) {
-            player.setSkillingNextAttemptTick(tickCount + nextWoodcutAttemptTicks(wcLevel));
             return;
         }
 
@@ -1175,69 +1170,78 @@ public class GameLoop {
             return;
         }
 
-        int logItemId = treeVariant.logItemId();
-
+        int logItemId = treeTier.logItemId();
         player.setInventoryItem(slot, logItemId, 1);
         sendInventorySlot(session.getChannel(), player, slot);
         sendChatMessageToPlayer(session.getChannel(), "You get some logs.", 0);
         updateSkillQuestObjectives(session, Quest.TaskType.COLLECT, logItemId);
-        sendSkillUpdate(player, Player.SKILL_WOODCUTTING, treeVariant.xp());
+        sendSkillUpdate(player, Player.SKILL_WOODCUTTING, treeTier.xpTenths());
 
-        tree.setDead(true);
-        tree.setRespawnAtTick(tickCount + TREE_REGROW_TICKS);
-        nettyServer.broadcastToAll(NetworkProto.ServerMessage.newBuilder()
-            .setNpcDespawn(NetworkProto.NpcDespawn.newBuilder().setNpcId(tree.getId()))
-            .build());
+        // Per-tree depletion: standard trees always deplete; others have a 1-in-N chance per log
+        boolean depleted;
+        if (treeTier.depletionType() == WoodcuttingRegistry.DepletionType.SINGLE_LOG) {
+            depleted = true;
+        } else {
+            depleted = random.nextInt(treeTier.depletionChanceDenominator()) == 0;
+        }
 
-        stopSkilling(player, session, "success");
+        if (depleted) {
+            int respawnOsrsTicks = treeTier.respawnMinOsrsTicks() >= treeTier.respawnMaxOsrsTicks()
+                ? treeTier.respawnMinOsrsTicks()
+                : treeTier.respawnMinOsrsTicks()
+                    + random.nextInt(treeTier.respawnMaxOsrsTicks() - treeTier.respawnMinOsrsTicks() + 1);
+            tree.setDead(true);
+            tree.setRespawnAtTick(tickCount + (long) respawnOsrsTicks * OSRS_TICKS_TO_SERVER);
+            nettyServer.broadcastToAll(NetworkProto.ServerMessage.newBuilder()
+                .setNpcDespawn(NetworkProto.NpcDespawn.newBuilder().setNpcId(tree.getId()))
+                .build());
+            stopSkilling(player, session, "depleted");
+        }
+        // If not depleted, continue chopping (next attempt already scheduled above)
     }
 
-    private TreeVariantRegistry.TreeVariant resolveTreeVariant(NPC tree) {
+    private WoodcuttingRegistry.TreeTier resolveTreeTier(NPC tree) {
         int definitionId = tree.getDefinitionId();
-        TreeVariantRegistry.TreeVariant byDefinition = TreeVariantRegistry.getByDefinitionId(definitionId);
-        if (byDefinition == null) {
+        WoodcuttingRegistry.TreeTier tier = WoodcuttingRegistry.getTreeByDefinitionId(definitionId);
+        if (tier == null) {
             return null;
         }
-
         String actualName = tree.getName() == null ? "" : tree.getName().trim();
-        if (!byDefinition.name().equalsIgnoreCase(actualName)) {
-            LOG.error("Tree variant mismatch for npcId={}: definition_id={} expects name='{}', but actual name='{}'",
-                tree.getId(), definitionId, byDefinition.name(), tree.getName());
+        if (!tier.name().equalsIgnoreCase(actualName)) {
+            LOG.error("Tree tier mismatch for npcId={}: definition_id={} expects name='{}', actual='{}'",
+                tree.getId(), definitionId, tier.name(), tree.getName());
             return null;
         }
-        return byDefinition;
+        return tier;
     }
 
     private void validateTreeVariantConfiguration() {
         List<String> errors = new ArrayList<>();
         for (NPC npc : world.getNPCs().values()) {
             int definitionId = npc.getDefinitionId();
-            TreeVariantRegistry.TreeVariant byDefinition = TreeVariantRegistry.getByDefinitionId(definitionId);
-            TreeVariantRegistry.TreeVariant byName = TreeVariantRegistry.getByName(npc.getName());
+            WoodcuttingRegistry.TreeTier byDef  = WoodcuttingRegistry.getTreeByDefinitionId(definitionId);
+            WoodcuttingRegistry.TreeTier byName = WoodcuttingRegistry.getTreeByName(npc.getName());
 
-            if (byDefinition == null && byName == null) {
+            if (byDef == null && byName == null) continue;
+            if (byDef == null) {
+                errors.add("npcId=" + npc.getId() + " name='" + npc.getName()
+                    + "' is a known tree name but definition_id=" + definitionId + " is unmapped");
                 continue;
             }
-            if (byDefinition == null && byName != null) {
-                errors.add("npcId=" + npc.getId() + " name='" + npc.getName() + "' uses tree variant '"
-                    + byName.name() + "' but definition_id=" + definitionId + " is unmapped");
+            if (byName == null) {
+                errors.add("npcId=" + npc.getId() + " definition_id=" + definitionId
+                    + " maps to '" + byDef.name() + "' but name='" + npc.getName() + "' is not a known tree name");
                 continue;
             }
-            if (byDefinition != null && byName == null) {
-                errors.add("npcId=" + npc.getId() + " definition_id=" + definitionId + " maps to '"
-                    + byDefinition.name() + "' but name='" + npc.getName() + "' is not a known tree variant");
-                continue;
-            }
-            if (byDefinition != null && byName != null && byDefinition.definitionId() != byName.definitionId()) {
-                errors.add("npcId=" + npc.getId() + " mismatch: definition_id=" + definitionId + " => '"
-                    + byDefinition.name() + "' but name='" + npc.getName() + "' => '" + byName.name() + "'");
+            if (byDef.definitionId() != byName.definitionId()) {
+                errors.add("npcId=" + npc.getId() + " mismatch: definition_id=" + definitionId
+                    + "=>" + byDef.name() + " but name='" + npc.getName() + "'=>" + byName.name());
             }
         }
-
         if (!errors.isEmpty()) {
             String joined = String.join("; ", errors);
-            LOG.error("Invalid tree variant configuration in world data: {}", joined);
-            throw new IllegalStateException("Invalid tree variant configuration: " + joined);
+            LOG.error("Invalid tree configuration in world data: {}", joined);
+            throw new IllegalStateException("Invalid tree configuration: " + joined);
         }
     }
 
@@ -1349,18 +1353,6 @@ public class GameLoop {
         }
 
         player.setSkillingNextAttemptTick(tickCount + nextCookingAttemptTicks(cookingLevel));
-    }
-
-    private double woodcutSuccessChance(int wcLevel) {
-        double chance = 0.22 + (wcLevel * 0.0075);
-        return Math.max(0.22, Math.min(0.85, chance));
-    }
-
-    private int nextWoodcutAttemptTicks(int wcLevel) {
-        int base = 220;
-        int speedBonus = Math.min(120, wcLevel * 2);
-        int interval = Math.max(80, base - speedBonus);
-        return interval + random.nextInt(35);
     }
 
     private double fishingSuccessChance(int fishingLevel) {
@@ -1490,13 +1482,14 @@ public class GameLoop {
 
     private int getBestUsableAxeId(Player player) {
         int wcLevel = Math.max(1, player.getSkillLevel(Player.SKILL_WOODCUTTING));
-        for (int[] tier : AXE_TIERS) {
-            int axeId  = tier[0];
-            int minLvl = tier[1];
-            if (wcLevel < minLvl) continue;
-            if (player.getEquipment(EquipmentSlot.WEAPON) == axeId) return axeId;
-            for (int i = 0; i < 28; i++) {
-                if (player.getInventoryItemId(i) == axeId) return axeId;
+        List<WoodcuttingRegistry.AxeTier> axes = WoodcuttingRegistry.axes();
+        // axes() is ordered bronze→dragon; iterate best-first (highest index first)
+        for (int i = axes.size() - 1; i >= 0; i--) {
+            WoodcuttingRegistry.AxeTier axe = axes.get(i);
+            if (wcLevel < axe.woodcuttingLevel()) continue;
+            if (player.getEquipment(EquipmentSlot.WEAPON) == axe.itemId()) return axe.itemId();
+            for (int s = 0; s < 28; s++) {
+                if (player.getInventoryItemId(s) == axe.itemId()) return axe.itemId();
             }
         }
         return -1;
