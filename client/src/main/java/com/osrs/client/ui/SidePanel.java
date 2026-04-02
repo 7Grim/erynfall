@@ -311,6 +311,7 @@ public class SidePanel {
     private int playerQuestPoints = 0;
     private boolean logoutRequested  = false;
     private boolean logoutConfirmed  = false;
+    private int     pendingSkillClickIdx = -1;
     private final List<FriendEntryView> friendEntries = new ArrayList<>();
     private long    removeFriendRequestedId = -1L;
 
@@ -2519,7 +2520,30 @@ public class SidePanel {
                 }
             }
             case INVENTORY -> inventoryUI.handleMouseDown(mx, my, 0);
-            default -> { /* Skills tab: no clicks */ }
+            case SKILLS -> {
+                // Detect which skill cell was clicked using the same layout as renderSkillsTab
+                final int COLS    = 3;
+                final int ROWS    = SKILL_GRID.length;
+                final int PAD_X   = 3;
+                final int PAD_Y   = 2;
+                final int COL_GAP = 2;
+                final int ROW_GAP = 1;
+                final int CELL_W  = (CONTENT_W - PAD_X * 2 - COL_GAP * (COLS - 1)) / COLS;
+                final int CELL_H  = (CONTENT_H - PAD_Y * 2 - ROW_GAP * (ROWS - 1)) / ROWS;
+                for (int r = 0; r < ROWS; r++) {
+                    for (int c = 0; c < COLS; c++) {
+                        int idx = SKILL_GRID[r][c];
+                        if (idx < 0) continue;  // total-level cell, not a skill
+                        int cx = panelX + CONTENT_INSET + PAD_X + c * (CELL_W + COL_GAP);
+                        int cy = cY + CONTENT_H - PAD_Y - (r + 1) * CELL_H - r * ROW_GAP;
+                        if (mx >= cx && mx < cx + CELL_W && my >= cy && my < cy + CELL_H) {
+                            pendingSkillClickIdx = idx;
+                            return -1;
+                        }
+                    }
+                }
+            }
+            default -> { /* no action */ }
         }
         return -1;
     }
@@ -2532,6 +2556,12 @@ public class SidePanel {
 
     public boolean isInventoryTabActive() { return activeTab == Tab.INVENTORY; }
     public int     getPanelX()            { return panelX; }
+    /** Returns the skill index (0–22) of the last clicked skill cell and resets it to -1. */
+    public int consumeSkillClickIdx() {
+        int idx = pendingSkillClickIdx;
+        pendingSkillClickIdx = -1;
+        return idx;
+    }
     public boolean consumeLogoutRequested() {
         boolean out = logoutRequested || logoutConfirmed;
         logoutRequested = false;

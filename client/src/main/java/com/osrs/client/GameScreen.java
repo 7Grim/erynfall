@@ -26,6 +26,7 @@ import com.osrs.client.ui.ContextMenu;
 import com.osrs.client.ui.DialogueUI;
 import com.osrs.client.ui.FontManager;
 import com.osrs.client.ui.LevelUpOverlay;
+import com.osrs.client.ui.SkillDetailPopup;
 import com.osrs.client.ui.MiniMap;
 import com.osrs.client.ui.SidePanel;
 import com.osrs.client.ui.XpDropOverlay;
@@ -117,6 +118,7 @@ public class GameScreen extends ApplicationAdapter {
     private MiniMap      miniMap;
     private XpDropOverlay xpDropOverlay;
     private LevelUpOverlay levelUpOverlay;
+    private SkillDetailPopup skillDetailPopup;
     private int[][]      tileMap;
     private MapLoader    mapLoader;
 
@@ -349,6 +351,7 @@ public class GameScreen extends ApplicationAdapter {
         chatBox        = new ChatBox();
         xpDropOverlay  = new XpDropOverlay();
         levelUpOverlay = new LevelUpOverlay();
+        skillDetailPopup = new SkillDetailPopup();
 
         Thread t = new Thread(() -> {
             try {
@@ -557,6 +560,7 @@ public class GameScreen extends ApplicationAdapter {
             chatBox.render(shapeRenderer, screenBatch, font, w, h, screenProjection);
         }
         levelUpOverlay.render(shapeRenderer, screenBatch, font, w, h, screenProjection);
+        skillDetailPopup.render(shapeRenderer, screenBatch, font, sidePanel.getPanelX(), w, h, screenProjection);
         xpDropOverlay.render(shapeRenderer, screenBatch, font, w, h, screenProjection,
             sidePanel.getPanelX(), SidePanel.TOTAL_H + SidePanel.MARGIN);
         if (contextMenu.isVisible()) renderContextMenu();
@@ -1030,6 +1034,7 @@ public class GameScreen extends ApplicationAdapter {
         }
 
         if (Gdx.input.isKeyJustPressed(Input.Keys.ENTER)) {
+            if (levelUpOverlay.handleEnter()) return;
             // Logout modal has priority focus: Enter confirms Logout.
             if (sidePanel.isLogoutTabActive()) {
                 sidePanel.cancelLogout(); // dismiss the tab UI
@@ -1159,6 +1164,10 @@ public class GameScreen extends ApplicationAdapter {
 
         if (Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)) {
             inventoryMouseDownSlot = -1;
+            // Level-up overlay has highest click priority
+            if (levelUpOverlay.isActive() && levelUpOverlay.handleClick(mx, screenMy)) return;
+            // Skill detail popup: inside click consumed, outside click dismisses and propagates
+            if (skillDetailPopup.isVisible() && skillDetailPopup.handleClick(mx, screenMy)) return;
             // OSRS run: clicking the run energy orb toggles run on/off
             {
                 int miniLeftX = MiniMap.getLeftX(w);
@@ -1211,6 +1220,12 @@ public class GameScreen extends ApplicationAdapter {
                 } else if (click <= -100) {
                     int equipSlot = -(click + 100);
                     if (nettyClient != null) nettyClient.sendUnequipItem(equipSlot);
+                }
+                int skillClickIdx = sidePanel.consumeSkillClickIdx();
+                if (skillClickIdx >= 0) {
+                    skillDetailPopup.show(skillClickIdx,
+                        handler().getSkillLevel(skillClickIdx),
+                        handler().getSkillTotalXp(skillClickIdx));
                 }
                 long removeFriendId = sidePanel.consumeRemoveFriendRequestedId();
                 if (removeFriendId > 0) {
