@@ -96,8 +96,8 @@ public class Player extends Entity {
         this.health = 10;
         this.maxHealth = 10;
         for (int i = 0; i < SKILL_COUNT; i++) skillLevel[i] = 1;
-        // Hitpoints starts at level 10 in OSRS (1,154 XP = level 10)
-        skillXp[SKILL_HITPOINTS]    = 1154L;
+        // Hitpoints starts at level 10 in OSRS (1,154 XP = level 10; stored as tenths = 11540)
+        skillXp[SKILL_HITPOINTS]    = 11540L;
         skillLevel[SKILL_HITPOINTS] = 10;
     }
     
@@ -199,8 +199,9 @@ public class Player extends Entity {
 
     private static int levelFromXp(long xp) {
         int level = 1;
+        long wholeXp = xp / 10;  // XP stored as tenths; XP_TABLE uses whole values
         for (int i = 1; i < 99; i++) {
-            if (xp >= XP_TABLE[i]) level = i + 1;
+            if (wholeXp >= XP_TABLE[i]) level = i + 1;
             else break;
         }
         return Math.min(level, 99);

@@ -95,12 +95,12 @@ public class GameLoop {
     // Fishing (MVP first slice)
     private static final int SMALL_FISHING_NET_ITEM_ID = 303;
     private static final int RAW_SHRIMPS_ITEM_ID = 317;
-    private static final long SHRIMPS_XP = 10L;
+    private static final long SHRIMPS_XP = 100L;  // 10.0 XP stored as tenths
 
     // Cooking (MVP first slice)
     private static final int COOKED_SHRIMPS_ITEM_ID = 315;
     private static final int BURNT_SHRIMPS_ITEM_ID = 7954;
-    private static final long COOKED_SHRIMPS_XP = 30L;
+    private static final long COOKED_SHRIMPS_XP = 300L;  // 30.0 XP stored as tenths
     
     public GameLoop(long tickIntervalNs, World world, NettyServer nettyServer) {
         this.tickIntervalNs = tickIntervalNs;
@@ -656,7 +656,7 @@ public class GameLoop {
                     && updated.status == Quest.QuestStatus.COMPLETED;
                 if (!wasComplete && isNowComplete) {
                     if (updated.totalRewardXp > 0) {
-                        sendSkillUpdate(killer, updated.rewardSkillIndex, updated.totalRewardXp);
+                        sendSkillUpdate(killer, updated.rewardSkillIndex, (long) updated.totalRewardXp * 10);
                     }
                     sendChatMessageToPlayer(killerSession.getChannel(),
                         "You have completed: " + updated.name + "! You earned "
@@ -693,7 +693,7 @@ public class GameLoop {
                 if (!wasComplete && isNowComplete) {
                     if (updated.totalRewardXp > 0) {
                         sendSkillUpdate(session.getPlayer(),
-                            updated.rewardSkillIndex, updated.totalRewardXp);
+                            updated.rewardSkillIndex, (long) updated.totalRewardXp * 10);
                     }
                     sendChatMessageToPlayer(session.getChannel(),
                         "You have completed: " + updated.name + "! You earned "
@@ -1025,8 +1025,8 @@ public class GameLoop {
      * Source: https://oldschool.runescape.wiki/w/Combat_Options
      */
     private void awardCombatXp(Player player, int damage) {
-        long mainXp = damage * 4L;
-        long hpXp   = Math.round(damage * 1.33);
+        long mainXp = damage * 40L;                       // 4.0 XP/damage stored as tenths
+        long hpXp   = Math.round(damage * 13.3);          // 1.33 XP/damage stored as tenths
 
         CombatStyle style = player.getCombatStyle();
         switch (style) {
@@ -1043,7 +1043,7 @@ public class GameLoop {
                 sendSkillUpdate(player, Player.SKILL_HITPOINTS, hpXp);
             }
             case CONTROLLED -> {
-                long splitXp = Math.round(damage * 1.33);
+                long splitXp = Math.round(damage * 13.3);  // 1.33 XP/damage stored as tenths
                 sendSkillUpdate(player, Player.SKILL_ATTACK,    splitXp);
                 sendSkillUpdate(player, Player.SKILL_STRENGTH,  splitXp);
                 sendSkillUpdate(player, Player.SKILL_DEFENCE,   splitXp);
@@ -1070,7 +1070,7 @@ public class GameLoop {
             .setSkillUpdate(NetworkProto.SkillUpdate.newBuilder()
                 .setSkillIndex(skillIdx)
                 .setNewLevel(newLevel)
-                .setTotalXp(totalXp)
+                .setTotalXp(totalXp / 10)  // server stores tenths; client receives whole XP
                 .setLeveledUp(leveledUp))
             .build());
     }

@@ -117,7 +117,7 @@ public class PlayerRepository {
                 UUID.randomUUID().toString().toCharArray()
             );
             PreparedStatement ins = conn.prepareStatement(
-                "INSERT INTO " + table("players") + " (username, password_hash, x, y, hitpoints_xp) VALUES (?, ?, 50, 50, 1154)",
+                "INSERT INTO " + table("players") + " (username, password_hash, x, y, hitpoints_xp) VALUES (?, ?, 50, 50, 11540)",
                 Statement.RETURN_GENERATED_KEYS
             );
             ins.setString(1, characterName);

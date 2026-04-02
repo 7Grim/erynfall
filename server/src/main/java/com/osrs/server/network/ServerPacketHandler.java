@@ -40,7 +40,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
     private static final int BONES_ITEM_ID = 526;
     private static final int  TINDERBOX_ITEM_ID   = 590;
     private static final int[] FIREMAKING_LOG_ITEM_IDS = {1511, 1521, 1522, 1523, 1524, 1525};
-    private static final long BONES_PRAYER_XP = 4L;
+    private static final long BONES_PRAYER_XP = 45L;  // 4.5 XP stored as tenths
     /** Prayer defs: {prayerId, levelRequired}. IDs 1–6 = F2P melee prayers. */
     private static final int[][] PRAYER_DEFS = {
         {1,  1},  // Thick Skin        (+5% Defence)
@@ -50,7 +50,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
         {5, 13},  // Superhuman Strength(+10% Strength)
         {6, 16},  // Improved Reflexes (+10% Attack)
     };
-    private static final long FIREMAKING_LOG_XP   = 40L;
+    private static final long FIREMAKING_LOG_XP   = 400L;  // 40.0 XP stored as tenths
     
     private final NettyServer server;
     private final AuthTokenSettings authTokenSettings;
@@ -366,7 +366,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
                 .setSkillUpdate(NetworkProto.SkillUpdate.newBuilder()
                     .setSkillIndex(i)
                     .setNewLevel(player.getSkillLevel(i))
-                    .setTotalXp(player.getSkillXp(i))
+                    .setTotalXp(player.getSkillXp(i) / 10)  // server stores tenths; client receives whole XP
                     .setLeveledUp(false))
                 .build());
         }
@@ -1120,7 +1120,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             .setSkillUpdate(NetworkProto.SkillUpdate.newBuilder()
                 .setSkillIndex(skillIdx)
                 .setNewLevel(newLevel)
-                .setTotalXp(totalXp)
+                .setTotalXp(totalXp / 10)  // server stores tenths; client receives whole XP
                 .setLeveledUp(leveledUp))
             .build());
     }
@@ -1206,7 +1206,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
                 .setSkillUpdate(NetworkProto.SkillUpdate.newBuilder()
                     .setSkillIndex(Player.SKILL_PRAYER)
                     .setNewLevel(newLevel)
-                    .setTotalXp(totalXp)
+                    .setTotalXp(totalXp / 10)  // server stores tenths; client receives whole XP
                     .setLeveledUp(leveledUp))
                 .build());
 
@@ -1356,7 +1356,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             ctx.writeAndFlush(NetworkProto.ServerMessage.newBuilder()
                 .setSkillUpdate(NetworkProto.SkillUpdate.newBuilder()
                     .setSkillIndex(Player.SKILL_FIREMAKING)
-                    .setNewLevel(newLevel).setTotalXp(totalXp).setLeveledUp(leveledUp))
+                    .setNewLevel(newLevel).setTotalXp(totalXp / 10).setLeveledUp(leveledUp))  // tenths→whole
                 .build());
             sendChatMessage(ctx, "You light a fire.", 0);
             if (leveledUp) sendChatMessage(ctx, "Congratulations, you just advanced a Firemaking level.", 2);

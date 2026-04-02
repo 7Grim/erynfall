@@ -10,11 +10,13 @@ public final class TreeVariantRegistry {
 
     // Definition IDs start at 101 to avoid colliding with NPC ids (1–24) and their
     // world.yml defaults (WorldLoader defaults definition_id to the NPC's own id).
-    private static final TreeVariant OAK_TREE   = new TreeVariant(101, "Oak Tree",   1521,  1, 25L);
-    private static final TreeVariant WILLOW_TREE = new TreeVariant(102, "Willow Tree", 1522, 15, 37L);
-    private static final TreeVariant MAPLE_TREE  = new TreeVariant(103, "Maple Tree",  1523, 30, 67L);
-    private static final TreeVariant YEW_TREE    = new TreeVariant(104, "Yew Tree",    1524, 45, 100L);
-    private static final TreeVariant MAGIC_TREE  = new TreeVariant(105, "Magic Tree",  1525, 60, 150L);
+    // XP values stored as tenths (OSRS: Oak=37.5, Willow=67.5, Maple=100, Yew=175, Magic=250)
+    // Level requirements match OSRS Woodcutting requirements
+    private static final TreeVariant OAK_TREE   = new TreeVariant(101, "Oak Tree",   1521, 15,  375L);
+    private static final TreeVariant WILLOW_TREE = new TreeVariant(102, "Willow Tree", 1522, 30,  675L);
+    private static final TreeVariant MAPLE_TREE  = new TreeVariant(103, "Maple Tree",  1523, 45, 1000L);
+    private static final TreeVariant YEW_TREE    = new TreeVariant(104, "Yew Tree",    1524, 60, 1750L);
+    private static final TreeVariant MAGIC_TREE  = new TreeVariant(105, "Magic Tree",  1525, 75, 2500L);
 
     private static final Map<Integer, TreeVariant> BY_DEFINITION_ID = Map.of(
         OAK_TREE.definitionId(), OAK_TREE,
