@@ -127,8 +127,14 @@ public class Server {
                     if (player == null) continue;
                     try {
                         PlayerRepository.savePlayer(player);
-                        PlayerRepository.saveInventory(player);
-                        PlayerRepository.saveBank(player);
+                        if (session.isBankContainersDirty()) {
+                            if (PlayerRepository.saveInventoryBankAtomic(player)) {
+                                session.setBankContainersDirty(false);
+                            }
+                        } else {
+                            PlayerRepository.saveInventory(player);
+                            PlayerRepository.saveBank(player);
+                        }
                         PlayerRepository.saveEquipment(player);
                         if (session.getQuestManager() != null) {
                             PlayerRepository.saveQuestProgress(player, session.getQuestManager());

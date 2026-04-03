@@ -211,10 +211,16 @@ public class GameLoop {
             if (tickCount > 0 && tickCount % AUTOSAVE_INTERVAL == 0 && DatabaseManager.isHealthy()) {
                 for (Player p : world.getPlayers().values()) {
                     PlayerRepository.savePlayer(p);
-                    PlayerRepository.saveInventory(p);
-                    PlayerRepository.saveBank(p);
-                    PlayerRepository.saveEquipment(p);
                     PlayerSession ps = getSessionForPlayer(p.getId());
+                    if (ps != null && ps.isBankContainersDirty()) {
+                        if (PlayerRepository.saveInventoryBankAtomic(p)) {
+                            ps.setBankContainersDirty(false);
+                        }
+                    } else {
+                        PlayerRepository.saveInventory(p);
+                        PlayerRepository.saveBank(p);
+                    }
+                    PlayerRepository.saveEquipment(p);
                     if (ps != null) {
                         PlayerRepository.saveQuestProgress(p, ps.getQuestManager());
                     }
@@ -512,6 +518,9 @@ public class GameLoop {
                 continue;
             }
 
+            PlayerSession session = getSessionForPlayer(player.getId());
+            closeBankIfOpen(session, "in_combat");
+
             NPC target = world.getNPC(player.getCombatTarget());
             if (target == null || target.isDead()) {
                 player.setCombatTarget(-1);
@@ -749,6 +758,23 @@ public class GameLoop {
             if (session.getPlayer().getId() == playerId) return session;
         }
         return null;
+    }
+
+    private void closeBankIfOpen(PlayerSession session, String reason) {
+        if (session == null || !session.isBankOpen()) return;
+        if (DatabaseManager.isHealthy() && session.isBankContainersDirty() && session.getPlayer() != null) {
+            if (PlayerRepository.saveInventoryBankAtomic(session.getPlayer())) {
+                session.setBankContainersDirty(false);
+            }
+        }
+        session.setBankOpen(false);
+        session.setBankNpcId(-1);
+        if (session.getChannel() != null && session.getChannel().isActive()) {
+            session.getChannel().writeAndFlush(NetworkProto.ServerMessage.newBuilder()
+                .setBankClose(NetworkProto.BankClose.newBuilder()
+                    .setReason(reason == null ? "" : reason))
+                .build());
+        }
     }
 
     /**

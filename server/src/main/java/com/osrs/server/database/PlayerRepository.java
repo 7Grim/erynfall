@@ -483,6 +483,76 @@ public class PlayerRepository {
         }
     }
 
+    public static boolean saveInventoryBankAtomic(Player player) {
+        if (!DatabaseManager.isHealthy()) return false;
+        try (Connection conn = DatabaseManager.getConnection()) {
+            int dbId = getDbIdByUsername(conn, player.getName());
+            if (dbId < 0) return false;
+            PreparedStatement ensureItem = conn.prepareStatement(
+                "IF NOT EXISTS (SELECT 1 FROM " + table("items") + " WHERE id = ?) " +
+                    "INSERT INTO " + table("items") + " (id, name, examine_text, stackable, weight_kg, tradeable, high_alchemy_value, low_alchemy_value) " +
+                    "VALUES (?, ?, ?, ?, 0, 1, 0, 0)"
+            );
+            PreparedStatement delInv = conn.prepareStatement(
+                "DELETE FROM " + table("inventory") + " WHERE player_id = ?"
+            );
+            delInv.setInt(1, dbId);
+            delInv.executeUpdate();
+            PreparedStatement insInv = conn.prepareStatement(
+                "INSERT INTO " + table("inventory") + " (player_id, slot_index, item_id, quantity) VALUES (?, ?, ?, ?)"
+            );
+            for (int slot = 0; slot < 28; slot++) {
+                int itemId = player.getInventoryItemId(slot);
+                if (itemId == 0) continue;
+                ensureItem.setInt(1, itemId);
+                ensureItem.setInt(2, itemId);
+                ensureItem.setString(3, defaultItemName(itemId));
+                ensureItem.setString(4, defaultItemExamine(itemId));
+                ensureItem.setBoolean(5, defaultStackable(itemId));
+                ensureItem.addBatch();
+                insInv.setInt(1, dbId);
+                insInv.setInt(2, slot);
+                insInv.setInt(3, itemId);
+                insInv.setInt(4, player.getInventoryQuantity(slot));
+                insInv.addBatch();
+            }
+            PreparedStatement delBank = conn.prepareStatement(
+                "DELETE FROM " + table("player_bank_items") + " WHERE player_id = ?"
+            );
+            delBank.setInt(1, dbId);
+            delBank.executeUpdate();
+            PreparedStatement insBank = conn.prepareStatement(
+                "INSERT INTO " + table("player_bank_items") +
+                    " (player_id, tab_index, slot_index, item_id, quantity, placeholder) " +
+                    "VALUES (?, ?, ?, ?, ?, ?)"
+            );
+            for (Player.BankSlot slot : player.getBankSlots()) {
+                if (slot == null || slot.getItemId() <= 0 || slot.getQuantity() <= 0) continue;
+                ensureItem.setInt(1, slot.getItemId());
+                ensureItem.setInt(2, slot.getItemId());
+                ensureItem.setString(3, defaultItemName(slot.getItemId()));
+                ensureItem.setString(4, defaultItemExamine(slot.getItemId()));
+                ensureItem.setBoolean(5, defaultStackable(slot.getItemId()));
+                ensureItem.addBatch();
+                insBank.setInt(1, dbId);
+                insBank.setInt(2, slot.getTabIndex());
+                insBank.setInt(3, slot.getSlotIndex());
+                insBank.setInt(4, slot.getItemId());
+                insBank.setLong(5, slot.getQuantity());
+                insBank.setBoolean(6, slot.isPlaceholder());
+                insBank.addBatch();
+            }
+            ensureItem.executeBatch();
+            insInv.executeBatch();
+            insBank.executeBatch();
+            conn.commit();
+            return true;
+        } catch (SQLException e) {
+            LOG.error("Failed to atomically save inventory+bank for: {}", player.getName(), e);
+            return false;
+        }
+    }
+
     public static void saveFriends(Player player) {
         if (!DatabaseManager.isHealthy()) return;
         try (Connection conn = DatabaseManager.getConnection()) {

@@ -81,8 +81,14 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
                 // Save player state to DB on disconnect
                 if (session.isAuthenticated() && DatabaseManager.isHealthy()) {
                     PlayerRepository.savePlayer(player);
-                    PlayerRepository.saveInventory(player);
-                    PlayerRepository.saveBank(player);
+                    if (session.isBankContainersDirty()) {
+                        if (PlayerRepository.saveInventoryBankAtomic(player)) {
+                            session.setBankContainersDirty(false);
+                        }
+                    } else {
+                        PlayerRepository.saveInventory(player);
+                        PlayerRepository.saveBank(player);
+                    }
                     PlayerRepository.saveEquipment(player);
                     PlayerRepository.saveFriends(player);
                     PlayerRepository.saveQuestProgress(player, session.getQuestManager());
@@ -424,6 +430,12 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             player.clearSkillingAction();
         }
 
+        if (session.isBankOpen() && (toX != fromX || toY != fromY)) {
+            flushDirtyBankContainers();
+            clearBankSessionState();
+            sendBankClose(ctx, "moved");
+        }
+
         player.setPosition(toX, toY);
         player.setFacing(movement.getFacing());
 
@@ -676,14 +688,17 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
         sendBankOpen(ctx, player);
     }
 
-    private void handleCloseBankRequest(ChannelHandlerContext ctx, NetworkProto.CloseBankRequest request) {
-        if (session != null && session.getPlayer() != null && session.isBankContainersDirty() && DatabaseManager.isHealthy()) {
-            Player player = session.getPlayer();
-            PlayerRepository.saveInventory(player);
-            PlayerRepository.saveBank(player);
-            PlayerRepository.saveEquipment(player);
+    private void flushDirtyBankContainers() {
+        if (session == null || session.getPlayer() == null) return;
+        if (!session.isBankContainersDirty()) return;
+        if (!DatabaseManager.isHealthy()) return;
+        if (PlayerRepository.saveInventoryBankAtomic(session.getPlayer())) {
             session.setBankContainersDirty(false);
         }
+    }
+
+    private void handleCloseBankRequest(ChannelHandlerContext ctx, NetworkProto.CloseBankRequest request) {
+        flushDirtyBankContainers();
         clearBankSessionState();
         sendBankClose(ctx, "client_closed");
     }
@@ -2021,8 +2036,14 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
         clearBankSessionState();
         if (session.isAuthenticated() && DatabaseManager.isHealthy()) {
             PlayerRepository.savePlayer(player);
-            PlayerRepository.saveInventory(player);
-            PlayerRepository.saveBank(player);
+            if (session.isBankContainersDirty()) {
+                if (PlayerRepository.saveInventoryBankAtomic(player)) {
+                    session.setBankContainersDirty(false);
+                }
+            } else {
+                PlayerRepository.saveInventory(player);
+                PlayerRepository.saveBank(player);
+            }
             PlayerRepository.saveFriends(player);
             PlayerRepository.saveQuestProgress(player, session.getQuestManager());
             LOG.info("Saved player {} on explicit logout", player.getName());
