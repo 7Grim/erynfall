@@ -253,10 +253,22 @@ public class SkillGuidePopup {
         if (provider != null && selectedSectionIdx >= 0 && selectedSectionIdx < sections.size()) {
             lastContentHeight = provider.getSectionContentHeight(skillIdx, level, selectedSectionIdx, contentW);
             clampScroll();
-            provider.renderSectionContent(shapeRenderer, batch, font, projection, skillIdx, level, totalXp,
-                selectedSectionIdx, contentX, contentY, contentW, contentH, scrollOffset);
+            Gdx.gl.glEnable(GL20.GL_SCISSOR_TEST);
+            Gdx.gl.glScissor(contentX + 1, contentY + 1, contentW - 2, contentH - 2);
+            try {
+                provider.renderSectionContent(shapeRenderer, batch, font, projection, skillIdx, level, totalXp,
+                    selectedSectionIdx, contentX, contentY, contentW, contentH, scrollOffset);
+            } finally {
+                Gdx.gl.glDisable(GL20.GL_SCISSOR_TEST);
+            }
         } else {
-            renderFallbackContent(batch, font, projection);
+            Gdx.gl.glEnable(GL20.GL_SCISSOR_TEST);
+            Gdx.gl.glScissor(contentX + 1, contentY + 1, contentW - 2, contentH - 2);
+            try {
+                renderFallbackContent(batch, font, projection);
+            } finally {
+                Gdx.gl.glDisable(GL20.GL_SCISSOR_TEST);
+            }
             lastContentHeight = 0f;
             clampScroll();
         }

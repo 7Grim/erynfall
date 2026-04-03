@@ -30,7 +30,21 @@ public final class ItemIconRenderer {
             case 1525 -> drawMagicLogsIcon(sr, iconX, iconY);
             case 1351 -> drawAxeIcon(sr, iconX, iconY);
             case 303 -> drawSmallNetIcon(sr, iconX, iconY);
+            case 307 -> drawFishingRodIcon(sr, iconX, iconY);
+            case 313 -> drawFishingBaitIcon(sr, iconX, iconY);
+            case 309 -> drawFlyFishingRodIcon(sr, iconX, iconY);
+            case 301 -> drawLobsterPotIcon(sr, iconX, iconY);
+            case 311 -> drawHarpoonIcon(sr, iconX, iconY);
             case 317 -> drawRawShrimpsIcon(sr, iconX, iconY);
+            case 321 -> drawAnchoviesIcon(sr, iconX, iconY);
+            case 327 -> drawSardineIcon(sr, iconX, iconY);
+            case 345 -> drawHerringIcon(sr, iconX, iconY);
+            case 335 -> drawTroutIcon(sr, iconX, iconY);
+            case 331 -> drawSalmonIcon(sr, iconX, iconY);
+            case 349 -> drawPikeIcon(sr, iconX, iconY);
+            case 377 -> drawLobsterIcon(sr, iconX, iconY);
+            case 359 -> drawTunaIcon(sr, iconX, iconY);
+            case 371 -> drawSwordfishIcon(sr, iconX, iconY);
             case 315 -> drawCookedShrimpsIcon(sr, iconX, iconY);
             case 7954 -> drawBurntShrimpsIcon(sr, iconX, iconY);
             case 526 -> drawBonesIcon(sr, iconX, iconY);
@@ -138,6 +152,51 @@ public final class ItemIconRenderer {
         sr.rect(x + 18, y + 6, 2, 10);
     }
 
+    private static void drawFishingRodIcon(ShapeRenderer sr, float x, float y) {
+        sr.setColor(0.58f, 0.36f, 0.16f, 1f);
+        sr.rect(x + 8, y + 4, 2, 19);
+        sr.setColor(0.75f, 0.56f, 0.28f, 1f);
+        sr.rect(x + 10, y + 18, 11, 2);
+        sr.setColor(0.90f, 0.90f, 0.85f, 1f);
+        sr.rect(x + 20, y + 11, 1, 7);
+    }
+
+    private static void drawFishingBaitIcon(ShapeRenderer sr, float x, float y) {
+        sr.setColor(0.62f, 0.30f, 0.20f, 1f);
+        sr.rect(x + 8, y + 8, 5, 4);
+        sr.rect(x + 13, y + 10, 4, 3);
+        sr.setColor(0.44f, 0.22f, 0.14f, 1f);
+        sr.rect(x + 10, y + 13, 5, 2);
+        sr.setColor(0.74f, 0.46f, 0.28f, 1f);
+        sr.rect(x + 15, y + 7, 3, 2);
+    }
+
+    private static void drawFlyFishingRodIcon(ShapeRenderer sr, float x, float y) {
+        drawFishingRodIcon(sr, x, y);
+        sr.setColor(0.92f, 0.88f, 0.42f, 1f);
+        sr.rect(x + 18, y + 10, 2, 2);
+        sr.setColor(0.80f, 0.94f, 0.96f, 1f);
+        sr.rect(x + 20, y + 9, 2, 1);
+    }
+
+    private static void drawLobsterPotIcon(ShapeRenderer sr, float x, float y) {
+        sr.setColor(0.50f, 0.34f, 0.18f, 1f);
+        sr.rect(x + 7, y + 6, 14, 12);
+        sr.setColor(0.66f, 0.48f, 0.28f, 1f);
+        sr.rect(x + 7, y + 16, 14, 2);
+        sr.rect(x + 7, y + 10, 14, 1);
+        sr.rect(x + 11, y + 6, 1, 12);
+        sr.rect(x + 16, y + 6, 1, 12);
+    }
+
+    private static void drawHarpoonIcon(ShapeRenderer sr, float x, float y) {
+        sr.setColor(0.66f, 0.44f, 0.22f, 1f);
+        sr.rect(x + 7, y + 5, 2, 17);
+        sr.setColor(0.78f, 0.82f, 0.88f, 1f);
+        sr.rect(x + 8, y + 18, 11, 2);
+        sr.rect(x + 18, y + 16, 2, 6);
+    }
+
     private static void drawRawShrimpsIcon(ShapeRenderer sr, float x, float y) {
         sr.setColor(0.45f, 0.62f, 0.78f, 1f);
         sr.rect(x + 5, y + 9, 13, 6);
@@ -146,6 +205,60 @@ public final class ItemIconRenderer {
         sr.rect(x + 17, y + 10, 3, 4);
         sr.setColor(0.92f, 0.95f, 0.98f, 1f);
         sr.rect(x + 7, y + 12, 2, 1);
+    }
+
+    private static void drawAnchoviesIcon(ShapeRenderer sr, float x, float y) {
+        drawFishBody(sr, x, y, new Color(0.56f, 0.70f, 0.86f, 1f), new Color(0.40f, 0.54f, 0.70f, 1f));
+    }
+
+    private static void drawSardineIcon(ShapeRenderer sr, float x, float y) {
+        drawFishBody(sr, x, y, new Color(0.52f, 0.64f, 0.80f, 1f), new Color(0.36f, 0.48f, 0.64f, 1f));
+    }
+
+    private static void drawHerringIcon(ShapeRenderer sr, float x, float y) {
+        drawFishBody(sr, x, y, new Color(0.48f, 0.60f, 0.76f, 1f), new Color(0.30f, 0.42f, 0.58f, 1f));
+    }
+
+    private static void drawTroutIcon(ShapeRenderer sr, float x, float y) {
+        drawFishBody(sr, x, y, new Color(0.58f, 0.72f, 0.58f, 1f), new Color(0.40f, 0.56f, 0.40f, 1f));
+    }
+
+    private static void drawSalmonIcon(ShapeRenderer sr, float x, float y) {
+        drawFishBody(sr, x, y, new Color(0.88f, 0.54f, 0.44f, 1f), new Color(0.70f, 0.38f, 0.30f, 1f));
+    }
+
+    private static void drawPikeIcon(ShapeRenderer sr, float x, float y) {
+        drawFishBody(sr, x, y, new Color(0.52f, 0.68f, 0.52f, 1f), new Color(0.34f, 0.50f, 0.34f, 1f));
+    }
+
+    private static void drawLobsterIcon(ShapeRenderer sr, float x, float y) {
+        sr.setColor(0.78f, 0.20f, 0.16f, 1f);
+        sr.rect(x + 8, y + 8, 10, 9);
+        sr.setColor(0.92f, 0.35f, 0.26f, 1f);
+        sr.rect(x + 9, y + 15, 8, 2);
+        sr.setColor(0.70f, 0.18f, 0.14f, 1f);
+        sr.rect(x + 5, y + 10, 3, 3);
+        sr.rect(x + 18, y + 10, 3, 3);
+    }
+
+    private static void drawTunaIcon(ShapeRenderer sr, float x, float y) {
+        drawFishBody(sr, x, y, new Color(0.34f, 0.56f, 0.86f, 1f), new Color(0.22f, 0.40f, 0.66f, 1f));
+    }
+
+    private static void drawSwordfishIcon(ShapeRenderer sr, float x, float y) {
+        drawFishBody(sr, x, y, new Color(0.30f, 0.52f, 0.82f, 1f), new Color(0.20f, 0.36f, 0.60f, 1f));
+        sr.setColor(0.86f, 0.92f, 0.98f, 1f);
+        sr.rect(x + 18, y + 12, 5, 1);
+    }
+
+    private static void drawFishBody(ShapeRenderer sr, float x, float y, Color body, Color tail) {
+        sr.setColor(body);
+        sr.rect(x + 6, y + 10, 12, 5);
+        sr.setColor(tail);
+        sr.rect(x + 4, y + 11, 2, 3);
+        sr.rect(x + 18, y + 11, 2, 3);
+        sr.setColor(0.94f, 0.97f, 1f, 1f);
+        sr.rect(x + 9, y + 13, 2, 1);
     }
 
     private static void drawCookedShrimpsIcon(ShapeRenderer sr, float x, float y) {
