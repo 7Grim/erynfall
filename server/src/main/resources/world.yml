@@ -133,6 +133,7 @@ npcs:
 
   # --- Resource nodes: Fishing spots ---
   - id: 16
+    definition_id: 200
     name: "Fishing Spot"
     combat_level: 0
     max_hp: 1
@@ -146,6 +147,7 @@ npcs:
     is_aggressive: false
 
   - id: 17
+    definition_id: 200
     name: "Fishing Spot"
     combat_level: 0
     max_hp: 1
@@ -188,6 +190,7 @@ npcs:
 
   # --- Tutorial resource nodes near spawn ---
   - id: 20
+    definition_id: 200
     name: "Fishing Spot"
     combat_level: 0
     max_hp: 1

@@ -17,6 +17,7 @@ import com.osrs.shared.ItemDefinition;
 import com.osrs.shared.NPC;
 import com.osrs.shared.Player;
 import com.osrs.shared.SkillingAction;
+import com.osrs.shared.FishingRegistry;
 import com.osrs.shared.WoodcuttingRegistry;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
@@ -579,7 +580,8 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             }
         }
 
-        if (tryStartSkilling(ctx, player, npc, NetworkProto.SkillingType.SKILLING_NONE, false)) {
+        if (tryStartSkilling(ctx, player, npc, NetworkProto.SkillingType.SKILLING_NONE,
+            NetworkProto.FishingActionType.FISHING_ACTION_NONE, false)) {
             return;
         }
 
@@ -635,7 +637,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             return;
         }
 
-        if (!tryStartSkilling(ctx, player, npc, request.getSkillingType(), true)) {
+        if (!tryStartSkilling(ctx, player, npc, request.getSkillingType(), request.getFishingAction(), true)) {
             sendChatMessage(ctx, "You can't do that with this target.", 1);
             return;
         }
@@ -1024,6 +1026,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
                                      Player player,
                                      NPC npc,
                                      NetworkProto.SkillingType requestedType,
+                                     NetworkProto.FishingActionType requestedFishingAction,
                                      boolean strictType) {
         WoodcuttingRegistry.TreeTier treeTier = WoodcuttingRegistry.getTreeByDefinitionId(npc.getDefinitionId());
         if (treeTier != null) {
@@ -1060,9 +1063,8 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             return true;
         }
 
-        String npcName = npc.getName();
-
-        if ("Fishing Spot".equalsIgnoreCase(npcName)) {
+        FishingRegistry.SpotType fishingSpot = FishingRegistry.getSpotByDefinitionId(npc.getDefinitionId());
+        if (fishingSpot != null) {
             if (strictType && requestedType != NetworkProto.SkillingType.SKILLING_FISHING) {
                 return false;
             }
@@ -1074,8 +1076,35 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
                 sendChatMessage(ctx, "You are too busy fighting.", 1);
                 return true;
             }
-            if (!hasSmallFishingNet(player)) {
-                sendChatMessage(ctx, "You need a small fishing net to fish here.", 1);
+            FishingRegistry.ActionType actionType = toRegistryFishingAction(requestedFishingAction);
+            if (actionType == null) {
+                sendChatMessage(ctx, "You can't do that here.", 1);
+                return true;
+            }
+            FishingRegistry.SpotAction action = null;
+            for (FishingRegistry.SpotAction candidate : fishingSpot.actions()) {
+                if (candidate.type() == actionType) {
+                    action = candidate;
+                    break;
+                }
+            }
+            if (action == null) {
+                sendChatMessage(ctx, "You can't do that here.", 1);
+                return true;
+            }
+            if (!hasFishingTool(player, action.toolItemId())) {
+                FishingRegistry.Tool tool = FishingRegistry.getToolByItemId(action.toolItemId());
+                String toolName = tool == null ? "the correct tool" : tool.name().toLowerCase();
+                sendChatMessage(ctx,
+                    "You need " + (toolName.startsWith("a ") || toolName.startsWith("an ") ? toolName : "a " + toolName)
+                        + " to fish here.",
+                    1);
+                return true;
+            }
+            if (action.consumableItemId() > 0 && countInventoryItem(player, action.consumableItemId()) <= 0) {
+                ItemDefinition def = server.getWorld().getItemDef(action.consumableItemId());
+                String name = def == null || def.name == null ? "bait" : def.name.toLowerCase();
+                sendChatMessage(ctx, "You need " + name + " to fish here.", 1);
                 return true;
             }
             if (!canReachAnyAdjacentTile(player, npc)) {
@@ -1083,10 +1112,13 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
                 return true;
             }
             player.startSkillingAction(SkillingAction.FISHING, npc.getId(), server.getCurrentTick() + 1);
+            player.setSkillingMetadata(actionType.name());
             sendSkillingStateUpdate(ctx, NetworkProto.SkillingType.SKILLING_FISHING,
                 NetworkProto.SkillingState.SKILLING_STATE_QUEUED, npc.getId(), "queued");
             return true;
         }
+
+        String npcName = npc.getName();
 
         if ("Cooking Fire".equalsIgnoreCase(npcName)) {
             if (strictType && requestedType != NetworkProto.SkillingType.SKILLING_COOKING) {
@@ -1364,13 +1396,43 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
         return false;
     }
 
-    private boolean hasSmallFishingNet(Player player) {
-        for (int i = 0; i < 28; i++) {
-            if (player.getInventoryItemId(i) == SMALL_FISHING_NET_ITEM_ID) {
+    private FishingRegistry.ActionType toRegistryFishingAction(NetworkProto.FishingActionType action) {
+        if (action == null) {
+            return null;
+        }
+        return switch (action) {
+            case FISHING_ACTION_NET -> FishingRegistry.ActionType.NET;
+            case FISHING_ACTION_BAIT -> FishingRegistry.ActionType.BAIT;
+            case FISHING_ACTION_LURE -> FishingRegistry.ActionType.LURE;
+            case FISHING_ACTION_CAGE -> FishingRegistry.ActionType.CAGE;
+            case FISHING_ACTION_HARPOON -> FishingRegistry.ActionType.HARPOON;
+            case FISHING_ACTION_NONE, UNRECOGNIZED -> null;
+        };
+    }
+
+    private boolean hasFishingTool(Player player, int itemId) {
+        if (itemId <= 0) {
+            return true;
+        }
+        for (int slot = 0; slot < 28; slot++) {
+            if (player.getInventoryItemId(slot) == itemId) {
                 return true;
             }
         }
         return false;
+    }
+
+    private int countInventoryItem(Player player, int itemId) {
+        if (itemId <= 0) {
+            return 0;
+        }
+        int total = 0;
+        for (int slot = 0; slot < 28; slot++) {
+            if (player.getInventoryItemId(slot) == itemId) {
+                total += Math.max(0, player.getInventoryQuantity(slot));
+            }
+        }
+        return total;
     }
 
     private boolean hasRawShrimps(Player player) {
@@ -1405,6 +1467,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
                 .setHealth(npc.getHealth())
                 .setMaxHealth(npc.getMaxHealth())
                 .setCombatLevel(npc.getCombatLevel())
+                .setDefinitionId(npc.getDefinitionId())
                 .setIsPlayer(false));
         }
 

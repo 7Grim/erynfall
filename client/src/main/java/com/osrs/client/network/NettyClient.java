@@ -222,14 +222,21 @@ public class NettyClient {
     }
 
     public void sendStartSkilling(int npcId, NetworkProto.SkillingType skillingType) {
+        sendStartSkilling(npcId, skillingType, NetworkProto.FishingActionType.FISHING_ACTION_NONE);
+    }
+
+    public void sendStartSkilling(int npcId,
+                                  NetworkProto.SkillingType skillingType,
+                                  NetworkProto.FishingActionType fishingAction) {
         NetworkProto.ClientMessage msg = NetworkProto.ClientMessage.newBuilder()
             .setStartSkilling(NetworkProto.StartSkillingRequest.newBuilder()
                 .setTargetNpcId(npcId)
                 .setSkillingType(skillingType)
-                .setSequence(System.currentTimeMillis()))
+                .setSequence(System.currentTimeMillis())
+                .setFishingAction(fishingAction))
             .build();
         channel.writeAndFlush(msg);
-        LOG.debug("Sent StartSkilling: npc={} type={}", npcId, skillingType);
+        LOG.debug("Sent StartSkillingRequest: npc={} type={} fishingAction={}", npcId, skillingType, fishingAction);
     }
 
     public void sendDialogueResponse(int optionId) {

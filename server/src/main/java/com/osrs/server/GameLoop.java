@@ -16,6 +16,7 @@ import com.osrs.shared.EquipmentSlot;
 import com.osrs.shared.NPC;
 import com.osrs.shared.Player;
 import com.osrs.shared.SkillingAction;
+import com.osrs.shared.FishingRegistry;
 import com.osrs.shared.WoodcuttingRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -84,10 +85,8 @@ public class GameLoop {
     // Fixed chop attempt interval: 4 OSRS ticks per roll (OSRS standard)
     private static final int CHOP_ATTEMPT_INTERVAL = WoodcuttingRegistry.CHOP_ATTEMPT_OSRS_TICKS * OSRS_TICKS_TO_SERVER;
 
-    // Fishing (MVP first slice)
-    private static final int SMALL_FISHING_NET_ITEM_ID = 303;
+    // Fishing/Cooking base items
     private static final int RAW_SHRIMPS_ITEM_ID = 317;
-    private static final long SHRIMPS_XP = 100L;  // 10.0 XP stored as tenths
 
     // Cooking (MVP first slice)
     private static final int COOKED_SHRIMPS_ITEM_ID = 315;
@@ -835,7 +834,8 @@ public class GameLoop {
                     .setY(npc.getSpawnY())
                     .setHealth(npc.getMaxHealth())
                     .setMaxHealth(npc.getMaxHealth())
-                    .setCombatLevel(npc.getCombatLevel()))
+                    .setCombatLevel(npc.getCombatLevel())
+                    .setDefinitionId(npc.getDefinitionId()))
                 .build());
         }
     }
@@ -1274,8 +1274,47 @@ public class GameLoop {
 
     private void processFishing(Player player, PlayerSession session) {
         NPC spot = world.getNPC(player.getSkillingTargetNpcId());
-        if (spot == null || spot.isDead() || !"Fishing Spot".equalsIgnoreCase(spot.getName())) {
+        if (spot == null || spot.isDead()) {
             stopSkilling(player, session, "target-invalid");
+            return;
+        }
+
+        FishingRegistry.SpotType spotType = FishingRegistry.getSpotByDefinitionId(spot.getDefinitionId());
+        if (spotType == null) {
+            stopSkilling(player, session, "target-invalid");
+            return;
+        }
+
+        FishingRegistry.ActionType actionType;
+        try {
+            actionType = FishingRegistry.ActionType.valueOf(player.getSkillingMetadata());
+        } catch (IllegalArgumentException e) {
+            stopSkilling(player, session, "invalid-action");
+            return;
+        }
+
+        FishingRegistry.SpotAction action = null;
+        for (FishingRegistry.SpotAction candidate : spotType.actions()) {
+            if (candidate.type() == actionType) {
+                action = candidate;
+                break;
+            }
+        }
+        if (action == null) {
+            stopSkilling(player, session, "invalid-action");
+            return;
+        }
+
+        int fishingLevel = Math.max(1, player.getSkillLevel(Player.SKILL_FISHING));
+        int minCatchLevel = Integer.MAX_VALUE;
+        for (FishingRegistry.CatchTier tier : action.catches()) {
+            minCatchLevel = Math.min(minCatchLevel, tier.levelRequirement());
+        }
+        if (minCatchLevel != Integer.MAX_VALUE && fishingLevel < minCatchLevel) {
+            sendChatMessageToPlayer(session.getChannel(),
+                "You need a Fishing level of " + minCatchLevel + " to fish here.",
+                1);
+            stopSkilling(player, session, "level-requirement");
             return;
         }
 
@@ -1291,8 +1330,21 @@ public class GameLoop {
             return;
         }
 
-        if (!hasSmallFishingNet(player)) {
-            sendChatMessageToPlayer(session.getChannel(), "You need a small fishing net to fish here.", 1);
+        if (!hasInventoryItem(player, action.toolItemId())) {
+            FishingRegistry.Tool tool = FishingRegistry.getToolByItemId(action.toolItemId());
+            String toolName = tool == null ? "the correct tool" : tool.name().toLowerCase();
+            String message = "You need "
+                + (toolName.startsWith("a ") || toolName.startsWith("an ") ? toolName : "a " + toolName)
+                + " to fish here.";
+            sendChatMessageToPlayer(session.getChannel(), message, 1);
+            stopSkilling(player, session, "missing-tool");
+            return;
+        }
+
+        if (action.consumableItemId() > 0 && !hasInventoryItem(player, action.consumableItemId())) {
+            ItemDefinition def = world.getItemDef(action.consumableItemId());
+            String name = def == null || def.name == null ? "bait" : def.name.toLowerCase();
+            sendChatMessageToPlayer(session.getChannel(), "You need " + name + " to fish here.", 1);
             stopSkilling(player, session, "missing-tool");
             return;
         }
@@ -1301,7 +1353,14 @@ public class GameLoop {
             return;
         }
 
-        announceSkillingActive(player, session, "You cast out your net.");
+        String activeMessage = switch (actionType) {
+            case NET -> "You cast out your net.";
+            case BAIT -> "You cast out your line.";
+            case LURE -> "You begin fly fishing.";
+            case CAGE -> "You lower the lobster pot into the water.";
+            case HARPOON -> "You cast out your harpoon.";
+        };
+        announceSkillingActive(player, session, activeMessage);
 
         if (player.isInventoryFull()) {
             sendChatMessageToPlayer(session.getChannel(), "Your inventory is too full to hold any more fish.", 1);
@@ -1313,11 +1372,28 @@ public class GameLoop {
             return;
         }
 
-        int fishingLevel = Math.max(1, player.getSkillLevel(Player.SKILL_FISHING));
-        boolean success = random.nextDouble() < fishingSuccessChance(fishingLevel);
-        if (!success) {
-            player.setSkillingNextAttemptTick(tickCount + nextFishingAttemptTicks(fishingLevel));
+        FishingRegistry.CatchTier catchTier = rollFishingCatch(action, fishingLevel);
+        player.setSkillingNextAttemptTick(tickCount + nextFishingAttemptTicks(actionType, fishingLevel));
+        if (catchTier == null) {
             return;
+        }
+
+        if (action.consumableItemId() > 0) {
+            int consumableSlot = findInventorySlotByItemId(player, action.consumableItemId());
+            if (consumableSlot < 0) {
+                ItemDefinition def = world.getItemDef(action.consumableItemId());
+                String name = def == null || def.name == null ? "bait" : def.name.toLowerCase();
+                sendChatMessageToPlayer(session.getChannel(), "You need " + name + " to fish here.", 1);
+                stopSkilling(player, session, "missing-consumable");
+                return;
+            }
+            int qty = player.getInventoryQuantity(consumableSlot);
+            if (qty <= 1) {
+                player.setInventoryItem(consumableSlot, 0, 0);
+            } else {
+                player.setInventoryItem(consumableSlot, action.consumableItemId(), qty - 1);
+            }
+            sendInventorySlot(session.getChannel(), player, consumableSlot);
         }
 
         int slot = player.getFirstEmptySlot();
@@ -1327,12 +1403,13 @@ public class GameLoop {
             return;
         }
 
-        player.setInventoryItem(slot, RAW_SHRIMPS_ITEM_ID, 1);
+        player.setInventoryItem(slot, catchTier.itemId(), 1);
         sendInventorySlot(session.getChannel(), player, slot);
-        sendChatMessageToPlayer(session.getChannel(), "You catch some shrimps.", 0);
-        updateSkillQuestObjectives(session, Quest.TaskType.COLLECT, RAW_SHRIMPS_ITEM_ID);
-        sendSkillUpdate(player, Player.SKILL_FISHING, SHRIMPS_XP);
-        player.setSkillingNextAttemptTick(tickCount + nextFishingAttemptTicks(fishingLevel));
+        String catchName = catchTier.name().toLowerCase();
+        String article = (catchName.endsWith("shrimps") || catchName.endsWith("anchovies")) ? "some " : "a ";
+        sendChatMessageToPlayer(session.getChannel(), "You catch " + article + catchName + ".", 0);
+        updateSkillQuestObjectives(session, Quest.TaskType.COLLECT, catchTier.itemId());
+        sendSkillUpdate(player, Player.SKILL_FISHING, catchTier.xpTenths());
     }
 
     private void processCooking(Player player, PlayerSession session) {
@@ -1358,7 +1435,7 @@ public class GameLoop {
             return;
         }
 
-        int rawSlot = findInventorySlot(player, RAW_SHRIMPS_ITEM_ID);
+        int rawSlot = findInventorySlotByItemId(player, RAW_SHRIMPS_ITEM_ID);
         if (rawSlot < 0) {
             sendChatMessageToPlayer(session.getChannel(), "You have no raw shrimps to cook.", 1);
             stopSkilling(player, session, "no-input");
@@ -1382,16 +1459,34 @@ public class GameLoop {
         player.setSkillingNextAttemptTick(tickCount + nextCookingAttemptTicks(cookingLevel));
     }
 
-    private double fishingSuccessChance(int fishingLevel) {
-        double chance = 0.30 + (fishingLevel * 0.0065);
-        return Math.max(0.30, Math.min(0.88, chance));
+    private FishingRegistry.CatchTier rollFishingCatch(FishingRegistry.SpotAction action, int fishingLevel) {
+        if (action == null || action.catches() == null || action.catches().isEmpty()) {
+            return null;
+        }
+        for (FishingRegistry.CatchTier tier : action.catches()) {
+            if (fishingLevel < tier.levelRequirement()) {
+                continue;
+            }
+            int threshold = (int) interpolatedSuccessChance255(fishingLevel, tier.low(), tier.high());
+            threshold = Math.max(0, Math.min(255, threshold));
+            if (random.nextInt(255) < threshold) {
+                return tier;
+            }
+        }
+        return null;
     }
 
-    private int nextFishingAttemptTicks(int fishingLevel) {
-        int base = 220;
-        int speedBonus = Math.min(110, fishingLevel * 2);
-        int interval = Math.max(90, base - speedBonus);
-        return interval + random.nextInt(30);
+    private double interpolatedSuccessChance255(int level, int low, int high) {
+        int clampedLevel = Math.max(1, Math.min(99, level));
+        return low + Math.floor((high - low) * (double) clampedLevel / 99.0);
+    }
+
+    private int nextFishingAttemptTicks(FishingRegistry.ActionType actionType, int fishingLevel) {
+        int speedBonus = Math.min(40, Math.max(0, fishingLevel / 2));
+        return switch (actionType) {
+            case NET, BAIT, LURE -> Math.max(95, 145 - speedBonus) + random.nextInt(25);
+            case CAGE, HARPOON -> Math.max(120, 185 - speedBonus) + random.nextInt(30);
+        };
     }
 
     private double shrimpBurnChance(int cookingLevel) {
@@ -1406,13 +1501,17 @@ public class GameLoop {
         return interval;
     }
 
-    private int findInventorySlot(Player player, int itemId) {
+    private int findInventorySlotByItemId(Player player, int itemId) {
         for (int i = 0; i < 28; i++) {
             if (player.getInventoryItemId(i) == itemId) {
                 return i;
             }
         }
         return -1;
+    }
+
+    private boolean hasInventoryItem(Player player, int itemId) {
+        return findInventorySlotByItemId(player, itemId) >= 0;
     }
 
     private int[] findClosestReachableAdjacentTile(Player player, NPC target) {
@@ -1521,16 +1620,6 @@ public class GameLoop {
         }
         return -1;
     }
-
-    private boolean hasSmallFishingNet(Player player) {
-        for (int i = 0; i < 28; i++) {
-            if (player.getInventoryItemId(i) == SMALL_FISHING_NET_ITEM_ID) {
-                return true;
-            }
-        }
-        return false;
-    }
-
 
     public long getTickCount() {
         return tickCount;

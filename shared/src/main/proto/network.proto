@@ -48,6 +48,7 @@ message Entity {
     int32 max_health = 9;
     bool is_player = 10;
     int32 combat_level = 11;
+    int32 definition_id = 12;
 }
 
 // WorldState: Server → Client
@@ -67,6 +68,7 @@ message EntityUpdate {
     optional int32 health = 6;
     optional bool is_player = 7;    // only set on player-join broadcasts
     optional string name = 8;       // only set on player-join broadcasts
+    optional int32 definition_id = 9;
 }
 
 // CombatHit: Server → Client
@@ -170,6 +172,15 @@ enum SkillingState {
     SKILLING_STATE_STOPPED = 3;
 }
 
+enum FishingActionType {
+    FISHING_ACTION_NONE = 0;
+    FISHING_ACTION_NET = 1;
+    FISHING_ACTION_BAIT = 2;
+    FISHING_ACTION_LURE = 3;
+    FISHING_ACTION_CAGE = 4;
+    FISHING_ACTION_HARPOON = 5;
+}
+
 message SkillingStateUpdate {
     SkillingType skilling_type = 1;
     SkillingState state = 2;
@@ -182,6 +193,7 @@ message StartSkillingRequest {
     int32 target_npc_id = 1;
     SkillingType skilling_type = 2;
     int64 sequence = 3;
+    FishingActionType fishing_action = 4;
 }
 
 // DialoguePrompt: Server → Client
@@ -297,6 +309,7 @@ message NpcRespawn {
     int32 health = 5;
     int32 max_health = 6;
     int32 combat_level = 7;
+    int32 definition_id = 8;
 }
 
 // PickupItem: Client → Server

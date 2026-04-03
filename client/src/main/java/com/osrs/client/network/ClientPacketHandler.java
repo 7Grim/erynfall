@@ -40,6 +40,9 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
     /** Combat level of each entity (0 for players). */
     private final Map<Integer, Integer> entityCombatLevels = new ConcurrentHashMap<>();
 
+    /** Definition ID for each NPC/resource entity (0 for players/unknown). */
+    private final Map<Integer, Integer> entityDefinitionIds = new ConcurrentHashMap<>();
+
     /** Current health of each entity. int[]{hp, maxHp} */
     private final Map<Integer, int[]> entityHealth = new ConcurrentHashMap<>();
 
@@ -345,6 +348,7 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
             entityIsPlayer.put(e.getId(), e.getIsPlayer());
             entityNames.put(e.getId(), e.getName());
             entityCombatLevels.put(e.getId(), e.getCombatLevel());
+            entityDefinitionIds.put(e.getId(), e.getDefinitionId());
             entityHealth.put(e.getId(), new int[]{e.getHealth(), e.getMaxHealth()});
         }
         LOG.info("WorldState received: {} entities loaded", worldState.getEntitiesCount());
@@ -370,6 +374,9 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
         }
         if (update.hasName() && !update.getName().isEmpty()) {
             entityNames.put(id, update.getName());
+        }
+        if (update.hasDefinitionId()) {
+            entityDefinitionIds.put(id, update.getDefinitionId());
         }
         LOG.debug("EntityUpdate id={} pos=({},{})", id,
             update.hasX() ? update.getX() : '?', update.hasY() ? update.getY() : '?');
@@ -522,6 +529,10 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
         return entityNames.getOrDefault(entityId, "");
     }
 
+    public int getNpcDefinitionId(int entityId) {
+        return entityDefinitionIds.getOrDefault(entityId, 0);
+    }
+
     /** Combat level of the given entity, or 0 if unknown. */
     public int getEntityCombatLevel(int entityId) {
         return entityCombatLevels.getOrDefault(entityId, 0);
@@ -583,7 +594,7 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
         return null;
     }
 
-    // Returns the primary skilling action string for a resource NPC ("chop", "fish", "cook_at").
+    // Returns the primary skilling action string for a resource NPC.
     public String getResourcePrimarySkill(int npcId) {
         String name = getEntityName(npcId);
         if ("Oak Tree".equalsIgnoreCase(name)) return "chop";
@@ -591,9 +602,33 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
         if ("Maple Tree".equalsIgnoreCase(name)) return "chop";
         if ("Yew Tree".equalsIgnoreCase(name)) return "chop";
         if ("Magic Tree".equalsIgnoreCase(name)) return "chop";
-        if ("Fishing Spot".equalsIgnoreCase(name)) return "fish";
+        if ("Fishing Spot".equalsIgnoreCase(name)) {
+            List<String> actions = getFishingActions(npcId);
+            return actions.isEmpty() ? null : actions.get(0);
+        }
         if ("Cooking Fire".equalsIgnoreCase(name)) return "cook_at";
         return null;
+    }
+
+    public List<String> getFishingActions(int npcId) {
+        String name = getEntityName(npcId);
+        if (!"Fishing Spot".equalsIgnoreCase(name)) {
+            return Collections.emptyList();
+        }
+        int definitionId = getNpcDefinitionId(npcId);
+        if (definitionId == 200) {
+            return List.of("fish_net");
+        }
+        if (definitionId == 201) {
+            return List.of("fish_net", "fish_bait");
+        }
+        if (definitionId == 202) {
+            return List.of("fish_lure", "fish_bait");
+        }
+        if (definitionId == 203) {
+            return List.of("fish_cage", "fish_harpoon");
+        }
+        return List.of("fish_net");
     }
 
     private boolean isResourceNpc(int npcId) {
@@ -730,6 +765,7 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
         entityIsPlayer.remove(id);
         entityNames.remove(id);
         entityCombatLevels.remove(id);
+        entityDefinitionIds.remove(id);
         entityHealth.remove(id);
         despawnedNpcQueue.add(id);
         LOG.info("NpcDespawn: id={}", id);
@@ -741,6 +777,7 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
         entityIsPlayer.put(id, false);
         entityNames.put(id, respawn.getName());
         entityCombatLevels.put(id, respawn.getCombatLevel());
+        entityDefinitionIds.put(id, respawn.getDefinitionId());
         entityHealth.put(id, new int[]{respawn.getHealth(), respawn.getMaxHealth()});
         LOG.info("NpcRespawn: id={} name={} pos=({},{}) hp={}/{}",
             id, respawn.getName(), respawn.getX(), respawn.getY(),

@@ -784,7 +784,8 @@ public class GameScreen extends ApplicationAdapter {
             }
             NetworkProto.SkillingType pendingType = switch (pendingAction) {
                 case "chop" -> NetworkProto.SkillingType.SKILLING_WOODCUTTING;
-                case "fish" -> NetworkProto.SkillingType.SKILLING_FISHING;
+                case "fish_net", "fish_bait", "fish_lure", "fish_cage", "fish_harpoon" ->
+                    NetworkProto.SkillingType.SKILLING_FISHING;
                 case "cook_at" -> NetworkProto.SkillingType.SKILLING_COOKING;
                 default -> NetworkProto.SkillingType.SKILLING_NONE;
             };
@@ -810,7 +811,7 @@ public class GameScreen extends ApplicationAdapter {
 
             if ("Please step away before talking.".equals(msg)
                 || "You get some logs.".equals(msg)
-                || "You catch some shrimps.".equals(msg)
+                || msg.startsWith("You catch")
                 || "You start cooking the shrimps.".equals(msg)
                 || "You cook the shrimps.".equals(msg)
                 || "You accidentally burn the shrimps.".equals(msg)
@@ -822,7 +823,7 @@ public class GameScreen extends ApplicationAdapter {
             }
 
             if ("You need an axe to chop this tree.".equals(msg)
-                || "You need a small fishing net to fish here.".equals(msg)
+                || msg.startsWith("You need")
                 || "Your inventory is too full to hold any more fish.".equals(msg)
                 || "You have no raw shrimps to cook.".equals(msg)
                 || msg.startsWith("You need a Woodcutting level of")
@@ -2120,8 +2121,20 @@ public class GameScreen extends ApplicationAdapter {
                 nettyClient.sendStartSkilling(pendingNpcId, NetworkProto.SkillingType.SKILLING_WOODCUTTING);
                 // Animation is triggered when server confirms SKILLING_STATE_ACTIVE, not here
                 pendingActionRetryTimer = 0.25f;
-            } else if ("fish".equals(pendingAction)) {
-                nettyClient.sendStartSkilling(pendingNpcId, NetworkProto.SkillingType.SKILLING_FISHING);
+            } else if ("fish_net".equals(pendingAction)
+                || "fish_bait".equals(pendingAction)
+                || "fish_lure".equals(pendingAction)
+                || "fish_cage".equals(pendingAction)
+                || "fish_harpoon".equals(pendingAction)) {
+                NetworkProto.FishingActionType actionType = switch (pendingAction) {
+                    case "fish_net" -> NetworkProto.FishingActionType.FISHING_ACTION_NET;
+                    case "fish_bait" -> NetworkProto.FishingActionType.FISHING_ACTION_BAIT;
+                    case "fish_lure" -> NetworkProto.FishingActionType.FISHING_ACTION_LURE;
+                    case "fish_cage" -> NetworkProto.FishingActionType.FISHING_ACTION_CAGE;
+                    case "fish_harpoon" -> NetworkProto.FishingActionType.FISHING_ACTION_HARPOON;
+                    default -> NetworkProto.FishingActionType.FISHING_ACTION_NONE;
+                };
+                nettyClient.sendStartSkilling(pendingNpcId, NetworkProto.SkillingType.SKILLING_FISHING, actionType);
                 triggerAttackPose("fish");
                 pendingActionRetryTimer = 0.25f;
             } else if ("cook_at".equals(pendingAction)) {
@@ -2450,7 +2463,20 @@ public class GameScreen extends ApplicationAdapter {
                     if (isTreeResource) {
                         opts.add(new ContextMenu.MenuItem(ContextMenu.Action.CHOP, yellowName, id));
                     } else if (isFishingSpot) {
-                        opts.add(new ContextMenu.MenuItem(ContextMenu.Action.FISH, yellowName, id));
+                        List<String> fishingActions = h.getFishingActions(id);
+                        for (String fishingAction : fishingActions) {
+                            if ("fish_net".equals(fishingAction)) {
+                                opts.add(new ContextMenu.MenuItem(ContextMenu.Action.NET, yellowName, id));
+                            } else if ("fish_bait".equals(fishingAction)) {
+                                opts.add(new ContextMenu.MenuItem(ContextMenu.Action.BAIT, yellowName, id));
+                            } else if ("fish_lure".equals(fishingAction)) {
+                                opts.add(new ContextMenu.MenuItem(ContextMenu.Action.LURE, yellowName, id));
+                            } else if ("fish_cage".equals(fishingAction)) {
+                                opts.add(new ContextMenu.MenuItem(ContextMenu.Action.CAGE, yellowName, id));
+                            } else if ("fish_harpoon".equals(fishingAction)) {
+                                opts.add(new ContextMenu.MenuItem(ContextMenu.Action.HARPOON, yellowName, id));
+                            }
+                        }
                     } else if (isFire) {
                         opts.add(new ContextMenu.MenuItem(ContextMenu.Action.COOK_AT, yellowName, id));
                     } else if (isBanker) {
@@ -2474,7 +2500,11 @@ public class GameScreen extends ApplicationAdapter {
             case "talk"   -> startApproach((Integer) item.target, "talk");
             case "bank"   -> startApproach((Integer) item.target, "bank");
             case "chop"   -> startApproach((Integer) item.target, "chop");
-            case "fish"   -> startApproach((Integer) item.target, "fish");
+            case "fish_net" -> startApproach((Integer) item.target, "fish_net");
+            case "fish_bait" -> startApproach((Integer) item.target, "fish_bait");
+            case "fish_lure" -> startApproach((Integer) item.target, "fish_lure");
+            case "fish_cage" -> startApproach((Integer) item.target, "fish_cage");
+            case "fish_harpoon" -> startApproach((Integer) item.target, "fish_harpoon");
             case "cook_at" -> startApproach((Integer) item.target, "cook_at");
             case "trade_player"  -> LOG.info("Trade not yet implemented for player {}", item.target);
             case "follow_player" -> LOG.info("Follow not yet implemented for player {}", item.target);

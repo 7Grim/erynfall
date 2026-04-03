@@ -201,7 +201,7 @@ public class IsometricRenderer {
             // Axe head: small brown rectangle at tip of arm
             sr.setColor(0.40f, 0.26f, 0.10f, 1f);
             sr.rect(sx + 4, bodyY + bodyH + 7, 5, 3);
-        } else if ("fish".equals(pendingAction)) {
+        } else if (pendingAction != null && pendingAction.startsWith("fish_")) {
             // Right arm extended forward -- rod cast
             sr.setColor(SKIN);
             sr.rect(sx + 5, bodyY + 2, 3, 6);       // upper arm out to side

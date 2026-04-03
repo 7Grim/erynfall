@@ -89,6 +89,118 @@ items:
     equipable: false
     consumable: false
 
+  - id: 307
+    name: "Fishing rod"
+    examine: "Useful for catching sardines or herring."
+    stackable: false
+    store_value: 5
+    equipable: false
+    consumable: false
+
+  - id: 313
+    name: "Fishing bait"
+    examine: "Fish seem to like this."
+    stackable: true
+    store_value: 3
+    equipable: false
+    consumable: false
+
+  - id: 309
+    name: "Fly fishing rod"
+    examine: "Useful for catching trout and salmon."
+    stackable: false
+    store_value: 5
+    equipable: false
+    consumable: false
+
+  - id: 301
+    name: "Lobster pot"
+    examine: "Useful for catching lobsters."
+    stackable: false
+    store_value: 20
+    equipable: false
+    consumable: false
+
+  - id: 311
+    name: "Harpoon"
+    examine: "Useful for catching really big fish."
+    stackable: false
+    store_value: 5
+    equipable: false
+    consumable: false
+
+  - id: 321
+    name: "Raw anchovies"
+    examine: "I should cook these first."
+    stackable: false
+    store_value: 1
+    equipable: false
+    consumable: false
+
+  - id: 327
+    name: "Raw sardine"
+    examine: "I should cook this first."
+    stackable: false
+    store_value: 1
+    equipable: false
+    consumable: false
+
+  - id: 345
+    name: "Raw herring"
+    examine: "I should cook this first."
+    stackable: false
+    store_value: 1
+    equipable: false
+    consumable: false
+
+  - id: 335
+    name: "Raw trout"
+    examine: "I should cook this first."
+    stackable: false
+    store_value: 1
+    equipable: false
+    consumable: false
+
+  - id: 331
+    name: "Raw salmon"
+    examine: "I should cook this first."
+    stackable: false
+    store_value: 1
+    equipable: false
+    consumable: false
+
+  - id: 349
+    name: "Raw pike"
+    examine: "I should cook this first."
+    stackable: false
+    store_value: 1
+    equipable: false
+    consumable: false
+
+  - id: 377
+    name: "Raw lobster"
+    examine: "I should cook this first."
+    stackable: false
+    store_value: 1
+    equipable: false
+    consumable: false
+
+  - id: 359
+    name: "Raw tuna"
+    examine: "I should cook this first."
+    stackable: false
+    store_value: 1
+    equipable: false
+    consumable: false
+
+  - id: 371
+    name: "Raw swordfish"
+    examine: "I should cook this first."
+    stackable: false
+    store_value: 1
+    equipable: false
+    consumable: false
+
   - id: 1511
     name: "Logs"
     examine: "A set of logs."

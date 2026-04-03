@@ -74,6 +74,7 @@ public class Player extends Entity {
     private long skillingNextAttemptTick = 0;
     private long skillingNextMoveTick = 0;
     private boolean skillingActiveAnnounced = false;
+    private String skillingMetadata = "";
 
     // -----------------------------------------------------------------------
     // Skill indices: 0=Attack 1=Strength 2=Defence 3=Hitpoints 4=Ranged 5=Magic
@@ -355,6 +356,7 @@ public class Player extends Entity {
     public long getSkillingNextAttemptTick() { return skillingNextAttemptTick; }
     public long getSkillingNextMoveTick() { return skillingNextMoveTick; }
     public boolean isSkillingActiveAnnounced() { return skillingActiveAnnounced; }
+    public String getSkillingMetadata() { return skillingMetadata == null ? "" : skillingMetadata; }
 
     public boolean isSkilling() {
         return skillingAction != SkillingAction.NONE && skillingTargetNpcId >= 0;
@@ -366,6 +368,7 @@ public class Player extends Entity {
         this.skillingNextAttemptTick = Math.max(0L, nextAttemptTick);
         this.skillingNextMoveTick = 0L;
         this.skillingActiveAnnounced = false;
+        this.skillingMetadata = "";
     }
 
     public void setSkillingNextAttemptTick(long tick) {
@@ -376,12 +379,17 @@ public class Player extends Entity {
         this.skillingNextMoveTick = Math.max(0L, tick);
     }
 
+    public void setSkillingMetadata(String skillingMetadata) {
+        this.skillingMetadata = skillingMetadata == null ? "" : skillingMetadata;
+    }
+
     public void clearSkillingAction() {
         this.skillingAction = SkillingAction.NONE;
         this.skillingTargetNpcId = -1;
         this.skillingNextAttemptTick = 0L;
         this.skillingNextMoveTick = 0L;
         this.skillingActiveAnnounced = false;
+        this.skillingMetadata = "";
     }
 
     public void markSkillingActiveAnnounced() {
