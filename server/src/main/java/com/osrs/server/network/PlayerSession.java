@@ -20,6 +20,7 @@ public class PlayerSession {
     private boolean authenticated = false;
     private boolean bankOpen = false;
     private int bankNpcId = -1;
+    private boolean bankContainersDirty = false;
     
     public PlayerSession(int sessionId, Channel channel) {
         this.sessionId = sessionId;
@@ -76,5 +77,13 @@ public class PlayerSession {
 
     public void setBankNpcId(int bankNpcId) {
         this.bankNpcId = bankNpcId;
+    }
+
+    public boolean isBankContainersDirty() {
+        return bankContainersDirty;
+    }
+
+    public void setBankContainersDirty(boolean bankContainersDirty) {
+        this.bankContainersDirty = bankContainersDirty;
     }
 }

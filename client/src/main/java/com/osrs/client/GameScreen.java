@@ -226,6 +226,22 @@ public class GameScreen extends ApplicationAdapter {
     private int    pendingGroundItemX  = -1, pendingGroundItemY = -1;
     private int selectedInventorySlot = -1;  // use-mode: slot waiting for "use on" target
     private int inventoryMouseDownSlot = -1; // tracks which slot was pressed down
+    private int bankInventoryMouseDownSlot = -1;
+    private int bankInventoryDragSlot = -1;
+    private int bankInventoryDragStartX = 0;
+    private int bankInventoryDragStartY = 0;
+    private int bankInventoryDragMouseX = 0;
+    private int bankInventoryDragMouseY = 0;
+    private boolean bankInventoryDragging = false;
+    private static final int BANK_INV_DRAG_THRESHOLD = 6;
+    private int bankMouseDownSlot = -1;
+    private int bankDragSlot = -1;
+    private int bankDragStartX = 0;
+    private int bankDragStartY = 0;
+    private int bankDragMouseX = 0;
+    private int bankDragMouseY = 0;
+    private boolean bankDragging = false;
+    private static final int BANK_DRAG_THRESHOLD = 6;
 
     // -----------------------------------------------------------------------
     // Pickup animation
@@ -581,7 +597,10 @@ public class GameScreen extends ApplicationAdapter {
             sidePanel.getPanelX(), SidePanel.TOTAL_H + SidePanel.MARGIN);
         if (handler != null && handler.isBankOpen()) {
             bankUI.render(shapeRenderer, screenBatch, font, w, h, screenProjection,
-                mouseScreenX, mouseScreenY, handler.getBankCapacity(), handler.getBankSlots(), handler);
+                mouseScreenX, mouseScreenY, handler.getBankCapacity(), handler.getBankSlots(), handler,
+                bankInventoryDragSlot, bankDragSlot,
+                bankDragging ? bankDragMouseX : bankInventoryDragMouseX,
+                bankDragging ? bankDragMouseY : bankInventoryDragMouseY);
         }
         if (contextMenu.isVisible()) renderContextMenu();
         if (deathScreenTimer > 0) renderDeathScreen(delta);
@@ -629,9 +648,6 @@ public class GameScreen extends ApplicationAdapter {
             clearPendingAction();
         } else if (!h.isBankOpen() && "bank".equals(pendingAction) && pendingActionRetryTimer <= 0f) {
             clearPendingAction();
-        }
-        if (h.isBankOpen()) {
-            contextMenu.close();
         }
 
         playerHealth    = h.getPlayerHealth();
@@ -1025,9 +1041,73 @@ public class GameScreen extends ApplicationAdapter {
 
         ClientPacketHandler packetHandler = handler();
         if (packetHandler != null && packetHandler.isBankOpen()) {
+            int mx = Gdx.input.getX();
+            int screenMy = Gdx.graphics.getHeight() - Gdx.input.getY();
+            if (bankMouseDownSlot >= 0 && Gdx.input.isButtonPressed(Input.Buttons.LEFT)) {
+                bankDragMouseX = mx;
+                bankDragMouseY = screenMy;
+                if (!bankDragging) {
+                    int dx = Math.abs(mx - bankDragStartX);
+                    int dy = Math.abs(screenMy - bankDragStartY);
+                    if (dx >= BANK_DRAG_THRESHOLD || dy >= BANK_DRAG_THRESHOLD) {
+                        bankDragging = true;
+                        bankDragSlot = bankMouseDownSlot;
+                    }
+                }
+            }
+            if (!Gdx.input.isButtonPressed(Input.Buttons.LEFT) && bankMouseDownSlot >= 0) {
+                int releaseCellSlot = bankUI.getBankCellSlotAt(mx, screenMy);
+                int releaseOccupiedSlot = bankUI.getBankSlotAt(mx, screenMy, packetHandler.getBankSlots());
+                if (bankDragging) {
+                    if (releaseCellSlot >= 0 && releaseCellSlot != bankMouseDownSlot && nettyClient != null) {
+                        nettyClient.sendRearrangeBankSlots(bankMouseDownSlot, releaseCellSlot);
+                    }
+                } else {
+                    if (releaseOccupiedSlot == bankMouseDownSlot && nettyClient != null) {
+                        nettyClient.sendWithdrawBankItem(bankMouseDownSlot, bankUI.getSelectedAmount());
+                    }
+                }
+                bankMouseDownSlot = -1;
+                bankDragSlot = -1;
+                bankDragging = false;
+            }
+            if (bankInventoryMouseDownSlot >= 0 && Gdx.input.isButtonPressed(Input.Buttons.LEFT)) {
+                bankInventoryDragMouseX = mx;
+                bankInventoryDragMouseY = screenMy;
+                if (!bankInventoryDragging) {
+                    int dx = Math.abs(mx - bankInventoryDragStartX);
+                    int dy = Math.abs(screenMy - bankInventoryDragStartY);
+                    if (dx >= BANK_INV_DRAG_THRESHOLD || dy >= BANK_INV_DRAG_THRESHOLD) {
+                        bankInventoryDragging = true;
+                        bankInventoryDragSlot = bankInventoryMouseDownSlot;
+                    }
+                }
+            }
+            if (!Gdx.input.isButtonPressed(Input.Buttons.LEFT) && bankInventoryMouseDownSlot >= 0) {
+                int releaseCellSlot = bankUI.getInventoryCellSlotAt(mx, screenMy);
+                int releaseOccupiedSlot = bankUI.getInventorySlotAt(mx, screenMy, packetHandler);
+                if (bankInventoryDragging) {
+                    if (releaseCellSlot >= 0 && releaseCellSlot != bankInventoryMouseDownSlot && nettyClient != null) {
+                        nettyClient.sendSwapInventorySlots(bankInventoryMouseDownSlot, releaseCellSlot);
+                    }
+                } else {
+                    if (releaseOccupiedSlot == bankInventoryMouseDownSlot && nettyClient != null) {
+                        nettyClient.sendDepositBankItem(bankInventoryMouseDownSlot, bankUI.getSelectedAmount());
+                    }
+                }
+                bankInventoryMouseDownSlot = -1;
+                bankInventoryDragSlot = -1;
+                bankInventoryDragging = false;
+            }
             handleBankInput();
             return;
         }
+        bankInventoryMouseDownSlot = -1;
+        bankInventoryDragSlot = -1;
+        bankInventoryDragging = false;
+        bankMouseDownSlot = -1;
+        bankDragSlot = -1;
+        bankDragging = false;
 
         // ── Add Friend overlay: handle keys AND mouse clicks, then skip world input ──
         if (sidePanel.isAddFriendOverlayActive()) {
@@ -1510,17 +1590,25 @@ public class GameScreen extends ApplicationAdapter {
 
         int bankSlot = bankUI.getBankSlotAt(mx, screenMy, h.getBankSlots());
         if (bankSlot >= 0) {
-            if (nettyClient != null) {
-                nettyClient.sendWithdrawBankItem(bankSlot, bankUI.getSelectedAmount());
-            }
+            bankMouseDownSlot = bankSlot;
+            bankDragging = false;
+            bankDragSlot = -1;
+            bankDragStartX = mx;
+            bankDragStartY = screenMy;
+            bankDragMouseX = mx;
+            bankDragMouseY = screenMy;
             return;
         }
 
         int inventorySlot = bankUI.getInventorySlotAt(mx, screenMy, h);
         if (inventorySlot >= 0) {
-            if (nettyClient != null) {
-                nettyClient.sendDepositBankItem(inventorySlot, bankUI.getSelectedAmount());
-            }
+            bankInventoryMouseDownSlot = inventorySlot;
+            bankInventoryDragging = false;
+            bankInventoryDragSlot = -1;
+            bankInventoryDragStartX = mx;
+            bankInventoryDragStartY = screenMy;
+            bankInventoryDragMouseX = mx;
+            bankInventoryDragMouseY = screenMy;
             return;
         }
 

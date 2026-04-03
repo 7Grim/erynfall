@@ -73,7 +73,11 @@ public class BankUI {
                        int mouseY,
                        int capacity,
                        List<ClientPacketHandler.BankSlotSnapshot> slots,
-                       ClientPacketHandler handler) {
+                       ClientPacketHandler handler,
+                       int draggingInventorySlot,
+                       int draggingBankSlot,
+                       int dragMouseX,
+                       int dragMouseY) {
         updateLayout(screenW, screenH);
 
         int maxBankRow = getMaxBankRow(slots);
@@ -127,6 +131,51 @@ public class BankUI {
                 shapeRenderer.rect(x, y, CELL, CELL);
             }
         }
+        if (slots != null) {
+            for (ClientPacketHandler.BankSlotSnapshot slot : slots) {
+                if (slot.slot == draggingBankSlot) continue;
+                int slotIndex = slot.slot;
+                int row = slotIndex / BANK_COLS;
+                int col = slotIndex % BANK_COLS;
+                int localRow = row - scrollRows;
+                if (localRow < 0 || localRow >= bankVisibleRows) {
+                    continue;
+                }
+                int x = bankGridX + col * (CELL + CELL_GAP);
+                int y = bankGridY + bankGridH - CELL - localRow * (CELL + CELL_GAP);
+                ItemIconRenderer.drawItemIcon(shapeRenderer, x, y, slot.itemId);
+            }
+        }
+        if (handler != null) {
+            for (int i = 0; i < 28; i++) {
+                if (i == draggingInventorySlot) continue;
+                int itemId = handler.getInventoryItemId(i);
+                if (itemId <= 0) continue;
+                int row = i / INV_COLS;
+                int col = i % INV_COLS;
+                int x = invGridX + col * (CELL + CELL_GAP);
+                int y = invGridY + invGridH - CELL - row * (CELL + CELL_GAP);
+                ItemIconRenderer.drawItemIcon(shapeRenderer, x, y, itemId);
+            }
+            if (draggingInventorySlot >= 0 && draggingInventorySlot < 28) {
+                int draggingItemId = handler.getInventoryItemId(draggingInventorySlot);
+                if (draggingItemId > 0) {
+                    float dragX = dragMouseX - CELL / 2f;
+                    float dragY = dragMouseY - CELL / 2f + 6f;
+                    ItemIconRenderer.drawItemIcon(shapeRenderer, dragX, dragY, draggingItemId);
+                }
+            }
+        }
+        if (slots != null && draggingBankSlot >= 0) {
+            for (ClientPacketHandler.BankSlotSnapshot slot : slots) {
+                if (slot.slot != draggingBankSlot) continue;
+                if (slot.itemId <= 0 || slot.quantity <= 0) break;
+                float dragX = dragMouseX - CELL / 2f;
+                float dragY = dragMouseY - CELL / 2f + 6f;
+                ItemIconRenderer.drawItemIcon(shapeRenderer, dragX, dragY, slot.itemId);
+                break;
+            }
+        }
         shapeRenderer.end();
 
         shapeRenderer.begin(ShapeRenderer.ShapeType.Line);
@@ -173,6 +222,7 @@ public class BankUI {
         if (slots != null) {
             font.getData().setScale(0.58f);
             for (ClientPacketHandler.BankSlotSnapshot slot : slots) {
+                if (slot.slot == draggingBankSlot) continue;
                 int slotIndex = slot.slot;
                 int row = slotIndex / BANK_COLS;
                 int col = slotIndex % BANK_COLS;
@@ -202,6 +252,7 @@ public class BankUI {
         if (handler != null) {
             font.getData().setScale(0.62f);
             for (int i = 0; i < 28; i++) {
+                if (i == draggingInventorySlot) continue;
                 int itemId = handler.getInventoryItemId(i);
                 if (itemId <= 0) continue;
                 int qty = handler.getInventoryQuantity(i);
@@ -236,7 +287,7 @@ public class BankUI {
     }
 
     public int getBankSlotAt(int mouseX, int mouseY, List<ClientPacketHandler.BankSlotSnapshot> slots) {
-        if (!isOverBankGrid(mouseX, mouseY)) return -1;
+        if (!isBankCellHit(mouseX, mouseY)) return -1;
         int col = (mouseX - bankGridX) / (CELL + CELL_GAP);
         int rowFromTop = (bankGridY + bankGridH - mouseY - 1) / (CELL + CELL_GAP);
         if (col < 0 || col >= BANK_COLS || rowFromTop < 0 || rowFromTop >= bankVisibleRows) return -1;
@@ -250,14 +301,36 @@ public class BankUI {
         return -1;
     }
 
+    public int getBankCellSlotAt(int mouseX, int mouseY) {
+        if (!isBankCellHit(mouseX, mouseY)) return -1;
+        int col = (mouseX - bankGridX) / (CELL + CELL_GAP);
+        int rowFromTop = (bankGridY + bankGridH - mouseY - 1) / (CELL + CELL_GAP);
+        if (col < 0 || col >= BANK_COLS || rowFromTop < 0 || rowFromTop >= bankVisibleRows) return -1;
+        return (scrollRows + rowFromTop) * BANK_COLS + col;
+    }
+
     public int getInventorySlotAt(int mouseX, int mouseY, ClientPacketHandler handler) {
-        if (!isOverInventoryGrid(mouseX, mouseY) || handler == null) return -1;
+        if (!isInventoryCellHit(mouseX, mouseY) || handler == null) return -1;
         int col = (mouseX - invGridX) / (CELL + CELL_GAP);
         int rowFromTop = (invGridY + invGridH - mouseY - 1) / (CELL + CELL_GAP);
         if (col < 0 || col >= INV_COLS || rowFromTop < 0 || rowFromTop >= INV_ROWS) return -1;
         int slot = rowFromTop * INV_COLS + col;
         if (slot < 0 || slot >= 28) return -1;
         return handler.getInventoryItemId(slot) > 0 ? slot : -1;
+    }
+
+    public int getInventoryCellSlotAt(int mouseX, int mouseY) {
+        if (!isOverInventoryGrid(mouseX, mouseY)) return -1;
+        int localX = mouseX - invGridX;
+        int localY = invGridY + invGridH - mouseY - 1;
+        int col = localX / (CELL + CELL_GAP);
+        int rowFromTop = localY / (CELL + CELL_GAP);
+        if (col < 0 || col >= INV_COLS || rowFromTop < 0 || rowFromTop >= INV_ROWS) return -1;
+        int cellLocalX = localX - col * (CELL + CELL_GAP);
+        int cellLocalY = localY - rowFromTop * (CELL + CELL_GAP);
+        if (cellLocalX >= CELL || cellLocalY >= CELL) return -1;
+        int slot = rowFromTop * INV_COLS + col;
+        return (slot >= 0 && slot < 28) ? slot : -1;
     }
 
     public boolean clickAmountButton(int mouseX, int mouseY) {
@@ -279,6 +352,30 @@ public class BankUI {
     public boolean isOverInventoryGrid(int mouseX, int mouseY) {
         return mouseX >= invGridX && mouseX <= invGridX + invGridW
             && mouseY >= invGridY && mouseY <= invGridY + invGridH;
+    }
+
+    public boolean isInventoryCellHit(int mouseX, int mouseY) {
+        if (!isOverInventoryGrid(mouseX, mouseY)) return false;
+        int localX = mouseX - invGridX;
+        int localY = invGridY + invGridH - mouseY - 1;
+        int col = localX / (CELL + CELL_GAP);
+        int row = localY / (CELL + CELL_GAP);
+        if (col < 0 || col >= INV_COLS || row < 0 || row >= INV_ROWS) return false;
+        int cellLocalX = localX - col * (CELL + CELL_GAP);
+        int cellLocalY = localY - row * (CELL + CELL_GAP);
+        return cellLocalX < CELL && cellLocalY < CELL;
+    }
+
+    public boolean isBankCellHit(int mouseX, int mouseY) {
+        if (!isOverBankGrid(mouseX, mouseY)) return false;
+        int localX = mouseX - bankGridX;
+        int localY = bankGridY + bankGridH - mouseY - 1;
+        int col = localX / (CELL + CELL_GAP);
+        int row = localY / (CELL + CELL_GAP);
+        if (col < 0 || col >= BANK_COLS || row < 0 || row >= bankVisibleRows) return false;
+        int cellLocalX = localX - col * (CELL + CELL_GAP);
+        int cellLocalY = localY - row * (CELL + CELL_GAP);
+        return cellLocalX < CELL && cellLocalY < CELL;
     }
 
     public boolean isOver(int mouseX, int mouseY) {

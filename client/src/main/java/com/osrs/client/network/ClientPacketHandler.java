@@ -781,6 +781,7 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
                     slot.getFlags()
                 ));
             }
+            bankSlots.sort(java.util.Comparator.comparingInt(slot -> slot.slot));
         }
         bankOpen = true;
         LOG.debug("BankOpen received: capacity={} slots={}", bankCapacity, msg.getSlotsCount());

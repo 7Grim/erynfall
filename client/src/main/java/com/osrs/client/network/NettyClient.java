@@ -199,6 +199,17 @@ public class NettyClient {
         LOG.debug("Sent WithdrawBankItem: slot={} amount={}", bankSlot, amount);
     }
 
+    public void sendRearrangeBankSlots(int fromSlot, int toSlot) {
+        if (channel == null || !channel.isActive()) return;
+        channel.writeAndFlush(NetworkProto.ClientMessage.newBuilder()
+            .setRearrangeBankSlots(NetworkProto.RearrangeBankSlots.newBuilder()
+                .setFromSlot(fromSlot)
+                .setToSlot(toSlot)
+                .setSequence(System.currentTimeMillis()))
+            .build());
+        LOG.debug("Sent RearrangeBankSlots: {} -> {}", fromSlot, toSlot);
+    }
+
     public void sendStartSkilling(int npcId, NetworkProto.SkillingType skillingType) {
         NetworkProto.ClientMessage msg = NetworkProto.ClientMessage.newBuilder()
             .setStartSkilling(NetworkProto.StartSkillingRequest.newBuilder()

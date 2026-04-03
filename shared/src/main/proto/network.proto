@@ -229,6 +229,12 @@ message WithdrawBankItem {
     int64 sequence = 3;
 }
 
+message RearrangeBankSlots {
+    int32 from_slot = 1;
+    int32 to_slot = 2;
+    int64 sequence = 3;
+}
+
 message BankOpen {
     int32 capacity = 1;
     repeated BankSlot slots = 2;
@@ -474,6 +480,7 @@ message ClientMessage {
         CloseBankRequest close_bank_request = 23;
         DepositBankItem deposit_bank_item = 24;
         WithdrawBankItem withdraw_bank_item = 25;
+        RearrangeBankSlots rearrange_bank_slots = 26;
     }
 }
 
