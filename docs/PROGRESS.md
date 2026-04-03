@@ -1,10 +1,48 @@
 # PROGRESS.md - Sprint Tracking
 
-**Last Updated:** 2026-03-25 (S3 auth, persistence, equipment bonuses, combat rewrite complete)
+**Last Updated:** 2026-04-03 (schema cutover, XP tenths, full Woodcutting, skill guide shell, and bank tabs/search shipped)
 
-**Current Sprint:** S3 — Account auth + persistence shipped; dialogue/quest wiring remains
+**Current Sprint:** S4 — Woodcutting + banking + reusable skill-guide polish shipped; Fishing/Cooking next
 
 **Team:** victorystyle (lead dev), game artist (TBD)
+
+**Work Summary 2026-04-03 (S4 banking + Woodcutting systems polish):**
+- ✅ Database schema cut over from `osrs` live objects to `erynfall`; runtime/config updated to use `erynfall`
+- ✅ XP precision migrated to fixed-point tenths across the game so authentic fractional XP is possible
+- ✅ Shared `WoodcuttingRegistry` added as the source of truth for standard axes, trees, XP, and success data
+- ✅ Full pre-Forestry-style Woodcutting progression implemented:
+  - standard tree progression
+  - standard axe progression
+  - correct item/log variants
+  - tree-specific progression data
+- ✅ Large skill guide modal added to replace the tiny click-popup; hover tooltip kept for quick XP/status
+- ✅ Woodcutting guide now has OSRS-style sections:
+  - Introduction
+  - Trees
+  - Axes
+- ✅ Bank foundation implemented:
+  - banker NPC access
+  - character-specific persistent bank
+  - deposit / withdraw
+  - amount modes
+  - bank drag/rearrange
+- ✅ Bank UI improved:
+  - item icons restored via shared item icon renderer
+  - bank/inventory drag behavior fixed
+  - deterministic deposit-by-item-id behavior for non-stackables
+- ✅ Bank tabs foundation implemented:
+  - All tab
+  - custom tabs
+  - drag item to tab
+  - persistent tab metadata
+- ✅ Client-side bank search implemented:
+  - local filtering over bank snapshot
+  - zero server overhead
+  - safe filtered view (rearranging disabled while searching)
+**Known remaining banking hardening work:**
+- ⏳ Atomic inventory+bank persistence for dirty bank mutations
+- ⏳ Force-close bank on movement/combat with guaranteed flush of dirty state
+- ⏳ Final relog/disconnect/autosave safety sweep for bank state
 
 **Work Summary 2026-03-25 (S3 account auth, persistence, equipment bonuses, OSRS combat):**
 - ✅ LoginScreen: OSRS-style login UI (username/password fields, Tab to switch, Enter to submit, asterisk masking)
@@ -98,7 +136,7 @@ All 10 core systems implemented and integrated:
 - NPCs visible on screen
 - All systems networked via Protocol Buffers
 
-**What's Next:** S2 (Combat Basics) — Hit/miss, XP, skills, quests
+**What's Next:** Finish bank hardening (atomic persistence + forced close safety), then build Fishing followed by Cooking using the same registry + guide-popup architecture proven by Woodcutting.
 
 ---
 
