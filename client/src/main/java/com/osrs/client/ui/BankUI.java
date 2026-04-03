@@ -10,6 +10,9 @@ import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.Matrix4;
 import com.osrs.client.network.ClientPacketHandler;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 
 public class BankUI {
@@ -31,6 +34,12 @@ public class BankUI {
     private static final int AMOUNT_MODE_5 = 5;
     private static final int AMOUNT_MODE_10 = 10;
     private static final int AMOUNT_MODE_ALL = Integer.MAX_VALUE;
+
+    private static final int ALL_TAB = -1;
+    private static final int MAX_CUSTOM_TABS = 9;
+    private static final int TAB_W = 44;
+    private static final int TAB_H = 26;
+    private static final int TAB_GAP = 6;
 
     private final GlyphLayout glyph = new GlyphLayout();
 
@@ -63,6 +72,20 @@ public class BankUI {
     private int selectedAmount = AMOUNT_MODE_1;
     private int scrollRows = 0;
 
+    private int selectedTab = ALL_TAB;
+    private int allTabX;
+    private int allTabY;
+    private int allTabW;
+    private int allTabH;
+    private final int[] customTabX = new int[MAX_CUSTOM_TABS];
+    private final int[] customTabY = new int[MAX_CUSTOM_TABS];
+    private final int[] customTabW = new int[MAX_CUSTOM_TABS];
+    private final int[] customTabH = new int[MAX_CUSTOM_TABS];
+    private int plusTabX;
+    private int plusTabY;
+    private int plusTabW;
+    private int plusTabH;
+
     public void render(ShapeRenderer shapeRenderer,
                        SpriteBatch batch,
                        BitmapFont font,
@@ -78,9 +101,11 @@ public class BankUI {
                        int draggingBankSlot,
                        int dragMouseX,
                        int dragMouseY) {
-        updateLayout(screenW, screenH);
+        updateLayout(screenW, screenH, slots);
+        clampSelectedTab(slots);
 
-        int maxBankRow = getMaxBankRow(slots);
+        List<ClientPacketHandler.BankSlotSnapshot> displaySlots = getDisplaySlots(slots);
+        int maxBankRow = getMaxBankRow(slots, displaySlots);
         int maxScroll = Math.max(0, maxBankRow - bankVisibleRows + 1);
         if (scrollRows > maxScroll) {
             scrollRows = maxScroll;
@@ -101,6 +126,39 @@ public class BankUI {
 
         shapeRenderer.setColor(0.45f, 0.08f, 0.08f, 1f);
         shapeRenderer.rect(closeX, closeY, CLOSE_W, CLOSE_H);
+
+        shapeRenderer.setColor(0.18f, 0.14f, 0.10f, 1f);
+        shapeRenderer.rect(allTabX, allTabY, allTabW, allTabH);
+
+        for (int i = 0; i < MAX_CUSTOM_TABS; i++) {
+            if (customTabW[i] <= 0) continue;
+            shapeRenderer.setColor(0.18f, 0.14f, 0.10f, 1f);
+            shapeRenderer.rect(customTabX[i], customTabY[i], customTabW[i], customTabH[i]);
+        }
+        if (plusTabW > 0) {
+            shapeRenderer.setColor(0.16f, 0.14f, 0.11f, 1f);
+            shapeRenderer.rect(plusTabX, plusTabY, plusTabW, plusTabH);
+        }
+
+        if (selectedTab == ALL_TAB) {
+            shapeRenderer.setColor(0.86f, 0.72f, 0.34f, 1f);
+            shapeRenderer.rect(allTabX + 3, allTabY + 3, allTabW - 6, allTabH - 6);
+        } else if (selectedTab >= 1 && selectedTab <= MAX_CUSTOM_TABS) {
+            int idx = selectedTab - 1;
+            if (customTabW[idx] > 0) {
+                shapeRenderer.setColor(0.86f, 0.72f, 0.34f, 1f);
+                shapeRenderer.rect(customTabX[idx] + 3, customTabY[idx] + 3, customTabW[idx] - 6, customTabH[idx] - 6);
+            }
+        }
+
+        List<Integer> visibleTabs = getVisibleCustomTabs(slots);
+        for (int tab : visibleTabs) {
+            int idx = tab - 1;
+            ClientPacketHandler.BankSlotSnapshot iconSlot = getTabIconSlot(slots, tab);
+            if (iconSlot != null && customTabW[idx] > 0) {
+                ItemIconRenderer.drawItemIcon(shapeRenderer, customTabX[idx] + 4f, customTabY[idx] - 1f, iconSlot.itemId);
+            }
+        }
 
         shapeRenderer.setColor(0.10f, 0.09f, 0.07f, 1f);
         shapeRenderer.rect(bankGridX, bankGridY, bankGridW, bankGridH);
@@ -131,21 +189,33 @@ public class BankUI {
                 shapeRenderer.rect(x, y, CELL, CELL);
             }
         }
-        if (slots != null) {
-            for (ClientPacketHandler.BankSlotSnapshot slot : slots) {
+
+        if (selectedTab == ALL_TAB) {
+            for (ClientPacketHandler.BankSlotSnapshot slot : displaySlots) {
                 if (slot.slot == draggingBankSlot) continue;
                 int slotIndex = slot.slot;
                 int row = slotIndex / BANK_COLS;
                 int col = slotIndex % BANK_COLS;
                 int localRow = row - scrollRows;
-                if (localRow < 0 || localRow >= bankVisibleRows) {
-                    continue;
-                }
+                if (localRow < 0 || localRow >= bankVisibleRows) continue;
+                int x = bankGridX + col * (CELL + CELL_GAP);
+                int y = bankGridY + bankGridH - CELL - localRow * (CELL + CELL_GAP);
+                ItemIconRenderer.drawItemIcon(shapeRenderer, x, y, slot.itemId);
+            }
+        } else {
+            for (int i = 0; i < displaySlots.size(); i++) {
+                ClientPacketHandler.BankSlotSnapshot slot = displaySlots.get(i);
+                if (slot.slot == draggingBankSlot) continue;
+                int packedRow = i / BANK_COLS;
+                int col = i % BANK_COLS;
+                int localRow = packedRow - scrollRows;
+                if (localRow < 0 || localRow >= bankVisibleRows) continue;
                 int x = bankGridX + col * (CELL + CELL_GAP);
                 int y = bankGridY + bankGridH - CELL - localRow * (CELL + CELL_GAP);
                 ItemIconRenderer.drawItemIcon(shapeRenderer, x, y, slot.itemId);
             }
         }
+
         if (handler != null) {
             for (int i = 0; i < 28; i++) {
                 if (i == draggingInventorySlot) continue;
@@ -160,19 +230,16 @@ public class BankUI {
             if (draggingInventorySlot >= 0 && draggingInventorySlot < 28) {
                 int draggingItemId = handler.getInventoryItemId(draggingInventorySlot);
                 if (draggingItemId > 0) {
-                    float dragX = dragMouseX - CELL / 2f;
-                    float dragY = dragMouseY - CELL / 2f + 6f;
-                    ItemIconRenderer.drawItemIcon(shapeRenderer, dragX, dragY, draggingItemId);
+                    ItemIconRenderer.drawItemIcon(shapeRenderer, dragMouseX - CELL / 2f, dragMouseY - CELL / 2f + 6f, draggingItemId);
                 }
             }
         }
+
         if (slots != null && draggingBankSlot >= 0) {
             for (ClientPacketHandler.BankSlotSnapshot slot : slots) {
                 if (slot.slot != draggingBankSlot) continue;
                 if (slot.itemId <= 0 || slot.quantity <= 0) break;
-                float dragX = dragMouseX - CELL / 2f;
-                float dragY = dragMouseY - CELL / 2f + 6f;
-                ItemIconRenderer.drawItemIcon(shapeRenderer, dragX, dragY, slot.itemId);
+                ItemIconRenderer.drawItemIcon(shapeRenderer, dragMouseX - CELL / 2f, dragMouseY - CELL / 2f + 6f, slot.itemId);
                 break;
             }
         }
@@ -184,6 +251,15 @@ public class BankUI {
         shapeRenderer.rect(closeX, closeY, CLOSE_W, CLOSE_H);
         shapeRenderer.rect(bankGridX, bankGridY, bankGridW, bankGridH);
         shapeRenderer.rect(invGridX, invGridY, invGridW, invGridH);
+        shapeRenderer.rect(allTabX, allTabY, allTabW, allTabH);
+        for (int i = 0; i < MAX_CUSTOM_TABS; i++) {
+            if (customTabW[i] > 0) {
+                shapeRenderer.rect(customTabX[i], customTabY[i], customTabW[i], customTabH[i]);
+            }
+        }
+        if (plusTabW > 0) {
+            shapeRenderer.rect(plusTabX, plusTabY, plusTabW, plusTabH);
+        }
         for (int i = 0; i < amountValues.length; i++) {
             shapeRenderer.rect(amountButtonX[i], amountButtonY[i], amountButtonW[i], amountButtonH[i]);
         }
@@ -204,6 +280,18 @@ public class BankUI {
         font.setColor(Color.WHITE);
         font.draw(batch, "X", closeX + (CLOSE_W - glyph.width) / 2f, closeY + CLOSE_H - 5);
 
+        font.getData().setScale(0.76f);
+        font.setColor(0.95f, 0.93f, 0.84f, 1f);
+        glyph.setText(font, "∞");
+        font.draw(batch, "∞", allTabX + (allTabW - glyph.width) / 2f, allTabY + TAB_H - 7f);
+
+        if (plusTabW > 0) {
+            font.getData().setScale(0.8f);
+            glyph.setText(font, "+");
+            font.setColor(0.94f, 0.92f, 0.84f, 1f);
+            font.draw(batch, "+", plusTabX + (plusTabW - glyph.width) / 2f, plusTabY + TAB_H - 7f);
+        }
+
         font.getData().setScale(0.66f);
         font.setColor(0.95f, 0.93f, 0.84f, 1f);
         font.draw(batch, "Bank", bankGridX, bankGridY + bankGridH + 13);
@@ -219,33 +307,29 @@ public class BankUI {
                 amountButtonY[i] + amountButtonH[i] - 5f);
         }
 
-        if (slots != null) {
-            font.getData().setScale(0.58f);
-            for (ClientPacketHandler.BankSlotSnapshot slot : slots) {
+        font.getData().setScale(0.58f);
+        if (selectedTab == ALL_TAB) {
+            for (ClientPacketHandler.BankSlotSnapshot slot : displaySlots) {
                 if (slot.slot == draggingBankSlot) continue;
-                int slotIndex = slot.slot;
-                int row = slotIndex / BANK_COLS;
-                int col = slotIndex % BANK_COLS;
+                int row = slot.slot / BANK_COLS;
+                int col = slot.slot % BANK_COLS;
                 int localRow = row - scrollRows;
-                if (localRow < 0 || localRow >= bankVisibleRows) {
-                    continue;
-                }
+                if (localRow < 0 || localRow >= bankVisibleRows) continue;
                 int x = bankGridX + col * (CELL + CELL_GAP);
                 int y = bankGridY + bankGridH - CELL - localRow * (CELL + CELL_GAP);
-
-                String itemName = (slot.itemName == null || slot.itemName.isBlank())
-                    ? ("Item " + slot.itemId)
-                    : slot.itemName;
-                glyph.setText(font, itemName);
-                String truncated = itemName;
-                if (glyph.width > CELL - 6) {
-                    int maxChars = Math.max(3, (int) ((CELL - 8) / 5f));
-                    truncated = itemName.substring(0, Math.min(itemName.length(), maxChars));
-                }
-                font.setColor(0.92f, 0.90f, 0.84f, 1f);
-                font.draw(batch, truncated, x + 3, y + CELL - 4);
-                font.setColor(0.72f, 0.87f, 0.78f, 1f);
-                font.draw(batch, formatQuantity(slot.quantity), x + 3, y + 11);
+                drawSlotText(batch, font, x, y, slot.itemName, slot.itemId, slot.quantity);
+            }
+        } else {
+            for (int i = 0; i < displaySlots.size(); i++) {
+                ClientPacketHandler.BankSlotSnapshot slot = displaySlots.get(i);
+                if (slot.slot == draggingBankSlot) continue;
+                int packedRow = i / BANK_COLS;
+                int col = i % BANK_COLS;
+                int localRow = packedRow - scrollRows;
+                if (localRow < 0 || localRow >= bankVisibleRows) continue;
+                int x = bankGridX + col * (CELL + CELL_GAP);
+                int y = bankGridY + bankGridH - CELL - localRow * (CELL + CELL_GAP);
+                drawSlotText(batch, font, x, y, slot.itemName, slot.itemId, slot.quantity);
             }
         }
 
@@ -258,22 +342,11 @@ public class BankUI {
                 int qty = handler.getInventoryQuantity(i);
                 String name = handler.getInventoryName(i);
                 if (name == null || name.isBlank()) name = "Item " + itemId;
-
                 int row = i / INV_COLS;
                 int col = i % INV_COLS;
                 int x = invGridX + col * (CELL + CELL_GAP);
                 int y = invGridY + invGridH - CELL - row * (CELL + CELL_GAP);
-
-                glyph.setText(font, name);
-                String truncated = name;
-                if (glyph.width > CELL - 6) {
-                    int maxChars = Math.max(3, (int) ((CELL - 8) / 5f));
-                    truncated = name.substring(0, Math.min(name.length(), maxChars));
-                }
-                font.setColor(0.92f, 0.90f, 0.84f, 1f);
-                font.draw(batch, truncated, x + 3, y + CELL - 4);
-                font.setColor(0.79f, 0.86f, 0.97f, 1f);
-                font.draw(batch, formatQuantity(qty), x + 3, y + 11);
+                drawSlotText(batch, font, x, y, name, itemId, qty);
             }
         }
 
@@ -286,22 +359,120 @@ public class BankUI {
         return selectedAmount;
     }
 
+    public int getSelectedTab() {
+        return selectedTab;
+    }
+
+    public void setSelectedTab(int tab) {
+        if (tab < ALL_TAB) {
+            selectedTab = ALL_TAB;
+        } else if (tab > MAX_CUSTOM_TABS) {
+            selectedTab = MAX_CUSTOM_TABS;
+        } else {
+            selectedTab = tab;
+        }
+        scrollRows = 0;
+    }
+
+    public void resetSelectedTab() {
+        selectedTab = ALL_TAB;
+        scrollRows = 0;
+    }
+
+    public boolean isAllTabSelected() {
+        return selectedTab == ALL_TAB;
+    }
+
+    public boolean clickTab(int mouseX, int mouseY, List<ClientPacketHandler.BankSlotSnapshot> slots) {
+        if (mouseX >= allTabX && mouseX <= allTabX + allTabW && mouseY >= allTabY && mouseY <= allTabY + allTabH) {
+            setSelectedTab(ALL_TAB);
+            return true;
+        }
+        for (int tab : getVisibleCustomTabs(slots)) {
+            int idx = tab - 1;
+            if (mouseX >= customTabX[idx] && mouseX <= customTabX[idx] + customTabW[idx]
+                && mouseY >= customTabY[idx] && mouseY <= customTabY[idx] + customTabH[idx]) {
+                setSelectedTab(tab);
+                return true;
+            }
+        }
+        if (plusTabW > 0 && mouseX >= plusTabX && mouseX <= plusTabX + plusTabW
+            && mouseY >= plusTabY && mouseY <= plusTabY + plusTabH) {
+            return true;
+        }
+        return false;
+    }
+
+    public int getTabDropTarget(int mouseX, int mouseY, List<ClientPacketHandler.BankSlotSnapshot> slots) {
+        if (mouseX >= allTabX && mouseX <= allTabX + allTabW && mouseY >= allTabY && mouseY <= allTabY + allTabH) {
+            return 0;
+        }
+        for (int tab : getVisibleCustomTabs(slots)) {
+            int idx = tab - 1;
+            if (mouseX >= customTabX[idx] && mouseX <= customTabX[idx] + customTabW[idx]
+                && mouseY >= customTabY[idx] && mouseY <= customTabY[idx] + customTabH[idx]) {
+                return tab;
+            }
+        }
+        if (plusTabW > 0 && mouseX >= plusTabX && mouseX <= plusTabX + plusTabW
+            && mouseY >= plusTabY && mouseY <= plusTabY + plusTabH) {
+            return getNextAvailableCustomTab(slots);
+        }
+        return -1;
+    }
+
+    public List<Integer> getVisibleCustomTabs(List<ClientPacketHandler.BankSlotSnapshot> slots) {
+        if (slots == null || slots.isEmpty()) return Collections.emptyList();
+        boolean[] present = new boolean[MAX_CUSTOM_TABS + 1];
+        for (ClientPacketHandler.BankSlotSnapshot slot : slots) {
+            if (slot == null || slot.itemId <= 0 || slot.quantity <= 0) continue;
+            if (slot.tabIndex >= 1 && slot.tabIndex <= MAX_CUSTOM_TABS) {
+                present[slot.tabIndex] = true;
+            }
+        }
+        List<Integer> out = new ArrayList<>();
+        for (int tab = 1; tab <= MAX_CUSTOM_TABS; tab++) {
+            if (present[tab]) out.add(tab);
+        }
+        return out;
+    }
+
+    public int getNextAvailableCustomTab(List<ClientPacketHandler.BankSlotSnapshot> slots) {
+        boolean[] present = new boolean[MAX_CUSTOM_TABS + 1];
+        for (int tab : getVisibleCustomTabs(slots)) {
+            present[tab] = true;
+        }
+        for (int tab = 1; tab <= MAX_CUSTOM_TABS; tab++) {
+            if (!present[tab]) return tab;
+        }
+        return -1;
+    }
+
     public int getBankSlotAt(int mouseX, int mouseY, List<ClientPacketHandler.BankSlotSnapshot> slots) {
         if (!isBankCellHit(mouseX, mouseY)) return -1;
         int col = (mouseX - bankGridX) / (CELL + CELL_GAP);
         int rowFromTop = (bankGridY + bankGridH - mouseY - 1) / (CELL + CELL_GAP);
         if (col < 0 || col >= BANK_COLS || rowFromTop < 0 || rowFromTop >= bankVisibleRows) return -1;
-        int slotIndex = (scrollRows + rowFromTop) * BANK_COLS + col;
-        if (slots == null) return -1;
-        for (ClientPacketHandler.BankSlotSnapshot slot : slots) {
-            if (slot.slot == slotIndex && slot.itemId > 0 && slot.quantity > 0) {
-                return slotIndex;
+        if (selectedTab == ALL_TAB) {
+            int slotIndex = (scrollRows + rowFromTop) * BANK_COLS + col;
+            if (slots == null) return -1;
+            for (ClientPacketHandler.BankSlotSnapshot slot : slots) {
+                if (slot.slot == slotIndex && slot.itemId > 0 && slot.quantity > 0) {
+                    return slotIndex;
+                }
             }
+            return -1;
         }
-        return -1;
+
+        List<ClientPacketHandler.BankSlotSnapshot> displaySlots = getDisplaySlots(slots);
+        int packedIndex = (scrollRows + rowFromTop) * BANK_COLS + col;
+        if (packedIndex < 0 || packedIndex >= displaySlots.size()) return -1;
+        ClientPacketHandler.BankSlotSnapshot slot = displaySlots.get(packedIndex);
+        return (slot.itemId > 0 && slot.quantity > 0) ? slot.slot : -1;
     }
 
     public int getBankCellSlotAt(int mouseX, int mouseY) {
+        if (selectedTab != ALL_TAB) return -1;
         if (!isBankCellHit(mouseX, mouseY)) return -1;
         int col = (mouseX - bankGridX) / (CELL + CELL_GAP);
         int rowFromTop = (bankGridY + bankGridH - mouseY - 1) / (CELL + CELL_GAP);
@@ -388,7 +559,8 @@ public class BankUI {
     }
 
     public boolean handleScroll(int amount, List<ClientPacketHandler.BankSlotSnapshot> slots) {
-        int maxBankRow = getMaxBankRow(slots);
+        List<ClientPacketHandler.BankSlotSnapshot> displaySlots = getDisplaySlots(slots);
+        int maxBankRow = getMaxBankRow(slots, displaySlots);
         int maxScroll = Math.max(0, maxBankRow - bankVisibleRows + 1);
         if (maxScroll <= 0) {
             scrollRows = 0;
@@ -399,15 +571,74 @@ public class BankUI {
         return before != scrollRows;
     }
 
-    private int getMaxBankRow(List<ClientPacketHandler.BankSlotSnapshot> slots) {
-        if (slots == null || slots.isEmpty()) return 0;
-        int maxSlot = 0;
-        for (ClientPacketHandler.BankSlotSnapshot slot : slots) {
-            if (slot.slot > maxSlot) {
-                maxSlot = slot.slot;
+    private void drawSlotText(SpriteBatch batch, BitmapFont font, int x, int y, String itemName, int itemId, long quantity) {
+        String resolvedName = (itemName == null || itemName.isBlank()) ? ("Item " + itemId) : itemName;
+        glyph.setText(font, resolvedName);
+        String truncated = resolvedName;
+        if (glyph.width > CELL - 6) {
+            int maxChars = Math.max(3, (int) ((CELL - 8) / 5f));
+            truncated = resolvedName.substring(0, Math.min(resolvedName.length(), maxChars));
+        }
+        font.setColor(0.92f, 0.90f, 0.84f, 1f);
+        font.draw(batch, truncated, x + 3, y + CELL - 4);
+        font.setColor(0.72f, 0.87f, 0.78f, 1f);
+        font.draw(batch, formatQuantity(quantity), x + 3, y + 11);
+    }
+
+    private void clampSelectedTab(List<ClientPacketHandler.BankSlotSnapshot> slots) {
+        if (selectedTab == ALL_TAB) return;
+        for (int tab : getVisibleCustomTabs(slots)) {
+            if (tab == selectedTab) {
+                return;
             }
         }
-        return maxSlot / BANK_COLS;
+        selectedTab = ALL_TAB;
+        scrollRows = 0;
+    }
+
+    private ClientPacketHandler.BankSlotSnapshot getTabIconSlot(List<ClientPacketHandler.BankSlotSnapshot> slots, int tabIndex) {
+        if (slots == null) return null;
+        ClientPacketHandler.BankSlotSnapshot best = null;
+        for (ClientPacketHandler.BankSlotSnapshot slot : slots) {
+            if (slot.tabIndex != tabIndex) continue;
+            if (slot.itemId <= 0 || slot.quantity <= 0) continue;
+            if (best == null || slot.slot < best.slot) {
+                best = slot;
+            }
+        }
+        return best;
+    }
+
+    private List<ClientPacketHandler.BankSlotSnapshot> getDisplaySlots(List<ClientPacketHandler.BankSlotSnapshot> slots) {
+        if (slots == null || slots.isEmpty()) return Collections.emptyList();
+        List<ClientPacketHandler.BankSlotSnapshot> out = new ArrayList<>();
+        if (selectedTab == ALL_TAB) {
+            out.addAll(slots);
+        } else {
+            for (ClientPacketHandler.BankSlotSnapshot slot : slots) {
+                if (slot.tabIndex == selectedTab) {
+                    out.add(slot);
+                }
+            }
+        }
+        out.sort(Comparator.comparingInt(slot -> slot.slot));
+        return out;
+    }
+
+    private int getMaxBankRow(List<ClientPacketHandler.BankSlotSnapshot> slots,
+                              List<ClientPacketHandler.BankSlotSnapshot> displaySlots) {
+        if (selectedTab == ALL_TAB) {
+            if (slots == null || slots.isEmpty()) return 0;
+            int maxSlot = 0;
+            for (ClientPacketHandler.BankSlotSnapshot slot : slots) {
+                if (slot.slot > maxSlot) {
+                    maxSlot = slot.slot;
+                }
+            }
+            return maxSlot / BANK_COLS;
+        }
+        if (displaySlots == null || displaySlots.isEmpty()) return 0;
+        return Math.max(0, (displaySlots.size() - 1) / BANK_COLS);
     }
 
     private String formatQuantity(long quantity) {
@@ -423,7 +654,7 @@ public class BankUI {
         return Long.toString(quantity);
     }
 
-    private void updateLayout(int screenW, int screenH) {
+    private void updateLayout(int screenW, int screenH, List<ClientPacketHandler.BankSlotSnapshot> slots) {
         panelW = Math.min(PANEL_W, Math.max(580, screenW - 32));
         panelH = Math.min(PANEL_H, Math.max(340, screenH - 48));
         panelX = (screenW - panelW) / 2;
@@ -432,11 +663,47 @@ public class BankUI {
         closeX = panelX + panelW - PADDING - CLOSE_W;
         closeY = panelY + panelH - 8 - CLOSE_H;
 
+        int tabBandH = 30;
         int amountBandH = 28;
         int contentTop = panelY + panelH - HEADER_H - PADDING;
         int contentBottom = panelY + PADDING;
 
-        int amountY = contentTop - amountBandH;
+        allTabX = panelX + PADDING;
+        allTabY = contentTop - tabBandH + 2;
+        allTabW = TAB_W;
+        allTabH = TAB_H;
+
+        for (int i = 0; i < MAX_CUSTOM_TABS; i++) {
+            customTabX[i] = 0;
+            customTabY[i] = 0;
+            customTabW[i] = 0;
+            customTabH[i] = 0;
+        }
+
+        int tabCursorX = allTabX + TAB_W + TAB_GAP;
+        for (int tab : getVisibleCustomTabs(slots)) {
+            int idx = tab - 1;
+            customTabX[idx] = tabCursorX;
+            customTabY[idx] = allTabY;
+            customTabW[idx] = TAB_W;
+            customTabH[idx] = TAB_H;
+            tabCursorX += TAB_W + TAB_GAP;
+        }
+
+        int nextTab = getNextAvailableCustomTab(slots);
+        if (nextTab > 0) {
+            plusTabX = tabCursorX;
+            plusTabY = allTabY;
+            plusTabW = TAB_W;
+            plusTabH = TAB_H;
+        } else {
+            plusTabX = 0;
+            plusTabY = 0;
+            plusTabW = 0;
+            plusTabH = 0;
+        }
+
+        int amountY = (contentTop - tabBandH) - amountBandH;
         int buttonW = 48;
         int buttonH = 20;
         int btnX = panelX + PADDING;

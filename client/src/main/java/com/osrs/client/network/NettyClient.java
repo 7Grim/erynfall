@@ -210,6 +210,17 @@ public class NettyClient {
         LOG.debug("Sent RearrangeBankSlots: {} -> {}", fromSlot, toSlot);
     }
 
+    public void sendMoveBankItemToTab(int bankSlot, int targetTabIndex) {
+        if (channel == null || !channel.isActive()) return;
+        channel.writeAndFlush(NetworkProto.ClientMessage.newBuilder()
+            .setMoveBankItemToTab(NetworkProto.MoveBankItemToTab.newBuilder()
+                .setBankSlot(bankSlot)
+                .setTargetTabIndex(targetTabIndex)
+                .setSequence(System.currentTimeMillis()))
+            .build());
+        LOG.debug("Sent MoveBankItemToTab: slot={} tab={}", bankSlot, targetTabIndex);
+    }
+
     public void sendStartSkilling(int npcId, NetworkProto.SkillingType skillingType) {
         NetworkProto.ClientMessage msg = NetworkProto.ClientMessage.newBuilder()
             .setStartSkilling(NetworkProto.StartSkillingRequest.newBuilder()

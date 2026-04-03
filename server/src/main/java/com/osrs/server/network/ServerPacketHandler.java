@@ -129,11 +129,12 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             case START_SKILLING      -> handleStartSkilling(ctx, packet.getStartSkilling());
             case TOGGLE_PRAYER       -> handleTogglePrayer(ctx, packet.getTogglePrayer());
             case SET_AUTO_RETALIATE  -> handleSetAutoRetaliate(packet.getSetAutoRetaliate());
-            case OPEN_BANK_REQUEST    -> handleOpenBankRequest(ctx, packet.getOpenBankRequest());
-            case CLOSE_BANK_REQUEST   -> handleCloseBankRequest(ctx, packet.getCloseBankRequest());
-            case DEPOSIT_BANK_ITEM    -> handleDepositBankItem(ctx, packet.getDepositBankItem());
-            case WITHDRAW_BANK_ITEM   -> handleWithdrawBankItem(ctx, packet.getWithdrawBankItem());
-            case REARRANGE_BANK_SLOTS -> handleRearrangeBankSlots(ctx, packet.getRearrangeBankSlots());
+            case OPEN_BANK_REQUEST      -> handleOpenBankRequest(ctx, packet.getOpenBankRequest());
+            case CLOSE_BANK_REQUEST     -> handleCloseBankRequest(ctx, packet.getCloseBankRequest());
+            case DEPOSIT_BANK_ITEM      -> handleDepositBankItem(ctx, packet.getDepositBankItem());
+            case WITHDRAW_BANK_ITEM     -> handleWithdrawBankItem(ctx, packet.getWithdrawBankItem());
+            case REARRANGE_BANK_SLOTS   -> handleRearrangeBankSlots(ctx, packet.getRearrangeBankSlots());
+            case MOVE_BANK_ITEM_TO_TAB  -> handleMoveBankItemToTab(ctx, packet.getMoveBankItemToTab());
             default -> LOG.warn("Unhandled payload case: {}", packet.getPayloadCase());
         }
     }
@@ -702,7 +703,8 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
                 .setItemId(slot.getItemId())
                 .setQuantity(slot.getQuantity())
                 .setItemName(name)
-                .setFlags(flags));
+                .setFlags(flags)
+                .setTabIndex(slot.getTabIndex()));
         }
         ctx.writeAndFlush(NetworkProto.ServerMessage.newBuilder()
             .setBankOpen(bankOpen)
@@ -767,12 +769,14 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             update.setItemId(slot.getItemId())
                 .setQuantity(slot.getQuantity())
                 .setItemName(name)
-                .setFlags(flags);
+                .setFlags(flags)
+                .setTabIndex(slot.getTabIndex());
         } else {
             update.setItemId(0)
                 .setQuantity(0)
                 .setItemName("")
-                .setFlags(0);
+                .setFlags(0)
+                .setTabIndex(0);
         }
         ctx.writeAndFlush(NetworkProto.ServerMessage.newBuilder()
             .setBankSlotUpdate(update)
@@ -963,6 +967,41 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
         }
         LOG.debug("Applied RearrangeBankSlots: from={} to={} itemId={} qty={} player={}",
             from, to, fromSlot.getItemId(), fromSlot.getQuantity(), player.getName());
+        sendBankOpen(ctx, player);
+    }
+
+    private void handleMoveBankItemToTab(ChannelHandlerContext ctx, NetworkProto.MoveBankItemToTab req) {
+        if (requireValidOpenBank(ctx) == null) {
+            return;
+        }
+        Player player = session.getPlayer();
+        int bankSlotIndex = req.getBankSlot();
+        int targetTabIndex = req.getTargetTabIndex();
+        if (bankSlotIndex < 0 || bankSlotIndex >= player.getBankCapacity()) {
+            sendBankOpen(ctx, player);
+            return;
+        }
+        // 0 = unassigned/main bank group, 1..9 = custom tabs
+        if (targetTabIndex < 0 || targetTabIndex > 9) {
+            sendBankOpen(ctx, player);
+            return;
+        }
+        Player.BankSlot slot = player.getBankSlot(bankSlotIndex);
+        if (slot == null || slot.getItemId() <= 0 || slot.getQuantity() <= 0) {
+            sendBankOpen(ctx, player);
+            return;
+        }
+        if (slot.getTabIndex() == targetTabIndex) {
+            sendBankOpen(ctx, player);
+            return;
+        }
+
+        player.setBankSlot(bankSlotIndex, targetTabIndex, slot.getItemId(), slot.getQuantity(), slot.isPlaceholder());
+        if (session != null) {
+            session.setBankContainersDirty(true);
+        }
+        LOG.debug("Moved bank item to tab: player={} slot={} itemId={} tab={}",
+            player.getName(), bankSlotIndex, slot.getItemId(), targetTabIndex);
         sendBankOpen(ctx, player);
     }
 

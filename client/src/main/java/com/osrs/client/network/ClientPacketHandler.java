@@ -251,13 +251,15 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
 
     public static class BankSlotSnapshot {
         public final int slot;
+        public final int tabIndex;
         public final int itemId;
         public final long quantity;
         public final String itemName;
         public final int flags;
 
-        public BankSlotSnapshot(int slot, int itemId, long quantity, String itemName, int flags) {
+        public BankSlotSnapshot(int slot, int tabIndex, int itemId, long quantity, String itemName, int flags) {
             this.slot = slot;
+            this.tabIndex = tabIndex;
             this.itemId = itemId;
             this.quantity = quantity;
             this.itemName = itemName == null ? "" : itemName;
@@ -775,6 +777,7 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
             for (NetworkProto.BankSlot slot : msg.getSlotsList()) {
                 bankSlots.add(new BankSlotSnapshot(
                     slot.getSlot(),
+                    slot.getTabIndex(),
                     slot.getItemId(),
                     slot.getQuantity(),
                     slot.getItemName(),
@@ -802,6 +805,7 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
             if (msg.getItemId() > 0 && msg.getQuantity() > 0) {
                 bankSlots.add(new BankSlotSnapshot(
                     msg.getSlot(),
+                    msg.getTabIndex(),
                     msg.getItemId(),
                     msg.getQuantity(),
                     msg.getItemName(),

@@ -231,10 +231,10 @@ public class SkillGuidePopup {
         batch.begin();
         font.getData().setScale(0.95f);
         font.setColor(0.20f, 0.12f, 0.04f, 1f);
-        font.draw(batch, title + " Guide", panelX + 12, panelY + PANEL_H - 12);
+        font.draw(batch, title + " Guide", panelX + 12, panelY + PANEL_H - 9);
         font.getData().setScale(0.72f);
         font.setColor(0.28f, 0.18f, 0.07f, 1f);
-        font.draw(batch, "Level " + level + "   XP " + formatXp(totalXp), panelX + 14, panelY + PANEL_H - 30);
+        font.draw(batch, "Level " + level + "   XP " + formatXp(totalXp), panelX + 14, panelY + PANEL_H - 24);
         font.getData().setScale(0.74f);
         for (int i = 0; i < sections.size(); i++) {
             int y = navY + navH - i * itemH - 10;

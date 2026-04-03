@@ -206,6 +206,7 @@ message BankSlot {
     int64 quantity = 3;
     string item_name = 4;
     int32 flags = 5;
+    int32 tab_index = 6;
 }
 
 message OpenBankRequest {
@@ -235,6 +236,12 @@ message RearrangeBankSlots {
     int64 sequence = 3;
 }
 
+message MoveBankItemToTab {
+    int32 bank_slot = 1;
+    int32 target_tab_index = 2;
+    int64 sequence = 3;
+}
+
 message BankOpen {
     int32 capacity = 1;
     repeated BankSlot slots = 2;
@@ -250,6 +257,7 @@ message BankSlotUpdate {
     int64 quantity = 3;
     string item_name = 4;
     int32 flags = 5;
+    int32 tab_index = 6;
 }
 
 // EquipmentUpdate: Server → Client
@@ -481,6 +489,7 @@ message ClientMessage {
         DepositBankItem deposit_bank_item = 24;
         WithdrawBankItem withdraw_bank_item = 25;
         RearrangeBankSlots rearrange_bank_slots = 26;
+        MoveBankItemToTab move_bank_item_to_tab = 27;
     }
 }
 

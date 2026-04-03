@@ -397,7 +397,7 @@ public class PlayerRepository {
             try (PreparedStatement ps = conn.prepareStatement(
                 "SELECT tab_index, slot_index, item_id, quantity, placeholder " +
                     "FROM " + table("player_bank_items") + " WHERE player_id = ? " +
-                    "ORDER BY tab_index, slot_index"
+                    "ORDER BY slot_index"
             )) {
                 ps.setInt(1, dbId);
                 try (ResultSet rs = ps.executeQuery()) {

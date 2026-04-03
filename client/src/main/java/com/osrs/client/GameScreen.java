@@ -1078,8 +1078,14 @@ public class GameScreen extends ApplicationAdapter {
             if (!Gdx.input.isButtonPressed(Input.Buttons.LEFT) && bankMouseDownSlot >= 0) {
                 int releaseCellSlot = bankUI.getBankCellSlotAt(mx, screenMy);
                 int releaseOccupiedSlot = bankUI.getBankSlotAt(mx, screenMy, packetHandler.getBankSlots());
+                int tabDropTarget = bankUI.getTabDropTarget(mx, screenMy, packetHandler.getBankSlots());
                 if (bankDragging) {
-                    if (releaseCellSlot >= 0 && releaseCellSlot != bankMouseDownSlot && nettyClient != null) {
+                    if (tabDropTarget >= 0 && nettyClient != null) {
+                        nettyClient.sendMoveBankItemToTab(bankMouseDownSlot, tabDropTarget);
+                    } else if (bankUI.isAllTabSelected()
+                            && releaseCellSlot >= 0
+                            && releaseCellSlot != bankMouseDownSlot
+                            && nettyClient != null) {
                         nettyClient.sendRearrangeBankSlots(bankMouseDownSlot, releaseCellSlot);
                     }
                 } else {
@@ -1128,6 +1134,9 @@ public class GameScreen extends ApplicationAdapter {
         bankMouseDownSlot = -1;
         bankDragSlot = -1;
         bankDragging = false;
+        if (bankUI != null) {
+            bankUI.resetSelectedTab();
+        }
 
         // ── Add Friend overlay: handle keys AND mouse clicks, then skip world input ──
         if (sidePanel.isAddFriendOverlayActive()) {
@@ -1596,6 +1605,10 @@ public class GameScreen extends ApplicationAdapter {
                 handleContextMenuAction(clicked);
             }
             contextMenu.close();
+            return;
+        }
+
+        if (bankUI.clickTab(mx, screenMy, h.getBankSlots())) {
             return;
         }
 
