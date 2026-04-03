@@ -2,9 +2,11 @@ package com.osrs.client.ui;
 
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
+import com.badlogic.gdx.graphics.g2d.GlyphLayout;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.Matrix4;
+import com.badlogic.gdx.utils.Align;
 import com.osrs.shared.WoodcuttingRegistry;
 
 import java.util.HashMap;
@@ -92,7 +94,7 @@ public final class SkillGuideRegistry {
             if (sectionIdx == 2) {
                 return 18f + WoodcuttingRegistry.axes().size() * 32f + 12f;
             }
-            return 220f;
+            return 236f;
         }
 
         private void renderIntroduction(ShapeRenderer shapeRenderer,
@@ -103,31 +105,49 @@ public final class SkillGuideRegistry {
                                         float y,
                                         float w,
                                         float h) {
-            float blockH = 82f;
-            float top = y + h - 14f;
+            final float blockH = 82f;
+            final float top = y + h - 14f;
+            final float blockX = x + 8f;
+            final float blockW = w - 16f;
+            final float dividerX = x + 10f;
+            final float dividerW = w - 20f;
+            final float iconX = x + 20f;
+            final float textX = x + 62f;
+            final float textW = w - 86f;
+            final float textTopPad = 16f;
+            final String[] texts = {
+                "Chop trees to collect logs used in crafting and firemaking.",
+                "As your Woodcutting level rises, your chop success improves.",
+                "Better axes cut faster. Axes work from inventory even when you do not meet the Attack level to equip them."
+            };
 
             shapeRenderer.setProjectionMatrix(projection);
             shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
             for (int i = 0; i < 3; i++) {
                 float by = top - (i + 1) * blockH;
                 shapeRenderer.setColor(0.92f, 0.84f, 0.69f, 1f);
-                shapeRenderer.rect(x + 8, by, w - 16, blockH - 8);
+                shapeRenderer.rect(blockX, by, blockW, blockH - 8f);
                 shapeRenderer.setColor(0.64f, 0.50f, 0.30f, 1f);
-                shapeRenderer.rect(x + 10, by + blockH - 16, w - 20, 2);
+                shapeRenderer.rect(dividerX, by + blockH - 16f, dividerW, 2f);
             }
-            drawTreeIcon(shapeRenderer, x + 20, top - blockH + 12);
-            ItemIconRenderer.drawItemIcon(shapeRenderer, x + 20, top - blockH * 2 + 12, 1511);
-            ItemIconRenderer.drawItemIcon(shapeRenderer, x + 20, top - blockH * 3 + 12, 1351);
+            drawTreeIcon(shapeRenderer, iconX, top - blockH + 12f);
+            ItemIconRenderer.drawItemIcon(shapeRenderer, iconX, top - blockH * 2 + 12f, 1511);
+            ItemIconRenderer.drawItemIcon(shapeRenderer, iconX, top - blockH * 3 + 12f, 1351);
             shapeRenderer.end();
 
+            GlyphLayout wrapped = new GlyphLayout();
             batch.setProjectionMatrix(projection);
             batch.begin();
-            font.getData().setScale(0.72f);
+            font.getData().setScale(0.68f);
             font.setColor(TEXT_MAIN);
-            font.draw(batch, "Chop trees to collect logs used in crafting and firemaking.", x + 62, top - 18);
-            font.draw(batch, "As your Woodcutting level rises, your chop success improves.", x + 62, top - blockH - 18);
-            font.draw(batch, "Better axes cut faster. Axes work from inventory even", x + 62, top - blockH * 2 - 16);
-            font.draw(batch, "when you do not meet the Attack level to equip them.", x + 62, top - blockH * 2 - 34);
+            for (int i = 0; i < 3; i++) {
+                float by = top - (i + 1) * blockH;
+                float blockInnerTop = by + blockH - 8f;
+                wrapped.setText(font, texts[i], TEXT_MAIN, textW, Align.left, true);
+                font.draw(batch, wrapped, textX, blockInnerTop - textTopPad);
+            }
+            font.getData().setScale(1f);
+            font.setColor(Color.WHITE);
             batch.end();
         }
 
