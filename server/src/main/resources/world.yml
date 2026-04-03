@@ -357,6 +357,73 @@ npcs:
     is_aggressive: false
     is_banker: true
 
+  # --- Sandbox Fishing Cove (fixed test spots, east of banker) ---
+  # These spots are intentionally fixed and deterministic for testing.
+  # One of each currently implemented fishing family:
+  # 200 = tutorial net-only
+  # 201 = net/bait
+  # 202 = lure/bait
+  # 203 = cage/harpoon
+  # Tutorial net-only regression spot — shrimps only
+  - id: 38
+    definition_id: 200
+    name: "Fishing Spot"
+    combat_level: 0
+    max_hp: 1
+    max_hit: 0
+    respawn_delay_ticks: 0
+    location: "tutorial_island"
+    x: 49
+    y: 20
+    examine: "A quiet spot for net fishing."
+    wander_radius: 0
+    is_aggressive: false
+
+  # Net/Bait spot — shrimps, anchovies, sardine, herring
+  - id: 39
+    definition_id: 201
+    name: "Fishing Spot"
+    combat_level: 0
+    max_hp: 1
+    max_hit: 0
+    respawn_delay_ticks: 0
+    location: "tutorial_island"
+    x: 52
+    y: 20
+    examine: "A spot suitable for net or bait fishing."
+    wander_radius: 0
+    is_aggressive: false
+
+  # Lure/Bait spot — trout, salmon, pike
+  - id: 40
+    definition_id: 202
+    name: "Fishing Spot"
+    combat_level: 0
+    max_hp: 1
+    max_hit: 0
+    respawn_delay_ticks: 0
+    location: "tutorial_island"
+    x: 55
+    y: 20
+    examine: "A river spot for lure or bait fishing."
+    wander_radius: 0
+    is_aggressive: false
+
+  # Cage/Harpoon spot — lobster, tuna, swordfish
+  - id: 41
+    definition_id: 203
+    name: "Fishing Spot"
+    combat_level: 0
+    max_hp: 1
+    max_hit: 0
+    respawn_delay_ticks: 0
+    location: "tutorial_island"
+    x: 58
+    y: 20
+    examine: "A deep water spot for caging or harpooning."
+    wander_radius: 0
+    is_aggressive: false
+
   # --- Additional Tutorial rats for kill_rats objective density ---
   - id: 22
     definition_id: 3
