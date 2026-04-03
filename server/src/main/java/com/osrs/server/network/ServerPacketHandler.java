@@ -479,11 +479,19 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
     }
     
     private void sendHandshakeResponse(ChannelHandlerContext ctx, boolean success, String message, int playerId) {
+        boolean member = success && session != null && session.getPlayer() != null && session.getPlayer().isMember();
+        boolean adminToolsEnabled = success && session != null && session.getPlayer() != null
+            && session.getPlayer().isAdminToolsEnabled();
+        if (success && session != null && session.getPlayer() != null) {
+            LOG.info("Handshake response for {}: member={} adminToolsEnabled={}",
+                session.getPlayer().getName(), member, adminToolsEnabled);
+        }
         NetworkProto.HandshakeResponse response = NetworkProto.HandshakeResponse.newBuilder()
             .setSuccess(success)
             .setMessage(message)
             .setPlayerId(playerId)
-            .setIsMember(success && session != null && session.getPlayer() != null && session.getPlayer().isMember())
+            .setIsMember(member)
+            .setIsAdminToolsEnabled(adminToolsEnabled)
             .build();
         NetworkProto.ServerMessage wrapped = NetworkProto.ServerMessage.newBuilder()
             .setHandshakeResponse(response)

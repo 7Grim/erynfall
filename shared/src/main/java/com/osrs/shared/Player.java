@@ -105,6 +105,7 @@ public class Player extends Entity {
     public static final int SKILL_COUNT        = 23;
 
     private boolean member = false;
+    private boolean adminToolsEnabled = false;
 
     // Friends list data
     private final Set<Long> friends = new HashSet<>();
@@ -398,6 +399,8 @@ public class Player extends Entity {
 
     public boolean isMember() { return member; }
     public void setMember(boolean member) { this.member = member; }
+    public boolean isAdminToolsEnabled() { return adminToolsEnabled; }
+    public void setAdminToolsEnabled(boolean adminToolsEnabled) { this.adminToolsEnabled = adminToolsEnabled; }
 
     // -----------------------------------------------------------------------
     // Prayer points

@@ -896,6 +896,9 @@ public class PlayerRepository {
         boolean isMember = false;
         try { isMember = rs.getBoolean("is_member"); } catch (SQLException ignored) {}
         player.setMember(isMember);
+        boolean adminToolsEnabled = false;
+        try { adminToolsEnabled = rs.getBoolean("admin_tools_enabled"); } catch (SQLException ignored) {}
+        player.setAdminToolsEnabled(adminToolsEnabled);
 
         int hpLevel = player.getSkillLevel(Player.SKILL_HITPOINTS);
         player.setHealth(hpLevel);

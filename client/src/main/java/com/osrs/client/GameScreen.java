@@ -20,6 +20,7 @@ import com.osrs.client.network.NettyClient;
 import com.osrs.client.renderer.CoordinateConverter;
 import com.osrs.client.renderer.IsometricRenderer;
 import com.osrs.client.world.MapLoader;
+import com.osrs.client.ui.AdminToolsPopup;
 import com.osrs.client.ui.ChatBox;
 import com.osrs.client.ui.CombatUI;
 import com.osrs.client.ui.ContextMenu;
@@ -66,6 +67,10 @@ public class GameScreen extends ApplicationAdapter {
 
     /** OSRS walk speed: 1 tile per 0.6 s. */
     private static final float TILES_PER_SECOND = 1.0f / 0.6f;
+    private static final int ADMIN_BUTTON_X = 10;
+    private static final int ADMIN_BUTTON_Y_FROM_TOP = 44;
+    private static final int ADMIN_BUTTON_W = 76;
+    private static final int ADMIN_BUTTON_H = 24;
 
     /** Chebyshev distance to activate an NPC interaction. */
     private static final int INTERACT_RANGE = 1;
@@ -121,6 +126,8 @@ public class GameScreen extends ApplicationAdapter {
     private XpDropOverlay xpDropOverlay;
     private LevelUpOverlay levelUpOverlay;
     private SkillGuidePopup skillGuidePopup;
+    private AdminToolsPopup adminToolsPopup;
+    private boolean loggedAdminButtonVisible = false;
     private int[][]      tileMap;
     private MapLoader    mapLoader;
 
@@ -383,6 +390,7 @@ public class GameScreen extends ApplicationAdapter {
         xpDropOverlay  = new XpDropOverlay();
         levelUpOverlay = new LevelUpOverlay();
         skillGuidePopup = new SkillGuidePopup();
+        adminToolsPopup = new AdminToolsPopup();
 
         Thread t = new Thread(() -> {
             try {
@@ -597,6 +605,8 @@ public class GameScreen extends ApplicationAdapter {
         }
         levelUpOverlay.render(shapeRenderer, screenBatch, font, w, h, screenProjection);
         skillGuidePopup.render(shapeRenderer, screenBatch, font, w, h, screenProjection);
+        renderAdminToolsButton(shapeRenderer, screenBatch, font, w, h, screenProjection, mouseScreenX, mouseScreenY);
+        adminToolsPopup.render(shapeRenderer, screenBatch, font, w, h, screenProjection);
         xpDropOverlay.render(shapeRenderer, screenBatch, font, w, h, screenProjection,
             sidePanel.getPanelX(), SidePanel.TOTAL_H + SidePanel.MARGIN);
         if (handler != null && handler.isBankOpen()) {
@@ -624,8 +634,10 @@ public class GameScreen extends ApplicationAdapter {
 
     private boolean isInUiArea(int mouseX, int mouseY) {
         if (mouseY < ChatBox.TOTAL_H && mouseX >= 0 && mouseX < ChatBox.BOX_W) return true;
+        if (isAdminToolsButtonVisible() && isAdminToolsButtonHit(mouseX, mouseY, Gdx.graphics.getHeight())) return true;
         if (sidePanel != null && sidePanel.isOverPanel(mouseX, mouseY)) return true;
         if (dialogueUI != null && dialogueUI.isVisible() && dialogueUI.isOverDialogue(mouseX, mouseY)) return true;
+        if (adminToolsPopup != null && adminToolsPopup.isVisible()) return true;
         if (skillGuidePopup != null && skillGuidePopup.isVisible()) return true;
         if (contextMenu != null && contextMenu.isVisible()) return true;
         int w = Gdx.graphics.getWidth();
@@ -636,6 +648,58 @@ public class GameScreen extends ApplicationAdapter {
         if (Math.hypot(mouseX - orbCx, mouseY - (h - 44)) <= 22) return true;
         if (Math.hypot(mouseX - orbCx, mouseY - (h - 92)) <= 22) return true;
         return false;
+    }
+
+    private boolean isAdminToolsButtonVisible() {
+        ClientPacketHandler h = handler();
+        return h != null && h.isAdminToolsEnabled();
+    }
+
+    private boolean isAdminToolsButtonHit(int mouseX, int mouseY, int screenH) {
+        int x = ADMIN_BUTTON_X;
+        int y = screenH - ADMIN_BUTTON_Y_FROM_TOP;
+        return mouseX >= x && mouseX <= x + ADMIN_BUTTON_W && mouseY >= y && mouseY <= y + ADMIN_BUTTON_H;
+    }
+
+    private void renderAdminToolsButton(ShapeRenderer shapeRenderer,
+                                        SpriteBatch batch,
+                                        BitmapFont font,
+                                        int screenW,
+                                        int screenH,
+                                        Matrix4 projection,
+                                        int mouseX,
+                                        int mouseY) {
+        if (!isAdminToolsButtonVisible()) {
+            loggedAdminButtonVisible = false;
+            return;
+        }
+        if (!loggedAdminButtonVisible) {
+            LOG.info("Admin tools button visible for current player");
+            loggedAdminButtonVisible = true;
+        }
+        int x = ADMIN_BUTTON_X;
+        int y = screenH - ADMIN_BUTTON_Y_FROM_TOP;
+        boolean hover = isAdminToolsButtonHit(mouseX, mouseY, screenH);
+
+        shapeRenderer.setProjectionMatrix(projection);
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+        shapeRenderer.setColor(hover ? 0.74f : 0.64f, hover ? 0.56f : 0.48f, hover ? 0.28f : 0.24f, 0.95f);
+        shapeRenderer.rect(x, y, ADMIN_BUTTON_W, ADMIN_BUTTON_H);
+        shapeRenderer.end();
+
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Line);
+        shapeRenderer.setColor(0.24f, 0.16f, 0.06f, 1f);
+        shapeRenderer.rect(x, y, ADMIN_BUTTON_W, ADMIN_BUTTON_H);
+        shapeRenderer.end();
+
+        batch.setProjectionMatrix(projection);
+        batch.begin();
+        font.getData().setScale(0.62f);
+        font.setColor(0.16f, 0.10f, 0.03f, 1f);
+        font.draw(batch, "Admin", x + 18, y + 17);
+        font.getData().setScale(1f);
+        font.setColor(Color.WHITE);
+        batch.end();
     }
 
     // -----------------------------------------------------------------------
@@ -1045,6 +1109,21 @@ public class GameScreen extends ApplicationAdapter {
             return;
         }
 
+        if (adminToolsPopup != null && adminToolsPopup.isVisible()) {
+            int mx = Gdx.input.getX();
+            int screenMy = Gdx.graphics.getHeight() - Gdx.input.getY();
+            if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
+                adminToolsPopup.dismiss();
+                return;
+            }
+            if (Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)
+                || Gdx.input.isButtonJustPressed(Input.Buttons.RIGHT)
+                || Gdx.input.isButtonJustPressed(Input.Buttons.MIDDLE)) {
+                adminToolsPopup.handleClick(mx, screenMy);
+                return;
+            }
+        }
+
         if (skillGuidePopup != null && skillGuidePopup.isVisible()) {
             int mx = Gdx.input.getX();
             int screenMy = Gdx.graphics.getHeight() - Gdx.input.getY();
@@ -1380,6 +1459,13 @@ public class GameScreen extends ApplicationAdapter {
             inventoryMouseDownSlot = -1;
             // Level-up overlay has highest click priority
             if (levelUpOverlay.isActive() && levelUpOverlay.handleClick(mx, screenMy)) return;
+
+            if (isAdminToolsButtonVisible() && isAdminToolsButtonHit(mx, screenMy, h)) {
+                adminToolsPopup.show();
+                contextMenu.close();
+                return;
+            }
+
             // OSRS run: clicking the run energy orb toggles run on/off
             {
                 int miniLeftX = MiniMap.getLeftX(w);
@@ -1486,6 +1572,10 @@ public class GameScreen extends ApplicationAdapter {
         }
 
         if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
+            if (adminToolsPopup != null && adminToolsPopup.isVisible()) {
+                adminToolsPopup.dismiss();
+                return;
+            }
             if (skillGuidePopup != null && skillGuidePopup.isVisible()) {
                 skillGuidePopup.dismiss();
                 return;

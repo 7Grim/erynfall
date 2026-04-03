@@ -207,6 +207,7 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
     private final int[]  skillLevels   = {1,1,1,1,1,1,1,1,1,1, 1,1,1,1,1,1,1,1,1,1, 1,1,1};
     private final long[] skillTotalXp  = new long[23];
     private boolean localPlayerIsMember = false;
+    private boolean localPlayerIsAdminToolsEnabled = false;
     private boolean leveledUp = false;
     private int leveledUpSkill = -1;
 
@@ -328,12 +329,19 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
     // -----------------------------------------------------------------------
 
     private void handleHandshakeResponse(NetworkProto.HandshakeResponse response) {
+        LOG.info("Handshake response: success={} message='{}' playerId={} member={} adminToolsEnabled={}",
+            response.getSuccess(),
+            response.getMessage(),
+            response.getPlayerId(),
+            response.getIsMember(),
+            response.getIsAdminToolsEnabled());
         if (response.getSuccess()) {
             myPlayerId = response.getPlayerId();
+            localPlayerIsMember = response.getIsMember();
+            localPlayerIsAdminToolsEnabled = response.getIsAdminToolsEnabled();
+        } else {
+            localPlayerIsAdminToolsEnabled = false;
         }
-        localPlayerIsMember = response.getIsMember();
-        LOG.info("Handshake: playerId={} success={} msg={}",
-            myPlayerId, response.getSuccess(), response.getMessage());
         this.lastHandshakeResponse = response;
         client.setHandshakeResponse(response);
     }
@@ -700,6 +708,7 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
     }
 
     public boolean isMember() { return localPlayerIsMember; }
+    public boolean isAdminToolsEnabled() { return localPlayerIsAdminToolsEnabled; }
 
     private void handlePlayerDeath(NetworkProto.PlayerDeath death) {
         deathRespawnX = death.getRespawnX();

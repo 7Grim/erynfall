@@ -18,6 +18,7 @@ message HandshakeResponse {
     string message = 2;
     int32 player_id = 3;
     bool is_member = 4;
+    bool is_admin_tools_enabled = 5;
 }
 
 // PlayerMovement: Client → Server
