@@ -14,6 +14,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 
 public class BankUI {
 
@@ -85,6 +86,12 @@ public class BankUI {
     private int plusTabY;
     private int plusTabW;
     private int plusTabH;
+    private int searchBoxX;
+    private int searchBoxY;
+    private int searchBoxW;
+    private int searchBoxH;
+    private boolean searchFocused = false;
+    private String searchQuery = "";
 
     public void render(ShapeRenderer shapeRenderer,
                        SpriteBatch batch,
@@ -105,6 +112,7 @@ public class BankUI {
         clampSelectedTab(slots);
 
         List<ClientPacketHandler.BankSlotSnapshot> displaySlots = getDisplaySlots(slots);
+        boolean packedDisplay = selectedTab != ALL_TAB || isSearchActive();
         int maxBankRow = getMaxBankRow(slots, displaySlots);
         int maxScroll = Math.max(0, maxBankRow - bankVisibleRows + 1);
         if (scrollRows > maxScroll) {
@@ -139,6 +147,10 @@ public class BankUI {
             shapeRenderer.setColor(0.16f, 0.14f, 0.11f, 1f);
             shapeRenderer.rect(plusTabX, plusTabY, plusTabW, plusTabH);
         }
+
+        shapeRenderer.setColor(searchFocused ? 0.24f : 0.16f, searchFocused ? 0.20f : 0.14f,
+            searchFocused ? 0.11f : 0.10f, 1f);
+        shapeRenderer.rect(searchBoxX, searchBoxY, searchBoxW, searchBoxH);
 
         if (selectedTab == ALL_TAB) {
             shapeRenderer.setColor(0.86f, 0.72f, 0.34f, 1f);
@@ -190,7 +202,7 @@ public class BankUI {
             }
         }
 
-        if (selectedTab == ALL_TAB) {
+        if (!packedDisplay) {
             for (ClientPacketHandler.BankSlotSnapshot slot : displaySlots) {
                 if (slot.slot == draggingBankSlot) continue;
                 int slotIndex = slot.slot;
@@ -260,6 +272,7 @@ public class BankUI {
         if (plusTabW > 0) {
             shapeRenderer.rect(plusTabX, plusTabY, plusTabW, plusTabH);
         }
+        shapeRenderer.rect(searchBoxX, searchBoxY, searchBoxW, searchBoxH);
         for (int i = 0; i < amountValues.length; i++) {
             shapeRenderer.rect(amountButtonX[i], amountButtonY[i], amountButtonW[i], amountButtonH[i]);
         }
@@ -292,6 +305,13 @@ public class BankUI {
             font.draw(batch, "+", plusTabX + (plusTabW - glyph.width) / 2f, plusTabY + TAB_H - 7f);
         }
 
+        font.getData().setScale(0.62f);
+        String searchLabel = searchQuery == null || searchQuery.isEmpty() ? "Search..." : searchQuery;
+        font.setColor((searchQuery == null || searchQuery.isEmpty())
+            ? new Color(0.70f, 0.66f, 0.58f, 1f)
+            : new Color(0.94f, 0.92f, 0.84f, 1f));
+        font.draw(batch, searchLabel, searchBoxX + 8, searchBoxY + searchBoxH - 6);
+
         font.getData().setScale(0.66f);
         font.setColor(0.95f, 0.93f, 0.84f, 1f);
         font.draw(batch, "Bank", bankGridX, bankGridY + bankGridH + 13);
@@ -308,7 +328,7 @@ public class BankUI {
         }
 
         font.getData().setScale(0.58f);
-        if (selectedTab == ALL_TAB) {
+        if (!packedDisplay) {
             for (ClientPacketHandler.BankSlotSnapshot slot : displaySlots) {
                 if (slot.slot == draggingBankSlot) continue;
                 int row = slot.slot / BANK_COLS;
@@ -377,10 +397,106 @@ public class BankUI {
     public void resetSelectedTab() {
         selectedTab = ALL_TAB;
         scrollRows = 0;
+        searchQuery = "";
+        searchFocused = false;
     }
 
     public boolean isAllTabSelected() {
         return selectedTab == ALL_TAB;
+    }
+
+    public boolean isSearchFocused() {
+        return searchFocused;
+    }
+
+    public boolean isSearchActive() {
+        return searchQuery != null && !searchQuery.isBlank();
+    }
+
+    public String getSearchQuery() {
+        return searchQuery == null ? "" : searchQuery;
+    }
+
+    public void clearSearch() {
+        searchQuery = "";
+        searchFocused = false;
+        scrollRows = 0;
+    }
+
+    public void unfocusSearch() {
+        searchFocused = false;
+    }
+
+    public boolean isSearchBoxHit(int mouseX, int mouseY) {
+        return mouseX >= searchBoxX && mouseX <= searchBoxX + searchBoxW
+            && mouseY >= searchBoxY && mouseY <= searchBoxY + searchBoxH;
+    }
+
+    public void focusSearch() {
+        searchFocused = true;
+    }
+
+    public void setSearchQuery(String searchQuery) {
+        this.searchQuery = searchQuery == null ? "" : searchQuery;
+        scrollRows = 0;
+    }
+
+    public boolean handleSearchKey(int keycode, boolean shiftDown) {
+        if (!searchFocused) return false;
+        if (keycode == com.badlogic.gdx.Input.Keys.BACKSPACE) {
+            if (!searchQuery.isEmpty()) {
+                searchQuery = searchQuery.substring(0, searchQuery.length() - 1);
+            }
+            scrollRows = 0;
+            return true;
+        }
+        if (keycode == com.badlogic.gdx.Input.Keys.ESCAPE) {
+            if (!searchQuery.isEmpty()) {
+                searchQuery = "";
+            } else {
+                searchFocused = false;
+            }
+            scrollRows = 0;
+            return true;
+        }
+        if (keycode == com.badlogic.gdx.Input.Keys.SPACE) {
+            searchQuery += " ";
+            scrollRows = 0;
+            return true;
+        }
+        for (int k = com.badlogic.gdx.Input.Keys.A; k <= com.badlogic.gdx.Input.Keys.Z; k++) {
+            if (keycode == k) {
+                char c = com.badlogic.gdx.Input.Keys.toString(k).charAt(0);
+                c = shiftDown ? c : Character.toLowerCase(c);
+                searchQuery += c;
+                scrollRows = 0;
+                return true;
+            }
+        }
+        int[] numKeys = {
+            com.badlogic.gdx.Input.Keys.NUM_0, com.badlogic.gdx.Input.Keys.NUM_1, com.badlogic.gdx.Input.Keys.NUM_2,
+            com.badlogic.gdx.Input.Keys.NUM_3, com.badlogic.gdx.Input.Keys.NUM_4, com.badlogic.gdx.Input.Keys.NUM_5,
+            com.badlogic.gdx.Input.Keys.NUM_6, com.badlogic.gdx.Input.Keys.NUM_7, com.badlogic.gdx.Input.Keys.NUM_8,
+            com.badlogic.gdx.Input.Keys.NUM_9
+        };
+        for (int i = 0; i < numKeys.length; i++) {
+            if (keycode == numKeys[i]) {
+                searchQuery += (char) ('0' + i);
+                scrollRows = 0;
+                return true;
+            }
+        }
+        if (keycode == com.badlogic.gdx.Input.Keys.MINUS) {
+            searchQuery += "-";
+            scrollRows = 0;
+            return true;
+        }
+        if (keycode == com.badlogic.gdx.Input.Keys.APOSTROPHE) {
+            searchQuery += "'";
+            scrollRows = 0;
+            return true;
+        }
+        return false;
     }
 
     public boolean clickTab(int mouseX, int mouseY, List<ClientPacketHandler.BankSlotSnapshot> slots) {
@@ -404,6 +520,7 @@ public class BankUI {
     }
 
     public int getTabDropTarget(int mouseX, int mouseY, List<ClientPacketHandler.BankSlotSnapshot> slots) {
+        if (isSearchActive()) return -1;
         if (mouseX >= allTabX && mouseX <= allTabX + allTabW && mouseY >= allTabY && mouseY <= allTabY + allTabH) {
             return 0;
         }
@@ -453,7 +570,7 @@ public class BankUI {
         int col = (mouseX - bankGridX) / (CELL + CELL_GAP);
         int rowFromTop = (bankGridY + bankGridH - mouseY - 1) / (CELL + CELL_GAP);
         if (col < 0 || col >= BANK_COLS || rowFromTop < 0 || rowFromTop >= bankVisibleRows) return -1;
-        if (selectedTab == ALL_TAB) {
+        if (selectedTab == ALL_TAB && !isSearchActive()) {
             int slotIndex = (scrollRows + rowFromTop) * BANK_COLS + col;
             if (slots == null) return -1;
             for (ClientPacketHandler.BankSlotSnapshot slot : slots) {
@@ -472,6 +589,7 @@ public class BankUI {
     }
 
     public int getBankCellSlotAt(int mouseX, int mouseY) {
+        if (isSearchActive()) return -1;
         if (selectedTab != ALL_TAB) return -1;
         if (!isBankCellHit(mouseX, mouseY)) return -1;
         int col = (mouseX - bankGridX) / (CELL + CELL_GAP);
@@ -612,7 +730,15 @@ public class BankUI {
     private List<ClientPacketHandler.BankSlotSnapshot> getDisplaySlots(List<ClientPacketHandler.BankSlotSnapshot> slots) {
         if (slots == null || slots.isEmpty()) return Collections.emptyList();
         List<ClientPacketHandler.BankSlotSnapshot> out = new ArrayList<>();
-        if (selectedTab == ALL_TAB) {
+        String query = searchQuery == null ? "" : searchQuery.trim().toLowerCase(Locale.ROOT);
+        if (!query.isEmpty()) {
+            for (ClientPacketHandler.BankSlotSnapshot slot : slots) {
+                String name = slot.itemName == null ? "" : slot.itemName.toLowerCase(Locale.ROOT);
+                if (name.contains(query)) {
+                    out.add(slot);
+                }
+            }
+        } else if (selectedTab == ALL_TAB) {
             out.addAll(slots);
         } else {
             for (ClientPacketHandler.BankSlotSnapshot slot : slots) {
@@ -627,7 +753,7 @@ public class BankUI {
 
     private int getMaxBankRow(List<ClientPacketHandler.BankSlotSnapshot> slots,
                               List<ClientPacketHandler.BankSlotSnapshot> displaySlots) {
-        if (selectedTab == ALL_TAB) {
+        if (selectedTab == ALL_TAB && !isSearchActive()) {
             if (slots == null || slots.isEmpty()) return 0;
             int maxSlot = 0;
             for (ClientPacketHandler.BankSlotSnapshot slot : slots) {
@@ -702,6 +828,11 @@ public class BankUI {
             plusTabW = 0;
             plusTabH = 0;
         }
+
+        searchBoxW = 180;
+        searchBoxH = 22;
+        searchBoxX = panelX + panelW - PADDING - CLOSE_W - 12 - searchBoxW;
+        searchBoxY = allTabY + 2;
 
         int amountY = (contentTop - tabBandH) - amountBandH;
         int buttonW = 48;

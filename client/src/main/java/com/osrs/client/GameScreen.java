@@ -1125,6 +1125,49 @@ public class GameScreen extends ApplicationAdapter {
                 bankInventoryDragSlot = -1;
                 bankInventoryDragging = false;
             }
+            if (bankUI.isSearchFocused()) {
+                boolean shiftDown = Gdx.input.isKeyPressed(Input.Keys.SHIFT_LEFT)
+                    || Gdx.input.isKeyPressed(Input.Keys.SHIFT_RIGHT);
+                if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
+                    if (bankUI.handleSearchKey(Input.Keys.ESCAPE, shiftDown)) {
+                        return;
+                    }
+                }
+                if (Gdx.input.isKeyJustPressed(Input.Keys.BACKSPACE)) {
+                    if (bankUI.handleSearchKey(Input.Keys.BACKSPACE, shiftDown)) {
+                        return;
+                    }
+                }
+                if (Gdx.input.isKeyJustPressed(Input.Keys.SPACE)) {
+                    if (bankUI.handleSearchKey(Input.Keys.SPACE, shiftDown)) {
+                        return;
+                    }
+                }
+                if (Gdx.input.isKeyJustPressed(Input.Keys.MINUS)) {
+                    if (bankUI.handleSearchKey(Input.Keys.MINUS, shiftDown)) {
+                        return;
+                    }
+                }
+                if (Gdx.input.isKeyJustPressed(Input.Keys.APOSTROPHE)) {
+                    if (bankUI.handleSearchKey(Input.Keys.APOSTROPHE, shiftDown)) {
+                        return;
+                    }
+                }
+                for (int key = Input.Keys.A; key <= Input.Keys.Z; key++) {
+                    if (Gdx.input.isKeyJustPressed(key) && bankUI.handleSearchKey(key, shiftDown)) {
+                        return;
+                    }
+                }
+                int[] numKeys = {
+                    Input.Keys.NUM_0, Input.Keys.NUM_1, Input.Keys.NUM_2, Input.Keys.NUM_3, Input.Keys.NUM_4,
+                    Input.Keys.NUM_5, Input.Keys.NUM_6, Input.Keys.NUM_7, Input.Keys.NUM_8, Input.Keys.NUM_9
+                };
+                for (int key : numKeys) {
+                    if (Gdx.input.isKeyJustPressed(key) && bankUI.handleSearchKey(key, shiftDown)) {
+                        return;
+                    }
+                }
+            }
             handleBankInput();
             return;
         }
@@ -1574,6 +1617,14 @@ public class GameScreen extends ApplicationAdapter {
         int screenMy = Gdx.graphics.getHeight() - Gdx.input.getY();
 
         if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
+            if (bankUI.isSearchActive()) {
+                bankUI.clearSearch();
+                return;
+            }
+            if (bankUI.isSearchFocused()) {
+                bankUI.unfocusSearch();
+                return;
+            }
             if (nettyClient != null) {
                 nettyClient.sendCloseBankRequest();
             }
@@ -1581,6 +1632,10 @@ public class GameScreen extends ApplicationAdapter {
         }
 
         if (Gdx.input.isButtonJustPressed(Input.Buttons.RIGHT)) {
+            if (bankUI.isSearchBoxHit(mx, screenMy)) {
+                contextMenu.close();
+                return;
+            }
             int bankSlot = bankUI.getBankSlotAt(mx, screenMy, h.getBankSlots());
             if (bankSlot >= 0) {
                 showBankWithdrawContextMenu(bankSlot, mx, screenMy);
@@ -1606,6 +1661,13 @@ public class GameScreen extends ApplicationAdapter {
             }
             contextMenu.close();
             return;
+        }
+
+        if (bankUI.isSearchBoxHit(mx, screenMy)) {
+            bankUI.focusSearch();
+            return;
+        } else {
+            bankUI.unfocusSearch();
         }
 
         if (bankUI.clickTab(mx, screenMy, h.getBankSlots())) {
