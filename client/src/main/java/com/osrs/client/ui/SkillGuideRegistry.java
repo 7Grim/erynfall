@@ -1,0 +1,294 @@
+package com.osrs.client.ui;
+
+import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.graphics.g2d.BitmapFont;
+import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
+import com.badlogic.gdx.math.Matrix4;
+import com.osrs.shared.WoodcuttingRegistry;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+public final class SkillGuideRegistry {
+
+    private static final int SKILL_WOODCUTTING = 7;
+    private static final Map<Integer, SkillGuidePopup.SkillGuideProvider> PROVIDERS = new HashMap<>();
+
+    static {
+        register(SKILL_WOODCUTTING, new WoodcuttingGuideProvider());
+    }
+
+    private SkillGuideRegistry() {
+    }
+
+    public static void register(int skillIdx, SkillGuidePopup.SkillGuideProvider provider) {
+        if (provider == null) {
+            PROVIDERS.remove(skillIdx);
+        } else {
+            PROVIDERS.put(skillIdx, provider);
+        }
+    }
+
+    public static SkillGuidePopup.SkillGuideProvider get(int skillIdx) {
+        return PROVIDERS.get(skillIdx);
+    }
+
+    private static final class WoodcuttingGuideProvider implements SkillGuidePopup.SkillGuideProvider {
+
+        private static final List<SkillGuidePopup.GuideSection> SECTIONS = List.of(
+            new SkillGuidePopup.GuideSection("Introduction"),
+            new SkillGuidePopup.GuideSection("Trees"),
+            new SkillGuidePopup.GuideSection("Axes")
+        );
+
+        private static final Color TEXT_MAIN = new Color(0.24f, 0.16f, 0.06f, 1f);
+        private static final Color TEXT_LOCKED = new Color(0.45f, 0.36f, 0.24f, 1f);
+        private static final Color TEXT_UNLOCKED = new Color(0.22f, 0.14f, 0.06f, 1f);
+        private static final Color TEXT_NEXT = new Color(0.48f, 0.28f, 0.04f, 1f);
+        private static final Color ROW_UNLOCKED = new Color(0.88f, 0.81f, 0.67f, 1f);
+        private static final Color ROW_LOCKED = new Color(0.78f, 0.71f, 0.57f, 1f);
+        private static final Color ROW_NEXT = new Color(0.94f, 0.82f, 0.50f, 1f);
+
+        @Override
+        public String getTitle(int skillIdx) {
+            return "Woodcutting";
+        }
+
+        @Override
+        public List<SkillGuidePopup.GuideSection> getSections(int skillIdx) {
+            return SECTIONS;
+        }
+
+        @Override
+        public void renderSectionContent(ShapeRenderer shapeRenderer,
+                                         SpriteBatch batch,
+                                         BitmapFont font,
+                                         Matrix4 projection,
+                                         int skillIdx,
+                                         int level,
+                                         long totalXp,
+                                         int sectionIdx,
+                                         float contentX,
+                                         float contentY,
+                                         float contentW,
+                                         float contentH,
+                                         float scrollOffset) {
+            if (sectionIdx == 0) {
+                renderIntroduction(shapeRenderer, batch, font, projection, contentX, contentY, contentW, contentH);
+            } else if (sectionIdx == 1) {
+                renderTrees(shapeRenderer, batch, font, projection, level, contentX, contentY, contentW, contentH, scrollOffset);
+            } else if (sectionIdx == 2) {
+                renderAxes(shapeRenderer, batch, font, projection, level, contentX, contentY, contentW, contentH, scrollOffset);
+            }
+        }
+
+        @Override
+        public float getSectionContentHeight(int skillIdx, int level, int sectionIdx, float contentW) {
+            if (sectionIdx == 1) {
+                return 18f + WoodcuttingRegistry.trees().size() * 32f + 12f;
+            }
+            if (sectionIdx == 2) {
+                return 18f + WoodcuttingRegistry.axes().size() * 32f + 12f;
+            }
+            return 220f;
+        }
+
+        private void renderIntroduction(ShapeRenderer shapeRenderer,
+                                        SpriteBatch batch,
+                                        BitmapFont font,
+                                        Matrix4 projection,
+                                        float x,
+                                        float y,
+                                        float w,
+                                        float h) {
+            float blockH = 82f;
+            float top = y + h - 14f;
+
+            shapeRenderer.setProjectionMatrix(projection);
+            shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+            for (int i = 0; i < 3; i++) {
+                float by = top - (i + 1) * blockH;
+                shapeRenderer.setColor(0.92f, 0.84f, 0.69f, 1f);
+                shapeRenderer.rect(x + 8, by, w - 16, blockH - 8);
+                shapeRenderer.setColor(0.64f, 0.50f, 0.30f, 1f);
+                shapeRenderer.rect(x + 10, by + blockH - 16, w - 20, 2);
+            }
+            drawTreeIcon(shapeRenderer, x + 20, top - blockH + 12);
+            ItemIconRenderer.drawItemIcon(shapeRenderer, x + 20, top - blockH * 2 + 12, 1511);
+            ItemIconRenderer.drawItemIcon(shapeRenderer, x + 20, top - blockH * 3 + 12, 1351);
+            shapeRenderer.end();
+
+            batch.setProjectionMatrix(projection);
+            batch.begin();
+            font.getData().setScale(0.72f);
+            font.setColor(TEXT_MAIN);
+            font.draw(batch, "Chop trees to collect logs used in crafting and firemaking.", x + 62, top - 18);
+            font.draw(batch, "As your Woodcutting level rises, your chop success improves.", x + 62, top - blockH - 18);
+            font.draw(batch, "Better axes cut faster. Axes work from inventory even", x + 62, top - blockH * 2 - 16);
+            font.draw(batch, "when you do not meet the Attack level to equip them.", x + 62, top - blockH * 2 - 34);
+            batch.end();
+        }
+
+        private void renderTrees(ShapeRenderer shapeRenderer,
+                                 SpriteBatch batch,
+                                 BitmapFont font,
+                                 Matrix4 projection,
+                                 int level,
+                                 float x,
+                                 float y,
+                                 float w,
+                                 float h,
+                                 float scrollOffset) {
+            float rowH = 32f;
+            int nextReq = findNextTreeLevel(level);
+
+            shapeRenderer.setProjectionMatrix(projection);
+            shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+            float yCursor = y + h - 14f - scrollOffset;
+            for (WoodcuttingRegistry.TreeTier tree : WoodcuttingRegistry.trees()) {
+                float rowY = yCursor - rowH;
+                boolean visible = rowY + rowH >= y && rowY <= y + h;
+                if (visible) {
+                    boolean unlocked = level >= tree.levelRequirement();
+                    boolean next = !unlocked && tree.levelRequirement() == nextReq;
+                    if (next) {
+                        shapeRenderer.setColor(ROW_NEXT);
+                    } else if (unlocked) {
+                        shapeRenderer.setColor(ROW_UNLOCKED);
+                    } else {
+                        shapeRenderer.setColor(ROW_LOCKED);
+                    }
+                    shapeRenderer.rect(x + 8, rowY + 2, w - 16, rowH - 4);
+                    ItemIconRenderer.drawItemIcon(shapeRenderer, x + 72, rowY + 1, tree.logItemId());
+                }
+                yCursor -= rowH;
+            }
+            shapeRenderer.end();
+
+            batch.setProjectionMatrix(projection);
+            batch.begin();
+            font.getData().setScale(0.68f);
+            yCursor = y + h - 14f - scrollOffset;
+            for (WoodcuttingRegistry.TreeTier tree : WoodcuttingRegistry.trees()) {
+                float rowY = yCursor - rowH;
+                boolean visible = rowY + rowH >= y && rowY <= y + h;
+                if (visible) {
+                    boolean unlocked = level >= tree.levelRequirement();
+                    boolean next = !unlocked && tree.levelRequirement() == nextReq;
+                    if (next) {
+                        font.setColor(TEXT_NEXT);
+                    } else if (unlocked) {
+                        font.setColor(TEXT_UNLOCKED);
+                    } else {
+                        font.setColor(TEXT_LOCKED);
+                    }
+                    font.draw(batch, "Lv " + tree.levelRequirement(), x + 16, rowY + 21);
+                    font.draw(batch, tree.name(), x + 116, rowY + 21);
+                    font.draw(batch, formatXpTenths(tree.xpTenths()) + " xp", x + w - 88, rowY + 21);
+                }
+                yCursor -= rowH;
+            }
+            batch.end();
+        }
+
+        private void renderAxes(ShapeRenderer shapeRenderer,
+                                SpriteBatch batch,
+                                BitmapFont font,
+                                Matrix4 projection,
+                                int level,
+                                float x,
+                                float y,
+                                float w,
+                                float h,
+                                float scrollOffset) {
+            float rowH = 32f;
+            int nextReq = findNextAxeLevel(level);
+
+            shapeRenderer.setProjectionMatrix(projection);
+            shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+            float yCursor = y + h - 14f - scrollOffset;
+            for (WoodcuttingRegistry.AxeTier axe : WoodcuttingRegistry.axes()) {
+                float rowY = yCursor - rowH;
+                boolean visible = rowY + rowH >= y && rowY <= y + h;
+                if (visible) {
+                    boolean unlocked = level >= axe.woodcuttingLevel();
+                    boolean next = !unlocked && axe.woodcuttingLevel() == nextReq;
+                    if (next) {
+                        shapeRenderer.setColor(ROW_NEXT);
+                    } else if (unlocked) {
+                        shapeRenderer.setColor(ROW_UNLOCKED);
+                    } else {
+                        shapeRenderer.setColor(ROW_LOCKED);
+                    }
+                    shapeRenderer.rect(x + 8, rowY + 2, w - 16, rowH - 4);
+                    ItemIconRenderer.drawItemIcon(shapeRenderer, x + 72, rowY + 1, axe.itemId());
+                }
+                yCursor -= rowH;
+            }
+            shapeRenderer.end();
+
+            batch.setProjectionMatrix(projection);
+            batch.begin();
+            font.getData().setScale(0.68f);
+            yCursor = y + h - 14f - scrollOffset;
+            for (WoodcuttingRegistry.AxeTier axe : WoodcuttingRegistry.axes()) {
+                float rowY = yCursor - rowH;
+                boolean visible = rowY + rowH >= y && rowY <= y + h;
+                if (visible) {
+                    boolean unlocked = level >= axe.woodcuttingLevel();
+                    boolean next = !unlocked && axe.woodcuttingLevel() == nextReq;
+                    if (next) {
+                        font.setColor(TEXT_NEXT);
+                    } else if (unlocked) {
+                        font.setColor(TEXT_UNLOCKED);
+                    } else {
+                        font.setColor(TEXT_LOCKED);
+                    }
+                    font.draw(batch, "Lv " + axe.woodcuttingLevel(), x + 16, rowY + 21);
+                    font.draw(batch, axe.name(), x + 116, rowY + 21);
+                    font.draw(batch, "Atk " + axe.attackLevelToEquip(), x + w - 88, rowY + 21);
+                }
+                yCursor -= rowH;
+            }
+            batch.end();
+        }
+
+        private static int findNextTreeLevel(int level) {
+            for (WoodcuttingRegistry.TreeTier tree : WoodcuttingRegistry.trees()) {
+                if (tree.levelRequirement() > level) {
+                    return tree.levelRequirement();
+                }
+            }
+            return -1;
+        }
+
+        private static int findNextAxeLevel(int level) {
+            for (WoodcuttingRegistry.AxeTier axe : WoodcuttingRegistry.axes()) {
+                if (axe.woodcuttingLevel() > level) {
+                    return axe.woodcuttingLevel();
+                }
+            }
+            return -1;
+        }
+
+        private static String formatXpTenths(int xpTenths) {
+            if (xpTenths % 10 == 0) {
+                return Integer.toString(xpTenths / 10);
+            }
+            return (xpTenths / 10) + "." + Math.abs(xpTenths % 10);
+        }
+
+        private static void drawTreeIcon(ShapeRenderer sr, float slotLeft, float slotBottom) {
+            float x = slotLeft + 4f;
+            float y = slotBottom + 3f;
+            sr.setColor(0.46f, 0.28f, 0.12f, 1f);
+            sr.rect(x + 11, y + 2, 5, 13);
+            sr.setColor(0.20f, 0.56f, 0.22f, 1f);
+            sr.rect(x + 5, y + 12, 17, 10);
+            sr.setColor(0.28f, 0.66f, 0.30f, 1f);
+            sr.rect(x + 7, y + 18, 13, 7);
+        }
+    }
+}

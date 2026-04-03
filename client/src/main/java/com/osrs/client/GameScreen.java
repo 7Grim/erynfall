@@ -27,7 +27,7 @@ import com.osrs.client.ui.DialogueUI;
 import com.osrs.client.ui.FontManager;
 import com.osrs.client.ui.BankUI;
 import com.osrs.client.ui.LevelUpOverlay;
-import com.osrs.client.ui.SkillDetailPopup;
+import com.osrs.client.ui.SkillGuidePopup;
 import com.osrs.client.ui.MiniMap;
 import com.osrs.client.ui.SidePanel;
 import com.osrs.client.ui.XpDropOverlay;
@@ -120,7 +120,7 @@ public class GameScreen extends ApplicationAdapter {
     private MiniMap      miniMap;
     private XpDropOverlay xpDropOverlay;
     private LevelUpOverlay levelUpOverlay;
-    private SkillDetailPopup skillDetailPopup;
+    private SkillGuidePopup skillGuidePopup;
     private int[][]      tileMap;
     private MapLoader    mapLoader;
 
@@ -341,6 +341,10 @@ public class GameScreen extends ApplicationAdapter {
             public boolean scrolled(float amountX, float amountY) {
                 int mx  = Gdx.input.getX();
                 int smy = Gdx.graphics.getHeight() - Gdx.input.getY(); // screen-space Y
+                if (skillGuidePopup != null && skillGuidePopup.isVisible()) {
+                    skillGuidePopup.handleScroll(amountY);
+                    return true;
+                }
                 ClientPacketHandler h = handler();
                 boolean bankOpen = h != null && h.isBankOpen();
                 if (bankOpen && bankUI != null && bankUI.isOver(mx, smy)) {
@@ -378,7 +382,7 @@ public class GameScreen extends ApplicationAdapter {
         chatBox        = new ChatBox();
         xpDropOverlay  = new XpDropOverlay();
         levelUpOverlay = new LevelUpOverlay();
-        skillDetailPopup = new SkillDetailPopup();
+        skillGuidePopup = new SkillGuidePopup();
 
         Thread t = new Thread(() -> {
             try {
@@ -592,7 +596,7 @@ public class GameScreen extends ApplicationAdapter {
             chatBox.render(shapeRenderer, screenBatch, font, w, h, screenProjection);
         }
         levelUpOverlay.render(shapeRenderer, screenBatch, font, w, h, screenProjection);
-        skillDetailPopup.render(shapeRenderer, screenBatch, font, sidePanel.getPanelX(), w, h, screenProjection);
+        skillGuidePopup.render(shapeRenderer, screenBatch, font, w, h, screenProjection);
         xpDropOverlay.render(shapeRenderer, screenBatch, font, w, h, screenProjection,
             sidePanel.getPanelX(), SidePanel.TOTAL_H + SidePanel.MARGIN);
         if (handler != null && handler.isBankOpen()) {
@@ -622,6 +626,7 @@ public class GameScreen extends ApplicationAdapter {
         if (mouseY < ChatBox.TOTAL_H && mouseX >= 0 && mouseX < ChatBox.BOX_W) return true;
         if (sidePanel != null && sidePanel.isOverPanel(mouseX, mouseY)) return true;
         if (dialogueUI != null && dialogueUI.isVisible() && dialogueUI.isOverDialogue(mouseX, mouseY)) return true;
+        if (skillGuidePopup != null && skillGuidePopup.isVisible()) return true;
         if (contextMenu != null && contextMenu.isVisible()) return true;
         int w = Gdx.graphics.getWidth();
         int h = Gdx.graphics.getHeight();
@@ -1039,6 +1044,21 @@ public class GameScreen extends ApplicationAdapter {
             return;
         }
 
+        if (skillGuidePopup != null && skillGuidePopup.isVisible()) {
+            int mx = Gdx.input.getX();
+            int screenMy = Gdx.graphics.getHeight() - Gdx.input.getY();
+            if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
+                skillGuidePopup.dismiss();
+                return;
+            }
+            if (Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)
+                || Gdx.input.isButtonJustPressed(Input.Buttons.RIGHT)
+                || Gdx.input.isButtonJustPressed(Input.Buttons.MIDDLE)) {
+                skillGuidePopup.handleClick(mx, screenMy);
+                return;
+            }
+        }
+
         ClientPacketHandler packetHandler = handler();
         if (packetHandler != null && packetHandler.isBankOpen()) {
             int mx = Gdx.input.getX();
@@ -1307,8 +1327,6 @@ public class GameScreen extends ApplicationAdapter {
             inventoryMouseDownSlot = -1;
             // Level-up overlay has highest click priority
             if (levelUpOverlay.isActive() && levelUpOverlay.handleClick(mx, screenMy)) return;
-            // Skill detail popup: inside click consumed, outside click dismisses and propagates
-            if (skillDetailPopup.isVisible() && skillDetailPopup.handleClick(mx, screenMy)) return;
             // OSRS run: clicking the run energy orb toggles run on/off
             {
                 int miniLeftX = MiniMap.getLeftX(w);
@@ -1364,7 +1382,7 @@ public class GameScreen extends ApplicationAdapter {
                 }
                 int skillClickIdx = sidePanel.consumeSkillClickIdx();
                 if (skillClickIdx >= 0) {
-                    skillDetailPopup.show(skillClickIdx,
+                    skillGuidePopup.show(skillClickIdx,
                         handler().getSkillLevel(skillClickIdx),
                         handler().getSkillTotalXp(skillClickIdx));
                 }
@@ -1415,6 +1433,10 @@ public class GameScreen extends ApplicationAdapter {
         }
 
         if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
+            if (skillGuidePopup != null && skillGuidePopup.isVisible()) {
+                skillGuidePopup.dismiss();
+                return;
+            }
             if (sidePanel.isLogoutTabActive()) {
                 sidePanel.cancelLogout();
             } else {
