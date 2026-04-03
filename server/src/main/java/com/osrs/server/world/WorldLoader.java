@@ -122,6 +122,7 @@ public class WorldLoader {
                     npcDef2.attackBonus     = getInt(npcDef, "attack_bonus",   0);
                     npcDef2.strengthBonus   = getInt(npcDef, "strength_bonus", 0);
                     npcDef2.defenceBonus    = getInt(npcDef, "defence_bonus",  0);
+                    npcDef2.isBanker        = getBoolean(npcDef, "is_banker", false);
 
                     worldData.npcs.add(npcDef2);
                 }
@@ -206,6 +207,7 @@ class WorldData {
         public int attackBonus   = 0;
         public int strengthBonus = 0;
         public int defenceBonus  = 0;
+        public boolean isBanker;
     }
     
     static class LootTable {

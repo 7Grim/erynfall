@@ -25,6 +25,7 @@ import com.osrs.client.ui.CombatUI;
 import com.osrs.client.ui.ContextMenu;
 import com.osrs.client.ui.DialogueUI;
 import com.osrs.client.ui.FontManager;
+import com.osrs.client.ui.BankUI;
 import com.osrs.client.ui.LevelUpOverlay;
 import com.osrs.client.ui.SkillDetailPopup;
 import com.osrs.client.ui.MiniMap;
@@ -114,6 +115,7 @@ public class GameScreen extends ApplicationAdapter {
     private CombatUI     combatUI;
     private SidePanel    sidePanel;
     private DialogueUI   dialogueUI;
+    private BankUI       bankUI;
     private ChatBox      chatBox;
     private MiniMap      miniMap;
     private XpDropOverlay xpDropOverlay;
@@ -323,7 +325,11 @@ public class GameScreen extends ApplicationAdapter {
             public boolean scrolled(float amountX, float amountY) {
                 int mx  = Gdx.input.getX();
                 int smy = Gdx.graphics.getHeight() - Gdx.input.getY(); // screen-space Y
-                if (smy < ChatBox.TOTAL_H && mx >= 0 && mx < ChatBox.BOX_W) {
+                ClientPacketHandler h = handler();
+                boolean bankOpen = h != null && h.isBankOpen();
+                if (bankOpen && bankUI != null && bankUI.isOver(mx, smy)) {
+                    bankUI.handleScroll(Math.round(amountY), h.getBankSlots());
+                } else if (smy < ChatBox.TOTAL_H && mx >= 0 && mx < ChatBox.BOX_W) {
                     chatBox.handleScroll(Math.round(amountY));
                 } else if (sidePanel.isOverPanel(mx, smy) && sidePanel.isFriendsTabActive()) {
                     sidePanel.scrollFriendsList(Math.round(amountY));
@@ -351,6 +357,7 @@ public class GameScreen extends ApplicationAdapter {
         combatUI   = new CombatUI();
         sidePanel  = new SidePanel();
         dialogueUI = new DialogueUI();
+        bankUI = new BankUI();
         miniMap = new MiniMap();
         chatBox        = new ChatBox();
         xpDropOverlay  = new XpDropOverlay();
@@ -572,6 +579,10 @@ public class GameScreen extends ApplicationAdapter {
         skillDetailPopup.render(shapeRenderer, screenBatch, font, sidePanel.getPanelX(), w, h, screenProjection);
         xpDropOverlay.render(shapeRenderer, screenBatch, font, w, h, screenProjection,
             sidePanel.getPanelX(), SidePanel.TOTAL_H + SidePanel.MARGIN);
+        if (handler != null && handler.isBankOpen()) {
+            bankUI.render(shapeRenderer, screenBatch, font, w, h, screenProjection,
+                mouseScreenX, mouseScreenY, handler.getBankCapacity(), handler.getBankSlots(), handler);
+        }
         if (contextMenu.isVisible()) renderContextMenu();
         if (deathScreenTimer > 0) renderDeathScreen(delta);
 
@@ -613,6 +624,15 @@ public class GameScreen extends ApplicationAdapter {
 
         // Cache local player ID for overhead text lookup
         if (localPlayerId < 0) localPlayerId = h.getMyPlayerId();
+
+        if (h.isBankOpen() && "bank".equals(pendingAction)) {
+            clearPendingAction();
+        } else if (!h.isBankOpen() && "bank".equals(pendingAction) && pendingActionRetryTimer <= 0f) {
+            clearPendingAction();
+        }
+        if (h.isBankOpen()) {
+            contextMenu.close();
+        }
 
         playerHealth    = h.getPlayerHealth();
         playerMaxHealth = h.getPlayerMaxHealth();
@@ -1000,6 +1020,12 @@ public class GameScreen extends ApplicationAdapter {
 
         if (dialogueUI.isVisible()) {
             handleDialogueInput();
+            return;
+        }
+
+        ClientPacketHandler packetHandler = handler();
+        if (packetHandler != null && packetHandler.isBankOpen()) {
+            handleBankInput();
             return;
         }
 
@@ -1428,6 +1454,83 @@ public class GameScreen extends ApplicationAdapter {
         }
     }
 
+    private void handleBankInput() {
+        ClientPacketHandler h = handler();
+        if (h == null) {
+            return;
+        }
+        int mx = Gdx.input.getX();
+        int screenMy = Gdx.graphics.getHeight() - Gdx.input.getY();
+
+        if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
+            if (nettyClient != null) {
+                nettyClient.sendCloseBankRequest();
+            }
+            return;
+        }
+
+        if (Gdx.input.isButtonJustPressed(Input.Buttons.RIGHT)) {
+            int bankSlot = bankUI.getBankSlotAt(mx, screenMy, h.getBankSlots());
+            if (bankSlot >= 0) {
+                showBankWithdrawContextMenu(bankSlot, mx, screenMy);
+                return;
+            }
+            int inventorySlot = bankUI.getInventorySlotAt(mx, screenMy, h);
+            if (inventorySlot >= 0) {
+                showBankDepositContextMenu(inventorySlot, mx, screenMy);
+                return;
+            }
+            contextMenu.close();
+            return;
+        }
+
+        if (!Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)) {
+            return;
+        }
+
+        if (contextMenu.isVisible()) {
+            ContextMenu.MenuItem clicked = contextMenu.getClickedItem(mx, screenMy);
+            if (clicked != null) {
+                handleContextMenuAction(clicked);
+            }
+            contextMenu.close();
+            return;
+        }
+
+        if (bankUI.clickAmountButton(mx, screenMy)) {
+            return;
+        }
+
+        if (bankUI != null && bankUI.isCloseButtonHit(mx, screenMy)) {
+            if (nettyClient != null) {
+                nettyClient.sendCloseBankRequest();
+            }
+            return;
+        }
+
+        int bankSlot = bankUI.getBankSlotAt(mx, screenMy, h.getBankSlots());
+        if (bankSlot >= 0) {
+            if (nettyClient != null) {
+                nettyClient.sendWithdrawBankItem(bankSlot, bankUI.getSelectedAmount());
+            }
+            return;
+        }
+
+        int inventorySlot = bankUI.getInventorySlotAt(mx, screenMy, h);
+        if (inventorySlot >= 0) {
+            if (nettyClient != null) {
+                nettyClient.sendDepositBankItem(inventorySlot, bankUI.getSelectedAmount());
+            }
+            return;
+        }
+
+        if (bankUI != null && !bankUI.isOver(mx, screenMy)) {
+            if (nettyClient != null) {
+                nettyClient.sendCloseBankRequest();
+            }
+        }
+    }
+
     private void submitDialogueOptionByIndex(int index) {
         if (dialogueUI.getCurrentPhase() != DialogueUI.DialoguePhase.PLAYER_CHOOSING) {
             return;
@@ -1511,6 +1614,49 @@ public class GameScreen extends ApplicationAdapter {
 
         // Send to server for broadcast to other nearby players
         if (nettyClient != null) nettyClient.sendPublicChat(msg);
+    }
+
+    private void showBankWithdrawContextMenu(int bankSlot, int mx, int my) {
+        ClientPacketHandler h = handler();
+        if (h == null) {
+            return;
+        }
+
+        String name = "Item";
+        for (ClientPacketHandler.BankSlotSnapshot slot : h.getBankSlots()) {
+            if (slot.slot == bankSlot) {
+                if (slot.itemName != null && !slot.itemName.isBlank()) {
+                    name = slot.itemName;
+                }
+                break;
+            }
+        }
+
+        List<ContextMenu.MenuItem> opts = new ArrayList<>();
+        opts.add(new ContextMenu.MenuItem("Withdraw-1 " + name, "bank_withdraw_1", bankSlot));
+        opts.add(new ContextMenu.MenuItem("Withdraw-5 " + name, "bank_withdraw_5", bankSlot));
+        opts.add(new ContextMenu.MenuItem("Withdraw-10 " + name, "bank_withdraw_10", bankSlot));
+        opts.add(new ContextMenu.MenuItem("Withdraw-All " + name, "bank_withdraw_all", bankSlot));
+        contextMenu.open(mx, my, opts, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
+    }
+
+    private void showBankDepositContextMenu(int inventorySlot, int mx, int my) {
+        ClientPacketHandler h = handler();
+        if (h == null) {
+            return;
+        }
+
+        String name = h.getInventoryName(inventorySlot);
+        if (name == null || name.isBlank()) {
+            name = "Item";
+        }
+
+        List<ContextMenu.MenuItem> opts = new ArrayList<>();
+        opts.add(new ContextMenu.MenuItem("Deposit-1 " + name, "bank_deposit_1", inventorySlot));
+        opts.add(new ContextMenu.MenuItem("Deposit-5 " + name, "bank_deposit_5", inventorySlot));
+        opts.add(new ContextMenu.MenuItem("Deposit-10 " + name, "bank_deposit_10", inventorySlot));
+        opts.add(new ContextMenu.MenuItem("Deposit-All " + name, "bank_deposit_all", inventorySlot));
+        contextMenu.open(mx, my, opts, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
     }
 
     private void showInventoryContextMenu(int slot, int mx, int my) {
@@ -1795,6 +1941,9 @@ public class GameScreen extends ApplicationAdapter {
                 pendingActionRetryTimer = 0.25f;
             } else if ("cook_at".equals(pendingAction)) {
                 nettyClient.sendStartSkilling(pendingNpcId, NetworkProto.SkillingType.SKILLING_COOKING);
+                pendingActionRetryTimer = 0.25f;
+            } else if ("bank".equals(pendingAction)) {
+                nettyClient.sendOpenBankRequest(pendingNpcId);
                 pendingActionRetryTimer = 0.25f;
             }
         }
@@ -2106,6 +2255,7 @@ public class GameScreen extends ApplicationAdapter {
                         || "Magic Tree".equalsIgnoreCase(rawName);
                     boolean isFishingSpot = "Fishing Spot".equalsIgnoreCase(rawName);
                     boolean isFire = "Cooking Fire".equalsIgnoreCase(rawName);
+                    boolean isBanker = "Banker".equalsIgnoreCase(rawName);
 
                     if (level > 0) {
                         // Combat NPC: Attack is the primary option (top)
@@ -2118,6 +2268,9 @@ public class GameScreen extends ApplicationAdapter {
                         opts.add(new ContextMenu.MenuItem(ContextMenu.Action.FISH, yellowName, id));
                     } else if (isFire) {
                         opts.add(new ContextMenu.MenuItem(ContextMenu.Action.COOK_AT, yellowName, id));
+                    } else if (isBanker) {
+                        opts.add(new ContextMenu.MenuItem(ContextMenu.Action.BANK, yellowName, id));
+                        opts.add(new ContextMenu.MenuItem(ContextMenu.Action.TALK_TO, yellowName, id));
                     } else {
                         opts.add(new ContextMenu.MenuItem(ContextMenu.Action.TALK_TO, yellowName, id));
                     }
@@ -2134,6 +2287,7 @@ public class GameScreen extends ApplicationAdapter {
             case "walk"   -> { int[] t = (int[]) item.target; walkTo(t[0], t[1]); }
             case "attack" -> startApproach((Integer) item.target, "attack");
             case "talk"   -> startApproach((Integer) item.target, "talk");
+            case "bank"   -> startApproach((Integer) item.target, "bank");
             case "chop"   -> startApproach((Integer) item.target, "chop");
             case "fish"   -> startApproach((Integer) item.target, "fish");
             case "cook_at" -> startApproach((Integer) item.target, "cook_at");
@@ -2171,6 +2325,30 @@ public class GameScreen extends ApplicationAdapter {
             }
             case "inv_drop"  -> { if (nettyClient != null) nettyClient.sendDropItem((Integer) item.target); }
             case "inv_examine" -> { if (nettyClient != null) nettyClient.sendExamineItem((Integer) item.target); }
+            case "bank_withdraw_1" -> {
+                if (nettyClient != null) nettyClient.sendWithdrawBankItem((Integer) item.target, 1);
+            }
+            case "bank_withdraw_5" -> {
+                if (nettyClient != null) nettyClient.sendWithdrawBankItem((Integer) item.target, 5);
+            }
+            case "bank_withdraw_10" -> {
+                if (nettyClient != null) nettyClient.sendWithdrawBankItem((Integer) item.target, 10);
+            }
+            case "bank_withdraw_all" -> {
+                if (nettyClient != null) nettyClient.sendWithdrawBankItem((Integer) item.target, Integer.MAX_VALUE);
+            }
+            case "bank_deposit_1" -> {
+                if (nettyClient != null) nettyClient.sendDepositBankItem((Integer) item.target, 1);
+            }
+            case "bank_deposit_5" -> {
+                if (nettyClient != null) nettyClient.sendDepositBankItem((Integer) item.target, 5);
+            }
+            case "bank_deposit_10" -> {
+                if (nettyClient != null) nettyClient.sendDepositBankItem((Integer) item.target, 10);
+            }
+            case "bank_deposit_all" -> {
+                if (nettyClient != null) nettyClient.sendDepositBankItem((Integer) item.target, Integer.MAX_VALUE);
+            }
             case "examine_npc" -> requestNpcExamine((Integer) item.target);
         }
     }

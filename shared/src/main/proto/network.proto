@@ -200,6 +200,52 @@ message InventoryUpdate {
     int32 flags = 5;
 }
 
+message BankSlot {
+    int32 slot = 1;
+    int32 item_id = 2;
+    int64 quantity = 3;
+    string item_name = 4;
+    int32 flags = 5;
+}
+
+message OpenBankRequest {
+    int32 npc_id = 1;
+    int64 sequence = 2;
+}
+
+message CloseBankRequest {
+    int64 sequence = 1;
+}
+
+message DepositBankItem {
+    int32 inventory_slot = 1;
+    int32 amount = 2;
+    int64 sequence = 3;
+}
+
+message WithdrawBankItem {
+    int32 bank_slot = 1;
+    int32 amount = 2;
+    int64 sequence = 3;
+}
+
+message BankOpen {
+    int32 capacity = 1;
+    repeated BankSlot slots = 2;
+}
+
+message BankClose {
+    string reason = 1;
+}
+
+message BankSlotUpdate {
+    int32 slot = 1;
+    int32 item_id = 2;
+    int64 quantity = 3;
+    string item_name = 4;
+    int32 flags = 5;
+}
+
 // EquipmentUpdate: Server → Client
 message EquipmentUpdate {
     int32 slot = 1;
@@ -424,6 +470,10 @@ message ClientMessage {
         ExamineItem examine_item = 19;
         FriendAction friend_action = 20;
         SetAutoRetaliate set_auto_retaliate = 21;
+        OpenBankRequest open_bank_request = 22;
+        CloseBankRequest close_bank_request = 23;
+        DepositBankItem deposit_bank_item = 24;
+        WithdrawBankItem withdraw_bank_item = 25;
     }
 }
 
@@ -455,5 +505,8 @@ message ServerMessage {
         PrayerPointsUpdate prayer_points_update = 23;
         FriendsListUpdate friends_list_update = 24;
         FriendActionResult friend_action_result = 25;
+        BankOpen bank_open = 26;
+        BankClose bank_close = 27;
+        BankSlotUpdate bank_slot_update = 28;
     }
 }

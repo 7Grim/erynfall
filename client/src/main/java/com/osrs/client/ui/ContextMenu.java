@@ -30,6 +30,7 @@ public class ContextMenu {
         ADD_FRIEND("friend_add", "Add friend"),
         REMOVE_FRIEND("friend_remove", "Remove friend"),
         ATTACK("attack", "Attack"),
+        BANK("bank", "Bank"),
         TALK_TO("talk", "Talk-to"),
         CHOP("chop", "Chop down"),
         FISH("fish", "Net"),

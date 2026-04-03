@@ -341,6 +341,19 @@ npcs:
     wander_radius: 0
     is_aggressive: false
 
+  - id: 37
+    name: "Banker"
+    combat_level: 0
+    max_hp: 10
+    max_hit: 0
+    location: "tutorial_island"
+    x: 45
+    y: 20
+    examine: "A helpful banker."
+    wander_radius: 0
+    is_aggressive: false
+    is_banker: true
+
   # --- Additional Tutorial rats for kill_rats objective density ---
   - id: 22
     definition_id: 3

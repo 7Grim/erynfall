@@ -7,6 +7,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -248,6 +249,27 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
     private final NettyClient client;
     private NetworkProto.HandshakeResponse lastHandshakeResponse;
 
+    public static class BankSlotSnapshot {
+        public final int slot;
+        public final int itemId;
+        public final long quantity;
+        public final String itemName;
+        public final int flags;
+
+        public BankSlotSnapshot(int slot, int itemId, long quantity, String itemName, int flags) {
+            this.slot = slot;
+            this.itemId = itemId;
+            this.quantity = quantity;
+            this.itemName = itemName == null ? "" : itemName;
+            this.flags = flags;
+        }
+    }
+
+    private final Object bankLock = new Object();
+    private final List<BankSlotSnapshot> bankSlots = new ArrayList<>();
+    private volatile boolean bankOpen = false;
+    private volatile int bankCapacity = 0;
+
     public ClientPacketHandler(NettyClient client) {
         this.client = client;
     }
@@ -289,6 +311,9 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
             case SKILLING_STATE_UPDATE -> handleSkillingStateUpdate(packet.getSkillingStateUpdate());
             case FRIENDS_LIST_UPDATE -> handleFriendsListUpdate(packet.getFriendsListUpdate());
             case FRIEND_ACTION_RESULT -> handleFriendActionResult(packet.getFriendActionResult());
+            case BANK_OPEN -> handleBankOpen(packet.getBankOpen());
+            case BANK_CLOSE -> handleBankClose(packet.getBankClose());
+            case BANK_SLOT_UPDATE -> handleBankSlotUpdate(packet.getBankSlotUpdate());
             default -> LOG.debug("Unhandled server message: {}", packet.getPayloadCase());
         }
     }
@@ -743,6 +768,51 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
         pendingFriendActionResults.add(new FriendActionResultEvent(msg.getSuccess(), msg.getError(), msg.getSequence()));
     }
 
+    private void handleBankOpen(NetworkProto.BankOpen msg) {
+        bankCapacity = msg.getCapacity();
+        synchronized (bankLock) {
+            bankSlots.clear();
+            for (NetworkProto.BankSlot slot : msg.getSlotsList()) {
+                bankSlots.add(new BankSlotSnapshot(
+                    slot.getSlot(),
+                    slot.getItemId(),
+                    slot.getQuantity(),
+                    slot.getItemName(),
+                    slot.getFlags()
+                ));
+            }
+        }
+        bankOpen = true;
+        LOG.debug("BankOpen received: capacity={} slots={}", bankCapacity, msg.getSlotsCount());
+    }
+
+    private void handleBankClose(NetworkProto.BankClose msg) {
+        bankOpen = false;
+        bankCapacity = 0;
+        synchronized (bankLock) {
+            bankSlots.clear();
+        }
+        LOG.debug("BankClose received: reason={}", msg.getReason());
+    }
+
+    private void handleBankSlotUpdate(NetworkProto.BankSlotUpdate msg) {
+        synchronized (bankLock) {
+            bankSlots.removeIf(slot -> slot.slot == msg.getSlot());
+            if (msg.getItemId() > 0 && msg.getQuantity() > 0) {
+                bankSlots.add(new BankSlotSnapshot(
+                    msg.getSlot(),
+                    msg.getItemId(),
+                    msg.getQuantity(),
+                    msg.getItemName(),
+                    msg.getFlags()
+                ));
+            }
+            bankSlots.sort(java.util.Comparator.comparingInt(slot -> slot.slot));
+        }
+        LOG.debug("BankSlotUpdate received: slot={} itemId={} qty={}",
+            msg.getSlot(), msg.getItemId(), msg.getQuantity());
+    }
+
     /** Drain server chat messages queued this frame. */
     public List<String> drainServerChatMessages() {
         if (serverChatMessages.isEmpty()) return List.of();
@@ -885,6 +955,13 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
     /** Snapshot of all ground items — safe to read on the render thread. */
     public Map<Integer, int[]>  getGroundItems()     { return groundItems; }
     public Map<Integer, String> getGroundItemNames() { return groundItemNames; }
+    public boolean isBankOpen() { return bankOpen; }
+    public int getBankCapacity() { return bankCapacity; }
+    public List<BankSlotSnapshot> getBankSlots() {
+        synchronized (bankLock) {
+            return Collections.unmodifiableList(new ArrayList<>(bankSlots));
+        }
+    }
 
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {

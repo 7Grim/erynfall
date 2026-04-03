@@ -18,6 +18,8 @@ public class PlayerSession {
     private Player player;
     private QuestManager questManager;
     private boolean authenticated = false;
+    private boolean bankOpen = false;
+    private int bankNpcId = -1;
     
     public PlayerSession(int sessionId, Channel channel) {
         this.sessionId = sessionId;
@@ -58,5 +60,21 @@ public class PlayerSession {
     
     public boolean isConnected() {
         return channel.isActive();
+    }
+
+    public boolean isBankOpen() {
+        return bankOpen;
+    }
+
+    public void setBankOpen(boolean bankOpen) {
+        this.bankOpen = bankOpen;
+    }
+
+    public int getBankNpcId() {
+        return bankNpcId;
+    }
+
+    public void setBankNpcId(int bankNpcId) {
+        this.bankNpcId = bankNpcId;
     }
 }

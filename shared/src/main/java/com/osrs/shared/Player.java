@@ -2,6 +2,7 @@ package com.osrs.shared;
 
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -10,12 +11,49 @@ import java.util.Set;
  */
 public class Player extends Entity {
 
+    public static class BankSlot {
+        private final int slotIndex;
+        private final int tabIndex;
+        private final int itemId;
+        private final long quantity;
+        private final boolean placeholder;
+
+        public BankSlot(int slotIndex, int tabIndex, int itemId, long quantity, boolean placeholder) {
+            this.slotIndex = slotIndex;
+            this.tabIndex = tabIndex;
+            this.itemId = itemId;
+            this.quantity = quantity;
+            this.placeholder = placeholder;
+        }
+
+        public int getSlotIndex() {
+            return slotIndex;
+        }
+
+        public int getTabIndex() {
+            return tabIndex;
+        }
+
+        public int getItemId() {
+            return itemId;
+        }
+
+        public long getQuantity() {
+            return quantity;
+        }
+
+        public boolean isPlaceholder() {
+            return placeholder;
+        }
+    }
+
     // Equipment (11 slots using EquipmentSlot constants)
     private int[] equipment = new int[EquipmentSlot.COUNT];
 
     // Inventory (28 slots — OSRS standard)
     private int[] inventoryItemIds = new int[28];
     private int[] inventoryQuantities = new int[28];
+    private final List<BankSlot> bankSlots = new java.util.ArrayList<>();
     
     // Combat state
     private int combatTarget = -1;
@@ -144,6 +182,68 @@ public class Player extends Entity {
 
     public int getInventoryQuantity(int slot) {
         return (slot >= 0 && slot < 28) ? inventoryQuantities[slot] : 0;
+    }
+
+    public void clearBank() {
+        bankSlots.clear();
+    }
+
+    public List<BankSlot> getBankSlots() {
+        return Collections.unmodifiableList(bankSlots);
+    }
+
+    public void setBankSlots(List<BankSlot> slots) {
+        bankSlots.clear();
+        if (slots != null) {
+            bankSlots.addAll(slots);
+        }
+    }
+
+    public BankSlot getBankSlot(int slotIndex) {
+        for (BankSlot slot : bankSlots) {
+            if (slot.getSlotIndex() == slotIndex) {
+                return slot;
+            }
+        }
+        return null;
+    }
+
+    public int findBankSlotByItemId(int itemId) {
+        for (BankSlot slot : bankSlots) {
+            if (slot.getItemId() == itemId) {
+                return slot.getSlotIndex();
+            }
+        }
+        return -1;
+    }
+
+    public int getOccupiedBankSlotCount() {
+        return bankSlots.size();
+    }
+
+    public int getFirstFreeBankSlot() {
+        for (int i = 0; i < getBankCapacity(); i++) {
+            if (getBankSlot(i) == null) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    public void setBankSlot(int slotIndex, int tabIndex, int itemId, long quantity, boolean placeholder) {
+        removeBankSlot(slotIndex);
+        if (itemId <= 0 || quantity <= 0) {
+            return;
+        }
+        bankSlots.add(new BankSlot(slotIndex, tabIndex, itemId, quantity, placeholder));
+    }
+
+    public void removeBankSlot(int slotIndex) {
+        bankSlots.removeIf(slot -> slot.getSlotIndex() == slotIndex);
+    }
+
+    public int getBankCapacity() {
+        return 1000;
     }
 
     /**

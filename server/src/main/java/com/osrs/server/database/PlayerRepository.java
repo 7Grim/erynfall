@@ -11,6 +11,7 @@ import org.slf4j.LoggerFactory;
 
 import java.sql.*;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -382,6 +383,103 @@ public class PlayerRepository {
             }
         } catch (SQLException e) {
             LOG.error("Failed to load inventory for: {}", player.getName(), e);
+        }
+    }
+
+    public static void loadBank(Player player) {
+        if (!DatabaseManager.isHealthy()) return;
+        try (Connection conn = DatabaseManager.getConnection()) {
+            int dbId = getDbIdByUsername(conn, player.getName());
+            if (dbId < 0) return;
+
+            player.clearBank();
+            List<Player.BankSlot> slots = new ArrayList<>();
+            try (PreparedStatement ps = conn.prepareStatement(
+                "SELECT tab_index, slot_index, item_id, quantity, placeholder " +
+                    "FROM " + table("player_bank_items") + " WHERE player_id = ? " +
+                    "ORDER BY tab_index, slot_index"
+            )) {
+                ps.setInt(1, dbId);
+                try (ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        slots.add(new Player.BankSlot(
+                            rs.getInt("slot_index"),
+                            rs.getInt("tab_index"),
+                            rs.getInt("item_id"),
+                            rs.getLong("quantity"),
+                            rs.getBoolean("placeholder")
+                        ));
+                    }
+                }
+            } catch (SQLException e) {
+                if (isMissingTableError(e)) {
+                    LOG.debug("player_bank_items table unavailable; loading empty bank for {}", player.getName());
+                } else {
+                    LOG.error("Failed to load bank for {}", player.getName(), e);
+                }
+                return;
+            }
+            player.setBankSlots(slots);
+        } catch (SQLException e) {
+            LOG.error("Failed to load bank for: {}", player.getName(), e);
+        }
+    }
+
+    public static void saveBank(Player player) {
+        if (!DatabaseManager.isHealthy()) return;
+        try (Connection conn = DatabaseManager.getConnection()) {
+            int dbId = getDbIdByUsername(conn, player.getName());
+            if (dbId < 0) return;
+
+            try (PreparedStatement del = conn.prepareStatement(
+                "DELETE FROM " + table("player_bank_items") + " WHERE player_id = ?"
+            )) {
+                del.setInt(1, dbId);
+                del.executeUpdate();
+            } catch (SQLException e) {
+                if (isMissingTableError(e)) {
+                    LOG.debug("player_bank_items table unavailable; skipping bank save for {}", player.getName());
+                    return;
+                }
+                throw e;
+            }
+
+            try (PreparedStatement ensureItem = conn.prepareStatement(
+                    "IF NOT EXISTS (SELECT 1 FROM " + table("items") + " WHERE id = ?) " +
+                        "INSERT INTO " + table("items") + " (id, name, examine_text, stackable, weight_kg, tradeable, high_alchemy_value, low_alchemy_value) " +
+                        "VALUES (?, ?, ?, ?, 0, 1, 0, 0)"
+                );
+                 PreparedStatement ins = conn.prepareStatement(
+                     "INSERT INTO " + table("player_bank_items") +
+                         " (player_id, tab_index, slot_index, item_id, quantity, placeholder) " +
+                         "VALUES (?, ?, ?, ?, ?, ?)"
+                 )) {
+                for (Player.BankSlot slot : player.getBankSlots()) {
+                    if (slot == null || slot.getItemId() <= 0 || slot.getQuantity() <= 0) {
+                        continue;
+                    }
+                    ensureItem.setInt(1, slot.getItemId());
+                    ensureItem.setInt(2, slot.getItemId());
+                    ensureItem.setString(3, defaultItemName(slot.getItemId()));
+                    ensureItem.setString(4, defaultItemExamine(slot.getItemId()));
+                    ensureItem.setBoolean(5, defaultStackable(slot.getItemId()));
+                    ensureItem.addBatch();
+
+                    ins.setInt(1, dbId);
+                    ins.setInt(2, slot.getTabIndex());
+                    ins.setInt(3, slot.getSlotIndex());
+                    ins.setInt(4, slot.getItemId());
+                    ins.setLong(5, slot.getQuantity());
+                    ins.setBoolean(6, slot.isPlaceholder());
+                    ins.addBatch();
+                }
+                ensureItem.executeBatch();
+                ins.executeBatch();
+            }
+
+            conn.commit();
+        } catch (SQLException e) {
+            LOG.error("Failed to save bank for: {}", player.getName(), e);
         }
     }
 

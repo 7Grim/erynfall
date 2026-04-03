@@ -158,6 +158,47 @@ public class NettyClient {
         LOG.debug("Sent TalkToNpc: npc {}", npcId);
     }
 
+    public void sendOpenBankRequest(int npcId) {
+        NetworkProto.ClientMessage msg = NetworkProto.ClientMessage.newBuilder()
+            .setOpenBankRequest(NetworkProto.OpenBankRequest.newBuilder()
+                .setNpcId(npcId)
+                .setSequence(System.currentTimeMillis()))
+            .build();
+        channel.writeAndFlush(msg);
+        LOG.debug("Sent OpenBankRequest: npc {}", npcId);
+    }
+
+    public void sendCloseBankRequest() {
+        NetworkProto.ClientMessage msg = NetworkProto.ClientMessage.newBuilder()
+            .setCloseBankRequest(NetworkProto.CloseBankRequest.newBuilder()
+                .setSequence(System.currentTimeMillis()))
+            .build();
+        channel.writeAndFlush(msg);
+        LOG.debug("Sent CloseBankRequest");
+    }
+
+    public void sendDepositBankItem(int inventorySlot, int amount) {
+        if (channel == null || !channel.isActive()) return;
+        channel.writeAndFlush(NetworkProto.ClientMessage.newBuilder()
+            .setDepositBankItem(NetworkProto.DepositBankItem.newBuilder()
+                .setInventorySlot(inventorySlot)
+                .setAmount(amount)
+                .setSequence(System.currentTimeMillis()))
+            .build());
+        LOG.debug("Sent DepositBankItem: slot={} amount={}", inventorySlot, amount);
+    }
+
+    public void sendWithdrawBankItem(int bankSlot, int amount) {
+        if (channel == null || !channel.isActive()) return;
+        channel.writeAndFlush(NetworkProto.ClientMessage.newBuilder()
+            .setWithdrawBankItem(NetworkProto.WithdrawBankItem.newBuilder()
+                .setBankSlot(bankSlot)
+                .setAmount(amount)
+                .setSequence(System.currentTimeMillis()))
+            .build());
+        LOG.debug("Sent WithdrawBankItem: slot={} amount={}", bankSlot, amount);
+    }
+
     public void sendStartSkilling(int npcId, NetworkProto.SkillingType skillingType) {
         NetworkProto.ClientMessage msg = NetworkProto.ClientMessage.newBuilder()
             .setStartSkilling(NetworkProto.StartSkillingRequest.newBuilder()

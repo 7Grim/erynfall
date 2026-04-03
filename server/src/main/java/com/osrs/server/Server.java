@@ -128,6 +128,7 @@ public class Server {
                     try {
                         PlayerRepository.savePlayer(player);
                         PlayerRepository.saveInventory(player);
+                        PlayerRepository.saveBank(player);
                         PlayerRepository.saveEquipment(player);
                         if (session.getQuestManager() != null) {
                             PlayerRepository.saveQuestProgress(player, session.getQuestManager());

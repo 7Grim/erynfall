@@ -12,6 +12,7 @@ public class NPC extends Entity {
     private long lastPathfindTick;
     private String lootTable;
     private boolean aggressive;
+    private boolean banker;
 
     /** Spawn-point: NPC returns/wanders within wanderRadius of this tile. */
     private int spawnX, spawnY;
@@ -105,6 +106,14 @@ public class NPC extends Entity {
 
     public void setAggressive(boolean aggressive) {
         this.aggressive = aggressive;
+    }
+
+    public boolean isBanker() {
+        return banker;
+    }
+
+    public void setBanker(boolean banker) {
+        this.banker = banker;
     }
 
     public int getSpawnX() { return spawnX; }

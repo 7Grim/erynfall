@@ -74,6 +74,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
     public void channelInactive(ChannelHandlerContext ctx) {
         if (session != null) {
             LOG.info("Client {} disconnected", session.getSessionId());
+            clearBankSessionState();
             Player player = session.getPlayer();
             if (player != null) {
                 closeDialogue(player);
@@ -81,6 +82,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
                 if (session.isAuthenticated() && DatabaseManager.isHealthy()) {
                     PlayerRepository.savePlayer(player);
                     PlayerRepository.saveInventory(player);
+                    PlayerRepository.saveBank(player);
                     PlayerRepository.saveEquipment(player);
                     PlayerRepository.saveFriends(player);
                     PlayerRepository.saveQuestProgress(player, session.getQuestManager());
@@ -127,6 +129,10 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             case START_SKILLING      -> handleStartSkilling(ctx, packet.getStartSkilling());
             case TOGGLE_PRAYER       -> handleTogglePrayer(ctx, packet.getTogglePrayer());
             case SET_AUTO_RETALIATE  -> handleSetAutoRetaliate(packet.getSetAutoRetaliate());
+            case OPEN_BANK_REQUEST   -> handleOpenBankRequest(ctx, packet.getOpenBankRequest());
+            case CLOSE_BANK_REQUEST  -> handleCloseBankRequest(ctx, packet.getCloseBankRequest());
+            case DEPOSIT_BANK_ITEM   -> handleDepositBankItem(ctx, packet.getDepositBankItem());
+            case WITHDRAW_BANK_ITEM  -> handleWithdrawBankItem(ctx, packet.getWithdrawBankItem());
             default -> LOG.warn("Unhandled payload case: {}", packet.getPayloadCase());
         }
     }
@@ -171,6 +177,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
                 // Load inventory for returning player
                 PlayerRepository.loadInventory(player);
                 PlayerRepository.loadFriends(player);
+                PlayerRepository.loadBank(player);
             }
         } else {
             // DB offline: fall back to in-memory session (no persistence)
@@ -277,6 +284,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
 
         PlayerRepository.loadInventory(player);
         PlayerRepository.loadFriends(player);
+        PlayerRepository.loadBank(player);
         ensureStarterSkillingTools(player);
 
         if (!server.getWorld().canWalkTo(player.getX(), player.getY())) {
@@ -624,6 +632,251 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             updateGenericQuestObjectives(session, Quest.TaskType.ACTION, npc.getDefinitionId());
         }
 
+    }
+
+    private void handleOpenBankRequest(ChannelHandlerContext ctx, NetworkProto.OpenBankRequest request) {
+        if (session == null || !session.isAuthenticated() || session.getPlayer() == null) {
+            sendBankClose(ctx, "unauthenticated");
+            return;
+        }
+
+        Player player = session.getPlayer();
+        NPC npc = server.getWorld().getNPC(request.getNpcId());
+        if (npc == null) {
+            clearBankSessionState();
+            sendBankClose(ctx, "invalid_npc");
+            return;
+        }
+
+        if (!npc.isBanker()) {
+            clearBankSessionState();
+            sendBankClose(ctx, "invalid_banker");
+            return;
+        }
+
+        if (player.isInCombat()) {
+            clearBankSessionState();
+            sendChatMessage(ctx, "You are too busy fighting.", 1);
+            sendBankClose(ctx, "in_combat");
+            return;
+        }
+
+        int chebyshev = Math.max(Math.abs(player.getX() - npc.getX()), Math.abs(player.getY() - npc.getY()));
+        if (chebyshev > 1 || !canReachAnyAdjacentTile(player, npc)) {
+            clearBankSessionState();
+            sendChatMessage(ctx, "I can't reach that!", 1);
+            sendBankClose(ctx, "out_of_range");
+            return;
+        }
+
+        session.setBankOpen(true);
+        session.setBankNpcId(npc.getId());
+        sendBankOpen(ctx, player);
+    }
+
+    private void handleCloseBankRequest(ChannelHandlerContext ctx, NetworkProto.CloseBankRequest request) {
+        clearBankSessionState();
+        sendBankClose(ctx, "client_closed");
+    }
+
+    private void sendBankOpen(ChannelHandlerContext ctx, Player player) {
+        NetworkProto.BankOpen.Builder bankOpen = NetworkProto.BankOpen.newBuilder()
+            .setCapacity(player.getBankCapacity());
+        for (Player.BankSlot slot : player.getBankSlots()) {
+            if (slot == null || slot.getItemId() <= 0 || slot.getQuantity() <= 0) {
+                continue;
+            }
+            ItemDefinition def = server.getWorld().getItemDef(slot.getItemId());
+            String name = (def == null || def.name == null) ? ("Item " + slot.getItemId()) : def.name;
+            int flags = def == null ? 0 : def.getFlags();
+            bankOpen.addSlots(NetworkProto.BankSlot.newBuilder()
+                .setSlot(slot.getSlotIndex())
+                .setItemId(slot.getItemId())
+                .setQuantity(slot.getQuantity())
+                .setItemName(name)
+                .setFlags(flags));
+        }
+        ctx.writeAndFlush(NetworkProto.ServerMessage.newBuilder()
+            .setBankOpen(bankOpen)
+            .build());
+    }
+
+    private void sendBankClose(ChannelHandlerContext ctx, String reason) {
+        ctx.writeAndFlush(NetworkProto.ServerMessage.newBuilder()
+            .setBankClose(NetworkProto.BankClose.newBuilder()
+                .setReason(reason == null ? "" : reason))
+            .build());
+    }
+
+    private void clearBankSessionState() {
+        if (session == null) return;
+        session.setBankOpen(false);
+        session.setBankNpcId(-1);
+    }
+
+    private NPC requireValidOpenBank(ChannelHandlerContext ctx) {
+        if (session == null || !session.isAuthenticated() || session.getPlayer() == null) {
+            clearBankSessionState();
+            sendBankClose(ctx, "unauthenticated");
+            return null;
+        }
+        if (!session.isBankOpen()) {
+            clearBankSessionState();
+            sendBankClose(ctx, "not_open");
+            return null;
+        }
+        Player player = session.getPlayer();
+        NPC banker = server.getWorld().getNPC(session.getBankNpcId());
+        if (banker == null || !banker.isBanker()) {
+            clearBankSessionState();
+            sendBankClose(ctx, "invalid_banker");
+            return null;
+        }
+        if (player.isInCombat()) {
+            clearBankSessionState();
+            sendChatMessage(ctx, "You are too busy fighting.", 1);
+            sendBankClose(ctx, "in_combat");
+            return null;
+        }
+        int chebyshev = Math.max(Math.abs(player.getX() - banker.getX()), Math.abs(player.getY() - banker.getY()));
+        if (chebyshev > 1 || !canReachAnyAdjacentTile(player, banker)) {
+            clearBankSessionState();
+            sendChatMessage(ctx, "I can't reach that!", 1);
+            sendBankClose(ctx, "out_of_range");
+            return null;
+        }
+        return banker;
+    }
+
+    private void sendBankSlotUpdate(ChannelHandlerContext ctx, Player player, int slotIndex) {
+        Player.BankSlot slot = player.getBankSlot(slotIndex);
+        NetworkProto.BankSlotUpdate.Builder update = NetworkProto.BankSlotUpdate.newBuilder()
+            .setSlot(slotIndex);
+        if (slot != null && slot.getItemId() > 0 && slot.getQuantity() > 0) {
+            ItemDefinition def = server.getWorld().getItemDef(slot.getItemId());
+            String name = (def == null || def.name == null) ? ("Item " + slot.getItemId()) : def.name;
+            int flags = def == null ? 0 : def.getFlags();
+            update.setItemId(slot.getItemId())
+                .setQuantity(slot.getQuantity())
+                .setItemName(name)
+                .setFlags(flags);
+        } else {
+            update.setItemId(0)
+                .setQuantity(0)
+                .setItemName("")
+                .setFlags(0);
+        }
+        ctx.writeAndFlush(NetworkProto.ServerMessage.newBuilder()
+            .setBankSlotUpdate(update)
+            .build());
+    }
+
+    private void handleDepositBankItem(ChannelHandlerContext ctx, NetworkProto.DepositBankItem req) {
+        if (requireValidOpenBank(ctx) == null) return;
+        Player player = session.getPlayer();
+        int inventorySlot = req.getInventorySlot();
+        if (inventorySlot < 0 || inventorySlot >= 28) return;
+        int itemId = player.getInventoryItemId(inventorySlot);
+        int inventoryQty = player.getInventoryQuantity(inventorySlot);
+        if (itemId <= 0 || inventoryQty <= 0) return;
+        int requested = req.getAmount();
+        if (requested <= 0) return;
+        int transfer = Math.min(requested, inventoryQty);
+        int bankSlotIndex = player.findBankSlotByItemId(itemId);
+        Player.BankSlot existing = bankSlotIndex >= 0 ? player.getBankSlot(bankSlotIndex) : null;
+        if (existing == null) {
+            if (player.getOccupiedBankSlotCount() >= player.getBankCapacity()) {
+                sendChatMessage(ctx, "Your bank is full.", 1);
+                return;
+            }
+            bankSlotIndex = player.getFirstFreeBankSlot();
+            if (bankSlotIndex < 0) {
+                sendChatMessage(ctx, "Your bank is full.", 1);
+                return;
+            }
+            player.setBankSlot(bankSlotIndex, 0, itemId, transfer, false);
+        } else {
+            player.setBankSlot(bankSlotIndex, existing.getTabIndex(), itemId, existing.getQuantity() + transfer,
+                existing.isPlaceholder());
+        }
+        int remaining = inventoryQty - transfer;
+        if (remaining > 0) player.setInventoryItem(inventorySlot, itemId, remaining);
+        else player.setInventoryItem(inventorySlot, 0, 0);
+        if (DatabaseManager.isHealthy()) {
+            PlayerRepository.saveInventory(player);
+            PlayerRepository.saveBank(player);
+        }
+        sendInventorySlot(ctx, player, inventorySlot);
+        sendBankSlotUpdate(ctx, player, bankSlotIndex);
+    }
+
+    private void handleWithdrawBankItem(ChannelHandlerContext ctx, NetworkProto.WithdrawBankItem req) {
+        if (requireValidOpenBank(ctx) == null) return;
+        Player player = session.getPlayer();
+        int bankSlotIndex = req.getBankSlot();
+        Player.BankSlot bankSlot = player.getBankSlot(bankSlotIndex);
+        if (bankSlot == null || bankSlot.getItemId() <= 0 || bankSlot.getQuantity() <= 0) return;
+        int requested = req.getAmount();
+        if (requested <= 0) return;
+        int itemId = bankSlot.getItemId();
+        long bankQty = bankSlot.getQuantity();
+        int transfer = (int) Math.min((long) requested, bankQty);
+        ItemDefinition def = server.getWorld().getItemDef(itemId);
+        boolean stackable = def != null && def.stackable;
+        java.util.List<Integer> changedInventorySlots = new java.util.ArrayList<>();
+        if (stackable) {
+            int targetSlot = -1;
+            for (int i = 0; i < 28; i++) {
+                if (player.getInventoryItemId(i) == itemId) {
+                    targetSlot = i;
+                    break;
+                }
+            }
+            if (targetSlot < 0) {
+                targetSlot = player.getFirstEmptySlot();
+            }
+            if (targetSlot < 0) {
+                sendChatMessage(ctx, "Not enough space in your inventory.", 1);
+                return;
+            }
+            int newQty = player.getInventoryItemId(targetSlot) == itemId
+                ? player.getInventoryQuantity(targetSlot) + transfer
+                : transfer;
+            player.setInventoryItem(targetSlot, itemId, newQty);
+            changedInventorySlots.add(targetSlot);
+        } else {
+            int freeSlots = 0;
+            for (int i = 0; i < 28; i++) {
+                if (player.getInventoryItemId(i) == 0) freeSlots++;
+            }
+            transfer = Math.min(transfer, freeSlots);
+            if (transfer <= 0) {
+                sendChatMessage(ctx, "Not enough space in your inventory.", 1);
+                return;
+            }
+            int remainingToAdd = transfer;
+            for (int i = 0; i < 28 && remainingToAdd > 0; i++) {
+                if (player.getInventoryItemId(i) == 0) {
+                    player.setInventoryItem(i, itemId, 1);
+                    changedInventorySlots.add(i);
+                    remainingToAdd--;
+                }
+            }
+        }
+        long remainingBankQty = bankQty - transfer;
+        if (remainingBankQty > 0) {
+            player.setBankSlot(bankSlotIndex, bankSlot.getTabIndex(), itemId, remainingBankQty, bankSlot.isPlaceholder());
+        } else {
+            player.removeBankSlot(bankSlotIndex);
+        }
+        if (DatabaseManager.isHealthy()) {
+            PlayerRepository.saveInventory(player);
+            PlayerRepository.saveBank(player);
+        }
+        for (int slot : changedInventorySlots) {
+            sendInventorySlot(ctx, player, slot);
+        }
+        sendBankSlotUpdate(ctx, player, bankSlotIndex);
     }
 
     private boolean tryStartSkilling(ChannelHandlerContext ctx,
@@ -1639,9 +1892,11 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
         LOG.info("Logout requested by player {}", player.getName());
 
         closeDialogue(player);
+        clearBankSessionState();
         if (session.isAuthenticated() && DatabaseManager.isHealthy()) {
             PlayerRepository.savePlayer(player);
             PlayerRepository.saveInventory(player);
+            PlayerRepository.saveBank(player);
             PlayerRepository.saveFriends(player);
             PlayerRepository.saveQuestProgress(player, session.getQuestManager());
             LOG.info("Saved player {} on explicit logout", player.getName());
