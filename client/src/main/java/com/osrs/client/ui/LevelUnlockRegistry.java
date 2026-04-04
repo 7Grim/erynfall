@@ -69,13 +69,13 @@ public final class LevelUnlockRegistry {
 
     private static String attackUnlock(int level) {
         return switch (level) {
-            case 5  -> "You can now wield white weapons.";
-            case 10 -> "You can now wield black weapons.";
-            case 20 -> "You can now wield mithril weapons.";
-            case 30 -> "You can now wield adamant weapons.";
-            case 40 -> "You can now wield rune weapons.";
-            case 60 -> "You can now wield some dragon weapons.";
-            case 70 -> "You can now wield barrows weapons.";
+            case 5  -> "You can now wield steel weapons, including the steel scimitar.";
+            case 10 -> "You can now wield black weapons, including the black scimitar.";
+            case 20 -> "You can now wield mithril weapons, including the mithril scimitar.";
+            case 30 -> "You can now wield adamant weapons, including the adamant scimitar.";
+            case 40 -> "You can now wield rune weapons, including the rune scimitar.";
+            case 60 -> "You can now wield dragon weapons, including the dragon scimitar and longsword.";
+            case 70 -> "You can now wield barrows weapons such as the abyssal whip.";
             case 99 -> "You have reached the maximum Attack level!";
             default -> null;
         };

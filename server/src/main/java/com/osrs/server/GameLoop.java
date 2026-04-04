@@ -18,6 +18,7 @@ import com.osrs.shared.Player;
 import com.osrs.shared.SkillingAction;
 import com.osrs.shared.FishingRegistry;
 import com.osrs.shared.MiningRegistry;
+import com.osrs.shared.WeaponRegistry;
 import com.osrs.shared.WoodcuttingRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -542,8 +543,10 @@ public class GameLoop {
                 continue;
             }
 
-            // OSRS default weapon speed: 4 OSRS-ticks (2.4 seconds) = 615 server ticks at 256 Hz
-            int attackSpeed = 615;
+            // Per-weapon attack speed: look up OSRS ticks from WeaponRegistry, convert to server ticks.
+            // Unarmed (no weapon equipped) defaults to 4 OSRS ticks (fist attack speed in OSRS).
+            int equippedWeaponId = player.getEquipment(EquipmentSlot.WEAPON);
+            int attackSpeed = WeaponRegistry.getAttackSpeedServerTicks(equippedWeaponId);
             if (tickCount - player.getLastAttackTick() < attackSpeed) {
                 continue;
             }

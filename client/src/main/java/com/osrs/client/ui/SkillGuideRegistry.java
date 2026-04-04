@@ -9,6 +9,7 @@ import com.badlogic.gdx.math.Matrix4;
 import com.badlogic.gdx.utils.Align;
 import com.osrs.shared.FishingRegistry;
 import com.osrs.shared.MiningRegistry;
+import com.osrs.shared.WeaponRegistry;
 import com.osrs.shared.WoodcuttingRegistry;
 
 import java.util.HashMap;
@@ -17,12 +18,14 @@ import java.util.Map;
 
 public final class SkillGuideRegistry {
 
+    private static final int SKILL_ATTACK      = 0;
     private static final int SKILL_WOODCUTTING = 7;
     private static final int SKILL_FISHING = 8;
     private static final int SKILL_MINING = 10;
     private static final Map<Integer, SkillGuidePopup.SkillGuideProvider> PROVIDERS = new HashMap<>();
 
     static {
+        register(SKILL_ATTACK, new AttackGuideProvider());
         register(SKILL_WOODCUTTING, new WoodcuttingGuideProvider());
         register(SKILL_FISHING, new FishingGuideProvider());
         register(SKILL_MINING, new MiningGuideProvider());
@@ -840,6 +843,241 @@ public final class SkillGuideRegistry {
             for (FishingRegistry.Tool tool : FishingRegistry.tools()) {
                 if (tool.unlockLevel() > level) {
                     return tool.unlockLevel();
+                }
+            }
+            return -1;
+        }
+    }
+
+    // =========================================================================
+    // Attack
+    // =========================================================================
+
+    private static final class AttackGuideProvider implements SkillGuidePopup.SkillGuideProvider {
+
+        private static final List<SkillGuidePopup.GuideSection> SECTIONS = List.of(
+            new SkillGuidePopup.GuideSection("Introduction"),
+            new SkillGuidePopup.GuideSection("Weapons"),
+            new SkillGuidePopup.GuideSection("Combat Styles")
+        );
+
+        private static final Color TEXT_MAIN     = new Color(0.24f, 0.16f, 0.06f, 1f);
+        private static final Color TEXT_LOCKED   = new Color(0.45f, 0.36f, 0.24f, 1f);
+        private static final Color TEXT_UNLOCKED = new Color(0.22f, 0.14f, 0.06f, 1f);
+        private static final Color TEXT_NEXT     = new Color(0.48f, 0.28f, 0.04f, 1f);
+        private static final Color ROW_UNLOCKED  = new Color(0.88f, 0.81f, 0.67f, 1f);
+        private static final Color ROW_LOCKED    = new Color(0.78f, 0.71f, 0.57f, 1f);
+        private static final Color ROW_NEXT      = new Color(0.94f, 0.82f, 0.50f, 1f);
+
+        // Combat style data for the Styles tab
+        private static final String[] STYLE_NAMES = {
+            "Accurate", "Aggressive", "Defensive", "Controlled"
+        };
+        private static final String[] STYLE_XP = {
+            "4 Attack XP + 1.33 HP XP",
+            "4 Strength XP + 1.33 HP XP",
+            "4 Defence XP + 1.33 HP XP",
+            "1.33 Atk/Str/Def + 1.33 HP XP"
+        };
+        private static final String[] STYLE_BONUS = {
+            "+3 effective Attack level",
+            "+3 effective Strength level",
+            "+3 effective Defence level",
+            "+1 to Attack, Strength and Defence"
+        };
+        // Representative item icon per style row (scimitar tiers shown as examples)
+        private static final int[] STYLE_ICON_IDS = { 1333, 1329, 1325, 1321 };
+
+        @Override
+        public String getTitle(int skillIdx) {
+            return "Attack";
+        }
+
+        @Override
+        public List<SkillGuidePopup.GuideSection> getSections(int skillIdx) {
+            return SECTIONS;
+        }
+
+        @Override
+        public void renderSectionContent(ShapeRenderer shapeRenderer,
+                                         SpriteBatch batch,
+                                         BitmapFont font,
+                                         Matrix4 projection,
+                                         int skillIdx,
+                                         int level,
+                                         long totalXp,
+                                         int sectionIdx,
+                                         float contentX,
+                                         float contentY,
+                                         float contentW,
+                                         float contentH,
+                                         float scrollOffset) {
+            if (sectionIdx == 0) {
+                renderIntroduction(shapeRenderer, batch, font, projection, contentX, contentY, contentW, contentH);
+            } else if (sectionIdx == 1) {
+                renderWeapons(shapeRenderer, batch, font, projection, level, contentX, contentY, contentW, contentH, scrollOffset);
+            } else if (sectionIdx == 2) {
+                renderStyles(shapeRenderer, batch, font, projection, level, contentX, contentY, contentW, contentH, scrollOffset);
+            }
+        }
+
+        @Override
+        public float getSectionContentHeight(int skillIdx, int level, int sectionIdx, float contentW) {
+            if (sectionIdx == 1) {
+                return 18f + WeaponRegistry.weapons().size() * 36f + 12f;
+            }
+            if (sectionIdx == 2) {
+                return 18f + STYLE_NAMES.length * 60f + 12f;
+            }
+            return 236f;
+        }
+
+        private void renderIntroduction(ShapeRenderer sr, SpriteBatch batch, BitmapFont font,
+                                         Matrix4 proj, float x, float y, float w, float h) {
+            final float blockH = 82f;
+            final float top    = y + h - 14f;
+            final float blockX = x + 8f;
+            final float blockW = w - 16f;
+            final float dividerX = x + 10f;
+            final float dividerW = w - 20f;
+            final float iconX  = x + 20f;
+            final float textX  = x + 62f;
+            final float textW  = w - 86f;
+            final float textTopPad = 16f;
+            final String[] texts = {
+                "Attack determines your accuracy in melee combat. Higher Attack means fewer misses against tough enemies.",
+                "Each Attack level unlocks stronger weapons. Scimitars are the fastest (4-tick); longswords offer higher strength bonuses.",
+                "Combat style affects which skill gains XP. Choose Accurate to train Attack, Aggressive for Strength, or Defensive for Defence."
+            };
+
+            sr.setProjectionMatrix(proj);
+            sr.begin(ShapeRenderer.ShapeType.Filled);
+            for (int i = 0; i < 3; i++) {
+                float by = top - (i + 1) * blockH;
+                sr.setColor(0.92f, 0.84f, 0.69f, 1f);
+                sr.rect(blockX, by, blockW, blockH - 8f);
+                sr.setColor(0.64f, 0.50f, 0.30f, 1f);
+                sr.rect(dividerX, by + blockH - 16f, dividerW, 2f);
+            }
+            // Icons: rune scimitar, mithril scimitar, bronze scimitar
+            ItemIconRenderer.drawItemIcon(sr, iconX, top - blockH       + 12f, 1333);
+            ItemIconRenderer.drawItemIcon(sr, iconX, top - blockH * 2f  + 12f, 1329);
+            ItemIconRenderer.drawItemIcon(sr, iconX, top - blockH * 3f  + 12f, 1321);
+            sr.end();
+
+            GlyphLayout wrapped = new GlyphLayout();
+            batch.setProjectionMatrix(proj);
+            batch.begin();
+            font.getData().setScale(0.68f);
+            font.setColor(TEXT_MAIN);
+            for (int i = 0; i < 3; i++) {
+                float by = top - (i + 1) * blockH;
+                wrapped.setText(font, texts[i], TEXT_MAIN, textW, Align.left, true);
+                font.draw(batch, wrapped, textX, by + blockH - 8f - textTopPad);
+            }
+            font.getData().setScale(1f);
+            font.setColor(Color.WHITE);
+            batch.end();
+        }
+
+        private void renderWeapons(ShapeRenderer sr, SpriteBatch batch, BitmapFont font,
+                                    Matrix4 proj, int level,
+                                    float x, float y, float w, float h, float scrollOffset) {
+            float rowH    = 36f;
+            int nextReq = findNextWeaponLevel(level);
+
+            sr.setProjectionMatrix(proj);
+            sr.begin(ShapeRenderer.ShapeType.Filled);
+            float yCursor = y + h - 14f + scrollOffset;
+            for (WeaponRegistry.WeaponTier weapon : WeaponRegistry.weapons()) {
+                float rowY   = yCursor - rowH;
+                boolean visible = rowY + rowH >= y && rowY <= y + h;
+                if (visible) {
+                    boolean unlocked = level >= weapon.attackReq();
+                    boolean next     = !unlocked && weapon.attackReq() == nextReq;
+                    sr.setColor(next ? ROW_NEXT : unlocked ? ROW_UNLOCKED : ROW_LOCKED);
+                    sr.rect(x + 8, rowY + 2, w - 16, rowH - 4);
+                    ItemIconRenderer.drawItemIcon(sr, x + 72, rowY + 3, weapon.itemId());
+                }
+                yCursor -= rowH;
+            }
+            sr.end();
+
+            batch.setProjectionMatrix(proj);
+            batch.begin();
+            font.getData().setScale(0.68f);
+            yCursor = y + h - 14f + scrollOffset;
+            for (WeaponRegistry.WeaponTier weapon : WeaponRegistry.weapons()) {
+                float rowY   = yCursor - rowH;
+                boolean visible = rowY + rowH >= y && rowY <= y + h;
+                if (visible) {
+                    boolean unlocked = level >= weapon.attackReq();
+                    boolean next     = !unlocked && weapon.attackReq() == nextReq;
+                    font.setColor(next ? TEXT_NEXT : unlocked ? TEXT_UNLOCKED : TEXT_LOCKED);
+                    font.draw(batch, "Lv " + weapon.attackReq(), x + 16, rowY + 26);
+                    font.draw(batch, weapon.name(),              x + 116, rowY + 26);
+                    font.draw(batch, "+" + weapon.strengthBonus() + " str", x + w - 88, rowY + 26);
+                    // Second line: attack speed
+                    font.getData().setScale(0.60f);
+                    Color sub = next ? TEXT_NEXT : TEXT_LOCKED;
+                    font.setColor(sub.r, sub.g, sub.b, 0.75f);
+                    font.draw(batch, weapon.attackSpeedOsrsTicks() + "-tick speed", x + 116, rowY + 13);
+                    font.getData().setScale(0.68f);
+                }
+                yCursor -= rowH;
+            }
+            font.getData().setScale(1f);
+            font.setColor(Color.WHITE);
+            batch.end();
+        }
+
+        private void renderStyles(ShapeRenderer sr, SpriteBatch batch, BitmapFont font,
+                                   Matrix4 proj, int level,
+                                   float x, float y, float w, float h, float scrollOffset) {
+            float rowH = 60f;
+
+            sr.setProjectionMatrix(proj);
+            sr.begin(ShapeRenderer.ShapeType.Filled);
+            float yCursor = y + h - 14f + scrollOffset;
+            for (int i = 0; i < STYLE_NAMES.length; i++) {
+                float rowY   = yCursor - rowH;
+                boolean visible = rowY + rowH >= y && rowY <= y + h;
+                if (visible) {
+                    sr.setColor(ROW_UNLOCKED);
+                    sr.rect(x + 8, rowY + 2, w - 16, rowH - 4);
+                    ItemIconRenderer.drawItemIcon(sr, x + 72, rowY + 14, STYLE_ICON_IDS[i]);
+                }
+                yCursor -= rowH;
+            }
+            sr.end();
+
+            batch.setProjectionMatrix(proj);
+            batch.begin();
+            font.getData().setScale(0.68f);
+            yCursor = y + h - 14f + scrollOffset;
+            for (int i = 0; i < STYLE_NAMES.length; i++) {
+                float rowY   = yCursor - rowH;
+                boolean visible = rowY + rowH >= y && rowY <= y + h;
+                if (visible) {
+                    font.setColor(TEXT_UNLOCKED);
+                    font.draw(batch, STYLE_NAMES[i], x + 116, rowY + rowH - 14f);
+                    font.getData().setScale(0.60f);
+                    font.setColor(TEXT_MAIN.r, TEXT_MAIN.g, TEXT_MAIN.b, 0.88f);
+                    font.draw(batch, STYLE_XP[i],    x + 116, rowY + rowH - 28f);
+                    font.draw(batch, STYLE_BONUS[i],  x + 116, rowY + rowH - 42f);
+                    font.getData().setScale(0.68f);
+                }
+                yCursor -= rowH;
+            }
+            font.getData().setScale(1f);
+            font.setColor(Color.WHITE);
+            batch.end();
+        }
+
+        private static int findNextWeaponLevel(int level) {
+            for (WeaponRegistry.WeaponTier weapon : WeaponRegistry.weapons()) {
+                if (weapon.attackReq() > level) {
+                    return weapon.attackReq();
                 }
             }
             return -1;

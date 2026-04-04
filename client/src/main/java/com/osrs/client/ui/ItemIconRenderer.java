@@ -22,6 +22,26 @@ public final class ItemIconRenderer {
         float iconY = slotBottom + 4;
 
         switch (itemId) {
+            // ── Swords ────────────────────────────────────────────────────
+            case 1277 -> drawSwordIcon(sr, iconX, iconY, BRONZE_COLOR);
+            // ── Scimitars ─────────────────────────────────────────────────
+            case 1321 -> drawScimitarIcon(sr, iconX, iconY, BRONZE_COLOR);
+            case 1323 -> drawScimitarIcon(sr, iconX, iconY, IRON_COLOR);
+            case 1325 -> drawScimitarIcon(sr, iconX, iconY, STEEL_COLOR);
+            case 1327 -> drawScimitarIcon(sr, iconX, iconY, new Color(0.16f, 0.16f, 0.16f, 1f));
+            case 1329 -> drawScimitarIcon(sr, iconX, iconY, MITHRIL_COLOR);
+            case 1331 -> drawScimitarIcon(sr, iconX, iconY, ADAMANT_COLOR);
+            case 1333 -> drawScimitarIcon(sr, iconX, iconY, RUNE_COLOR);
+            case 4587 -> drawScimitarIcon(sr, iconX, iconY, DRAGON_COLOR);
+            // ── Longswords ────────────────────────────────────────────────
+            case 1291 -> drawLongswordIcon(sr, iconX, iconY, BRONZE_COLOR);
+            case 1293 -> drawLongswordIcon(sr, iconX, iconY, IRON_COLOR);
+            case 1295 -> drawLongswordIcon(sr, iconX, iconY, STEEL_COLOR);
+            case 1297 -> drawLongswordIcon(sr, iconX, iconY, new Color(0.16f, 0.16f, 0.16f, 1f));
+            case 1299 -> drawLongswordIcon(sr, iconX, iconY, MITHRIL_COLOR);
+            case 1301 -> drawLongswordIcon(sr, iconX, iconY, ADAMANT_COLOR);
+            case 1303 -> drawLongswordIcon(sr, iconX, iconY, RUNE_COLOR);
+            case 1305 -> drawLongswordIcon(sr, iconX, iconY, DRAGON_COLOR);
             // ── Woodcutting logs ──────────────────────────────────────────
             case 1511 -> drawLogsIcon(sr, iconX, iconY);
             case 1521 -> drawOakLogsIcon(sr, iconX, iconY);
@@ -158,6 +178,76 @@ public final class ItemIconRenderer {
         float hib = Math.min(headColor.b + 0.22f, 1f);
         sr.setColor(hi, hig, hib, 1f);
         sr.rect(x + 6, y + 17, 6, 2);
+    }
+
+    /**
+     * Sword icon: straight diagonal blade pointing top-right, with a crossguard.
+     * Distinct from the scimitar (curved blade) and longsword (longer blade).
+     */
+    private static void drawSwordIcon(ShapeRenderer sr, float x, float y, Color bladeColor) {
+        // Grip (handle)
+        sr.setColor(0.48f, 0.28f, 0.12f, 1f);
+        sr.rect(x + 3,  y + 3,  4, 4);
+        // Crossguard
+        sr.setColor(bladeColor);
+        sr.rect(x + 5,  y + 6,  14, 3);
+        // Blade — straight, running bottom-left to top-right
+        sr.rect(x + 8,  y + 8,  3, 14);
+        // Highlight on blade
+        float hi = Math.min(bladeColor.r + 0.25f, 1f);
+        float hig = Math.min(bladeColor.g + 0.25f, 1f);
+        float hib = Math.min(bladeColor.b + 0.25f, 1f);
+        sr.setColor(hi, hig, hib, 1f);
+        sr.rect(x + 9,  y + 9,  1, 12);
+    }
+
+    /**
+     * Scimitar icon: curved blade — C-shaped arc suggesting the classic OSRS curved sword.
+     * Uses filled rectangles in a staircase to approximate a curve.
+     */
+    private static void drawScimitarIcon(ShapeRenderer sr, float x, float y, Color bladeColor) {
+        // Grip
+        sr.setColor(0.48f, 0.28f, 0.12f, 1f);
+        sr.rect(x + 3, y + 3, 4, 4);
+        // Crossguard
+        sr.setColor(bladeColor);
+        sr.rect(x + 4, y + 6, 12, 3);
+        // Blade: staircase approximating the scimitar's back-curve
+        sr.rect(x + 13, y + 7, 5, 3);   // horizontal sweep start
+        sr.rect(x + 16, y + 9, 4, 3);   // curving upward
+        sr.rect(x + 17, y + 11, 4, 3);
+        sr.rect(x + 16, y + 13, 4, 3);
+        sr.rect(x + 14, y + 15, 4, 3);  // curving back
+        sr.rect(x + 11, y + 17, 4, 3);
+        sr.rect(x + 8,  y + 18, 4, 3);  // tip pointing left
+        // Highlight
+        float hi = Math.min(bladeColor.r + 0.25f, 1f);
+        float hig = Math.min(bladeColor.g + 0.25f, 1f);
+        float hib = Math.min(bladeColor.b + 0.25f, 1f);
+        sr.setColor(hi, hig, hib, 1f);
+        sr.rect(x + 14, y + 9, 1, 2);
+        sr.rect(x + 13, y + 16, 1, 2);
+    }
+
+    /**
+     * Longsword icon: taller than the sword, same shape but with a longer blade running
+     * vertically. Distinguished from the sword by blade length.
+     */
+    private static void drawLongswordIcon(ShapeRenderer sr, float x, float y, Color bladeColor) {
+        // Grip
+        sr.setColor(0.48f, 0.28f, 0.12f, 1f);
+        sr.rect(x + 3, y + 2, 4, 5);
+        // Crossguard — wider than sword's
+        sr.setColor(bladeColor);
+        sr.rect(x + 3, y + 6, 17, 3);
+        // Blade — longer vertical blade
+        sr.rect(x + 7, y + 8, 4, 18);
+        // Highlight
+        float hi = Math.min(bladeColor.r + 0.25f, 1f);
+        float hig = Math.min(bladeColor.g + 0.25f, 1f);
+        float hib = Math.min(bladeColor.b + 0.25f, 1f);
+        sr.setColor(hi, hig, hib, 1f);
+        sr.rect(x + 8, y + 9, 1, 16);
     }
 
     private static void drawTeakLogsIcon(ShapeRenderer sr, float x, float y) {
@@ -396,14 +486,14 @@ public final class ItemIconRenderer {
 
     private static Color getItemIconColor(int itemId) {
         return switch (itemId) {
-            case 882, 1277, 1321, 1175, 1115, 1119, 1067, 1351 -> BRONZE_COLOR;
-            case 1349, 1323, 1153, 2000, 1069, 1177 -> IRON_COLOR;
-            case 1353, 1325, 1157, 1085, 1071, 1193 -> STEEL_COLOR;
-            case 1355, 1329, 1163, 1129, 1075, 1197 -> MITHRIL_COLOR;
-            case 1357, 1331, 1161, 1133, 1077, 1199 -> ADAMANT_COLOR;
-            case 1359, 1333, 1165, 1127, 1079, 1185 -> RUNE_COLOR;
-            case 4587, 11335, 3140, 4087, 11286 -> DRAGON_COLOR;
-            case 1327, 1159, 1125, 1073, 1195 -> IRON_COLOR;
+            case 882, 1277, 1321, 1291, 1175, 1115, 1119, 1067, 1351 -> BRONZE_COLOR;
+            case 1349, 1323, 1293, 1153, 2000, 1069, 1177 -> IRON_COLOR;
+            case 1353, 1325, 1295, 1157, 1085, 1071, 1193 -> STEEL_COLOR;
+            case 1355, 1329, 1299, 1163, 1129, 1075, 1197 -> MITHRIL_COLOR;
+            case 1357, 1331, 1301, 1161, 1133, 1077, 1199 -> ADAMANT_COLOR;
+            case 1359, 1333, 1303, 1165, 1127, 1079, 1185 -> RUNE_COLOR;
+            case 4587, 1305, 11335, 3140, 4087, 11286 -> DRAGON_COLOR;
+            case 1327, 1297, 1159, 1125, 1073, 1195 -> new Color(0.16f, 0.16f, 0.16f, 1f);
             case 995 -> new Color(1f, 0.90f, 0.10f, 1f);
             case 526 -> new Color(0.85f, 0.75f, 0.55f, 1f);
             default -> DEFAULT_ITEM_COLOR;

@@ -1253,6 +1253,138 @@ items:
     stab_defence: 0
     attack_req: 60
 
+  # ── Longswords (bronze through dragon) ───────────────────────────────────
+  # Source: https://oldschool.runescape.wiki/w/Longsword
+  # 5-tick weapons with higher strength bonus than scimitars; good stab option.
+
+  - id: 1291
+    name: "Bronze longsword"
+    examine: "A bladed, longsword made of bronze."
+    stackable: false
+    store_value: 32
+    equipable: true
+    consumable: false
+    equip_slot: 4
+    weapon_type: "slash"
+    attack_range: 1
+    stab_attack: 7
+    slash_attack: 9
+    crush_attack: -1
+    melee_strength: 9
+    attack_req: 1
+
+  - id: 1293
+    name: "Iron longsword"
+    examine: "A bladed, longsword made of iron."
+    stackable: false
+    store_value: 112
+    equipable: true
+    consumable: false
+    equip_slot: 4
+    weapon_type: "slash"
+    attack_range: 1
+    stab_attack: 11
+    slash_attack: 15
+    crush_attack: -1
+    melee_strength: 14
+    attack_req: 1
+
+  - id: 1295
+    name: "Steel longsword"
+    examine: "A bladed, longsword made of steel."
+    stackable: false
+    store_value: 400
+    equipable: true
+    consumable: false
+    equip_slot: 4
+    weapon_type: "slash"
+    attack_range: 1
+    stab_attack: 17
+    slash_attack: 24
+    crush_attack: -1
+    melee_strength: 23
+    attack_req: 5
+
+  - id: 1297
+    name: "Black longsword"
+    examine: "A bladed, longsword made of black metal."
+    stackable: false
+    store_value: 1120
+    equipable: true
+    consumable: false
+    equip_slot: 4
+    weapon_type: "slash"
+    attack_range: 1
+    stab_attack: 21
+    slash_attack: 30
+    crush_attack: -1
+    melee_strength: 29
+    attack_req: 10
+
+  - id: 1299
+    name: "Mithril longsword"
+    examine: "A bladed, longsword made of mithril."
+    stackable: false
+    store_value: 2560
+    equipable: true
+    consumable: false
+    equip_slot: 4
+    weapon_type: "slash"
+    attack_range: 1
+    stab_attack: 26
+    slash_attack: 34
+    crush_attack: -1
+    melee_strength: 34
+    attack_req: 20
+
+  - id: 1301
+    name: "Adamant longsword"
+    examine: "A bladed, longsword made of adamantite."
+    stackable: false
+    store_value: 8000
+    equipable: true
+    consumable: false
+    equip_slot: 4
+    weapon_type: "slash"
+    attack_range: 1
+    stab_attack: 36
+    slash_attack: 46
+    crush_attack: -1
+    melee_strength: 44
+    attack_req: 30
+
+  - id: 1303
+    name: "Rune longsword"
+    examine: "A bladed, longsword made of rune."
+    stackable: false
+    store_value: 25600
+    equipable: true
+    consumable: false
+    equip_slot: 4
+    weapon_type: "slash"
+    attack_range: 1
+    stab_attack: 43
+    slash_attack: 54
+    crush_attack: -1
+    melee_strength: 53
+    attack_req: 40
+
+  - id: 1305
+    name: "Dragon longsword"
+    examine: "An extremely powerful longsword."
+    stackable: false
+    store_value: 100000
+    equipable: true
+    consumable: false
+    equip_slot: 4
+    weapon_type: "slash"
+    attack_range: 1
+    stab_attack: 55
+    slash_attack: 60
+    crush_attack: -1
+    melee_strength: 60
+    attack_req: 60
+
   # ── Ores ────────────────────────────────────────────────────────────────────
 
   - id: 436
