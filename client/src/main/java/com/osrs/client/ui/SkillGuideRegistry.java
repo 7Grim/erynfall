@@ -21,6 +21,7 @@ public final class SkillGuideRegistry {
     private static final int SKILL_ATTACK      = 0;
     private static final int SKILL_STRENGTH    = 1;
     private static final int SKILL_DEFENCE     = 2;
+    private static final int SKILL_HITPOINTS   = 3;
     private static final int SKILL_WOODCUTTING = 7;
     private static final int SKILL_FISHING = 8;
     private static final int SKILL_MINING = 10;
@@ -30,6 +31,7 @@ public final class SkillGuideRegistry {
         register(SKILL_ATTACK, new AttackGuideProvider());
         register(SKILL_STRENGTH, new StrengthGuideProvider());
         register(SKILL_DEFENCE, new DefenceGuideProvider());
+        register(SKILL_HITPOINTS, new HitpointsGuideProvider());
         register(SKILL_WOODCUTTING, new WoodcuttingGuideProvider());
         register(SKILL_FISHING, new FishingGuideProvider());
         register(SKILL_MINING, new MiningGuideProvider());
@@ -1548,6 +1550,229 @@ public final class SkillGuideRegistry {
                 }
             }
             return -1;
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // Hitpoints guide
+    // -----------------------------------------------------------------------
+
+    private static final class HitpointsGuideProvider implements SkillGuidePopup.SkillGuideProvider {
+
+        private static final List<SkillGuidePopup.GuideSection> SECTIONS = List.of(
+            new SkillGuidePopup.GuideSection("Introduction"),
+            new SkillGuidePopup.GuideSection("Food"),
+            new SkillGuidePopup.GuideSection("HP Scaling")
+        );
+
+        private static final Color TEXT_MAIN     = new Color(0.24f, 0.16f, 0.06f, 1f);
+        private static final Color TEXT_LOCKED   = new Color(0.45f, 0.36f, 0.24f, 1f);
+        private static final Color TEXT_UNLOCKED = new Color(0.22f, 0.14f, 0.06f, 1f);
+        private static final Color TEXT_NEXT     = new Color(0.48f, 0.28f, 0.04f, 1f);
+        private static final Color ROW_UNLOCKED  = new Color(0.88f, 0.81f, 0.67f, 1f);
+        private static final Color ROW_LOCKED    = new Color(0.78f, 0.71f, 0.57f, 1f);
+        private static final Color ROW_NEXT      = new Color(0.94f, 0.82f, 0.50f, 1f);
+        private static final Color HP_RED        = new Color(0.82f, 0.08f, 0.08f, 1f);
+
+        /** Food item: itemId, display name, heal amount. */
+        private record FoodTier(int itemId, String name, int heal) {}
+
+        private static final List<FoodTier> FOODS = List.of(
+            new FoodTier(315, "Shrimps",  3),
+            new FoodTier(361, "Tuna",    10),
+            new FoodTier(385, "Shark",   20)
+        );
+
+        /** Key levels shown in the HP Scaling reference table. */
+        private static final int[] SCALE_LEVELS = {10, 20, 30, 40, 50, 60, 70, 80, 90, 99};
+
+        @Override
+        public String getTitle(int skillIdx) {
+            return "Hitpoints";
+        }
+
+        @Override
+        public List<SkillGuidePopup.GuideSection> getSections(int skillIdx) {
+            return SECTIONS;
+        }
+
+        @Override
+        public void renderSectionContent(ShapeRenderer sr, SpriteBatch batch, BitmapFont font,
+                                         Matrix4 proj, int skillIdx, int level, long totalXp,
+                                         int sectionIdx, float x, float y, float w, float h,
+                                         float scrollOffset) {
+            if (sectionIdx == 0) {
+                renderIntroduction(sr, batch, font, proj, level, x, y, w, h);
+            } else if (sectionIdx == 1) {
+                renderFood(sr, batch, font, proj, level, x, y, w, h, scrollOffset);
+            } else {
+                renderHpScaling(sr, batch, font, proj, level, x, y, w, h, scrollOffset);
+            }
+        }
+
+        @Override
+        public float getSectionContentHeight(int skillIdx, int level, int sectionIdx, float contentW) {
+            if (sectionIdx == 1) return 18f + FOODS.size() * 32f + 12f;
+            if (sectionIdx == 2) return 18f + SCALE_LEVELS.length * 32f + 12f;
+            return 236f;
+        }
+
+        private void renderIntroduction(ShapeRenderer sr, SpriteBatch batch, BitmapFont font,
+                                        Matrix4 proj, int level, float x, float y, float w, float h) {
+            final float blockH     = 82f;
+            final float top        = y + h - 14f;
+            final float blockX     = x + 8f;
+            final float blockW     = w - 16f;
+            final float dividerX   = x + 10f;
+            final float dividerW   = w - 20f;
+            final float iconX      = x + 20f;
+            final float textX      = x + 62f;
+            final float textW      = w - 86f;
+            final float textTopPad = 16f;
+
+            final String[] texts = {
+                "Hitpoints starts at level 10 — the only skill that begins above level 1. "
+                    + "Your maximum HP equals your Hitpoints level directly.",
+                "Hitpoints XP is earned passively during all combat — every 1 damage dealt "
+                    + "rewards 1.33 HP XP, regardless of your combat style.",
+                "Current max HP: " + level + " at level " + level
+                    + ". HP regenerates 1 point every 100 seconds. Eating food restores HP instantly."
+            };
+
+            sr.setProjectionMatrix(proj);
+            sr.begin(ShapeRenderer.ShapeType.Filled);
+            for (int i = 0; i < 3; i++) {
+                float by = top - (i + 1) * blockH;
+                sr.setColor(0.92f, 0.84f, 0.69f, 1f);
+                sr.rect(blockX, by, blockW, blockH - 8f);
+                sr.setColor(0.64f, 0.50f, 0.30f, 1f);
+                sr.rect(dividerX, by + blockH - 16f, dividerW, 2f);
+            }
+            // Block 1: red HP orb icon
+            float ib1y = top - blockH + 12f;
+            sr.setColor(HP_RED);
+            sr.circle(iconX + 12f, ib1y + 14f, 10f, 14);
+            sr.setColor(1f, 0.5f, 0.5f, 0.6f);
+            sr.circle(iconX + 10f, ib1y + 16f, 4f, 10);
+            // Block 2: rune scimitar (combat XP hint)
+            ItemIconRenderer.drawItemIcon(sr, iconX, top - blockH * 2 + 12f, 1333);
+            // Block 3: shrimps (food hint)
+            ItemIconRenderer.drawItemIcon(sr, iconX, top - blockH * 3 + 12f, 315);
+            sr.end();
+
+            GlyphLayout wrapped = new GlyphLayout();
+            batch.setProjectionMatrix(proj);
+            batch.begin();
+            font.getData().setScale(0.68f);
+            font.setColor(TEXT_MAIN);
+            for (int i = 0; i < 3; i++) {
+                float by = top - (i + 1) * blockH;
+                wrapped.setText(font, texts[i], TEXT_MAIN, textW, Align.left, true);
+                font.draw(batch, wrapped, textX, by + blockH - 8f - textTopPad);
+            }
+            font.getData().setScale(1f);
+            font.setColor(Color.WHITE);
+            batch.end();
+        }
+
+        private void renderFood(ShapeRenderer sr, SpriteBatch batch, BitmapFont font,
+                                Matrix4 proj, int level, float x, float y, float w, float h,
+                                float scrollOffset) {
+            float rowH = 32f;
+
+            sr.setProjectionMatrix(proj);
+            sr.begin(ShapeRenderer.ShapeType.Filled);
+            float yCursor = y + h - 14f + scrollOffset;
+            for (FoodTier food : FOODS) {
+                float rowY = yCursor - rowH;
+                if (rowY + rowH >= y && rowY <= y + h) {
+                    sr.setColor(ROW_UNLOCKED);
+                    sr.rect(x + 8, rowY + 2, w - 16, rowH - 4);
+                    ItemIconRenderer.drawItemIcon(sr, x + 72, rowY + 3, food.itemId());
+                }
+                yCursor -= rowH;
+            }
+            sr.end();
+
+            batch.setProjectionMatrix(proj);
+            batch.begin();
+            font.getData().setScale(0.68f);
+            yCursor = y + h - 14f + scrollOffset;
+            for (FoodTier food : FOODS) {
+                float rowY = yCursor - rowH;
+                if (rowY + rowH >= y && rowY <= y + h) {
+                    font.setColor(TEXT_UNLOCKED);
+                    font.draw(batch, food.name(),                x + 16,    rowY + 26);
+                    font.draw(batch, "+" + food.heal() + " HP",  x + w - 88, rowY + 26);
+                    font.getData().setScale(0.60f);
+                    font.setColor(TEXT_LOCKED.r, TEXT_LOCKED.g, TEXT_LOCKED.b, 0.75f);
+                    font.draw(batch, "Heals " + food.heal() + " hitpoints", x + 116, rowY + 13);
+                    font.getData().setScale(0.68f);
+                }
+                yCursor -= rowH;
+            }
+            font.getData().setScale(1f);
+            font.setColor(Color.WHITE);
+            batch.end();
+        }
+
+        private void renderHpScaling(ShapeRenderer sr, SpriteBatch batch, BitmapFont font,
+                                     Matrix4 proj, int level, float x, float y, float w, float h,
+                                     float scrollOffset) {
+            float rowH = 32f;
+            int nextLevel = -1;
+            for (int lv : SCALE_LEVELS) {
+                if (lv > level) { nextLevel = lv; break; }
+            }
+
+            sr.setProjectionMatrix(proj);
+            sr.begin(ShapeRenderer.ShapeType.Filled);
+            float yCursor = y + h - 14f + scrollOffset;
+            for (int lv : SCALE_LEVELS) {
+                float rowY = yCursor - rowH;
+                if (rowY + rowH >= y && rowY <= y + h) {
+                    boolean unlocked = level >= lv;
+                    boolean next     = !unlocked && lv == nextLevel;
+                    sr.setColor(next ? ROW_NEXT : unlocked ? ROW_UNLOCKED : ROW_LOCKED);
+                    sr.rect(x + 8, rowY + 2, w - 16, rowH - 4);
+                    // Mini HP bar proportional to lv/99
+                    float barW = 28f;
+                    float barH = 6f;
+                    float barX = x + 62f;
+                    float barY = rowY + (rowH - barH) / 2f;
+                    sr.setColor(0.30f, 0.04f, 0.04f, 1f);
+                    sr.rect(barX, barY, barW, barH);
+                    sr.setColor(HP_RED);
+                    sr.rect(barX, barY, barW * lv / 99f, barH);
+                }
+                yCursor -= rowH;
+            }
+            sr.end();
+
+            batch.setProjectionMatrix(proj);
+            batch.begin();
+            font.getData().setScale(0.68f);
+            yCursor = y + h - 14f + scrollOffset;
+            for (int lv : SCALE_LEVELS) {
+                float rowY = yCursor - rowH;
+                if (rowY + rowH >= y && rowY <= y + h) {
+                    boolean unlocked = level >= lv;
+                    boolean next     = !unlocked && lv == nextLevel;
+                    boolean current  = level == lv || (lv == 10 && level <= 10);
+                    font.setColor(next ? TEXT_NEXT : unlocked ? TEXT_UNLOCKED : TEXT_LOCKED);
+                    font.draw(batch, "Lv " + lv,       x + 16,     rowY + 26);
+                    font.draw(batch, lv + " max HP",    x + w - 88, rowY + 26);
+                    font.getData().setScale(0.60f);
+                    Color sub = next ? TEXT_NEXT : TEXT_LOCKED;
+                    font.setColor(sub.r, sub.g, sub.b, 0.75f);
+                    font.draw(batch, current ? "< your level" : "Max HP = level", x + 116, rowY + 13);
+                    font.getData().setScale(0.68f);
+                }
+                yCursor -= rowH;
+            }
+            font.getData().setScale(1f);
+            font.setColor(Color.WHITE);
+            batch.end();
         }
     }
 }

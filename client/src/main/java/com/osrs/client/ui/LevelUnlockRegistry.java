@@ -115,8 +115,16 @@ public final class LevelUnlockRegistry {
 
     private static String hitpointsUnlock(int level) {
         return switch (level) {
-            case 10 -> "Starting Hitpoints level — train combat skills to raise this further.";
-            case 99 -> "You have reached the maximum Hitpoints level!";
+            case 10 -> "Starting Hitpoints level — the only skill that begins above 1. Train any combat style to raise it.";
+            case 20 -> "You now have 20 max HP. Tuna (+10) becomes a reliable heal choice.";
+            case 30 -> "30 max HP. Your combat survivability is growing — consider training Defence alongside Attack.";
+            case 40 -> "40 max HP. Shrimps (+3) are now too weak for efficient healing; stick to tuna or better.";
+            case 50 -> "50 max HP. Halfway to the maximum. Sharks (+20) will now restore you to near-full in two bites.";
+            case 60 -> "60 max HP. A strong foundation for taking on tougher monsters in the world.";
+            case 70 -> "70 max HP. You can now absorb significant punishment — a great milestone for PvM.";
+            case 80 -> "80 max HP. Approaching elite survivability. Sharks heal 25% of your max HP in one use.";
+            case 90 -> "90 max HP. Only 9 levels from the cap. Your HP regenerates 1 point every 100 seconds.";
+            case 99 -> "99 Hitpoints — maximum level! You have 99 max HP, the highest possible.";
             default -> null;
         };
     }

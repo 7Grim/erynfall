@@ -427,7 +427,7 @@ public class SidePanel {
         }
 
         // Stat pillars always last — drawn on top of every tab so they are always visible
-        renderStatPillars(sr, proj);
+        renderStatPillars(sr, batch, font, proj);
     }
 
     // -----------------------------------------------------------------------
@@ -701,7 +701,7 @@ public class SidePanel {
      * Draws vertical HP (left) and prayer (right) bars inside the two dark pillars
      * that flank the inventory grid. Bars fill from the bottom; drain from the top.
      */
-    private void renderStatPillars(ShapeRenderer sr, Matrix4 proj) {
+    private void renderStatPillars(ShapeRenderer sr, SpriteBatch batch, BitmapFont font, Matrix4 proj) {
         int leftX = panelX + BORDER_THICKNESS;
         int rightX = panelX + CONTENT_INSET + CONTENT_W;
         int pillarW = CONTENT_INSET - BORDER_THICKNESS;
@@ -746,6 +746,26 @@ public class SidePanel {
         sr.rect(leftX, cY, pillarW, pillarH);
         sr.rect(rightX, cY, pillarW, pillarH);
         sr.end();
+
+        // Current HP number centered in the left pillar
+        if (maxHp > 0) {
+            com.badlogic.gdx.graphics.g2d.GlyphLayout gl = new com.badlogic.gdx.graphics.g2d.GlyphLayout();
+            float pillarCX = leftX + pillarW / 2f;
+            float pillarCY = cY + pillarH / 2f;
+            batch.setProjectionMatrix(proj);
+            batch.begin();
+            font.getData().setScale(0.60f);
+            String hpText = String.valueOf(currentHp);
+            gl.setText(font, hpText);
+            // White text with dark shadow for readability over red bar
+            font.setColor(0.12f, 0.04f, 0.04f, 0.85f);
+            font.draw(batch, hpText, pillarCX - gl.width / 2f + 1f, pillarCY + gl.height / 2f - 1f);
+            font.setColor(1f, 1f, 1f, 0.95f);
+            font.draw(batch, hpText, pillarCX - gl.width / 2f, pillarCY + gl.height / 2f);
+            font.getData().setScale(1f);
+            font.setColor(com.badlogic.gdx.graphics.Color.WHITE);
+            batch.end();
+        }
     }
 
     private void renderCombatTab(ShapeRenderer sr, SpriteBatch batch, BitmapFont font, Matrix4 proj) {
