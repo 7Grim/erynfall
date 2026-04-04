@@ -210,6 +210,19 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
     private boolean localPlayerIsAdminToolsEnabled = false;
     private String lastAdminActionMessage = "";
     private boolean lastAdminActionSuccess = false;
+    public static final class AdminItemSearchEntry {
+        public final int itemId;
+        public final String itemName;
+        public final int flags;
+
+        public AdminItemSearchEntry(int itemId, String itemName, int flags) {
+            this.itemId = itemId;
+            this.itemName = itemName == null ? "" : itemName;
+            this.flags = flags;
+        }
+    }
+    private final java.util.List<AdminItemSearchEntry> adminItemSearchResults = new java.util.ArrayList<>();
+    private String lastAdminItemSearchQuery = "";
     private boolean leveledUp = false;
     private int leveledUpSkill = -1;
 
@@ -323,6 +336,7 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
             case BANK_CLOSE -> handleBankClose(packet.getBankClose());
             case BANK_SLOT_UPDATE -> handleBankSlotUpdate(packet.getBankSlotUpdate());
             case ADMIN_ACTION_RESULT -> handleAdminActionResult(packet.getAdminActionResult());
+            case ADMIN_ITEM_SEARCH_RESULTS -> handleAdminItemSearchResults(packet.getAdminItemSearchResults());
             default -> LOG.debug("Unhandled server message: {}", packet.getPayloadCase());
         }
     }
@@ -353,6 +367,21 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
         lastAdminActionSuccess = result.getSuccess();
         lastAdminActionMessage = result.getMessage();
         LOG.info("Admin action result: success={} message='{}'", result.getSuccess(), result.getMessage());
+    }
+
+    private void handleAdminItemSearchResults(NetworkProto.AdminItemSearchResults result) {
+        synchronized (adminItemSearchResults) {
+            adminItemSearchResults.clear();
+            for (NetworkProto.AdminItemSearchEntry entry : result.getEntriesList()) {
+                adminItemSearchResults.add(new AdminItemSearchEntry(
+                    entry.getItemId(),
+                    entry.getItemName(),
+                    entry.getFlags()
+                ));
+            }
+        }
+        lastAdminItemSearchQuery = result.getQuery();
+        LOG.info("Admin item search results: query='{}' count={}", result.getQuery(), result.getEntriesCount());
     }
 
     /**
@@ -723,6 +752,15 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
     }
     public boolean wasLastAdminActionSuccessful() {
         return lastAdminActionSuccess;
+    }
+    public java.util.List<AdminItemSearchEntry> getAdminItemSearchResults() {
+        synchronized (adminItemSearchResults) {
+            return new java.util.ArrayList<>(adminItemSearchResults);
+        }
+    }
+
+    public String getLastAdminItemSearchQuery() {
+        return lastAdminItemSearchQuery;
     }
 
     private void handlePlayerDeath(NetworkProto.PlayerDeath death) {

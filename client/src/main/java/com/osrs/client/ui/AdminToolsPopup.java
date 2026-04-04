@@ -1,6 +1,7 @@
 package com.osrs.client.ui;
 
 import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.Input;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
@@ -9,6 +10,8 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.Matrix4;
 import com.osrs.client.network.ClientPacketHandler;
+
+import java.util.List;
 
 public class AdminToolsPopup {
 
@@ -45,6 +48,44 @@ public class AdminToolsPopup {
     private int selectedTabIdx;
     private int selectedSkillIdx;
     private AdminSkillAction pendingSkillAction;
+    private AdminItemAction pendingItemAction;
+
+    private String itemSearchQuery = "";
+    private boolean itemSearchFocused = false;
+    private int selectedAdminItemId = -1;
+    private String selectedAdminItemName = "";
+    private long selectedQuantity = 1;
+    private boolean giveToBank = false;
+    private boolean itemSearchDirty = false;
+
+    private int itemSearchBoxX;
+    private int itemSearchBoxY;
+    private int itemSearchBoxW;
+    private int itemSearchBoxH;
+    private final int[] itemResultX = new int[20];
+    private final int[] itemResultY = new int[20];
+    private final int[] itemResultW = new int[20];
+    private final int[] itemResultH = new int[20];
+    private final boolean[] itemResultValid = new boolean[20];
+    private final int[] itemResultItemId = new int[20];
+    private final String[] itemResultItemName = new String[20];
+    private final long[] ITEM_QTY_VALUES = {1L, 5L, 10L, 50L, 100L, 1000L};
+    private final int[] itemQtyX = new int[6];
+    private final int[] itemQtyY = new int[6];
+    private final int[] itemQtyW = new int[6];
+    private final int[] itemQtyH = new int[6];
+    private int destInvX;
+    private int destInvY;
+    private int destInvW;
+    private int destInvH;
+    private int destBankX;
+    private int destBankY;
+    private int destBankW;
+    private int destBankH;
+    private int giveButtonX;
+    private int giveButtonY;
+    private int giveButtonW;
+    private int giveButtonH;
 
     public static final class AdminSkillAction {
         public final boolean setLevel;
@@ -57,6 +98,18 @@ public class AdminToolsPopup {
             this.skillIdx = skillIdx;
             this.levelValue = levelValue;
             this.xpDeltaWhole = xpDeltaWhole;
+        }
+    }
+
+    public static final class AdminItemAction {
+        public final int itemId;
+        public final long quantity;
+        public final boolean toBank;
+
+        public AdminItemAction(int itemId, long quantity, boolean toBank) {
+            this.itemId = itemId;
+            this.quantity = quantity;
+            this.toBank = toBank;
         }
     }
 
@@ -110,11 +163,15 @@ public class AdminToolsPopup {
         selectedTabIdx = Math.max(0, Math.min(selectedTabIdx, TAB_NAMES.length - 1));
         selectedSkillIdx = Math.max(0, Math.min(selectedSkillIdx, SKILL_NAMES.length - 1));
         pendingSkillAction = null;
+        pendingItemAction = null;
+        itemSearchDirty = true;
     }
 
     public void dismiss() {
         visible = false;
         pendingSkillAction = null;
+        pendingItemAction = null;
+        itemSearchFocused = false;
     }
 
     public boolean isVisible() {
@@ -125,6 +182,71 @@ public class AdminToolsPopup {
         AdminSkillAction action = pendingSkillAction;
         pendingSkillAction = null;
         return action;
+    }
+
+    public AdminItemAction consumePendingItemAction() {
+        AdminItemAction action = pendingItemAction;
+        pendingItemAction = null;
+        return action;
+    }
+
+    public boolean isItemSearchFocused() {
+        return itemSearchFocused;
+    }
+
+    public boolean handleItemSearchKey(int keycode, boolean shiftDown) {
+        if (!visible || selectedTabIdx != 1 || !itemSearchFocused) {
+            return false;
+        }
+        if (keycode == Input.Keys.BACKSPACE) {
+            if (!itemSearchQuery.isEmpty()) {
+                itemSearchQuery = itemSearchQuery.substring(0, itemSearchQuery.length() - 1);
+                itemSearchDirty = true;
+            }
+            return true;
+        }
+        if (keycode == Input.Keys.SPACE) {
+            itemSearchQuery += " ";
+            itemSearchDirty = true;
+            return true;
+        }
+        if (keycode == Input.Keys.APOSTROPHE) {
+            itemSearchQuery += '\'';
+            itemSearchDirty = true;
+            return true;
+        }
+        if (keycode == Input.Keys.MINUS) {
+            itemSearchQuery += '-';
+            itemSearchDirty = true;
+            return true;
+        }
+        if (keycode >= Input.Keys.A && keycode <= Input.Keys.Z) {
+            char c = Input.Keys.toString(keycode).charAt(0);
+            if (!shiftDown) {
+                c = Character.toLowerCase(c);
+            }
+            itemSearchQuery += c;
+            itemSearchDirty = true;
+            return true;
+        }
+        if (keycode >= Input.Keys.NUM_0 && keycode <= Input.Keys.NUM_9) {
+            itemSearchQuery += (char) ('0' + (keycode - Input.Keys.NUM_0));
+            itemSearchDirty = true;
+            return true;
+        }
+        return false;
+    }
+
+    public String consumeItemSearchQueryIfDirty() {
+        if (!itemSearchDirty) {
+            return null;
+        }
+        itemSearchDirty = false;
+        return itemSearchQuery;
+    }
+
+    public void clearItemSearchFocus() {
+        itemSearchFocused = false;
     }
 
     public boolean handleClick(int mouseX, int mouseY) {
@@ -147,11 +269,19 @@ public class AdminToolsPopup {
             if (mouseX >= tx && mouseX <= tx + TAB_W && mouseY >= tabsY && mouseY <= tabsY + TAB_H) {
                 selectedTabIdx = i;
                 pendingSkillAction = null;
+                pendingItemAction = null;
+                itemSearchFocused = false;
+                if (selectedTabIdx == 1) {
+                    itemSearchDirty = true;
+                }
                 return true;
             }
         }
         if (selectedTabIdx == 0) {
             return handleSkillsClick(mouseX, mouseY);
+        }
+        if (selectedTabIdx == 1) {
+            return handleItemsClick(mouseX, mouseY);
         }
         return true;
     }
@@ -193,6 +323,49 @@ public class AdminToolsPopup {
                 return true;
             }
         }
+        return true;
+    }
+
+    private boolean handleItemsClick(int mouseX, int mouseY) {
+        itemSearchFocused = mouseX >= itemSearchBoxX && mouseX <= itemSearchBoxX + itemSearchBoxW
+            && mouseY >= itemSearchBoxY && mouseY <= itemSearchBoxY + itemSearchBoxH;
+
+        for (int i = 0; i < itemResultValid.length; i++) {
+            if (!itemResultValid[i]) {
+                continue;
+            }
+            if (mouseX >= itemResultX[i] && mouseX <= itemResultX[i] + itemResultW[i]
+                && mouseY >= itemResultY[i] && mouseY <= itemResultY[i] + itemResultH[i]) {
+                selectedAdminItemId = itemResultItemId[i];
+                selectedAdminItemName = itemResultItemName[i] == null ? "" : itemResultItemName[i];
+                return true;
+            }
+        }
+
+        for (int i = 0; i < ITEM_QTY_VALUES.length; i++) {
+            if (mouseX >= itemQtyX[i] && mouseX <= itemQtyX[i] + itemQtyW[i]
+                && mouseY >= itemQtyY[i] && mouseY <= itemQtyY[i] + itemQtyH[i]) {
+                selectedQuantity = ITEM_QTY_VALUES[i];
+                return true;
+            }
+        }
+
+        if (mouseX >= destInvX && mouseX <= destInvX + destInvW && mouseY >= destInvY && mouseY <= destInvY + destInvH) {
+            giveToBank = false;
+            return true;
+        }
+        if (mouseX >= destBankX && mouseX <= destBankX + destBankW && mouseY >= destBankY && mouseY <= destBankY + destBankH) {
+            giveToBank = true;
+            return true;
+        }
+        if (mouseX >= giveButtonX && mouseX <= giveButtonX + giveButtonW
+            && mouseY >= giveButtonY && mouseY <= giveButtonY + giveButtonH) {
+            if (selectedAdminItemId > 0 && selectedQuantity > 0) {
+                pendingItemAction = new AdminItemAction(selectedAdminItemId, selectedQuantity, giveToBank);
+            }
+            return true;
+        }
+
         return true;
     }
 
@@ -242,6 +415,8 @@ public class AdminToolsPopup {
 
         if (selectedTabIdx == 0) {
             renderSkillsBackground(shapeRenderer);
+        } else if (selectedTabIdx == 1) {
+            renderItemsBackground(shapeRenderer, handler);
         }
 
         shapeRenderer.end();
@@ -260,6 +435,8 @@ public class AdminToolsPopup {
 
         if (selectedTabIdx == 0) {
             renderSkillsBorders(shapeRenderer);
+        } else if (selectedTabIdx == 1) {
+            renderItemsBorders(shapeRenderer);
         }
 
         shapeRenderer.end();
@@ -277,10 +454,11 @@ public class AdminToolsPopup {
 
         if (selectedTabIdx == 0) {
             renderSkillsText(batch, font, handler);
+        } else if (selectedTabIdx == 1) {
+            renderItemsText(batch, font, handler);
         } else {
             font.setColor(0.24f, 0.16f, 0.06f, 1f);
             String placeholder = switch (selectedTabIdx) {
-                case 1 -> "Item tools coming next.";
                 case 2 -> "Travel tools coming next.";
                 default -> "Tools coming next.";
             };
@@ -506,6 +684,200 @@ public class AdminToolsPopup {
                     ? new Color(0.14f, 0.42f, 0.16f, 1f)
                     : new Color(0.52f, 0.14f, 0.14f, 1f));
                 font.draw(batch, msg, rightX + 10, rightY + 14);
+            }
+        }
+    }
+
+    private void renderItemsBackground(ShapeRenderer shapeRenderer, ClientPacketHandler handler) {
+        int leftX = contentX + 8;
+        int leftY = contentY + 8;
+        int leftW = 290;
+        int leftH = contentH - 16;
+        int rightX = leftX + leftW + 8;
+        int rightY = leftY;
+        int rightW = contentW - (rightX - contentX) - 8;
+        int rightH = leftH;
+
+        shapeRenderer.setColor(0.90f, 0.82f, 0.66f, 1f);
+        shapeRenderer.rect(leftX, leftY, leftW, leftH);
+        shapeRenderer.rect(rightX, rightY, rightW, rightH);
+
+        itemSearchBoxX = leftX + 8;
+        itemSearchBoxY = leftY + leftH - 28;
+        itemSearchBoxW = leftW - 16;
+        itemSearchBoxH = 18;
+        shapeRenderer.setColor(itemSearchFocused ? 0.95f : 0.84f, itemSearchFocused ? 0.88f : 0.76f, 0.62f, 1f);
+        shapeRenderer.rect(itemSearchBoxX, itemSearchBoxY, itemSearchBoxW, itemSearchBoxH);
+
+        for (int i = 0; i < itemResultValid.length; i++) {
+            itemResultValid[i] = false;
+            itemResultItemId[i] = 0;
+            itemResultItemName[i] = "";
+        }
+
+        List<ClientPacketHandler.AdminItemSearchEntry> entries = handler == null
+            ? List.of()
+            : handler.getAdminItemSearchResults();
+        int rowH = 12;
+        int listTopY = itemSearchBoxY - 6;
+        int maxRows = Math.min(20, entries.size());
+        for (int i = 0; i < maxRows; i++) {
+            int rowY = listTopY - (i + 1) * rowH;
+            if (rowY < leftY + 8) {
+                break;
+            }
+            ClientPacketHandler.AdminItemSearchEntry entry = entries.get(i);
+            itemResultX[i] = leftX + 8;
+            itemResultY[i] = rowY;
+            itemResultW[i] = leftW - 16;
+            itemResultH[i] = rowH;
+            itemResultValid[i] = true;
+            itemResultItemId[i] = entry.itemId;
+            itemResultItemName[i] = entry.itemName;
+            boolean selected = entry.itemId == selectedAdminItemId;
+            shapeRenderer.setColor(selected ? 0.95f : 0.82f, selected ? 0.79f : 0.72f, selected ? 0.48f : 0.56f, 1f);
+            shapeRenderer.rect(itemResultX[i], itemResultY[i], itemResultW[i], itemResultH[i]);
+        }
+
+        int innerX = rightX + 10;
+        int innerW = rightW - 20;
+        int rowY = rightY + rightH - 84;
+        int btnH = 18;
+        int gap = 6;
+        int qtyW = (innerW - gap * (ITEM_QTY_VALUES.length - 1)) / ITEM_QTY_VALUES.length;
+        for (int i = 0; i < ITEM_QTY_VALUES.length; i++) {
+            itemQtyX[i] = innerX + i * (qtyW + gap);
+            itemQtyY[i] = rowY;
+            itemQtyW[i] = qtyW;
+            itemQtyH[i] = btnH;
+            shapeRenderer.setColor(selectedQuantity == ITEM_QTY_VALUES[i] ? 0.95f : 0.80f,
+                selectedQuantity == ITEM_QTY_VALUES[i] ? 0.79f : 0.73f,
+                selectedQuantity == ITEM_QTY_VALUES[i] ? 0.48f : 0.58f, 1f);
+            shapeRenderer.rect(itemQtyX[i], itemQtyY[i], itemQtyW[i], itemQtyH[i]);
+        }
+
+        int destY = rowY - 34;
+        destInvW = (innerW - gap) / 2;
+        destBankW = destInvW;
+        destInvH = 18;
+        destBankH = 18;
+        destInvX = innerX;
+        destInvY = destY;
+        destBankX = innerX + destInvW + gap;
+        destBankY = destY;
+        shapeRenderer.setColor(!giveToBank ? 0.95f : 0.80f, !giveToBank ? 0.79f : 0.73f, !giveToBank ? 0.48f : 0.58f, 1f);
+        shapeRenderer.rect(destInvX, destInvY, destInvW, destInvH);
+        shapeRenderer.setColor(giveToBank ? 0.95f : 0.80f, giveToBank ? 0.79f : 0.73f, giveToBank ? 0.48f : 0.58f, 1f);
+        shapeRenderer.rect(destBankX, destBankY, destBankW, destBankH);
+
+        giveButtonX = innerX;
+        giveButtonY = destY - 34;
+        giveButtonW = innerW;
+        giveButtonH = 22;
+        shapeRenderer.setColor(selectedAdminItemId > 0 ? 0.70f : 0.60f,
+            selectedAdminItemId > 0 ? 0.30f : 0.28f,
+            selectedAdminItemId > 0 ? 0.18f : 0.24f,
+            1f);
+        shapeRenderer.rect(giveButtonX, giveButtonY, giveButtonW, giveButtonH);
+    }
+
+    private void renderItemsBorders(ShapeRenderer shapeRenderer) {
+        int leftX = contentX + 8;
+        int leftY = contentY + 8;
+        int leftW = 290;
+        int leftH = contentH - 16;
+        int rightX = leftX + leftW + 8;
+        int rightY = leftY;
+        int rightW = contentW - (rightX - contentX) - 8;
+        int rightH = leftH;
+        shapeRenderer.setColor(PANEL_BORDER);
+        shapeRenderer.rect(leftX, leftY, leftW, leftH);
+        shapeRenderer.rect(rightX, rightY, rightW, rightH);
+        shapeRenderer.rect(itemSearchBoxX, itemSearchBoxY, itemSearchBoxW, itemSearchBoxH);
+        for (int i = 0; i < itemResultValid.length; i++) {
+            if (itemResultValid[i]) {
+                shapeRenderer.rect(itemResultX[i], itemResultY[i], itemResultW[i], itemResultH[i]);
+            }
+        }
+        for (int i = 0; i < ITEM_QTY_VALUES.length; i++) {
+            shapeRenderer.rect(itemQtyX[i], itemQtyY[i], itemQtyW[i], itemQtyH[i]);
+        }
+        shapeRenderer.rect(destInvX, destInvY, destInvW, destInvH);
+        shapeRenderer.rect(destBankX, destBankY, destBankW, destBankH);
+        shapeRenderer.rect(giveButtonX, giveButtonY, giveButtonW, giveButtonH);
+    }
+
+    private void renderItemsText(SpriteBatch batch, BitmapFont font, ClientPacketHandler handler) {
+        int leftX = contentX + 8;
+        int leftY = contentY + 8;
+        int leftW = 290;
+        int rightX = leftX + leftW + 8;
+
+        font.getData().setScale(0.66f);
+        font.setColor(0.24f, 0.16f, 0.06f, 1f);
+        font.draw(batch, "Search items", itemSearchBoxX, itemSearchBoxY + itemSearchBoxH + 11);
+        String shownQuery = itemSearchQuery.isBlank() ? "Type to search..." : itemSearchQuery;
+        font.setColor(itemSearchQuery.isBlank() ? new Color(0.42f, 0.32f, 0.18f, 1f) : new Color(0.20f, 0.12f, 0.04f, 1f));
+        font.draw(batch, shownQuery, itemSearchBoxX + 4, itemSearchBoxY + 13);
+
+        List<ClientPacketHandler.AdminItemSearchEntry> entries = handler == null
+            ? List.of()
+            : handler.getAdminItemSearchResults();
+        font.getData().setScale(0.60f);
+        for (int i = 0; i < itemResultValid.length; i++) {
+            if (!itemResultValid[i]) {
+                continue;
+            }
+            ClientPacketHandler.AdminItemSearchEntry entry = i < entries.size() ? entries.get(i) : null;
+            if (entry == null) {
+                continue;
+            }
+            String label = entry.itemName + " [" + entry.itemId + "]";
+            font.setColor(entry.itemId == selectedAdminItemId ? new Color(0.12f, 0.08f, 0.03f, 1f)
+                : new Color(0.25f, 0.16f, 0.06f, 1f));
+            font.draw(batch, label, itemResultX[i] + 4, itemResultY[i] + 10);
+        }
+
+        int infoX = rightX + 10;
+        int infoTop = contentY + contentH - 12;
+        font.getData().setScale(0.70f);
+        font.setColor(0.20f, 0.12f, 0.04f, 1f);
+        font.draw(batch, "Selected item", infoX, infoTop);
+        font.getData().setScale(0.64f);
+        font.setColor(0.24f, 0.16f, 0.06f, 1f);
+        String selection = selectedAdminItemId > 0
+            ? selectedAdminItemName + " [" + selectedAdminItemId + "]"
+            : "None";
+        font.draw(batch, selection, infoX, infoTop - 18);
+
+        font.draw(batch, "Quantity", infoX, itemQtyY[0] + itemQtyH[0] + 12);
+        for (int i = 0; i < ITEM_QTY_VALUES.length; i++) {
+            String label = Long.toString(ITEM_QTY_VALUES[i]);
+            glyph.setText(font, label);
+            font.draw(batch, label,
+                itemQtyX[i] + (itemQtyW[i] - glyph.width) / 2f,
+                itemQtyY[i] + 13);
+        }
+
+        font.draw(batch, "Destination", infoX, destInvY + destInvH + 12);
+        glyph.setText(font, "Inventory");
+        font.draw(batch, "Inventory", destInvX + (destInvW - glyph.width) / 2f, destInvY + 13);
+        glyph.setText(font, "Bank");
+        font.draw(batch, "Bank", destBankX + (destBankW - glyph.width) / 2f, destBankY + 13);
+
+        font.getData().setScale(0.70f);
+        font.setColor(selectedAdminItemId > 0 ? new Color(0.96f, 0.92f, 0.84f, 1f) : new Color(0.86f, 0.82f, 0.74f, 1f));
+        glyph.setText(font, "Give Item");
+        font.draw(batch, "Give Item", giveButtonX + (giveButtonW - glyph.width) / 2f, giveButtonY + 15);
+
+        if (handler != null) {
+            String msg = handler.getLastAdminActionMessage();
+            if (msg != null && !msg.isBlank()) {
+                font.getData().setScale(0.62f);
+                font.setColor(handler.wasLastAdminActionSuccessful()
+                    ? new Color(0.14f, 0.42f, 0.16f, 1f)
+                    : new Color(0.52f, 0.14f, 0.14f, 1f));
+                font.draw(batch, msg, infoX, contentY + 20);
             }
         }
     }

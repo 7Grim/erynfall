@@ -1123,20 +1123,96 @@ public class GameScreen extends ApplicationAdapter {
                 adminToolsPopup.dismiss();
                 return;
             }
+
+            if (nettyClient != null) {
+                String query = adminToolsPopup.consumeItemSearchQueryIfDirty();
+                if (query != null) {
+                    nettyClient.sendAdminSearchItems(query);
+                }
+            }
+
+            AdminToolsPopup.AdminSkillAction skillAction = adminToolsPopup.consumePendingSkillAction();
+            if (skillAction != null && nettyClient != null) {
+                if (skillAction.setLevel) {
+                    nettyClient.sendAdminSetSkillLevel(skillAction.skillIdx, skillAction.levelValue);
+                } else {
+                    nettyClient.sendAdminAdjustSkillXp(skillAction.skillIdx, skillAction.xpDeltaWhole);
+                }
+            }
+
+            AdminToolsPopup.AdminItemAction itemAction = adminToolsPopup.consumePendingItemAction();
+            if (itemAction != null && nettyClient != null) {
+                nettyClient.sendAdminGiveItem(
+                    itemAction.itemId,
+                    itemAction.quantity,
+                    itemAction.toBank
+                        ? NetworkProto.AdminItemDestination.ADMIN_ITEM_DESTINATION_BANK
+                        : NetworkProto.AdminItemDestination.ADMIN_ITEM_DESTINATION_INVENTORY
+                );
+            }
+
+            if (adminToolsPopup.isItemSearchFocused()) {
+                boolean shiftDown = Gdx.input.isKeyPressed(Input.Keys.SHIFT_LEFT)
+                    || Gdx.input.isKeyPressed(Input.Keys.SHIFT_RIGHT);
+                if (Gdx.input.isKeyJustPressed(Input.Keys.BACKSPACE)
+                    && adminToolsPopup.handleItemSearchKey(Input.Keys.BACKSPACE, shiftDown)) {
+                    return;
+                }
+                if (Gdx.input.isKeyJustPressed(Input.Keys.SPACE)
+                    && adminToolsPopup.handleItemSearchKey(Input.Keys.SPACE, shiftDown)) {
+                    return;
+                }
+                if (Gdx.input.isKeyJustPressed(Input.Keys.MINUS)
+                    && adminToolsPopup.handleItemSearchKey(Input.Keys.MINUS, shiftDown)) {
+                    return;
+                }
+                if (Gdx.input.isKeyJustPressed(Input.Keys.APOSTROPHE)
+                    && adminToolsPopup.handleItemSearchKey(Input.Keys.APOSTROPHE, shiftDown)) {
+                    return;
+                }
+                for (int key = Input.Keys.A; key <= Input.Keys.Z; key++) {
+                    if (Gdx.input.isKeyJustPressed(key) && adminToolsPopup.handleItemSearchKey(key, shiftDown)) {
+                        return;
+                    }
+                }
+                int[] numKeys = {
+                    Input.Keys.NUM_0, Input.Keys.NUM_1, Input.Keys.NUM_2, Input.Keys.NUM_3, Input.Keys.NUM_4,
+                    Input.Keys.NUM_5, Input.Keys.NUM_6, Input.Keys.NUM_7, Input.Keys.NUM_8, Input.Keys.NUM_9
+                };
+                for (int key : numKeys) {
+                    if (Gdx.input.isKeyJustPressed(key) && adminToolsPopup.handleItemSearchKey(key, shiftDown)) {
+                        return;
+                    }
+                }
+            }
+
             if (Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)
                 || Gdx.input.isButtonJustPressed(Input.Buttons.RIGHT)
                 || Gdx.input.isButtonJustPressed(Input.Buttons.MIDDLE)) {
                 adminToolsPopup.handleClick(mx, screenMy);
-                AdminToolsPopup.AdminSkillAction action = adminToolsPopup.consumePendingSkillAction();
-                if (action != null && nettyClient != null) {
-                    if (action.setLevel) {
-                        nettyClient.sendAdminSetSkillLevel(action.skillIdx, action.levelValue);
+
+                AdminToolsPopup.AdminSkillAction clickSkillAction = adminToolsPopup.consumePendingSkillAction();
+                if (clickSkillAction != null && nettyClient != null) {
+                    if (clickSkillAction.setLevel) {
+                        nettyClient.sendAdminSetSkillLevel(clickSkillAction.skillIdx, clickSkillAction.levelValue);
                     } else {
-                        nettyClient.sendAdminAdjustSkillXp(action.skillIdx, action.xpDeltaWhole);
+                        nettyClient.sendAdminAdjustSkillXp(clickSkillAction.skillIdx, clickSkillAction.xpDeltaWhole);
                     }
                 }
-                return;
+
+                AdminToolsPopup.AdminItemAction clickItemAction = adminToolsPopup.consumePendingItemAction();
+                if (clickItemAction != null && nettyClient != null) {
+                    nettyClient.sendAdminGiveItem(
+                        clickItemAction.itemId,
+                        clickItemAction.quantity,
+                        clickItemAction.toBank
+                            ? NetworkProto.AdminItemDestination.ADMIN_ITEM_DESTINATION_BANK
+                            : NetworkProto.AdminItemDestination.ADMIN_ITEM_DESTINATION_INVENTORY
+                    );
+                }
             }
+
+            return;
         }
 
         if (skillGuidePopup != null && skillGuidePopup.isVisible()) {

@@ -243,6 +243,28 @@ public class NettyClient {
         LOG.debug("Sent AdminAdjustSkillXp: skill={} deltaXpWhole={}", skillIdx, deltaXpWhole);
     }
 
+    public void sendAdminSearchItems(String query) {
+        if (channel == null || !channel.isActive()) return;
+        channel.writeAndFlush(NetworkProto.ClientMessage.newBuilder()
+            .setAdminSearchItems(NetworkProto.AdminSearchItems.newBuilder()
+                .setQuery(query == null ? "" : query)
+                .setSequence(System.currentTimeMillis()))
+            .build());
+        LOG.debug("Sent AdminSearchItems: query='{}'", query);
+    }
+
+    public void sendAdminGiveItem(int itemId, long quantity, NetworkProto.AdminItemDestination destination) {
+        if (channel == null || !channel.isActive()) return;
+        channel.writeAndFlush(NetworkProto.ClientMessage.newBuilder()
+            .setAdminGiveItem(NetworkProto.AdminGiveItem.newBuilder()
+                .setItemId(itemId)
+                .setQuantity(quantity)
+                .setDestination(destination)
+                .setSequence(System.currentTimeMillis()))
+            .build());
+        LOG.debug("Sent AdminGiveItem: itemId={} qty={} dest={}", itemId, quantity, destination);
+    }
+
     public void sendStartSkilling(int npcId, NetworkProto.SkillingType skillingType) {
         sendStartSkilling(npcId, skillingType, NetworkProto.FishingActionType.FISHING_ACTION_NONE);
     }

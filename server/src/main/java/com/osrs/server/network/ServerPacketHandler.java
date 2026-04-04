@@ -144,6 +144,8 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             case MOVE_BANK_ITEM_TO_TAB   -> handleMoveBankItemToTab(ctx, packet.getMoveBankItemToTab());
             case ADMIN_SET_SKILL_LEVEL   -> handleAdminSetSkillLevel(ctx, packet.getAdminSetSkillLevel());
             case ADMIN_ADJUST_SKILL_XP   -> handleAdminAdjustSkillXp(ctx, packet.getAdminAdjustSkillXp());
+            case ADMIN_SEARCH_ITEMS      -> handleAdminSearchItems(ctx, packet.getAdminSearchItems());
+            case ADMIN_GIVE_ITEM         -> handleAdminGiveItem(ctx, packet.getAdminGiveItem());
             default -> LOG.warn("Unhandled payload case: {}", packet.getPayloadCase());
         }
     }
@@ -1192,6 +1194,176 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
         sendSkillSnapshot(ctx, player, skillIdx);
         sendAdminActionResult(ctx, true,
             "Adjusted " + skillName(skillIdx) + " XP by " + req.getDeltaXpWhole() + ".", req.getSequence());
+    }
+
+    private void handleAdminSearchItems(ChannelHandlerContext ctx, NetworkProto.AdminSearchItems req) {
+        Player player = requireAdminTools(ctx, req.getSequence());
+        if (player == null) {
+            return;
+        }
+        String rawQuery = req.getQuery() == null ? "" : req.getQuery();
+        String query = rawQuery.trim().toLowerCase();
+        java.util.List<ItemDefinition> defs = new java.util.ArrayList<>(server.getWorld().getItemDefs().values());
+        defs.removeIf(def -> def == null || def.id <= 0 || def.name == null || def.name.isBlank());
+        defs.sort((a, b) -> {
+            String an = a.name.toLowerCase();
+            String bn = b.name.toLowerCase();
+            boolean aExact = !query.isEmpty() && an.equals(query);
+            boolean bExact = !query.isEmpty() && bn.equals(query);
+            if (aExact != bExact) {
+                return aExact ? -1 : 1;
+            }
+            boolean aPrefix = !query.isEmpty() && an.startsWith(query);
+            boolean bPrefix = !query.isEmpty() && bn.startsWith(query);
+            if (aPrefix != bPrefix) {
+                return aPrefix ? -1 : 1;
+            }
+            boolean aContains = query.isEmpty() || an.contains(query);
+            boolean bContains = query.isEmpty() || bn.contains(query);
+            if (aContains != bContains) {
+                return aContains ? -1 : 1;
+            }
+            return Integer.compare(a.id, b.id);
+        });
+        NetworkProto.AdminItemSearchResults.Builder out = NetworkProto.AdminItemSearchResults.newBuilder()
+            .setQuery(rawQuery)
+            .setSequence(req.getSequence());
+        int added = 0;
+        for (ItemDefinition def : defs) {
+            String name = def.name.toLowerCase();
+            if (!query.isEmpty() && !name.contains(query)) {
+                continue;
+            }
+            out.addEntries(NetworkProto.AdminItemSearchEntry.newBuilder()
+                .setItemId(def.id)
+                .setItemName(def.name)
+                .setFlags(def.getFlags()));
+            added++;
+            if (added >= 20) {
+                break;
+            }
+        }
+        ctx.writeAndFlush(NetworkProto.ServerMessage.newBuilder()
+            .setAdminItemSearchResults(out)
+            .build());
+    }
+
+    private int findInventoryStackSlot(Player player, int itemId) {
+        for (int i = 0; i < 28; i++) {
+            if (player.getInventoryItemId(i) == itemId) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    private int giveItemToInventory(Player player, ItemDefinition def, long quantity) {
+        if (quantity <= 0) {
+            return 0;
+        }
+        if (def.stackable) {
+            int stackSlot = findInventoryStackSlot(player, def.id);
+            if (stackSlot >= 0) {
+                long combined = (long) player.getInventoryQuantity(stackSlot) + quantity;
+                int clamped = (int) Math.min(Integer.MAX_VALUE, combined);
+                long granted = Math.max(0L, clamped - (long) player.getInventoryQuantity(stackSlot));
+                player.setInventoryItem(stackSlot, def.id, clamped);
+                return (int) granted;
+            }
+            int empty = player.getFirstEmptySlot();
+            if (empty < 0) {
+                return 0;
+            }
+            int clamped = (int) Math.min(Integer.MAX_VALUE, quantity);
+            player.setInventoryItem(empty, def.id, clamped);
+            return clamped;
+        }
+        int granted = 0;
+        while (granted < quantity) {
+            int empty = player.getFirstEmptySlot();
+            if (empty < 0) {
+                break;
+            }
+            player.setInventoryItem(empty, def.id, 1);
+            granted++;
+        }
+        return granted;
+    }
+
+    private long giveItemToBank(Player player, ItemDefinition def, long quantity) {
+        if (quantity <= 0) {
+            return 0;
+        }
+        int bankSlotIndex = player.findBankSlotByItemId(def.id);
+        Player.BankSlot existing = bankSlotIndex >= 0 ? player.getBankSlot(bankSlotIndex) : null;
+        if (existing == null) {
+            if (player.getOccupiedBankSlotCount() >= player.getBankCapacity()) {
+                return 0;
+            }
+            bankSlotIndex = player.getFirstFreeBankSlot();
+            if (bankSlotIndex < 0) {
+                return 0;
+            }
+            player.setBankSlot(bankSlotIndex, 0, def.id, quantity, false);
+            return quantity;
+        }
+        player.setBankSlot(bankSlotIndex, existing.getTabIndex(), def.id,
+            existing.getQuantity() + quantity, existing.isPlaceholder());
+        return quantity;
+    }
+
+    private void handleAdminGiveItem(ChannelHandlerContext ctx, NetworkProto.AdminGiveItem req) {
+        Player player = requireAdminTools(ctx, req.getSequence());
+        if (player == null) {
+            return;
+        }
+        int itemId = req.getItemId();
+        long requestedQty = req.getQuantity();
+        if (itemId <= 0 || requestedQty <= 0) {
+            sendAdminActionResult(ctx, false, "Invalid item or quantity.", req.getSequence());
+            return;
+        }
+        requestedQty = Math.min(requestedQty, 100000L);
+        ItemDefinition def = server.getWorld().getItemDef(itemId);
+        if (def == null || def.id <= 0 || def.name == null || def.name.isBlank() || "Unknown item".equals(def.name)) {
+            sendAdminActionResult(ctx, false, "Unknown item id.", req.getSequence());
+            return;
+        }
+
+        long granted;
+        if (req.getDestination() == NetworkProto.AdminItemDestination.ADMIN_ITEM_DESTINATION_BANK) {
+            granted = giveItemToBank(player, def, requestedQty);
+            if (granted > 0 && session.isBankOpen()) {
+                sendBankOpen(ctx, player);
+            }
+        } else {
+            granted = giveItemToInventory(player, def, requestedQty);
+            if (granted > 0) {
+                sendFullInventory(ctx, player);
+            }
+        }
+
+        if (granted <= 0) {
+            sendAdminActionResult(ctx, false, "No space available for that item.", req.getSequence());
+            return;
+        }
+
+        if (DatabaseManager.isHealthy()) {
+            if (req.getDestination() == NetworkProto.AdminItemDestination.ADMIN_ITEM_DESTINATION_BANK) {
+                PlayerRepository.saveInventoryBankAtomic(player);
+            } else {
+                PlayerRepository.saveInventory(player);
+            }
+        }
+
+        PlayerRepository.auditAdminAction(player, "GIVE_ITEM",
+            "itemId=" + itemId + ",itemName=" + def.name + ",requested=" + requestedQty
+                + ",granted=" + granted + ",destination=" + req.getDestination().name());
+        sendAdminActionResult(ctx, true,
+            "Gave " + granted + " x " + def.name + " to "
+                + (req.getDestination() == NetworkProto.AdminItemDestination.ADMIN_ITEM_DESTINATION_BANK
+                ? "bank" : "inventory") + ".",
+            req.getSequence());
     }
 
     private String skillName(int skillIdx) {

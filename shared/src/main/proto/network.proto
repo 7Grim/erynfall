@@ -267,6 +267,35 @@ message AdminAdjustSkillXp {
     int64 sequence = 3;
 }
 
+enum AdminItemDestination {
+    ADMIN_ITEM_DESTINATION_INVENTORY = 0;
+    ADMIN_ITEM_DESTINATION_BANK = 1;
+}
+
+message AdminSearchItems {
+    string query = 1;
+    int64 sequence = 2;
+}
+
+message AdminItemSearchEntry {
+    int32 item_id = 1;
+    string item_name = 2;
+    int32 flags = 3;
+}
+
+message AdminItemSearchResults {
+    string query = 1;
+    repeated AdminItemSearchEntry entries = 2;
+    int64 sequence = 3;
+}
+
+message AdminGiveItem {
+    int32 item_id = 1;
+    int64 quantity = 2;
+    AdminItemDestination destination = 3;
+    int64 sequence = 4;
+}
+
 message BankOpen {
     int32 capacity = 1;
     repeated BankSlot slots = 2;
@@ -524,6 +553,8 @@ message ClientMessage {
         MoveBankItemToTab move_bank_item_to_tab = 27;
         AdminSetSkillLevel admin_set_skill_level = 28;
         AdminAdjustSkillXp admin_adjust_skill_xp = 29;
+        AdminSearchItems admin_search_items = 30;
+        AdminGiveItem admin_give_item = 31;
     }
 }
 
@@ -559,5 +590,6 @@ message ServerMessage {
         BankClose bank_close = 27;
         BankSlotUpdate bank_slot_update = 28;
         AdminActionResult admin_action_result = 29;
+        AdminItemSearchResults admin_item_search_results = 30;
     }
 }
