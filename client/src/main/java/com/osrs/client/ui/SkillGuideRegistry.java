@@ -1151,7 +1151,7 @@ public final class SkillGuideRegistry {
         @Override
         public float getSectionContentHeight(int skillIdx, int level, int sectionIdx, float contentW) {
             if (sectionIdx == 1) {
-                return 18f + WeaponRegistry.weaponsByStrengthBonus().size() * 36f + 12f;
+                return 18f + WeaponRegistry.weapons().size() * 36f + 12f;
             }
             if (sectionIdx == 2) {
                 return 18f + MAX_HIT_LEVELS.length * 28f + 12f;
@@ -1227,7 +1227,7 @@ public final class SkillGuideRegistry {
             sr.setProjectionMatrix(proj);
             sr.begin(ShapeRenderer.ShapeType.Filled);
             float yCursor = y + h - 14f + scrollOffset;
-            for (WeaponRegistry.WeaponTier weapon : WeaponRegistry.weaponsByStrengthBonus()) {
+            for (WeaponRegistry.WeaponTier weapon : WeaponRegistry.weapons()) {
                 float rowY = yCursor - rowH;
                 boolean visible = rowY + rowH >= y && rowY <= y + h;
                 if (visible) {
@@ -1244,7 +1244,7 @@ public final class SkillGuideRegistry {
             batch.begin();
             font.getData().setScale(0.68f);
             yCursor = y + h - 14f + scrollOffset;
-            for (WeaponRegistry.WeaponTier weapon : WeaponRegistry.weaponsByStrengthBonus()) {
+            for (WeaponRegistry.WeaponTier weapon : WeaponRegistry.weapons()) {
                 float rowY = yCursor - rowH;
                 boolean visible = rowY + rowH >= y && rowY <= y + h;
                 if (visible) {
