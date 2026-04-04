@@ -370,10 +370,10 @@ public final class SkillGuideRegistry {
         @Override
         public float getSectionContentHeight(int skillIdx, int level, int sectionIdx, float contentW) {
             if (sectionIdx == 1) {
-                return 18f + MiningRegistry.rocks().size() * 32f + 12f;
+                return 18f + MiningRegistry.rocks().size() * 36f + 12f;
             }
             if (sectionIdx == 2) {
-                return 18f + MiningRegistry.pickaxes().size() * 32f + 12f;
+                return 18f + MiningRegistry.pickaxes().size() * 36f + 12f;
             }
             return 236f;
         }
@@ -442,7 +442,7 @@ public final class SkillGuideRegistry {
                                  float w,
                                  float h,
                                  float scrollOffset) {
-            float rowH = 32f;
+            float rowH = 36f;
             int nextReq = findNextRockLevel(level);
 
             shapeRenderer.setProjectionMatrix(projection);
@@ -454,15 +454,9 @@ public final class SkillGuideRegistry {
                 if (visible) {
                     boolean unlocked = level >= rock.levelRequirement();
                     boolean next = !unlocked && rock.levelRequirement() == nextReq;
-                    if (next) {
-                        shapeRenderer.setColor(ROW_NEXT);
-                    } else if (unlocked) {
-                        shapeRenderer.setColor(ROW_UNLOCKED);
-                    } else {
-                        shapeRenderer.setColor(ROW_LOCKED);
-                    }
+                    shapeRenderer.setColor(next ? ROW_NEXT : unlocked ? ROW_UNLOCKED : ROW_LOCKED);
                     shapeRenderer.rect(x + 8, rowY + 2, w - 16, rowH - 4);
-                    ItemIconRenderer.drawItemIcon(shapeRenderer, x + 72, rowY + 1, rock.oreItemId());
+                    ItemIconRenderer.drawItemIcon(shapeRenderer, x + 72, rowY + 3, rock.oreItemId());
                 }
                 yCursor -= rowH;
             }
@@ -478,19 +472,24 @@ public final class SkillGuideRegistry {
                 if (visible) {
                     boolean unlocked = level >= rock.levelRequirement();
                     boolean next = !unlocked && rock.levelRequirement() == nextReq;
-                    if (next) {
-                        font.setColor(TEXT_NEXT);
-                    } else if (unlocked) {
-                        font.setColor(TEXT_UNLOCKED);
-                    } else {
-                        font.setColor(TEXT_LOCKED);
-                    }
-                    font.draw(batch, "Lv " + rock.levelRequirement(), x + 16, rowY + 21);
-                    font.draw(batch, rock.name(), x + 116, rowY + 21);
-                    font.draw(batch, formatXpTenths(rock.xpTenths()) + " xp", x + w - 88, rowY + 21);
+                    font.setColor(next ? TEXT_NEXT : unlocked ? TEXT_UNLOCKED : TEXT_LOCKED);
+                    font.draw(batch, "Lv " + rock.levelRequirement(), x + 16, rowY + 26);
+                    font.draw(batch, rock.name(), x + 116, rowY + 26);
+                    font.draw(batch, formatXpTenths(rock.xpTenths()) + " xp", x + w - 88, rowY + 26);
+                    // Second line: depletion behaviour hint
+                    font.getData().setScale(0.60f);
+                    Color sub = next ? TEXT_NEXT : unlocked ? TEXT_LOCKED : TEXT_LOCKED;
+                    font.setColor(sub.r, sub.g, sub.b, 0.75f);
+                    String depletion = rock.depletionType() == MiningRegistry.DepletionType.SINGLE_ORE
+                        ? "Always depletes"
+                        : "1/" + rock.depletionChanceDenominator() + " depletion";
+                    font.draw(batch, depletion, x + 116, rowY + 13);
+                    font.getData().setScale(0.68f);
                 }
                 yCursor -= rowH;
             }
+            font.getData().setScale(1f);
+            font.setColor(Color.WHITE);
             batch.end();
         }
 
@@ -504,7 +503,7 @@ public final class SkillGuideRegistry {
                                     float w,
                                     float h,
                                     float scrollOffset) {
-            float rowH = 32f;
+            float rowH = 36f;
             int nextReq = findNextPickaxeLevel(level);
 
             shapeRenderer.setProjectionMatrix(projection);
@@ -516,15 +515,9 @@ public final class SkillGuideRegistry {
                 if (visible) {
                     boolean unlocked = level >= pick.miningLevel();
                     boolean next = !unlocked && pick.miningLevel() == nextReq;
-                    if (next) {
-                        shapeRenderer.setColor(ROW_NEXT);
-                    } else if (unlocked) {
-                        shapeRenderer.setColor(ROW_UNLOCKED);
-                    } else {
-                        shapeRenderer.setColor(ROW_LOCKED);
-                    }
+                    shapeRenderer.setColor(next ? ROW_NEXT : unlocked ? ROW_UNLOCKED : ROW_LOCKED);
                     shapeRenderer.rect(x + 8, rowY + 2, w - 16, rowH - 4);
-                    ItemIconRenderer.drawItemIcon(shapeRenderer, x + 72, rowY + 1, pick.itemId());
+                    ItemIconRenderer.drawItemIcon(shapeRenderer, x + 72, rowY + 3, pick.itemId());
                 }
                 yCursor -= rowH;
             }
@@ -540,19 +533,24 @@ public final class SkillGuideRegistry {
                 if (visible) {
                     boolean unlocked = level >= pick.miningLevel();
                     boolean next = !unlocked && pick.miningLevel() == nextReq;
-                    if (next) {
-                        font.setColor(TEXT_NEXT);
-                    } else if (unlocked) {
-                        font.setColor(TEXT_UNLOCKED);
-                    } else {
-                        font.setColor(TEXT_LOCKED);
-                    }
-                    font.draw(batch, "Lv " + pick.miningLevel(), x + 16, rowY + 21);
-                    font.draw(batch, pick.name(), x + 116, rowY + 21);
-                    font.draw(batch, "Atk " + pick.attackLevelToEquip(), x + w - 88, rowY + 21);
+                    font.setColor(next ? TEXT_NEXT : unlocked ? TEXT_UNLOCKED : TEXT_LOCKED);
+                    font.draw(batch, "Lv " + pick.miningLevel(), x + 16, rowY + 26);
+                    font.draw(batch, pick.name(), x + 116, rowY + 26);
+                    font.draw(batch, "Atk " + pick.attackLevelToEquip(), x + w - 88, rowY + 26);
+                    // Second line: wield vs use note for dragon (atk 60 requirement is notable)
+                    font.getData().setScale(0.60f);
+                    Color sub = next ? TEXT_NEXT : unlocked ? TEXT_LOCKED : TEXT_LOCKED;
+                    font.setColor(sub.r, sub.g, sub.b, 0.75f);
+                    String note = pick.miningLevel() != pick.attackLevelToEquip()
+                        ? "Works from inventory"
+                        : "Works from inventory";
+                    font.draw(batch, note, x + 116, rowY + 13);
+                    font.getData().setScale(0.68f);
                 }
                 yCursor -= rowH;
             }
+            font.getData().setScale(1f);
+            font.setColor(Color.WHITE);
             batch.end();
         }
 
