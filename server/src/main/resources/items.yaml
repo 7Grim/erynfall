@@ -1146,3 +1146,183 @@ items:
     magic_defence: -1
     ranged_defence: 60
     defence_req: 60
+
+  # ── Pickaxes ────────────────────────────────────────────────────────────────
+
+  - id: 1265
+    name: "Bronze pickaxe"
+    examine: "Used for mining."
+    stackable: false
+    store_value: 1
+    equipable: true
+    consumable: false
+    equip_slot: 0
+    crush_attack: 5
+    melee_strength: 5
+    stab_defence: 0
+    attack_req: 1
+
+  - id: 1267
+    name: "Iron pickaxe"
+    examine: "Used for mining."
+    stackable: false
+    store_value: 140
+    equipable: true
+    consumable: false
+    equip_slot: 0
+    crush_attack: 9
+    melee_strength: 8
+    stab_defence: 0
+    attack_req: 1
+
+  - id: 1269
+    name: "Steel pickaxe"
+    examine: "Used for mining."
+    stackable: false
+    store_value: 500
+    equipable: true
+    consumable: false
+    equip_slot: 0
+    crush_attack: 16
+    melee_strength: 15
+    stab_defence: 0
+    attack_req: 5
+
+  - id: 12297
+    name: "Black pickaxe"
+    examine: "Used for mining."
+    stackable: false
+    store_value: 1344
+    equipable: true
+    consumable: false
+    equip_slot: 0
+    crush_attack: 19
+    melee_strength: 19
+    stab_defence: 0
+    attack_req: 10
+
+  - id: 1273
+    name: "Mithril pickaxe"
+    examine: "Used for mining."
+    stackable: false
+    store_value: 520
+    equipable: true
+    consumable: false
+    equip_slot: 0
+    crush_attack: 26
+    melee_strength: 24
+    stab_defence: 0
+    attack_req: 20
+
+  - id: 1271
+    name: "Adamant pickaxe"
+    examine: "Used for mining."
+    stackable: false
+    store_value: 3200
+    equipable: true
+    consumable: false
+    equip_slot: 0
+    crush_attack: 33
+    melee_strength: 32
+    stab_defence: 0
+    attack_req: 30
+
+  - id: 1275
+    name: "Rune pickaxe"
+    examine: "Used for mining."
+    stackable: false
+    store_value: 18000
+    equipable: true
+    consumable: false
+    equip_slot: 0
+    crush_attack: 46
+    melee_strength: 44
+    stab_defence: 0
+    attack_req: 40
+
+  - id: 11920
+    name: "Dragon pickaxe"
+    examine: "Used for mining."
+    stackable: false
+    store_value: 300000
+    equipable: true
+    consumable: false
+    equip_slot: 0
+    crush_attack: 61
+    melee_strength: 60
+    stab_defence: 0
+    attack_req: 60
+
+  # ── Ores ────────────────────────────────────────────────────────────────────
+
+  - id: 436
+    name: "Copper ore"
+    examine: "A piece of copper ore."
+    stackable: false
+    store_value: 5
+    equipable: false
+    consumable: false
+
+  - id: 438
+    name: "Tin ore"
+    examine: "A piece of tin ore."
+    stackable: false
+    store_value: 5
+    equipable: false
+    consumable: false
+
+  - id: 440
+    name: "Iron ore"
+    examine: "An iron ore."
+    stackable: false
+    store_value: 15
+    equipable: false
+    consumable: false
+
+  - id: 442
+    name: "Silver ore"
+    examine: "A silver ore."
+    stackable: false
+    store_value: 75
+    equipable: false
+    consumable: false
+
+  - id: 453
+    name: "Coal"
+    examine: "A lump of coal."
+    stackable: false
+    store_value: 30
+    equipable: false
+    consumable: false
+
+  - id: 444
+    name: "Gold ore"
+    examine: "A gold ore."
+    stackable: false
+    store_value: 75
+    equipable: false
+    consumable: false
+
+  - id: 447
+    name: "Mithril ore"
+    examine: "A mithril ore."
+    stackable: false
+    store_value: 97
+    equipable: false
+    consumable: false
+
+  - id: 449
+    name: "Adamantite ore"
+    examine: "An adamantite ore."
+    stackable: false
+    store_value: 150
+    equipable: false
+    consumable: false
+
+  - id: 451
+    name: "Runite ore"
+    examine: "A runite ore."
+    stackable: false
+    store_value: 1200
+    equipable: false
+    consumable: false

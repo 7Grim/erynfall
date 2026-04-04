@@ -164,6 +164,7 @@ enum SkillingType {
     SKILLING_WOODCUTTING = 1;
     SKILLING_FISHING = 2;
     SKILLING_COOKING = 3;
+    SKILLING_MINING = 4;
 }
 
 enum SkillingState {
@@ -272,6 +273,13 @@ enum AdminItemDestination {
     ADMIN_ITEM_DESTINATION_BANK = 1;
 }
 
+enum AdminTravelDestination {
+    ADMIN_TRAVEL_SPAWN = 0;
+    ADMIN_TRAVEL_SANDBOX_GROVE = 1;
+    ADMIN_TRAVEL_SANDBOX_FISHING_COVE = 2;
+    ADMIN_TRAVEL_SANDBOX_MINING_COVE = 3;
+}
+
 message AdminSearchItems {
     string query = 1;
     int64 sequence = 2;
@@ -294,6 +302,16 @@ message AdminGiveItem {
     int64 quantity = 2;
     AdminItemDestination destination = 3;
     int64 sequence = 4;
+}
+
+message AdminTeleport {
+    AdminTravelDestination destination = 1;
+    int64 sequence = 2;
+}
+
+message AdminTeleportApplied {
+    int32 x = 1;
+    int32 y = 2;
 }
 
 message BankOpen {
@@ -555,6 +573,7 @@ message ClientMessage {
         AdminAdjustSkillXp admin_adjust_skill_xp = 29;
         AdminSearchItems admin_search_items = 30;
         AdminGiveItem admin_give_item = 31;
+        AdminTeleport admin_teleport = 32;
     }
 }
 
@@ -591,5 +610,6 @@ message ServerMessage {
         BankSlotUpdate bank_slot_update = 28;
         AdminActionResult admin_action_result = 29;
         AdminItemSearchResults admin_item_search_results = 30;
+        AdminTeleportApplied admin_teleport_applied = 31;
     }
 }

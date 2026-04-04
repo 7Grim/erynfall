@@ -17,6 +17,7 @@ import com.osrs.shared.NPC;
 import com.osrs.shared.Player;
 import com.osrs.shared.SkillingAction;
 import com.osrs.shared.FishingRegistry;
+import com.osrs.shared.MiningRegistry;
 import com.osrs.shared.WoodcuttingRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -84,6 +85,8 @@ public class GameLoop {
     private static final int OSRS_TICKS_TO_SERVER = 154;
     // Fixed chop attempt interval: 4 OSRS ticks per roll (OSRS standard)
     private static final int CHOP_ATTEMPT_INTERVAL = WoodcuttingRegistry.CHOP_ATTEMPT_OSRS_TICKS * OSRS_TICKS_TO_SERVER;
+    // Fixed mine attempt interval: 3 OSRS ticks per roll (OSRS standard)
+    private static final int MINE_ATTEMPT_INTERVAL = MiningRegistry.MINE_ATTEMPT_OSRS_TICKS * OSRS_TICKS_TO_SERVER;
 
     // Fishing/Cooking base items
     private static final int RAW_SHRIMPS_ITEM_ID = 317;
@@ -103,6 +106,7 @@ public class GameLoop {
     public void start() {
         LOG.info("Starting game loop (interval: {} ns)", tickIntervalNs);
         validateTreeVariantConfiguration();
+        validateRockConfiguration();
         running = true;
         
         loopThread = new Thread(this::run, "GameLoop");
@@ -1112,6 +1116,8 @@ public class GameLoop {
                 processFishing(player, session);
             } else if (player.getSkillingAction() == SkillingAction.COOKING) {
                 processCooking(player, session);
+            } else if (player.getSkillingAction() == SkillingAction.MINING) {
+                processMining(player, session);
             }
         }
     }
@@ -1588,6 +1594,7 @@ public class GameLoop {
             case WOODCUTTING -> NetworkProto.SkillingType.SKILLING_WOODCUTTING;
             case FISHING -> NetworkProto.SkillingType.SKILLING_FISHING;
             case COOKING -> NetworkProto.SkillingType.SKILLING_COOKING;
+            case MINING -> NetworkProto.SkillingType.SKILLING_MINING;
             case NONE -> NetworkProto.SkillingType.SKILLING_NONE;
         };
     }
@@ -1619,6 +1626,188 @@ public class GameLoop {
             }
         }
         return -1;
+    }
+
+    private void processMining(Player player, PlayerSession session) {
+        NPC rock = world.getNPC(player.getSkillingTargetNpcId());
+        if (rock == null || rock.isDead()) {
+            stopSkilling(player, session, "target-invalid");
+            return;
+        }
+
+        MiningRegistry.RockTier rockTier = resolveRockTier(rock);
+        if (rockTier == null) {
+            stopSkilling(player, session, "target-invalid");
+            return;
+        }
+
+        int miningLevel = Math.max(1, player.getSkillLevel(Player.SKILL_MINING));
+        if (miningLevel < rockTier.levelRequirement()) {
+            sendChatMessageToPlayer(session.getChannel(),
+                "You need a Mining level of " + rockTier.levelRequirement() + " to mine this rock.", 1);
+            stopSkilling(player, session, "level-requirement");
+            return;
+        }
+
+        if (player.isInCombat()) {
+            sendChatMessageToPlayer(session.getChannel(), "You are too busy fighting.", 1);
+            stopSkilling(player, session, "combat");
+            return;
+        }
+
+        if (player.isInDialogue()) {
+            sendChatMessageToPlayer(session.getChannel(), "Finish your conversation first.", 1);
+            stopSkilling(player, session, "dialogue");
+            return;
+        }
+
+        int pickaxeId = getBestUsablePickaxeId(player);
+        if (pickaxeId < 0) {
+            sendChatMessageToPlayer(session.getChannel(), "You need a pickaxe to mine this rock.", 1);
+            stopSkilling(player, session, "missing-tool");
+            return;
+        }
+
+        if (!ensureInRangeOrStep(player, session, rock, "Mine")) {
+            return;
+        }
+
+        announceSkillingActive(player, session, "You swing your pickaxe at the rock.");
+
+        if (player.isInventoryFull()) {
+            sendChatMessageToPlayer(session.getChannel(), "Your inventory is too full to hold any more ore.", 1);
+            stopSkilling(player, session, "inventory-full");
+            return;
+        }
+
+        if (tickCount < player.getSkillingNextAttemptTick()) {
+            return;
+        }
+
+        // OSRS success formula: roll 0-254, succeed if roll < threshold
+        // threshold = low + floor((high - low) * miningLevel / 99)
+        MiningRegistry.SuccessRate rate = MiningRegistry.getSuccessRate(rockTier.definitionId(), pickaxeId);
+        boolean success;
+        if (rate == null) {
+            success = random.nextInt(255) < 128;  // fallback: ~50% if no rate data
+        } else {
+            int threshold = rate.low() + (int) Math.floor((rate.high() - rate.low()) * (double) miningLevel / 99.0);
+            success = random.nextInt(255) < threshold;
+        }
+
+        player.setSkillingNextAttemptTick(tickCount + MINE_ATTEMPT_INTERVAL);
+
+        if (!success) {
+            return;
+        }
+
+        int slot = player.getFirstEmptySlot();
+        if (slot < 0) {
+            sendChatMessageToPlayer(session.getChannel(), "Your inventory is too full to hold any more ore.", 1);
+            stopSkilling(player, session, "inventory-full");
+            return;
+        }
+
+        int oreItemId = rockTier.oreItemId();
+        player.setInventoryItem(slot, oreItemId, 1);
+        sendInventorySlot(session.getChannel(), player, slot);
+        sendChatMessageToPlayer(session.getChannel(), "You mine some ore.", 0);
+        updateSkillQuestObjectives(session, Quest.TaskType.COLLECT, oreItemId);
+        sendSkillUpdate(player, Player.SKILL_MINING, rockTier.xpTenths());
+
+        // Per-rock depletion: SINGLE_ORE rocks always deplete; CHANCE rocks have a 1-in-N chance
+        boolean depleted;
+        if (rockTier.depletionType() == MiningRegistry.DepletionType.SINGLE_ORE) {
+            depleted = true;
+        } else {
+            depleted = random.nextInt(rockTier.depletionChanceDenominator()) == 0;
+        }
+
+        if (depleted) {
+            int respawnOsrsTicks = rockTier.respawnMinOsrsTicks() >= rockTier.respawnMaxOsrsTicks()
+                ? rockTier.respawnMinOsrsTicks()
+                : rockTier.respawnMinOsrsTicks()
+                    + random.nextInt(rockTier.respawnMaxOsrsTicks() - rockTier.respawnMinOsrsTicks() + 1);
+            rock.setDead(true);
+            rock.setRespawnAtTick(tickCount + (long) respawnOsrsTicks * OSRS_TICKS_TO_SERVER);
+            nettyServer.broadcastToAll(NetworkProto.ServerMessage.newBuilder()
+                .setNpcDespawn(NetworkProto.NpcDespawn.newBuilder().setNpcId(rock.getId()))
+                .build());
+            stopSkilling(player, session, "depleted");
+        }
+        // If not depleted, continue mining (next attempt already scheduled above)
+    }
+
+    private MiningRegistry.RockTier resolveRockTier(NPC rock) {
+        int definitionId = rock.getDefinitionId();
+        MiningRegistry.RockTier tier = MiningRegistry.getRockByDefinitionId(definitionId);
+        if (tier == null) {
+            return null;
+        }
+        String actualName = rock.getName() == null ? "" : rock.getName().trim();
+        if (!tier.name().equalsIgnoreCase(actualName)) {
+            LOG.error("Rock tier mismatch for npcId={}: definition_id={} expects name='{}', actual='{}'",
+                rock.getId(), definitionId, tier.name(), rock.getName());
+            return null;
+        }
+        return tier;
+    }
+
+    private int getBestUsablePickaxeId(Player player) {
+        int miningLevel = Math.max(1, player.getSkillLevel(Player.SKILL_MINING));
+        List<MiningRegistry.PickaxeTier> picks = MiningRegistry.pickaxes();
+        // picks() is ordered bronze→dragon; iterate best-first (highest index first)
+        for (int i = picks.size() - 1; i >= 0; i--) {
+            MiningRegistry.PickaxeTier pick = picks.get(i);
+            if (miningLevel < pick.miningLevel()) continue;
+            int id = pick.itemId();
+            if (player.getEquipment(EquipmentSlot.WEAPON) == id) return id;
+            for (int s = 0; s < 28; s++) {
+                if (player.getInventoryItemId(s) == id) return id;
+            }
+        }
+        return -1;
+    }
+
+    private boolean hasUsablePickaxe(Player player) {
+        for (MiningRegistry.PickaxeTier pick : MiningRegistry.pickaxes()) {
+            int id = pick.itemId();
+            if (player.getEquipment(EquipmentSlot.WEAPON) == id) return true;
+            for (int s = 0; s < 28; s++) {
+                if (player.getInventoryItemId(s) == id) return true;
+            }
+        }
+        return false;
+    }
+
+    private void validateRockConfiguration() {
+        List<String> errors = new ArrayList<>();
+        for (NPC npc : world.getNPCs().values()) {
+            int definitionId = npc.getDefinitionId();
+            MiningRegistry.RockTier byDef  = MiningRegistry.getRockByDefinitionId(definitionId);
+            MiningRegistry.RockTier byName = MiningRegistry.getRockByName(npc.getName());
+
+            if (byDef == null && byName == null) continue;
+            if (byDef == null) {
+                errors.add("npcId=" + npc.getId() + " name='" + npc.getName()
+                    + "' is a known rock name but definition_id=" + definitionId + " is unmapped");
+                continue;
+            }
+            if (byName == null) {
+                errors.add("npcId=" + npc.getId() + " definition_id=" + definitionId
+                    + " maps to '" + byDef.name() + "' but name='" + npc.getName() + "' is not a known rock name");
+                continue;
+            }
+            if (byDef.definitionId() != byName.definitionId()) {
+                errors.add("npcId=" + npc.getId() + " mismatch: definition_id=" + definitionId
+                    + "=>" + byDef.name() + " but name='" + npc.getName() + "'=>" + byName.name());
+            }
+        }
+        if (!errors.isEmpty()) {
+            String joined = String.join("; ", errors);
+            LOG.error("Invalid rock configuration in world data: {}", joined);
+            throw new IllegalStateException("Invalid rock configuration: " + joined);
+        }
     }
 
     public long getTickCount() {

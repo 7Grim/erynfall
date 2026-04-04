@@ -18,6 +18,7 @@ import com.osrs.shared.NPC;
 import com.osrs.shared.Player;
 import com.osrs.shared.SkillingAction;
 import com.osrs.shared.FishingRegistry;
+import com.osrs.shared.MiningRegistry;
 import com.osrs.shared.WoodcuttingRegistry;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
@@ -146,6 +147,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             case ADMIN_ADJUST_SKILL_XP   -> handleAdminAdjustSkillXp(ctx, packet.getAdminAdjustSkillXp());
             case ADMIN_SEARCH_ITEMS      -> handleAdminSearchItems(ctx, packet.getAdminSearchItems());
             case ADMIN_GIVE_ITEM         -> handleAdminGiveItem(ctx, packet.getAdminGiveItem());
+            case ADMIN_TELEPORT          -> handleAdminTeleport(ctx, packet.getAdminTeleport());
             default -> LOG.warn("Unhandled payload case: {}", packet.getPayloadCase());
         }
     }
@@ -1366,6 +1368,67 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             req.getSequence());
     }
 
+    private int[] adminTravelCoords(NetworkProto.AdminTravelDestination destination) {
+        return switch (destination) {
+            case ADMIN_TRAVEL_SPAWN -> new int[]{server.getWorld().getSpawnX(), server.getWorld().getSpawnY()};
+            case ADMIN_TRAVEL_SANDBOX_GROVE -> new int[]{44, 21};
+            case ADMIN_TRAVEL_SANDBOX_FISHING_COVE -> new int[]{54, 21};
+            case ADMIN_TRAVEL_SANDBOX_MINING_COVE -> new int[]{32, 18};
+            default -> null;
+        };
+    }
+
+    private void handleAdminTeleport(ChannelHandlerContext ctx, NetworkProto.AdminTeleport req) {
+        Player player = requireAdminTools(ctx, req.getSequence());
+        if (player == null) {
+            return;
+        }
+        int[] dest = adminTravelCoords(req.getDestination());
+        if (dest == null) {
+            sendAdminActionResult(ctx, false, "Invalid travel destination.", req.getSequence());
+            return;
+        }
+        int toX = dest[0];
+        int toY = dest[1];
+        if (!server.getWorld().canWalkTo(toX, toY)) {
+            sendAdminActionResult(ctx, false, "Destination is not walkable.", req.getSequence());
+            return;
+        }
+
+        if (player.isSkilling()) {
+            interruptSkilling("interrupted");
+        }
+        if (player.isInDialogue()) {
+            closeDialogue(player);
+        }
+        if (session.isBankOpen()) {
+            flushDirtyBankContainers();
+            clearBankSessionState();
+            sendBankClose(ctx, "teleported");
+        }
+
+        player.setCombatTarget(-1);
+        player.setPosition(toX, toY);
+
+        server.broadcastToAll(NetworkProto.ServerMessage.newBuilder()
+            .setEntityUpdate(NetworkProto.EntityUpdate.newBuilder()
+                .setEntityId(player.getId())
+                .setX(toX)
+                .setY(toY))
+            .build());
+
+        ctx.writeAndFlush(NetworkProto.ServerMessage.newBuilder()
+            .setAdminTeleportApplied(NetworkProto.AdminTeleportApplied.newBuilder()
+                .setX(toX)
+                .setY(toY))
+            .build());
+
+        PlayerRepository.savePlayer(player);
+        PlayerRepository.auditAdminAction(player, "ADMIN_TELEPORT",
+            "destination=" + req.getDestination().name() + ",x=" + toX + ",y=" + toY);
+        sendAdminActionResult(ctx, true, "Teleported.", req.getSequence());
+    }
+
     private String skillName(int skillIdx) {
         return switch (skillIdx) {
             case Player.SKILL_ATTACK -> "Attack";
@@ -1496,6 +1559,43 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             player.startSkillingAction(SkillingAction.FISHING, npc.getId(), server.getCurrentTick() + 1);
             player.setSkillingMetadata(actionType.name());
             sendSkillingStateUpdate(ctx, NetworkProto.SkillingType.SKILLING_FISHING,
+                NetworkProto.SkillingState.SKILLING_STATE_QUEUED, npc.getId(), "queued");
+            return true;
+        }
+
+        MiningRegistry.RockTier rockTier = MiningRegistry.getRockByDefinitionId(npc.getDefinitionId());
+        if (rockTier != null) {
+            if (strictType && requestedType != NetworkProto.SkillingType.SKILLING_MINING) {
+                return false;
+            }
+            if (npc.isDead()) {
+                sendChatMessage(ctx, "This rock is depleted.", 1);
+                return true;
+            }
+            if (player.isInCombat()) {
+                sendChatMessage(ctx, "You are too busy fighting.", 1);
+                return true;
+            }
+            if (!hasUsablePickaxe(player)) {
+                sendChatMessage(ctx, "You need a pickaxe to mine this rock.", 1);
+                return true;
+            }
+            int miningLevel = Math.max(1, player.getSkillLevel(Player.SKILL_MINING));
+            if (miningLevel < rockTier.levelRequirement()) {
+                sendChatMessage(ctx, "You need a Mining level of " + rockTier.levelRequirement()
+                    + " to mine this rock.", 1);
+                return true;
+            }
+            if (!canReachAnyAdjacentTile(player, npc)) {
+                sendChatMessage(ctx, "I can't reach that!", 1);
+                return true;
+            }
+            if (player.isSkilling() && (player.getSkillingAction() != SkillingAction.MINING
+                    || player.getSkillingTargetNpcId() != npc.getId())) {
+                interruptSkilling("interrupted");
+            }
+            player.startSkillingAction(SkillingAction.MINING, npc.getId(), server.getCurrentTick() + 1);
+            sendSkillingStateUpdate(ctx, NetworkProto.SkillingType.SKILLING_MINING,
                 NetworkProto.SkillingState.SKILLING_STATE_QUEUED, npc.getId(), "queued");
             return true;
         }
@@ -1774,6 +1874,19 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
         // WC level requirement is checked separately — any axe in possession qualifies here.
         for (WoodcuttingRegistry.AxeTier axe : WoodcuttingRegistry.axes()) {
             int id = axe.itemId();
+            if (player.getEquipment(EquipmentSlot.WEAPON) == id) return true;
+            for (int s = 0; s < 28; s++) {
+                if (player.getInventoryItemId(s) == id) return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean hasUsablePickaxe(Player player) {
+        // Check equipped weapon slot and all inventory slots against every registry pickaxe ID.
+        // Mining level requirement is checked separately — any pickaxe in possession qualifies here.
+        for (MiningRegistry.PickaxeTier pick : MiningRegistry.pickaxes()) {
+            int id = pick.itemId();
             if (player.getEquipment(EquipmentSlot.WEAPON) == id) return true;
             for (int s = 0; s < 28; s++) {
                 if (player.getInventoryItemId(s) == id) return true;
@@ -2594,6 +2707,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             case WOODCUTTING -> NetworkProto.SkillingType.SKILLING_WOODCUTTING;
             case FISHING -> NetworkProto.SkillingType.SKILLING_FISHING;
             case COOKING -> NetworkProto.SkillingType.SKILLING_COOKING;
+            case MINING -> NetworkProto.SkillingType.SKILLING_MINING;
             case NONE -> NetworkProto.SkillingType.SKILLING_NONE;
         };
     }

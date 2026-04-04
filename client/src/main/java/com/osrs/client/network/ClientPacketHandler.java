@@ -210,6 +210,9 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
     private boolean localPlayerIsAdminToolsEnabled = false;
     private String lastAdminActionMessage = "";
     private boolean lastAdminActionSuccess = false;
+    private boolean adminTeleportApplied = false;
+    private int adminTeleportX = -1;
+    private int adminTeleportY = -1;
     public static final class AdminItemSearchEntry {
         public final int itemId;
         public final String itemName;
@@ -337,6 +340,7 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
             case BANK_SLOT_UPDATE -> handleBankSlotUpdate(packet.getBankSlotUpdate());
             case ADMIN_ACTION_RESULT -> handleAdminActionResult(packet.getAdminActionResult());
             case ADMIN_ITEM_SEARCH_RESULTS -> handleAdminItemSearchResults(packet.getAdminItemSearchResults());
+            case ADMIN_TELEPORT_APPLIED -> handleAdminTeleportApplied(packet.getAdminTeleportApplied());
             default -> LOG.debug("Unhandled server message: {}", packet.getPayloadCase());
         }
     }
@@ -382,6 +386,13 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
         }
         lastAdminItemSearchQuery = result.getQuery();
         LOG.info("Admin item search results: query='{}' count={}", result.getQuery(), result.getEntriesCount());
+    }
+
+    private void handleAdminTeleportApplied(NetworkProto.AdminTeleportApplied applied) {
+        adminTeleportX = applied.getX();
+        adminTeleportY = applied.getY();
+        adminTeleportApplied = true;
+        LOG.info("Admin teleport applied: ({}, {})", adminTeleportX, adminTeleportY);
     }
 
     /**
@@ -761,6 +772,20 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
 
     public String getLastAdminItemSearchQuery() {
         return lastAdminItemSearchQuery;
+    }
+
+    public boolean consumeAdminTeleportApplied() {
+        boolean value = adminTeleportApplied;
+        adminTeleportApplied = false;
+        return value;
+    }
+
+    public int getAdminTeleportX() {
+        return adminTeleportX;
+    }
+
+    public int getAdminTeleportY() {
+        return adminTeleportY;
     }
 
     private void handlePlayerDeath(NetworkProto.PlayerDeath death) {

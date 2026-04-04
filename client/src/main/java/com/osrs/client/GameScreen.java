@@ -264,6 +264,8 @@ public class GameScreen extends ApplicationAdapter {
     // Skilling animation state — set by server ACTIVE/STOPPED signals, not by client click
     /** True while the server has confirmed woodcutting is active. Drives looping chop animation. */
     private boolean isWoodcuttingActive = false;
+    /** True while the server has confirmed mining is active. Drives looping mine animation. */
+    private boolean isMiningActive = false;
 
     // Firemaking animation
     /** Seconds remaining in the fire animation; 0 = not playing. */
@@ -499,9 +501,13 @@ public class GameScreen extends ApplicationAdapter {
             // Re-trigger when the 0.6s window expires so it plays every OSRS tick.
             if (attackAnimTimer == 0f) triggerAttackPose("chop");
         }
+        if (isMiningActive) {
+            // Loop the mine animation for as long as the server says we're actively mining.
+            if (attackAnimTimer == 0f) triggerAttackPose("mine");
+        }
         if (attackAnimTimer > 0f) {
             attackAnimTimer = Math.max(0f, attackAnimTimer - delta);
-            if (attackAnimTimer == 0f && !isWoodcuttingActive) currentAttackPose = "idle";
+            if (attackAnimTimer == 0f && !isWoodcuttingActive && !isMiningActive) currentAttackPose = "idle";
         }
 
         // Mouse scroll wheel zoom controls - OSRS-style
@@ -722,6 +728,22 @@ public class GameScreen extends ApplicationAdapter {
             clearPendingAction();
         }
 
+        if (h.consumeAdminTeleportApplied()) {
+            int tx = h.getAdminTeleportX();
+            int ty = h.getAdminTeleportY();
+            playerX = tx;
+            playerY = ty;
+            visualX = tx;
+            visualY = ty;
+            walkDestX = -1;
+            walkDestY = -1;
+            walkPath.clear();
+            lastStepSentX = Integer.MIN_VALUE;
+            lastStepSentY = Integer.MIN_VALUE;
+            clearPendingAction();
+            combatTargetId = -1;
+        }
+
         playerHealth    = h.getPlayerHealth();
         playerMaxHealth = h.getPlayerMaxHealth();
         attackLevel   = h.getSkillLevel(0);
@@ -850,6 +872,19 @@ public class GameScreen extends ApplicationAdapter {
                 }
             }
 
+            boolean isMineEvent = skillingEvent.type == NetworkProto.SkillingType.SKILLING_MINING;
+            if (isMineEvent && skillingEvent.state == NetworkProto.SkillingState.SKILLING_STATE_ACTIVE) {
+                isMiningActive = true;
+                triggerAttackPose("mine");
+            }
+            if (isMineEvent && skillingEvent.state == NetworkProto.SkillingState.SKILLING_STATE_STOPPED) {
+                isMiningActive = false;
+                attackAnimTimer = 0f;
+                if ("mine".equals(currentAttackPose)) {
+                    currentAttackPose = "idle";
+                }
+            }
+
             if (pendingAction == null) {
                 continue;
             }
@@ -858,6 +893,7 @@ public class GameScreen extends ApplicationAdapter {
                 case "fish_net", "fish_bait", "fish_lure", "fish_cage", "fish_harpoon" ->
                     NetworkProto.SkillingType.SKILLING_FISHING;
                 case "cook_at" -> NetworkProto.SkillingType.SKILLING_COOKING;
+                case "mine" -> NetworkProto.SkillingType.SKILLING_MINING;
                 default -> NetworkProto.SkillingType.SKILLING_NONE;
             };
             if (pendingType == skillingEvent.type && pendingNpcId == skillingEvent.targetNpcId
@@ -882,14 +918,17 @@ public class GameScreen extends ApplicationAdapter {
 
             if ("Please step away before talking.".equals(msg)
                 || "You get some logs.".equals(msg)
+                || "You mine some ore.".equals(msg)
                 || msg.startsWith("You catch")
                 || "You start cooking the shrimps.".equals(msg)
                 || "You cook the shrimps.".equals(msg)
                 || "You accidentally burn the shrimps.".equals(msg)
                 || "This tree has been chopped down.".equals(msg)
                 || "There are no fish here right now.".equals(msg)
+                || "This rock is depleted.".equals(msg)
                 || "You are too busy fighting.".equals(msg)
-                || "Your inventory is too full to hold any more logs.".equals(msg)) {
+                || "Your inventory is too full to hold any more logs.".equals(msg)
+                || "Your inventory is too full to hold any more ore.".equals(msg)) {
                 clearPendingAction();
             }
 
@@ -1151,6 +1190,11 @@ public class GameScreen extends ApplicationAdapter {
                 );
             }
 
+            AdminToolsPopup.AdminTravelAction travelAction = adminToolsPopup.consumePendingTravelAction();
+            if (travelAction != null && nettyClient != null) {
+                nettyClient.sendAdminTeleport(travelAction.destination);
+            }
+
             if (adminToolsPopup.isItemSearchFocused()) {
                 boolean shiftDown = Gdx.input.isKeyPressed(Input.Keys.SHIFT_LEFT)
                     || Gdx.input.isKeyPressed(Input.Keys.SHIFT_RIGHT);
@@ -1209,6 +1253,11 @@ public class GameScreen extends ApplicationAdapter {
                             ? NetworkProto.AdminItemDestination.ADMIN_ITEM_DESTINATION_BANK
                             : NetworkProto.AdminItemDestination.ADMIN_ITEM_DESTINATION_INVENTORY
                     );
+                }
+
+                AdminToolsPopup.AdminTravelAction clickTravelAction = adminToolsPopup.consumePendingTravelAction();
+                if (clickTravelAction != null && nettyClient != null) {
+                    nettyClient.sendAdminTeleport(clickTravelAction.destination);
                 }
             }
 
@@ -2318,6 +2367,10 @@ public class GameScreen extends ApplicationAdapter {
                 nettyClient.sendStartSkilling(pendingNpcId, NetworkProto.SkillingType.SKILLING_FISHING, actionType);
                 triggerAttackPose("fish");
                 pendingActionRetryTimer = 0.25f;
+            } else if ("mine".equals(pendingAction)) {
+                nettyClient.sendStartSkilling(pendingNpcId, NetworkProto.SkillingType.SKILLING_MINING);
+                // Animation is triggered when server confirms SKILLING_STATE_ACTIVE, not here
+                pendingActionRetryTimer = 0.25f;
             } else if ("cook_at".equals(pendingAction)) {
                 nettyClient.sendStartSkilling(pendingNpcId, NetworkProto.SkillingType.SKILLING_COOKING);
                 pendingActionRetryTimer = 0.25f;
@@ -2632,6 +2685,15 @@ public class GameScreen extends ApplicationAdapter {
                         || "Maple Tree".equalsIgnoreCase(rawName)
                         || "Yew Tree".equalsIgnoreCase(rawName)
                         || "Magic Tree".equalsIgnoreCase(rawName);
+                    boolean isMiningRock = "Copper Rock".equalsIgnoreCase(rawName)
+                        || "Tin Rock".equalsIgnoreCase(rawName)
+                        || "Iron Rock".equalsIgnoreCase(rawName)
+                        || "Silver Rock".equalsIgnoreCase(rawName)
+                        || "Coal Rock".equalsIgnoreCase(rawName)
+                        || "Gold Rock".equalsIgnoreCase(rawName)
+                        || "Mithril Rock".equalsIgnoreCase(rawName)
+                        || "Adamantite Rock".equalsIgnoreCase(rawName)
+                        || "Runite Rock".equalsIgnoreCase(rawName);
                     boolean isFishingSpot = "Fishing Spot".equalsIgnoreCase(rawName);
                     boolean isFire = "Cooking Fire".equalsIgnoreCase(rawName);
                     boolean isBanker = "Banker".equalsIgnoreCase(rawName);
@@ -2643,6 +2705,8 @@ public class GameScreen extends ApplicationAdapter {
                     }
                     if (isTreeResource) {
                         opts.add(new ContextMenu.MenuItem(ContextMenu.Action.CHOP, yellowName, id));
+                    } else if (isMiningRock) {
+                        opts.add(new ContextMenu.MenuItem(ContextMenu.Action.MINE, yellowName, id));
                     } else if (isFishingSpot) {
                         List<String> fishingActions = h.getFishingActions(id);
                         for (String fishingAction : fishingActions) {
@@ -2681,6 +2745,7 @@ public class GameScreen extends ApplicationAdapter {
             case "talk"   -> startApproach((Integer) item.target, "talk");
             case "bank"   -> startApproach((Integer) item.target, "bank");
             case "chop"   -> startApproach((Integer) item.target, "chop");
+            case "mine"   -> startApproach((Integer) item.target, "mine");
             case "fish_net" -> startApproach((Integer) item.target, "fish_net");
             case "fish_bait" -> startApproach((Integer) item.target, "fish_bait");
             case "fish_lure" -> startApproach((Integer) item.target, "fish_lure");

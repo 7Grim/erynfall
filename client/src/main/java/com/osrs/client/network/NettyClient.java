@@ -265,6 +265,16 @@ public class NettyClient {
         LOG.debug("Sent AdminGiveItem: itemId={} qty={} dest={}", itemId, quantity, destination);
     }
 
+    public void sendAdminTeleport(NetworkProto.AdminTravelDestination destination) {
+        if (channel == null || !channel.isActive()) return;
+        channel.writeAndFlush(NetworkProto.ClientMessage.newBuilder()
+            .setAdminTeleport(NetworkProto.AdminTeleport.newBuilder()
+                .setDestination(destination)
+                .setSequence(System.currentTimeMillis()))
+            .build());
+        LOG.debug("Sent AdminTeleport: destination={}", destination);
+    }
+
     public void sendStartSkilling(int npcId, NetworkProto.SkillingType skillingType) {
         sendStartSkilling(npcId, skillingType, NetworkProto.FishingActionType.FISHING_ACTION_NONE);
     }

@@ -7,5 +7,6 @@ public enum SkillingAction {
     NONE,
     WOODCUTTING,
     FISHING,
-    COOKING
+    COOKING,
+    MINING
 }

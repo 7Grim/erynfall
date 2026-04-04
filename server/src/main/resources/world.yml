@@ -424,6 +424,149 @@ npcs:
     wander_radius: 0
     is_aggressive: false
 
+  # ==========================================================================
+  # SANDBOX MINING COVE — y=17, 3 tiles south of the grove at y=20
+  # One of every rock tier in ascending level order (west to east, x=20..44).
+  # 3-tile spacing — close enough to test quickly, not overlapping.
+  # Used to verify: correct ore drops, XP values, level unlock gates,
+  # pickaxe tier selection, and depletion/respawn behaviour.
+  # ==========================================================================
+
+  # Copper Rock (Lv 1, def 300) — copper ore (436), 17.5 XP, SINGLE_ORE
+  - id: 50
+    name: "Copper Rock"
+    definition_id: 300
+    combat_level: 0
+    max_hp: 1
+    max_hit: 0
+    respawn_delay_ticks: 0
+    location: "tutorial_island"
+    x: 20
+    y: 17
+    examine: "A rock containing copper ore."
+    wander_radius: 0
+    is_aggressive: false
+
+  # Tin Rock (Lv 1, def 301) — tin ore (438), 17.5 XP, SINGLE_ORE
+  - id: 51
+    name: "Tin Rock"
+    definition_id: 301
+    combat_level: 0
+    max_hp: 1
+    max_hit: 0
+    respawn_delay_ticks: 0
+    location: "tutorial_island"
+    x: 23
+    y: 17
+    examine: "A rock containing tin ore."
+    wander_radius: 0
+    is_aggressive: false
+
+  # Iron Rock (Lv 15, def 302) — iron ore (440), 35.0 XP, CHANCE 1/3
+  - id: 52
+    name: "Iron Rock"
+    definition_id: 302
+    combat_level: 0
+    max_hp: 1
+    max_hit: 0
+    respawn_delay_ticks: 0
+    location: "tutorial_island"
+    x: 26
+    y: 17
+    examine: "A rock containing iron ore."
+    wander_radius: 0
+    is_aggressive: false
+
+  # Silver Rock (Lv 20, def 303) — silver ore (442), 40.0 XP, SINGLE_ORE
+  - id: 53
+    name: "Silver Rock"
+    definition_id: 303
+    combat_level: 0
+    max_hp: 1
+    max_hit: 0
+    respawn_delay_ticks: 0
+    location: "tutorial_island"
+    x: 29
+    y: 17
+    examine: "A rock containing silver ore."
+    wander_radius: 0
+    is_aggressive: false
+
+  # Coal Rock (Lv 30, def 304) — coal (453), 50.0 XP, CHANCE 1/5
+  - id: 54
+    name: "Coal Rock"
+    definition_id: 304
+    combat_level: 0
+    max_hp: 1
+    max_hit: 0
+    respawn_delay_ticks: 0
+    location: "tutorial_island"
+    x: 32
+    y: 17
+    examine: "A rock containing coal."
+    wander_radius: 0
+    is_aggressive: false
+
+  # Gold Rock (Lv 40, def 305) — gold ore (444), 65.0 XP, SINGLE_ORE
+  - id: 55
+    name: "Gold Rock"
+    definition_id: 305
+    combat_level: 0
+    max_hp: 1
+    max_hit: 0
+    respawn_delay_ticks: 0
+    location: "tutorial_island"
+    x: 35
+    y: 17
+    examine: "A rock containing gold ore."
+    wander_radius: 0
+    is_aggressive: false
+
+  # Mithril Rock (Lv 55, def 306) — mithril ore (447), 80.0 XP, CHANCE 1/2
+  - id: 56
+    name: "Mithril Rock"
+    definition_id: 306
+    combat_level: 0
+    max_hp: 1
+    max_hit: 0
+    respawn_delay_ticks: 0
+    location: "tutorial_island"
+    x: 38
+    y: 17
+    examine: "A rock containing mithril ore."
+    wander_radius: 0
+    is_aggressive: false
+
+  # Adamantite Rock (Lv 70, def 307) — adamantite ore (449), 95.0 XP, CHANCE 1/2
+  - id: 57
+    name: "Adamantite Rock"
+    definition_id: 307
+    combat_level: 0
+    max_hp: 1
+    max_hit: 0
+    respawn_delay_ticks: 0
+    location: "tutorial_island"
+    x: 41
+    y: 17
+    examine: "A rock containing adamantite ore."
+    wander_radius: 0
+    is_aggressive: false
+
+  # Runite Rock (Lv 85, def 308) — runite ore (451), 125.0 XP, SINGLE_ORE
+  - id: 58
+    name: "Runite Rock"
+    definition_id: 308
+    combat_level: 0
+    max_hp: 1
+    max_hit: 0
+    respawn_delay_ticks: 0
+    location: "tutorial_island"
+    x: 44
+    y: 17
+    examine: "A rock containing runite ore."
+    wander_radius: 0
+    is_aggressive: false
+
   # --- Additional Tutorial rats for kill_rats objective density ---
   - id: 22
     definition_id: 3

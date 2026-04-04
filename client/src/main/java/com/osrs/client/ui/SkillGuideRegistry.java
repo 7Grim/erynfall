@@ -8,6 +8,7 @@ import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.Matrix4;
 import com.badlogic.gdx.utils.Align;
 import com.osrs.shared.FishingRegistry;
+import com.osrs.shared.MiningRegistry;
 import com.osrs.shared.WoodcuttingRegistry;
 
 import java.util.HashMap;
@@ -18,11 +19,13 @@ public final class SkillGuideRegistry {
 
     private static final int SKILL_WOODCUTTING = 7;
     private static final int SKILL_FISHING = 8;
+    private static final int SKILL_MINING = 10;
     private static final Map<Integer, SkillGuidePopup.SkillGuideProvider> PROVIDERS = new HashMap<>();
 
     static {
         register(SKILL_WOODCUTTING, new WoodcuttingGuideProvider());
         register(SKILL_FISHING, new FishingGuideProvider());
+        register(SKILL_MINING, new MiningGuideProvider());
     }
 
     private SkillGuideRegistry() {
@@ -312,6 +315,275 @@ public final class SkillGuideRegistry {
             sr.rect(x + 5, y + 12, 17, 10);
             sr.setColor(0.28f, 0.66f, 0.30f, 1f);
             sr.rect(x + 7, y + 18, 13, 7);
+        }
+    }
+
+    private static final class MiningGuideProvider implements SkillGuidePopup.SkillGuideProvider {
+
+        private static final List<SkillGuidePopup.GuideSection> SECTIONS = List.of(
+            new SkillGuidePopup.GuideSection("Introduction"),
+            new SkillGuidePopup.GuideSection("Rocks"),
+            new SkillGuidePopup.GuideSection("Pickaxes")
+        );
+
+        private static final Color TEXT_MAIN = new Color(0.24f, 0.16f, 0.06f, 1f);
+        private static final Color TEXT_LOCKED = new Color(0.45f, 0.36f, 0.24f, 1f);
+        private static final Color TEXT_UNLOCKED = new Color(0.22f, 0.14f, 0.06f, 1f);
+        private static final Color TEXT_NEXT = new Color(0.48f, 0.28f, 0.04f, 1f);
+        private static final Color ROW_UNLOCKED = new Color(0.88f, 0.81f, 0.67f, 1f);
+        private static final Color ROW_LOCKED = new Color(0.78f, 0.71f, 0.57f, 1f);
+        private static final Color ROW_NEXT = new Color(0.94f, 0.82f, 0.50f, 1f);
+
+        @Override
+        public String getTitle(int skillIdx) {
+            return "Mining";
+        }
+
+        @Override
+        public List<SkillGuidePopup.GuideSection> getSections(int skillIdx) {
+            return SECTIONS;
+        }
+
+        @Override
+        public void renderSectionContent(ShapeRenderer shapeRenderer,
+                                         SpriteBatch batch,
+                                         BitmapFont font,
+                                         Matrix4 projection,
+                                         int skillIdx,
+                                         int level,
+                                         long totalXp,
+                                         int sectionIdx,
+                                         float contentX,
+                                         float contentY,
+                                         float contentW,
+                                         float contentH,
+                                         float scrollOffset) {
+            if (sectionIdx == 0) {
+                renderIntroduction(shapeRenderer, batch, font, projection, contentX, contentY, contentW, contentH);
+            } else if (sectionIdx == 1) {
+                renderRocks(shapeRenderer, batch, font, projection, level, contentX, contentY, contentW, contentH, scrollOffset);
+            } else if (sectionIdx == 2) {
+                renderPickaxes(shapeRenderer, batch, font, projection, level, contentX, contentY, contentW, contentH, scrollOffset);
+            }
+        }
+
+        @Override
+        public float getSectionContentHeight(int skillIdx, int level, int sectionIdx, float contentW) {
+            if (sectionIdx == 1) {
+                return 18f + MiningRegistry.rocks().size() * 32f + 12f;
+            }
+            if (sectionIdx == 2) {
+                return 18f + MiningRegistry.pickaxes().size() * 32f + 12f;
+            }
+            return 236f;
+        }
+
+        private void renderIntroduction(ShapeRenderer shapeRenderer,
+                                        SpriteBatch batch,
+                                        BitmapFont font,
+                                        Matrix4 projection,
+                                        float x,
+                                        float y,
+                                        float w,
+                                        float h) {
+            final float blockH = 82f;
+            final float top = y + h - 14f;
+            final float blockX = x + 8f;
+            final float blockW = w - 16f;
+            final float dividerX = x + 10f;
+            final float dividerW = w - 20f;
+            final float iconX = x + 20f;
+            final float textX = x + 62f;
+            final float textW = w - 86f;
+            final float textTopPad = 16f;
+            final String[] texts = {
+                "Mine rocks to collect ores used in Smithing. Each ore type requires a minimum Mining level.",
+                "As your Mining level rises, your chance of successfully mining each swing improves. Higher-level ores give more XP.",
+                "Better pickaxes mine faster. Pickaxes work from inventory even when you lack the Attack level to equip them."
+            };
+
+            shapeRenderer.setProjectionMatrix(projection);
+            shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+            for (int i = 0; i < 3; i++) {
+                float by = top - (i + 1) * blockH;
+                shapeRenderer.setColor(0.92f, 0.84f, 0.69f, 1f);
+                shapeRenderer.rect(blockX, by, blockW, blockH - 8f);
+                shapeRenderer.setColor(0.64f, 0.50f, 0.30f, 1f);
+                shapeRenderer.rect(dividerX, by + blockH - 16f, dividerW, 2f);
+            }
+            drawRockIcon(shapeRenderer, iconX, top - blockH + 12f);
+            ItemIconRenderer.drawItemIcon(shapeRenderer, iconX, top - blockH * 2 + 12f, 436);
+            ItemIconRenderer.drawItemIcon(shapeRenderer, iconX, top - blockH * 3 + 12f, 1265);
+            shapeRenderer.end();
+
+            GlyphLayout wrapped = new GlyphLayout();
+            batch.setProjectionMatrix(projection);
+            batch.begin();
+            font.getData().setScale(0.68f);
+            font.setColor(TEXT_MAIN);
+            for (int i = 0; i < 3; i++) {
+                float by = top - (i + 1) * blockH;
+                float blockInnerTop = by + blockH - 8f;
+                wrapped.setText(font, texts[i], TEXT_MAIN, textW, Align.left, true);
+                font.draw(batch, wrapped, textX, blockInnerTop - textTopPad);
+            }
+            font.getData().setScale(1f);
+            font.setColor(Color.WHITE);
+            batch.end();
+        }
+
+        private void renderRocks(ShapeRenderer shapeRenderer,
+                                 SpriteBatch batch,
+                                 BitmapFont font,
+                                 Matrix4 projection,
+                                 int level,
+                                 float x,
+                                 float y,
+                                 float w,
+                                 float h,
+                                 float scrollOffset) {
+            float rowH = 32f;
+            int nextReq = findNextRockLevel(level);
+
+            shapeRenderer.setProjectionMatrix(projection);
+            shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+            float yCursor = y + h - 14f + scrollOffset;
+            for (MiningRegistry.RockTier rock : MiningRegistry.rocks()) {
+                float rowY = yCursor - rowH;
+                boolean visible = rowY + rowH >= y && rowY <= y + h;
+                if (visible) {
+                    boolean unlocked = level >= rock.levelRequirement();
+                    boolean next = !unlocked && rock.levelRequirement() == nextReq;
+                    if (next) {
+                        shapeRenderer.setColor(ROW_NEXT);
+                    } else if (unlocked) {
+                        shapeRenderer.setColor(ROW_UNLOCKED);
+                    } else {
+                        shapeRenderer.setColor(ROW_LOCKED);
+                    }
+                    shapeRenderer.rect(x + 8, rowY + 2, w - 16, rowH - 4);
+                    ItemIconRenderer.drawItemIcon(shapeRenderer, x + 72, rowY + 1, rock.oreItemId());
+                }
+                yCursor -= rowH;
+            }
+            shapeRenderer.end();
+
+            batch.setProjectionMatrix(projection);
+            batch.begin();
+            font.getData().setScale(0.68f);
+            yCursor = y + h - 14f + scrollOffset;
+            for (MiningRegistry.RockTier rock : MiningRegistry.rocks()) {
+                float rowY = yCursor - rowH;
+                boolean visible = rowY + rowH >= y && rowY <= y + h;
+                if (visible) {
+                    boolean unlocked = level >= rock.levelRequirement();
+                    boolean next = !unlocked && rock.levelRequirement() == nextReq;
+                    if (next) {
+                        font.setColor(TEXT_NEXT);
+                    } else if (unlocked) {
+                        font.setColor(TEXT_UNLOCKED);
+                    } else {
+                        font.setColor(TEXT_LOCKED);
+                    }
+                    font.draw(batch, "Lv " + rock.levelRequirement(), x + 16, rowY + 21);
+                    font.draw(batch, rock.name(), x + 116, rowY + 21);
+                    font.draw(batch, formatXpTenths(rock.xpTenths()) + " xp", x + w - 88, rowY + 21);
+                }
+                yCursor -= rowH;
+            }
+            batch.end();
+        }
+
+        private void renderPickaxes(ShapeRenderer shapeRenderer,
+                                    SpriteBatch batch,
+                                    BitmapFont font,
+                                    Matrix4 projection,
+                                    int level,
+                                    float x,
+                                    float y,
+                                    float w,
+                                    float h,
+                                    float scrollOffset) {
+            float rowH = 32f;
+            int nextReq = findNextPickaxeLevel(level);
+
+            shapeRenderer.setProjectionMatrix(projection);
+            shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+            float yCursor = y + h - 14f + scrollOffset;
+            for (MiningRegistry.PickaxeTier pick : MiningRegistry.pickaxes()) {
+                float rowY = yCursor - rowH;
+                boolean visible = rowY + rowH >= y && rowY <= y + h;
+                if (visible) {
+                    boolean unlocked = level >= pick.miningLevel();
+                    boolean next = !unlocked && pick.miningLevel() == nextReq;
+                    if (next) {
+                        shapeRenderer.setColor(ROW_NEXT);
+                    } else if (unlocked) {
+                        shapeRenderer.setColor(ROW_UNLOCKED);
+                    } else {
+                        shapeRenderer.setColor(ROW_LOCKED);
+                    }
+                    shapeRenderer.rect(x + 8, rowY + 2, w - 16, rowH - 4);
+                    ItemIconRenderer.drawItemIcon(shapeRenderer, x + 72, rowY + 1, pick.itemId());
+                }
+                yCursor -= rowH;
+            }
+            shapeRenderer.end();
+
+            batch.setProjectionMatrix(projection);
+            batch.begin();
+            font.getData().setScale(0.68f);
+            yCursor = y + h - 14f + scrollOffset;
+            for (MiningRegistry.PickaxeTier pick : MiningRegistry.pickaxes()) {
+                float rowY = yCursor - rowH;
+                boolean visible = rowY + rowH >= y && rowY <= y + h;
+                if (visible) {
+                    boolean unlocked = level >= pick.miningLevel();
+                    boolean next = !unlocked && pick.miningLevel() == nextReq;
+                    if (next) {
+                        font.setColor(TEXT_NEXT);
+                    } else if (unlocked) {
+                        font.setColor(TEXT_UNLOCKED);
+                    } else {
+                        font.setColor(TEXT_LOCKED);
+                    }
+                    font.draw(batch, "Lv " + pick.miningLevel(), x + 16, rowY + 21);
+                    font.draw(batch, pick.name(), x + 116, rowY + 21);
+                    font.draw(batch, "Atk " + pick.attackLevelToEquip(), x + w - 88, rowY + 21);
+                }
+                yCursor -= rowH;
+            }
+            batch.end();
+        }
+
+        private static int findNextRockLevel(int level) {
+            for (MiningRegistry.RockTier rock : MiningRegistry.rocks()) {
+                if (rock.levelRequirement() > level) {
+                    return rock.levelRequirement();
+                }
+            }
+            return -1;
+        }
+
+        private static int findNextPickaxeLevel(int level) {
+            for (MiningRegistry.PickaxeTier pick : MiningRegistry.pickaxes()) {
+                if (pick.miningLevel() > level) {
+                    return pick.miningLevel();
+                }
+            }
+            return -1;
+        }
+
+        private static void drawRockIcon(ShapeRenderer sr, float slotLeft, float slotBottom) {
+            float x = slotLeft + 4f;
+            float y = slotBottom + 3f;
+            // Draw a simple rock shape
+            sr.setColor(0.55f, 0.50f, 0.46f, 1f);
+            sr.rect(x + 4, y + 2, 18, 16);
+            sr.setColor(0.68f, 0.63f, 0.58f, 1f);
+            sr.rect(x + 7, y + 12, 10, 6);
+            sr.setColor(0.42f, 0.38f, 0.35f, 1f);
+            sr.rect(x + 4, y + 2, 4, 4);
         }
     }
 

@@ -9,6 +9,7 @@ import com.badlogic.gdx.graphics.g2d.GlyphLayout;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.Matrix4;
+import com.osrs.protocol.NetworkProto;
 import com.osrs.client.network.ClientPacketHandler;
 
 import java.util.List;
@@ -49,6 +50,7 @@ public class AdminToolsPopup {
     private int selectedSkillIdx;
     private AdminSkillAction pendingSkillAction;
     private AdminItemAction pendingItemAction;
+    private AdminTravelAction pendingTravelAction;
 
     private String itemSearchQuery = "";
     private boolean itemSearchFocused = false;
@@ -86,6 +88,22 @@ public class AdminToolsPopup {
     private int giveButtonY;
     private int giveButtonW;
     private int giveButtonH;
+    private int travelBtnX1;
+    private int travelBtnY1;
+    private int travelBtnW1;
+    private int travelBtnH1;
+    private int travelBtnX2;
+    private int travelBtnY2;
+    private int travelBtnW2;
+    private int travelBtnH2;
+    private int travelBtnX3;
+    private int travelBtnY3;
+    private int travelBtnW3;
+    private int travelBtnH3;
+    private int travelBtnX4;
+    private int travelBtnY4;
+    private int travelBtnW4;
+    private int travelBtnH4;
 
     public static final class AdminSkillAction {
         public final boolean setLevel;
@@ -110,6 +128,14 @@ public class AdminToolsPopup {
             this.itemId = itemId;
             this.quantity = quantity;
             this.toBank = toBank;
+        }
+    }
+
+    public static final class AdminTravelAction {
+        public final NetworkProto.AdminTravelDestination destination;
+
+        public AdminTravelAction(NetworkProto.AdminTravelDestination destination) {
+            this.destination = destination;
         }
     }
 
@@ -164,6 +190,7 @@ public class AdminToolsPopup {
         selectedSkillIdx = Math.max(0, Math.min(selectedSkillIdx, SKILL_NAMES.length - 1));
         pendingSkillAction = null;
         pendingItemAction = null;
+        pendingTravelAction = null;
         itemSearchDirty = true;
     }
 
@@ -171,6 +198,7 @@ public class AdminToolsPopup {
         visible = false;
         pendingSkillAction = null;
         pendingItemAction = null;
+        pendingTravelAction = null;
         itemSearchFocused = false;
     }
 
@@ -187,6 +215,12 @@ public class AdminToolsPopup {
     public AdminItemAction consumePendingItemAction() {
         AdminItemAction action = pendingItemAction;
         pendingItemAction = null;
+        return action;
+    }
+
+    public AdminTravelAction consumePendingTravelAction() {
+        AdminTravelAction action = pendingTravelAction;
+        pendingTravelAction = null;
         return action;
     }
 
@@ -270,6 +304,7 @@ public class AdminToolsPopup {
                 selectedTabIdx = i;
                 pendingSkillAction = null;
                 pendingItemAction = null;
+                pendingTravelAction = null;
                 itemSearchFocused = false;
                 if (selectedTabIdx == 1) {
                     itemSearchDirty = true;
@@ -282,6 +317,9 @@ public class AdminToolsPopup {
         }
         if (selectedTabIdx == 1) {
             return handleItemsClick(mouseX, mouseY);
+        }
+        if (selectedTabIdx == 2) {
+            return handleTravelClick(mouseX, mouseY);
         }
         return true;
     }
@@ -369,6 +407,30 @@ public class AdminToolsPopup {
         return true;
     }
 
+    private boolean handleTravelClick(int mouseX, int mouseY) {
+        if (mouseX >= travelBtnX1 && mouseX <= travelBtnX1 + travelBtnW1
+            && mouseY >= travelBtnY1 && mouseY <= travelBtnY1 + travelBtnH1) {
+            pendingTravelAction = new AdminTravelAction(NetworkProto.AdminTravelDestination.ADMIN_TRAVEL_SPAWN);
+            return true;
+        }
+        if (mouseX >= travelBtnX2 && mouseX <= travelBtnX2 + travelBtnW2
+            && mouseY >= travelBtnY2 && mouseY <= travelBtnY2 + travelBtnH2) {
+            pendingTravelAction = new AdminTravelAction(NetworkProto.AdminTravelDestination.ADMIN_TRAVEL_SANDBOX_GROVE);
+            return true;
+        }
+        if (mouseX >= travelBtnX3 && mouseX <= travelBtnX3 + travelBtnW3
+            && mouseY >= travelBtnY3 && mouseY <= travelBtnY3 + travelBtnH3) {
+            pendingTravelAction = new AdminTravelAction(NetworkProto.AdminTravelDestination.ADMIN_TRAVEL_SANDBOX_FISHING_COVE);
+            return true;
+        }
+        if (mouseX >= travelBtnX4 && mouseX <= travelBtnX4 + travelBtnW4
+            && mouseY >= travelBtnY4 && mouseY <= travelBtnY4 + travelBtnH4) {
+            pendingTravelAction = new AdminTravelAction(NetworkProto.AdminTravelDestination.ADMIN_TRAVEL_SANDBOX_MINING_COVE);
+            return true;
+        }
+        return true;
+    }
+
     public void render(ShapeRenderer shapeRenderer,
                        SpriteBatch batch,
                        BitmapFont font,
@@ -417,6 +479,8 @@ public class AdminToolsPopup {
             renderSkillsBackground(shapeRenderer);
         } else if (selectedTabIdx == 1) {
             renderItemsBackground(shapeRenderer, handler);
+        } else if (selectedTabIdx == 2) {
+            renderTravelBackground(shapeRenderer);
         }
 
         shapeRenderer.end();
@@ -437,6 +501,8 @@ public class AdminToolsPopup {
             renderSkillsBorders(shapeRenderer);
         } else if (selectedTabIdx == 1) {
             renderItemsBorders(shapeRenderer);
+        } else if (selectedTabIdx == 2) {
+            renderTravelBorders(shapeRenderer);
         }
 
         shapeRenderer.end();
@@ -456,13 +522,8 @@ public class AdminToolsPopup {
             renderSkillsText(batch, font, handler);
         } else if (selectedTabIdx == 1) {
             renderItemsText(batch, font, handler);
-        } else {
-            font.setColor(0.24f, 0.16f, 0.06f, 1f);
-            String placeholder = switch (selectedTabIdx) {
-                case 2 -> "Travel tools coming next.";
-                default -> "Tools coming next.";
-            };
-            font.draw(batch, placeholder, contentX + 12, contentY + contentH - 16);
+        } else if (selectedTabIdx == 2) {
+            renderTravelText(batch, font, handler);
         }
 
         font.getData().setScale(1f);
@@ -878,6 +939,83 @@ public class AdminToolsPopup {
                     ? new Color(0.14f, 0.42f, 0.16f, 1f)
                     : new Color(0.52f, 0.14f, 0.14f, 1f));
                 font.draw(batch, msg, infoX, contentY + 20);
+            }
+        }
+    }
+
+    private void renderTravelBackground(ShapeRenderer shapeRenderer) {
+        int innerX = contentX + 16;
+        int innerY = contentY + 16;
+        int innerW = contentW - 32;
+        int innerH = contentH - 32;
+        shapeRenderer.setColor(0.90f, 0.82f, 0.66f, 1f);
+        shapeRenderer.rect(innerX, innerY, innerW, innerH);
+
+        int btnW = Math.min(260, innerW - 24);
+        int btnH = 26;
+        int startX = innerX + 12;
+        int startY = innerY + innerH - 68;
+
+        travelBtnX1 = startX;
+        travelBtnY1 = startY;
+        travelBtnW1 = btnW;
+        travelBtnH1 = btnH;
+        travelBtnX2 = startX;
+        travelBtnY2 = startY - 38;
+        travelBtnW2 = btnW;
+        travelBtnH2 = btnH;
+        travelBtnX3 = startX;
+        travelBtnY3 = startY - 76;
+        travelBtnW3 = btnW;
+        travelBtnH3 = btnH;
+        travelBtnX4 = startX;
+        travelBtnY4 = startY - 114;
+        travelBtnW4 = btnW;
+        travelBtnH4 = btnH;
+
+        shapeRenderer.setColor(0.80f, 0.73f, 0.58f, 1f);
+        shapeRenderer.rect(travelBtnX1, travelBtnY1, travelBtnW1, travelBtnH1);
+        shapeRenderer.rect(travelBtnX2, travelBtnY2, travelBtnW2, travelBtnH2);
+        shapeRenderer.rect(travelBtnX3, travelBtnY3, travelBtnW3, travelBtnH3);
+        shapeRenderer.rect(travelBtnX4, travelBtnY4, travelBtnW4, travelBtnH4);
+    }
+
+    private void renderTravelBorders(ShapeRenderer shapeRenderer) {
+        int innerX = contentX + 16;
+        int innerY = contentY + 16;
+        int innerW = contentW - 32;
+        int innerH = contentH - 32;
+        shapeRenderer.setColor(PANEL_BORDER);
+        shapeRenderer.rect(innerX, innerY, innerW, innerH);
+        shapeRenderer.rect(travelBtnX1, travelBtnY1, travelBtnW1, travelBtnH1);
+        shapeRenderer.rect(travelBtnX2, travelBtnY2, travelBtnW2, travelBtnH2);
+        shapeRenderer.rect(travelBtnX3, travelBtnY3, travelBtnW3, travelBtnH3);
+        shapeRenderer.rect(travelBtnX4, travelBtnY4, travelBtnW4, travelBtnH4);
+    }
+
+    private void renderTravelText(SpriteBatch batch, BitmapFont font, ClientPacketHandler handler) {
+        int titleX = contentX + 28;
+        int titleY = contentY + contentH - 28;
+
+        font.getData().setScale(0.72f);
+        font.setColor(0.20f, 0.12f, 0.04f, 1f);
+        font.draw(batch, "Safe fixed test teleports only.", titleX, titleY);
+
+        font.getData().setScale(0.68f);
+        font.setColor(0.24f, 0.16f, 0.06f, 1f);
+        font.draw(batch, "Spawn", travelBtnX1 + 10, travelBtnY1 + 18);
+        font.draw(batch, "Sandbox Grove", travelBtnX2 + 10, travelBtnY2 + 18);
+        font.draw(batch, "Fishing Cove", travelBtnX3 + 10, travelBtnY3 + 18);
+        font.draw(batch, "Mining Cove", travelBtnX4 + 10, travelBtnY4 + 18);
+
+        if (handler != null) {
+            String msg = handler.getLastAdminActionMessage();
+            if (msg != null && !msg.isBlank()) {
+                font.getData().setScale(0.62f);
+                font.setColor(handler.wasLastAdminActionSuccessful()
+                    ? new Color(0.14f, 0.42f, 0.16f, 1f)
+                    : new Color(0.52f, 0.14f, 0.14f, 1f));
+                font.draw(batch, msg, titleX, contentY + 28);
             }
         }
     }

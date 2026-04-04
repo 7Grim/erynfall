@@ -33,6 +33,7 @@ public class ContextMenu {
         BANK("bank", "Bank"),
         TALK_TO("talk", "Talk-to"),
         CHOP("chop", "Chop down"),
+        MINE("mine", "Mine"),
         NET("fish_net", "Net"),
         BAIT("fish_bait", "Bait"),
         LURE("fish_lure", "Lure"),
