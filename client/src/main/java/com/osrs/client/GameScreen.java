@@ -844,6 +844,10 @@ public class GameScreen extends ApplicationAdapter {
             }
             if (isWoodcutEvent && skillingEvent.state == NetworkProto.SkillingState.SKILLING_STATE_STOPPED) {
                 isWoodcuttingActive = false;
+                attackAnimTimer = 0f;
+                if ("chop".equals(currentAttackPose)) {
+                    currentAttackPose = "idle";
+                }
             }
 
             if (pendingAction == null) {
@@ -3323,7 +3327,6 @@ public class GameScreen extends ApplicationAdapter {
         font.getData().setScale(FontManager.getScale(FontManager.FontContext.SMALL_LABEL));
         font.setColor(0.65f, 0.65f, 0.65f, 0.85f);
         GlyphLayout verLayout = new GlyphLayout(font, GAME_VERSION);
-        int miniLeftX = MiniMap.getLeftX(w);
         font.draw(screenBatch, verLayout, miniLeftX - 6 - verLayout.width, h - 6);
 
         screenBatch.end();

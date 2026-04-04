@@ -398,6 +398,26 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
                 .setMaximum(prayerLevel))
             .build());
     }
+
+    private void interruptSkilling(String reason) {
+        if (session == null || session.getPlayer() == null) {
+            return;
+        }
+        Player player = session.getPlayer();
+        SkillingAction action = player.getSkillingAction();
+        int targetId = player.getSkillingTargetNpcId();
+        if (action == null || action == SkillingAction.NONE) {
+            return;
+        }
+        player.clearSkillingAction();
+        if (session.getChannel() != null && session.getChannel().isActive()) {
+            sendSkillingStateUpdate(session.getChannel(),
+                toProtoSkillingType(action),
+                NetworkProto.SkillingState.SKILLING_STATE_STOPPED,
+                targetId,
+                reason == null ? "interrupted" : reason);
+        }
+    }
     
     private void handlePlayerMovement(ChannelHandlerContext ctx, NetworkProto.PlayerMovement movement) {
         if (session.getPlayer() == null) {
@@ -430,7 +450,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
         }
 
         if (player.isSkilling() && (toX != fromX || toY != fromY)) {
-            player.clearSkillingAction();
+            interruptSkilling("interrupted");
         }
 
         if (session.isBankOpen() && (toX != fromX || toY != fromY)) {
@@ -472,6 +492,10 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             sendChatMessage(ctx, "I can't reach that!", 1);
             LOG.debug("Rejected walk-to for player {}: no path to ({},{})", player.getId(), tx, ty);
             return;
+        }
+
+        if (player.isSkilling()) {
+            interruptSkilling("interrupted");
         }
 
         // Walk destination noted. Actual position is updated tile-by-tile via
@@ -574,7 +598,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
         }
 
         if (player.isSkilling()) {
-            player.clearSkillingAction();
+            interruptSkilling("interrupted");
         }
 
         if (player.isInDialogue()) {
@@ -1234,6 +1258,10 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
                 sendChatMessage(ctx, "I can't reach that!", 1);
                 return true;
             }
+            if (player.isSkilling() && (player.getSkillingAction() != SkillingAction.WOODCUTTING
+                    || player.getSkillingTargetNpcId() != npc.getId())) {
+                interruptSkilling("interrupted");
+            }
             player.startSkillingAction(SkillingAction.WOODCUTTING, npc.getId(), server.getCurrentTick() + 1);
             sendSkillingStateUpdate(ctx, NetworkProto.SkillingType.SKILLING_WOODCUTTING,
                 NetworkProto.SkillingState.SKILLING_STATE_QUEUED, npc.getId(), "queued");
@@ -1288,6 +1316,11 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
                 sendChatMessage(ctx, "I can't reach that!", 1);
                 return true;
             }
+            if (player.isSkilling() && (player.getSkillingAction() != SkillingAction.FISHING
+                    || player.getSkillingTargetNpcId() != npc.getId()
+                    || !actionType.name().equals(player.getSkillingMetadata()))) {
+                interruptSkilling("interrupted");
+            }
             player.startSkillingAction(SkillingAction.FISHING, npc.getId(), server.getCurrentTick() + 1);
             player.setSkillingMetadata(actionType.name());
             sendSkillingStateUpdate(ctx, NetworkProto.SkillingType.SKILLING_FISHING,
@@ -1312,6 +1345,10 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             if (!canReachAnyAdjacentTile(player, npc)) {
                 sendChatMessage(ctx, "I can't reach that!", 1);
                 return true;
+            }
+            if (player.isSkilling() && (player.getSkillingAction() != SkillingAction.COOKING
+                    || player.getSkillingTargetNpcId() != npc.getId())) {
+                interruptSkilling("interrupted");
             }
             player.startSkillingAction(SkillingAction.COOKING, npc.getId(), server.getCurrentTick() + 1);
             sendSkillingStateUpdate(ctx, NetworkProto.SkillingType.SKILLING_COOKING,
@@ -2364,6 +2401,29 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
                 .setTargetNpcId(targetNpcId)
                 .setMessage(message == null ? "" : message))
             .build());
+    }
+
+    private void sendSkillingStateUpdate(io.netty.channel.Channel channel,
+                                         NetworkProto.SkillingType type,
+                                         NetworkProto.SkillingState state,
+                                         int targetNpcId,
+                                         String message) {
+        channel.writeAndFlush(NetworkProto.ServerMessage.newBuilder()
+            .setSkillingStateUpdate(NetworkProto.SkillingStateUpdate.newBuilder()
+                .setSkillingType(type)
+                .setState(state)
+                .setTargetNpcId(targetNpcId)
+                .setMessage(message == null ? "" : message))
+            .build());
+    }
+
+    private NetworkProto.SkillingType toProtoSkillingType(SkillingAction action) {
+        return switch (action) {
+            case WOODCUTTING -> NetworkProto.SkillingType.SKILLING_WOODCUTTING;
+            case FISHING -> NetworkProto.SkillingType.SKILLING_FISHING;
+            case COOKING -> NetworkProto.SkillingType.SKILLING_COOKING;
+            case NONE -> NetworkProto.SkillingType.SKILLING_NONE;
+        };
     }
 
     private void ensureStarterSkillingTools(Player player) {
