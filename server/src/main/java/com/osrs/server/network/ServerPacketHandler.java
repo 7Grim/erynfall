@@ -770,8 +770,13 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             return;
         }
 
+        // Allow up to 2 tiles to absorb one-tile movement-packet lag: the client's last
+        // step may still be in-flight when the bank request arrives, so the server's
+        // authoritative position can trail by 1 tile.  All other checks (combat, auth,
+        // canReachAnyAdjacentTile) remain strict.  Withdraw / deposit operations are
+        // still validated against the live position via requireValidOpenBank().
         int chebyshev = Math.max(Math.abs(player.getX() - npc.getX()), Math.abs(player.getY() - npc.getY()));
-        if (chebyshev > 1 || !canReachAnyAdjacentTile(player, npc)) {
+        if (chebyshev > 2 || !canReachAnyAdjacentTile(player, npc)) {
             clearBankSessionState();
             sendChatMessage(ctx, "I can't reach that!", 1);
             sendBankClose(ctx, "out_of_range");

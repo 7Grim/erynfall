@@ -722,9 +722,11 @@ public class GameScreen extends ApplicationAdapter {
         // Cache local player ID for overhead text lookup
         if (localPlayerId < 0) localPlayerId = h.getMyPlayerId();
 
+        // Clear the pending bank approach only when the server confirms the bank is open.
+        // Do NOT clear on timer-expiry while the bank is still closed — that would prevent
+        // processApproach() from auto-retrying when the first request was rejected due to
+        // a one-tick movement-lag false rejection.
         if (h.isBankOpen() && "bank".equals(pendingAction)) {
-            clearPendingAction();
-        } else if (!h.isBankOpen() && "bank".equals(pendingAction) && pendingActionRetryTimer <= 0f) {
             clearPendingAction();
         }
 
