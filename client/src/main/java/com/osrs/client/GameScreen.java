@@ -65,6 +65,9 @@ public class GameScreen extends ApplicationAdapter {
     private static final Color COLOR_RED = new Color(1.0f, 0.0f, 0.0f, 1f);
     private static final Color COLOR_GOLD = FontManager.TEXT_GOLD;
 
+    /** Displayed in the top-right HUD. Update this string each release. */
+    private static final String GAME_VERSION = "Alpha 0.0.1";
+
     /** OSRS walk speed: 1 tile per 0.6 s. */
     private static final float TILES_PER_SECOND = 1.0f / 0.6f;
     private static final int ADMIN_BUTTON_X = 10;
@@ -3315,6 +3318,13 @@ public class GameScreen extends ApplicationAdapter {
         font.getData().setScale(FontManager.getScale(FontManager.FontContext.BASE_UI));
         font.setColor(0.6f, 0.6f, 0.6f, 0.8f);
         font.draw(screenBatch, String.format("(%d,%d)", playerX, playerY), w - 70, 15);
+
+        // Version label — top-right, right-justified just left of the minimap circle
+        font.getData().setScale(FontManager.getScale(FontManager.FontContext.SMALL_LABEL));
+        font.setColor(0.65f, 0.65f, 0.65f, 0.85f);
+        GlyphLayout verLayout = new GlyphLayout(font, GAME_VERSION);
+        int miniLeftX = MiniMap.getLeftX(w);
+        font.draw(screenBatch, verLayout, miniLeftX - 6 - verLayout.width, h - 6);
 
         screenBatch.end();
         // Always reset font to defaults after HUD draw
