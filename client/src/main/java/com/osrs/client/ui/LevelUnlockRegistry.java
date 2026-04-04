@@ -99,14 +99,15 @@ public final class LevelUnlockRegistry {
 
     private static String defenceUnlock(int level) {
         return switch (level) {
-            case 10 -> "You can now wear black armour.";
-            case 20 -> "You can now wear mithril armour.";
-            case 30 -> "You can now wear adamant armour.";
-            case 40 -> "You can now wear rune armour.";
-            case 45 -> "You can now wear Bandos armour.";
-            case 60 -> "You can now wear dragon armour.";
-            case 65 -> "You can now wear barrows armour.";
-            case 70 -> "You can now wear armadyl armour.";
+            case 5  -> "You can now wear steel armour, including the steel platebody and sq shield.";
+            case 10 -> "You can now wear black armour, including the black platebody and sq shield.";
+            case 20 -> "You can now wear mithril armour, including the mithril platebody and sq shield.";
+            case 30 -> "You can now wear adamant armour, including the adamant platebody and sq shield.";
+            case 40 -> "You can now wear rune armour — the best free-to-play armour set.";
+            case 45 -> "You can now wear Bandos armour (Strength 65 also required).";
+            case 60 -> "You can now wear dragon armour, including the dragon chainbody and sq shield.";
+            case 65 -> "You can now wear barrows armour sets.";
+            case 70 -> "You can now wear armadyl armour (Ranged 70 also required).";
             case 99 -> "You have reached the maximum Defence level!";
             default -> null;
         };

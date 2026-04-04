@@ -20,6 +20,7 @@ public final class SkillGuideRegistry {
 
     private static final int SKILL_ATTACK      = 0;
     private static final int SKILL_STRENGTH    = 1;
+    private static final int SKILL_DEFENCE     = 2;
     private static final int SKILL_WOODCUTTING = 7;
     private static final int SKILL_FISHING = 8;
     private static final int SKILL_MINING = 10;
@@ -28,6 +29,7 @@ public final class SkillGuideRegistry {
     static {
         register(SKILL_ATTACK, new AttackGuideProvider());
         register(SKILL_STRENGTH, new StrengthGuideProvider());
+        register(SKILL_DEFENCE, new DefenceGuideProvider());
         register(SKILL_WOODCUTTING, new WoodcuttingGuideProvider());
         register(SKILL_FISHING, new FishingGuideProvider());
         register(SKILL_MINING, new MiningGuideProvider());
@@ -1332,6 +1334,220 @@ public final class SkillGuideRegistry {
                 }
             }
             return refLv == bracket;
+        }
+    }
+
+    // =========================================================================
+    // Defence
+    // =========================================================================
+
+    private static final class DefenceGuideProvider implements SkillGuidePopup.SkillGuideProvider {
+
+        private static final List<SkillGuidePopup.GuideSection> SECTIONS = List.of(
+            new SkillGuidePopup.GuideSection("Introduction"),
+            new SkillGuidePopup.GuideSection("Armour"),
+            new SkillGuidePopup.GuideSection("Shields")
+        );
+
+        private static final Color TEXT_MAIN     = new Color(0.24f, 0.16f, 0.06f, 1f);
+        private static final Color TEXT_LOCKED   = new Color(0.45f, 0.36f, 0.24f, 1f);
+        private static final Color TEXT_UNLOCKED = new Color(0.22f, 0.14f, 0.06f, 1f);
+        private static final Color TEXT_NEXT     = new Color(0.48f, 0.28f, 0.04f, 1f);
+        private static final Color ROW_UNLOCKED  = new Color(0.88f, 0.81f, 0.67f, 1f);
+        private static final Color ROW_LOCKED    = new Color(0.78f, 0.71f, 0.57f, 1f);
+        private static final Color ROW_NEXT      = new Color(0.94f, 0.82f, 0.50f, 1f);
+
+        /**
+         * One entry per armour tier shown in the guide.
+         * slashDef is the platebody's slash defence bonus — used as the
+         * headline stat since slash is the most common attack type in OSRS.
+         */
+        private record ArmourTier(int defReq, String name, int itemId, int slashDef) {}
+
+        private static final List<ArmourTier> BODY_TIERS = List.of(
+            new ArmourTier( 1, "Bronze platebody",  1119,  17),
+            new ArmourTier( 1, "Iron platebody",    2000,  28),
+            new ArmourTier( 5, "Steel platebody",   1085,  42),
+            new ArmourTier(10, "Black platebody",   1125,  49),
+            new ArmourTier(20, "Mithril platebody", 1129,  61),
+            new ArmourTier(30, "Adamant platebody", 1133,  79),
+            new ArmourTier(40, "Rune platebody",    1127,  97),
+            new ArmourTier(60, "Dragon chainbody",  3140,  80)
+        );
+
+        private static final List<ArmourTier> SHIELD_TIERS = List.of(
+            new ArmourTier( 1, "Wooden shield",      1173,   3),
+            new ArmourTier( 1, "Bronze sq shield",   1175,   8),
+            new ArmourTier( 1, "Iron sq shield",     1177,  15),
+            new ArmourTier( 5, "Steel sq shield",    1193,  24),
+            new ArmourTier(10, "Black sq shield",    1195,  29),
+            new ArmourTier(20, "Mithril sq shield",  1197,  35),
+            new ArmourTier(30, "Adamant sq shield",  1199,  43),
+            new ArmourTier(40, "Rune sq shield",     1185,  54),
+            new ArmourTier(60, "Dragon sq shield",  11286,  65)
+        );
+
+        @Override
+        public String getTitle(int skillIdx) {
+            return "Defence";
+        }
+
+        @Override
+        public List<SkillGuidePopup.GuideSection> getSections(int skillIdx) {
+            return SECTIONS;
+        }
+
+        @Override
+        public void renderSectionContent(ShapeRenderer shapeRenderer,
+                                         SpriteBatch batch,
+                                         BitmapFont font,
+                                         Matrix4 projection,
+                                         int skillIdx,
+                                         int level,
+                                         long totalXp,
+                                         int sectionIdx,
+                                         float contentX,
+                                         float contentY,
+                                         float contentW,
+                                         float contentH,
+                                         float scrollOffset) {
+            if (sectionIdx == 0) {
+                renderIntroduction(shapeRenderer, batch, font, projection, contentX, contentY, contentW, contentH);
+            } else if (sectionIdx == 1) {
+                renderArmour(shapeRenderer, batch, font, projection, level, contentX, contentY, contentW, contentH, scrollOffset, BODY_TIERS);
+            } else if (sectionIdx == 2) {
+                renderArmour(shapeRenderer, batch, font, projection, level, contentX, contentY, contentW, contentH, scrollOffset, SHIELD_TIERS);
+            }
+        }
+
+        @Override
+        public float getSectionContentHeight(int skillIdx, int level, int sectionIdx, float contentW) {
+            if (sectionIdx == 1) {
+                return 18f + BODY_TIERS.size()   * 36f + 12f;
+            }
+            if (sectionIdx == 2) {
+                return 18f + SHIELD_TIERS.size() * 36f + 12f;
+            }
+            return 236f;
+        }
+
+        private void renderIntroduction(ShapeRenderer sr, SpriteBatch batch, BitmapFont font,
+                                         Matrix4 proj, float x, float y, float w, float h) {
+            final float blockH    = 82f;
+            final float top       = y + h - 14f;
+            final float blockX    = x + 8f;
+            final float blockW    = w - 16f;
+            final float dividerX  = x + 10f;
+            final float dividerW  = w - 20f;
+            final float iconX     = x + 20f;
+            final float textX     = x + 62f;
+            final float textW     = w - 86f;
+            final float textTopPad = 16f;
+            final String[] texts = {
+                "Defence reduces the chance of being hit. Your defence roll is: (level + 8) x (armour bonus + 64). The higher your roll, the more hits you block.",
+                "Train Defence by fighting with the Defensive style (4 Defence XP + 1.33 HP XP), or use Controlled to split XP across Attack, Strength and Defence.",
+                "Each armour tier requires a minimum Defence level. Rune armour (level 40) is the best standard set. Dragon chainbody and sq shield unlock at level 60."
+            };
+
+            sr.setProjectionMatrix(proj);
+            sr.begin(ShapeRenderer.ShapeType.Filled);
+            for (int i = 0; i < 3; i++) {
+                float by = top - (i + 1) * blockH;
+                sr.setColor(0.92f, 0.84f, 0.69f, 1f);
+                sr.rect(blockX, by, blockW, blockH - 8f);
+                sr.setColor(0.64f, 0.50f, 0.30f, 1f);
+                sr.rect(dividerX, by + blockH - 16f, dividerW, 2f);
+            }
+            // Icons: rune platebody, rune sq shield, adamant platebody
+            ItemIconRenderer.drawItemIcon(sr, iconX, top - blockH       + 12f, 1127);
+            ItemIconRenderer.drawItemIcon(sr, iconX, top - blockH * 2f  + 12f, 1185);
+            ItemIconRenderer.drawItemIcon(sr, iconX, top - blockH * 3f  + 12f, 1133);
+            sr.end();
+
+            GlyphLayout wrapped = new GlyphLayout();
+            batch.setProjectionMatrix(proj);
+            batch.begin();
+            font.getData().setScale(0.68f);
+            font.setColor(TEXT_MAIN);
+            for (int i = 0; i < 3; i++) {
+                float by = top - (i + 1) * blockH;
+                wrapped.setText(font, texts[i], TEXT_MAIN, textW, Align.left, true);
+                font.draw(batch, wrapped, textX, by + blockH - 8f - textTopPad);
+            }
+            font.getData().setScale(1f);
+            font.setColor(Color.WHITE);
+            batch.end();
+        }
+
+        /**
+         * Shared renderer for both the Armour and Shields tabs.
+         * Each row shows: defence req | item icon | item name | slash defence bonus.
+         * Second line shows the tier (Bronze / Iron / Steel …) in smaller text.
+         * Rows are coloured by whether the player's Defence level meets the requirement.
+         */
+        private void renderArmour(ShapeRenderer sr, SpriteBatch batch, BitmapFont font,
+                                    Matrix4 proj, int level,
+                                    float x, float y, float w, float h, float scrollOffset,
+                                    List<ArmourTier> tiers) {
+            float rowH  = 36f;
+            int nextReq = findNextTierLevel(level, tiers);
+
+            sr.setProjectionMatrix(proj);
+            sr.begin(ShapeRenderer.ShapeType.Filled);
+            float yCursor = y + h - 14f + scrollOffset;
+            for (ArmourTier tier : tiers) {
+                float rowY   = yCursor - rowH;
+                boolean visible = rowY + rowH >= y && rowY <= y + h;
+                if (visible) {
+                    boolean unlocked = level >= tier.defReq();
+                    boolean next     = !unlocked && tier.defReq() == nextReq;
+                    sr.setColor(next ? ROW_NEXT : unlocked ? ROW_UNLOCKED : ROW_LOCKED);
+                    sr.rect(x + 8, rowY + 2, w - 16, rowH - 4);
+                    ItemIconRenderer.drawItemIcon(sr, x + 72, rowY + 3, tier.itemId());
+                }
+                yCursor -= rowH;
+            }
+            sr.end();
+
+            batch.setProjectionMatrix(proj);
+            batch.begin();
+            font.getData().setScale(0.68f);
+            yCursor = y + h - 14f + scrollOffset;
+            for (ArmourTier tier : tiers) {
+                float rowY   = yCursor - rowH;
+                boolean visible = rowY + rowH >= y && rowY <= y + h;
+                if (visible) {
+                    boolean unlocked = level >= tier.defReq();
+                    boolean next     = !unlocked && tier.defReq() == nextReq;
+                    font.setColor(next ? TEXT_NEXT : unlocked ? TEXT_UNLOCKED : TEXT_LOCKED);
+                    font.draw(batch, "Lv " + tier.defReq(), x + 16,      rowY + 26);
+                    font.draw(batch, tier.name(),            x + 116,     rowY + 26);
+                    font.draw(batch, "+" + tier.slashDef() + " slash",
+                                                             x + w - 88,  rowY + 26);
+                    // Second line: note about dragon chainbody quirk (lower slash than rune)
+                    font.getData().setScale(0.60f);
+                    Color sub = next ? TEXT_NEXT : TEXT_LOCKED;
+                    font.setColor(sub.r, sub.g, sub.b, 0.75f);
+                    String note = tier.itemId() == 3140
+                        ? "Lower than rune — prioritise platebody"
+                        : "Slash defence bonus";
+                    font.draw(batch, note, x + 116, rowY + 13);
+                    font.getData().setScale(0.68f);
+                }
+                yCursor -= rowH;
+            }
+            font.getData().setScale(1f);
+            font.setColor(Color.WHITE);
+            batch.end();
+        }
+
+        private static int findNextTierLevel(int level, List<ArmourTier> tiers) {
+            for (ArmourTier tier : tiers) {
+                if (tier.defReq() > level) {
+                    return tier.defReq();
+                }
+            }
+            return -1;
         }
     }
 }

@@ -5,13 +5,15 @@ import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 
 public final class ItemIconRenderer {
 
-    private static final Color BRONZE_COLOR = new Color(0.55f, 0.46f, 0.28f, 1f);
-    private static final Color IRON_COLOR = new Color(0.30f, 0.30f, 0.30f, 1f);
-    private static final Color STEEL_COLOR = new Color(0.60f, 0.60f, 0.60f, 1f);
+    private static final Color BRONZE_COLOR  = new Color(0.55f, 0.46f, 0.28f, 1f);
+    private static final Color IRON_COLOR    = new Color(0.30f, 0.30f, 0.30f, 1f);
+    private static final Color STEEL_COLOR   = new Color(0.60f, 0.60f, 0.60f, 1f);
+    private static final Color BLACK_COLOR   = new Color(0.16f, 0.16f, 0.16f, 1f);
     private static final Color MITHRIL_COLOR = new Color(0.20f, 0.55f, 0.85f, 1f);
     private static final Color ADAMANT_COLOR = new Color(0.20f, 0.60f, 0.20f, 1f);
-    private static final Color RUNE_COLOR = new Color(0.40f, 0.65f, 0.75f, 1f);
-    private static final Color DRAGON_COLOR = new Color(1.00f, 0.85f, 0.00f, 1f);
+    private static final Color RUNE_COLOR    = new Color(0.40f, 0.65f, 0.75f, 1f);
+    private static final Color DRAGON_COLOR  = new Color(1.00f, 0.85f, 0.00f, 1f);
+    private static final Color WOOD_COLOR    = new Color(0.48f, 0.30f, 0.12f, 1f);
     private static final Color DEFAULT_ITEM_COLOR = new Color(0.60f, 0.60f, 0.60f, 1f);
 
     private ItemIconRenderer() {
@@ -28,7 +30,7 @@ public final class ItemIconRenderer {
             case 1321 -> drawScimitarIcon(sr, iconX, iconY, BRONZE_COLOR);
             case 1323 -> drawScimitarIcon(sr, iconX, iconY, IRON_COLOR);
             case 1325 -> drawScimitarIcon(sr, iconX, iconY, STEEL_COLOR);
-            case 1327 -> drawScimitarIcon(sr, iconX, iconY, new Color(0.16f, 0.16f, 0.16f, 1f));
+            case 1327 -> drawScimitarIcon(sr, iconX, iconY, BLACK_COLOR);
             case 1329 -> drawScimitarIcon(sr, iconX, iconY, MITHRIL_COLOR);
             case 1331 -> drawScimitarIcon(sr, iconX, iconY, ADAMANT_COLOR);
             case 1333 -> drawScimitarIcon(sr, iconX, iconY, RUNE_COLOR);
@@ -37,11 +39,48 @@ public final class ItemIconRenderer {
             case 1291 -> drawLongswordIcon(sr, iconX, iconY, BRONZE_COLOR);
             case 1293 -> drawLongswordIcon(sr, iconX, iconY, IRON_COLOR);
             case 1295 -> drawLongswordIcon(sr, iconX, iconY, STEEL_COLOR);
-            case 1297 -> drawLongswordIcon(sr, iconX, iconY, new Color(0.16f, 0.16f, 0.16f, 1f));
+            case 1297 -> drawLongswordIcon(sr, iconX, iconY, BLACK_COLOR);
             case 1299 -> drawLongswordIcon(sr, iconX, iconY, MITHRIL_COLOR);
             case 1301 -> drawLongswordIcon(sr, iconX, iconY, ADAMANT_COLOR);
             case 1303 -> drawLongswordIcon(sr, iconX, iconY, RUNE_COLOR);
             case 1305 -> drawLongswordIcon(sr, iconX, iconY, DRAGON_COLOR);
+            // ── Full helms ────────────────────────────────────────────────
+            case 1115  -> drawFullHelmIcon(sr, iconX, iconY, BRONZE_COLOR);
+            case 1153  -> drawFullHelmIcon(sr, iconX, iconY, IRON_COLOR);
+            case 1157  -> drawFullHelmIcon(sr, iconX, iconY, STEEL_COLOR);
+            case 1159  -> drawFullHelmIcon(sr, iconX, iconY, BLACK_COLOR);
+            case 1163  -> drawFullHelmIcon(sr, iconX, iconY, MITHRIL_COLOR);
+            case 1161  -> drawFullHelmIcon(sr, iconX, iconY, ADAMANT_COLOR);
+            case 1165  -> drawFullHelmIcon(sr, iconX, iconY, RUNE_COLOR);
+            case 11335 -> drawFullHelmIcon(sr, iconX, iconY, DRAGON_COLOR);
+            // ── Platebodies ───────────────────────────────────────────────
+            case 1119  -> drawPlatebodyIcon(sr, iconX, iconY, BRONZE_COLOR);
+            case 2000  -> drawPlatebodyIcon(sr, iconX, iconY, IRON_COLOR);
+            case 1085  -> drawPlatebodyIcon(sr, iconX, iconY, STEEL_COLOR);
+            case 1125  -> drawPlatebodyIcon(sr, iconX, iconY, BLACK_COLOR);
+            case 1129  -> drawPlatebodyIcon(sr, iconX, iconY, MITHRIL_COLOR);
+            case 1133  -> drawPlatebodyIcon(sr, iconX, iconY, ADAMANT_COLOR);
+            case 1127  -> drawPlatebodyIcon(sr, iconX, iconY, RUNE_COLOR);
+            case 3140  -> drawPlatebodyIcon(sr, iconX, iconY, DRAGON_COLOR);
+            // ── Platelegs ─────────────────────────────────────────────────
+            case 1067  -> drawPlatelegsIcon(sr, iconX, iconY, BRONZE_COLOR);
+            case 1069  -> drawPlatelegsIcon(sr, iconX, iconY, IRON_COLOR);
+            case 1071  -> drawPlatelegsIcon(sr, iconX, iconY, STEEL_COLOR);
+            case 1073  -> drawPlatelegsIcon(sr, iconX, iconY, BLACK_COLOR);
+            case 1075  -> drawPlatelegsIcon(sr, iconX, iconY, MITHRIL_COLOR);
+            case 1077  -> drawPlatelegsIcon(sr, iconX, iconY, ADAMANT_COLOR);
+            case 1079  -> drawPlatelegsIcon(sr, iconX, iconY, RUNE_COLOR);
+            case 4087  -> drawPlatelegsIcon(sr, iconX, iconY, DRAGON_COLOR);
+            // ── Sq shields ────────────────────────────────────────────────
+            case 1173  -> drawSqShieldIcon(sr, iconX, iconY, WOOD_COLOR);
+            case 1175  -> drawSqShieldIcon(sr, iconX, iconY, BRONZE_COLOR);
+            case 1177  -> drawSqShieldIcon(sr, iconX, iconY, IRON_COLOR);
+            case 1193  -> drawSqShieldIcon(sr, iconX, iconY, STEEL_COLOR);
+            case 1195  -> drawSqShieldIcon(sr, iconX, iconY, BLACK_COLOR);
+            case 1197  -> drawSqShieldIcon(sr, iconX, iconY, MITHRIL_COLOR);
+            case 1199  -> drawSqShieldIcon(sr, iconX, iconY, ADAMANT_COLOR);
+            case 1185  -> drawSqShieldIcon(sr, iconX, iconY, RUNE_COLOR);
+            case 11286 -> drawSqShieldIcon(sr, iconX, iconY, DRAGON_COLOR);
             // ── Woodcutting logs ──────────────────────────────────────────
             case 1511 -> drawLogsIcon(sr, iconX, iconY);
             case 1521 -> drawOakLogsIcon(sr, iconX, iconY);
@@ -248,6 +287,106 @@ public final class ItemIconRenderer {
         float hib = Math.min(bladeColor.b + 0.25f, 1f);
         sr.setColor(hi, hig, hib, 1f);
         sr.rect(x + 8, y + 9, 1, 16);
+    }
+
+    /**
+     * Full helm: bucket-shaped helm with a visor slit.
+     * Distinct from the platebody (T-shape) and platelegs (trousers shape).
+     */
+    private static void drawFullHelmIcon(ShapeRenderer sr, float x, float y, Color c) {
+        float hi = Math.min(c.r + 0.22f, 1f);
+        float hig = Math.min(c.g + 0.22f, 1f);
+        float hib = Math.min(c.b + 0.22f, 1f);
+        float dr = Math.max(c.r - 0.18f, 0f);
+        float dg = Math.max(c.g - 0.18f, 0f);
+        float db = Math.max(c.b - 0.18f, 0f);
+        // Main face plate
+        sr.setColor(c);
+        sr.rect(x + 4, y + 5, 20, 14);
+        // Dome (top, slightly narrower)
+        sr.rect(x + 6, y + 18, 16, 6);
+        // Left and right cheek guards
+        sr.rect(x + 2, y + 8, 4, 11);
+        sr.rect(x + 22, y + 8, 4, 11);
+        // Chin guard (bottom rim, slightly wider)
+        sr.rect(x + 3, y + 3, 22, 4);
+        // Dome highlight
+        sr.setColor(hi, hig, hib, 1f);
+        sr.rect(x + 8, y + 20, 12, 3);
+        // Visor slit (darker, over face plate)
+        sr.setColor(dr, dg, db, 1f);
+        sr.rect(x + 5, y + 13, 18, 3);
+    }
+
+    /**
+     * Platebody: T-shaped chest silhouette with shoulder extensions.
+     * Distinct from the helm (dome) and legs (trouser shape).
+     */
+    private static void drawPlatebodyIcon(ShapeRenderer sr, float x, float y, Color c) {
+        float hi = Math.min(c.r + 0.22f, 1f);
+        float hig = Math.min(c.g + 0.22f, 1f);
+        float hib = Math.min(c.b + 0.22f, 1f);
+        // Main torso
+        sr.setColor(c);
+        sr.rect(x + 5, y + 4, 18, 16);
+        // Shoulder extensions (left and right arms at top of torso)
+        sr.rect(x + 1, y + 18, 6, 6);
+        sr.rect(x + 21, y + 18, 6, 6);
+        // Collar area (top center, slightly narrower)
+        sr.rect(x + 8, y + 20, 12, 4);
+        // Chest highlight stripe
+        sr.setColor(hi, hig, hib, 1f);
+        sr.rect(x + 7, y + 16, 14, 3);
+        sr.rect(x + 3, y + 20, 4, 3);
+        sr.rect(x + 21, y + 20, 4, 3);
+    }
+
+    /**
+     * Platelegs: trouser silhouette with a wide hip band and two leg columns.
+     * The gap between legs is left implicit by not drawing that region.
+     */
+    private static void drawPlatelegsIcon(ShapeRenderer sr, float x, float y, Color c) {
+        float hi = Math.min(c.r + 0.22f, 1f);
+        float hig = Math.min(c.g + 0.22f, 1f);
+        float hib = Math.min(c.b + 0.22f, 1f);
+        // Hip/waist band
+        sr.setColor(c);
+        sr.rect(x + 3, y + 17, 22, 7);
+        // Left leg column
+        sr.rect(x + 3, y + 4, 9, 15);
+        // Right leg column
+        sr.rect(x + 16, y + 4, 9, 15);
+        // Waist highlight
+        sr.setColor(hi, hig, hib, 1f);
+        sr.rect(x + 5, y + 19, 8, 3);
+        // Knee highlights
+        sr.rect(x + 5, y + 14, 4, 2);
+        sr.rect(x + 18, y + 14, 4, 2);
+    }
+
+    /**
+     * Sq shield: square shield face with a central boss and highlight quad.
+     * Distinct from all weapons (which are elongated) and armour (which have limb shapes).
+     */
+    private static void drawSqShieldIcon(ShapeRenderer sr, float x, float y, Color c) {
+        float hi = Math.min(c.r + 0.22f, 1f);
+        float hig = Math.min(c.g + 0.22f, 1f);
+        float hib = Math.min(c.b + 0.22f, 1f);
+        float dr = Math.max(c.r - 0.15f, 0f);
+        float dg = Math.max(c.g - 0.15f, 0f);
+        float db = Math.max(c.b - 0.15f, 0f);
+        // Main shield face
+        sr.setColor(c);
+        sr.rect(x + 3, y + 3, 22, 22);
+        // Upper-left highlight quadrant
+        sr.setColor(hi, hig, hib, 1f);
+        sr.rect(x + 4, y + 16, 10, 7);
+        // Central boss stud (slightly darker, square)
+        sr.setColor(dr, dg, db, 1f);
+        sr.rect(x + 10, y + 10, 8, 8);
+        // Boss highlight
+        sr.setColor(hi, hig, hib, 1f);
+        sr.rect(x + 12, y + 14, 4, 2);
     }
 
     private static void drawTeakLogsIcon(ShapeRenderer sr, float x, float y) {
@@ -486,14 +625,13 @@ public final class ItemIconRenderer {
 
     private static Color getItemIconColor(int itemId) {
         return switch (itemId) {
-            case 882, 1277, 1321, 1291, 1175, 1115, 1119, 1067, 1351 -> BRONZE_COLOR;
-            case 1349, 1323, 1293, 1153, 2000, 1069, 1177 -> IRON_COLOR;
-            case 1353, 1325, 1295, 1157, 1085, 1071, 1193 -> STEEL_COLOR;
-            case 1355, 1329, 1299, 1163, 1129, 1075, 1197 -> MITHRIL_COLOR;
-            case 1357, 1331, 1301, 1161, 1133, 1077, 1199 -> ADAMANT_COLOR;
-            case 1359, 1333, 1303, 1165, 1127, 1079, 1185 -> RUNE_COLOR;
-            case 4587, 1305, 11335, 3140, 4087, 11286 -> DRAGON_COLOR;
-            case 1327, 1297, 1159, 1125, 1073, 1195 -> new Color(0.16f, 0.16f, 0.16f, 1f);
+            // Weapons / tools without dedicated draw methods
+            case 882, 1277, 1351 -> BRONZE_COLOR;
+            case 1349 -> IRON_COLOR;
+            case 1353 -> STEEL_COLOR;
+            case 1355 -> MITHRIL_COLOR;
+            case 1357 -> ADAMANT_COLOR;
+            case 1359 -> RUNE_COLOR;
             case 995 -> new Color(1f, 0.90f, 0.10f, 1f);
             case 526 -> new Color(0.85f, 0.75f, 0.55f, 1f);
             default -> DEFAULT_ITEM_COLOR;
