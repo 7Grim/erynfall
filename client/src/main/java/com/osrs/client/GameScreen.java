@@ -3324,10 +3324,10 @@ public class GameScreen extends ApplicationAdapter {
         font.draw(screenBatch, String.format("(%d,%d)", playerX, playerY), w - 70, 15);
 
         // Version label — top-right, right-justified just left of the minimap circle
-        font.getData().setScale(FontManager.getScale(FontManager.FontContext.SMALL_LABEL));
-        font.setColor(0.65f, 0.65f, 0.65f, 0.85f);
+        font.getData().setScale(0.90f);
+        font.setColor(1f, 1f, 1f, 0.98f);
         GlyphLayout verLayout = new GlyphLayout(font, GAME_VERSION);
-        font.draw(screenBatch, verLayout, miniLeftX - 6 - verLayout.width, h - 6);
+        font.draw(screenBatch, verLayout, miniLeftX - 6 - verLayout.width, h - 8);
 
         screenBatch.end();
         // Always reset font to defaults after HUD draw

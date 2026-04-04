@@ -27,6 +27,7 @@ public class SkillGuidePopup {
     private static final Color CONTENT_BG = new Color(0.85f, 0.77f, 0.60f, 1f);
     private static final Color NAV_SELECTED = new Color(0.86f, 0.72f, 0.35f, 1f);
     private static final Color CLOSE_BG = new Color(0.52f, 0.22f, 0.16f, 1f);
+    private static final Color CLOSE_X = new Color(0.92f, 0.18f, 0.12f, 1f);
 
     private static final String[] SKILL_NAMES = {
         "Attack", "Strength", "Defence", "Hitpoints", "Ranged", "Magic",
@@ -218,6 +219,7 @@ public class SkillGuidePopup {
         shapeRenderer.rect(contentX, contentY, contentW, contentH);
         shapeRenderer.rect(navX, navY, navW, navH);
         shapeRenderer.rect(closeX, closeY, CLOSE_SIZE, CLOSE_SIZE);
+        shapeRenderer.setColor(CLOSE_X);
         shapeRenderer.line(closeX + 5, closeY + 5, closeX + CLOSE_SIZE - 5, closeY + CLOSE_SIZE - 5);
         shapeRenderer.line(closeX + CLOSE_SIZE - 5, closeY + 5, closeX + 5, closeY + CLOSE_SIZE - 5);
         shapeRenderer.end();
