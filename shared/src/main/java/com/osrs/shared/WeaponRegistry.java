@@ -116,6 +116,18 @@ public final class WeaponRegistry {
         DRAGON_SCIMITAR
     );
 
+    // -----------------------------------------------------------------------
+    // Weapons sorted by strength bonus (descending) — Strength skill guide
+    // Note: Rune scimitar (+67) has a higher strength bonus than Dragon scimitar
+    // (+66), which is a notable OSRS quirk worth surfacing in the guide.
+    // -----------------------------------------------------------------------
+    private static final List<WeaponTier> WEAPONS_BY_STRENGTH;
+    static {
+        List<WeaponTier> sorted = new java.util.ArrayList<>(WEAPONS);
+        sorted.sort((a, b) -> Integer.compare(b.strengthBonus(), a.strengthBonus()));
+        WEAPONS_BY_STRENGTH = java.util.Collections.unmodifiableList(sorted);
+    }
+
     /**
      * Speed lookup map: itemId → OSRS attack speed ticks.
      * Built once at class-init to keep GameLoop lookups O(1).
@@ -155,5 +167,28 @@ public final class WeaponRegistry {
      */
     public static int getAttackSpeedServerTicks(int itemId) {
         return getAttackSpeedOsrsTicks(itemId) * OSRS_TICKS_TO_SERVER;
+    }
+
+    /**
+     * All melee weapon tiers sorted by strength bonus (descending).
+     * Used by the Strength skill guide to show best-max-hit weapons first.
+     * Note: rune scimitar (+67) outranks dragon scimitar (+66) — an OSRS quirk.
+     */
+    public static List<WeaponTier> weaponsByStrengthBonus() {
+        return WEAPONS_BY_STRENGTH;
+    }
+
+    /**
+     * Computes the OSRS melee max hit for a given Strength level and equipped
+     * strength bonus, without any prayer or potion multipliers.
+     *
+     * Formula: floor(0.5 + effectiveStr × (strengthBonus + 64) / 640)
+     * where effectiveStr = level + 8  (no style bonus applied here — guide reference).
+     *
+     * Source: https://oldschool.runescape.wiki/w/Maximum_melee_hit
+     */
+    public static int maxHit(int strengthLevel, int strengthBonus) {
+        int effectiveStr = strengthLevel + 8;
+        return Math.max(1, (int) Math.floor(0.5 + effectiveStr * (strengthBonus + 64) / 640.0));
     }
 }

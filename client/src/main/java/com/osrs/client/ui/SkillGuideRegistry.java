@@ -19,6 +19,7 @@ import java.util.Map;
 public final class SkillGuideRegistry {
 
     private static final int SKILL_ATTACK      = 0;
+    private static final int SKILL_STRENGTH    = 1;
     private static final int SKILL_WOODCUTTING = 7;
     private static final int SKILL_FISHING = 8;
     private static final int SKILL_MINING = 10;
@@ -26,6 +27,7 @@ public final class SkillGuideRegistry {
 
     static {
         register(SKILL_ATTACK, new AttackGuideProvider());
+        register(SKILL_STRENGTH, new StrengthGuideProvider());
         register(SKILL_WOODCUTTING, new WoodcuttingGuideProvider());
         register(SKILL_FISHING, new FishingGuideProvider());
         register(SKILL_MINING, new MiningGuideProvider());
@@ -1081,6 +1083,255 @@ public final class SkillGuideRegistry {
                 }
             }
             return -1;
+        }
+    }
+
+    // =========================================================================
+    // Strength
+    // =========================================================================
+
+    private static final class StrengthGuideProvider implements SkillGuidePopup.SkillGuideProvider {
+
+        private static final List<SkillGuidePopup.GuideSection> SECTIONS = List.of(
+            new SkillGuidePopup.GuideSection("Introduction"),
+            new SkillGuidePopup.GuideSection("Weapons"),
+            new SkillGuidePopup.GuideSection("Max Hit")
+        );
+
+        private static final Color TEXT_MAIN     = new Color(0.24f, 0.16f, 0.06f, 1f);
+        private static final Color TEXT_LOCKED   = new Color(0.45f, 0.36f, 0.24f, 1f);
+        private static final Color TEXT_UNLOCKED = new Color(0.22f, 0.14f, 0.06f, 1f);
+        private static final Color TEXT_NEXT     = new Color(0.48f, 0.28f, 0.04f, 1f);
+        private static final Color ROW_UNLOCKED  = new Color(0.88f, 0.81f, 0.67f, 1f);
+        private static final Color ROW_LOCKED    = new Color(0.78f, 0.71f, 0.57f, 1f);
+        private static final Color ROW_CURRENT   = new Color(0.94f, 0.82f, 0.50f, 1f);
+
+        // Key level milestones shown in the Max Hit reference table.
+        // Chosen to cover early, mid and late-game progression without needing scroll.
+        private static final int[] MAX_HIT_LEVELS = { 1, 10, 20, 30, 40, 50, 60, 70, 80, 90, 99 };
+
+        // Strength bonus values used as reference columns in the Max Hit table.
+        // +0 = no weapon (bare fists); +67 = rune scimitar (best non-dragon str bonus).
+        private static final int REF_STR_BONUS_NONE  = 0;
+        private static final int REF_STR_BONUS_RUNE  = 67; // rune scimitar
+
+        @Override
+        public String getTitle(int skillIdx) {
+            return "Strength";
+        }
+
+        @Override
+        public List<SkillGuidePopup.GuideSection> getSections(int skillIdx) {
+            return SECTIONS;
+        }
+
+        @Override
+        public void renderSectionContent(ShapeRenderer shapeRenderer,
+                                         SpriteBatch batch,
+                                         BitmapFont font,
+                                         Matrix4 projection,
+                                         int skillIdx,
+                                         int level,
+                                         long totalXp,
+                                         int sectionIdx,
+                                         float contentX,
+                                         float contentY,
+                                         float contentW,
+                                         float contentH,
+                                         float scrollOffset) {
+            if (sectionIdx == 0) {
+                renderIntroduction(shapeRenderer, batch, font, projection, level, contentX, contentY, contentW, contentH);
+            } else if (sectionIdx == 1) {
+                renderWeapons(shapeRenderer, batch, font, projection, level, contentX, contentY, contentW, contentH, scrollOffset);
+            } else if (sectionIdx == 2) {
+                renderMaxHit(shapeRenderer, batch, font, projection, level, contentX, contentY, contentW, contentH, scrollOffset);
+            }
+        }
+
+        @Override
+        public float getSectionContentHeight(int skillIdx, int level, int sectionIdx, float contentW) {
+            if (sectionIdx == 1) {
+                return 18f + WeaponRegistry.weaponsByStrengthBonus().size() * 36f + 12f;
+            }
+            if (sectionIdx == 2) {
+                return 18f + MAX_HIT_LEVELS.length * 28f + 12f;
+            }
+            return 236f;
+        }
+
+        private void renderIntroduction(ShapeRenderer sr, SpriteBatch batch, BitmapFont font,
+                                         Matrix4 proj, int level, float x, float y, float w, float h) {
+            final float blockH    = 82f;
+            final float top       = y + h - 14f;
+            final float blockX    = x + 8f;
+            final float blockW    = w - 16f;
+            final float dividerX  = x + 10f;
+            final float dividerW  = w - 20f;
+            final float iconX     = x + 20f;
+            final float textX     = x + 62f;
+            final float textW     = w - 86f;
+            final float textTopPad = 16f;
+
+            // Compute the player's current max hit as a live stat to show in the intro text.
+            int maxNone = WeaponRegistry.maxHit(level, REF_STR_BONUS_NONE);
+            int maxRune = WeaponRegistry.maxHit(level, REF_STR_BONUS_RUNE);
+
+            final String[] texts = {
+                "Strength increases your melee maximum hit. Every point of Strength raises your damage output through the max hit formula: floor(0.5 + (level+8) x (strBonus+64) / 640).",
+                "Train Strength by attacking with the Aggressive style (4 Str XP + 1.33 HP XP per damage), or use Controlled to split XP across Attack, Strength and Defence.",
+                "At your current level " + level + ": max hit bare-fisted = " + maxNone +
+                    ", max hit with rune scimitar = " + maxRune + "."
+            };
+
+            sr.setProjectionMatrix(proj);
+            sr.begin(ShapeRenderer.ShapeType.Filled);
+            for (int i = 0; i < 3; i++) {
+                float by = top - (i + 1) * blockH;
+                sr.setColor(0.92f, 0.84f, 0.69f, 1f);
+                sr.rect(blockX, by, blockW, blockH - 8f);
+                sr.setColor(0.64f, 0.50f, 0.30f, 1f);
+                sr.rect(dividerX, by + blockH - 16f, dividerW, 2f);
+            }
+            // Icons: rune scimitar, adamant scimitar, mithril scimitar (str progression)
+            ItemIconRenderer.drawItemIcon(sr, iconX, top - blockH       + 12f, 1333);
+            ItemIconRenderer.drawItemIcon(sr, iconX, top - blockH * 2f  + 12f, 1331);
+            ItemIconRenderer.drawItemIcon(sr, iconX, top - blockH * 3f  + 12f, 1329);
+            sr.end();
+
+            GlyphLayout wrapped = new GlyphLayout();
+            batch.setProjectionMatrix(proj);
+            batch.begin();
+            font.getData().setScale(0.68f);
+            font.setColor(TEXT_MAIN);
+            for (int i = 0; i < 3; i++) {
+                float by = top - (i + 1) * blockH;
+                wrapped.setText(font, texts[i], TEXT_MAIN, textW, Align.left, true);
+                font.draw(batch, wrapped, textX, by + blockH - 8f - textTopPad);
+            }
+            font.getData().setScale(1f);
+            font.setColor(Color.WHITE);
+            batch.end();
+        }
+
+        /**
+         * Weapons tab: shows all weapons sorted by strength bonus (descending).
+         * This is distinct from the Attack guide which sorts by attack requirement.
+         * Notable: rune scimitar (+67 str) has a higher strength bonus than dragon
+         * scimitar (+66 str), which surprises most players.
+         */
+        private void renderWeapons(ShapeRenderer sr, SpriteBatch batch, BitmapFont font,
+                                    Matrix4 proj, int level,
+                                    float x, float y, float w, float h, float scrollOffset) {
+            float rowH = 36f;
+
+            sr.setProjectionMatrix(proj);
+            sr.begin(ShapeRenderer.ShapeType.Filled);
+            float yCursor = y + h - 14f + scrollOffset;
+            for (WeaponRegistry.WeaponTier weapon : WeaponRegistry.weaponsByStrengthBonus()) {
+                float rowY = yCursor - rowH;
+                boolean visible = rowY + rowH >= y && rowY <= y + h;
+                if (visible) {
+                    boolean unlocked = level >= 1; // Strength doesn't gate weapons; Attack does
+                    sr.setColor(ROW_UNLOCKED);
+                    sr.rect(x + 8, rowY + 2, w - 16, rowH - 4);
+                    ItemIconRenderer.drawItemIcon(sr, x + 72, rowY + 3, weapon.itemId());
+                }
+                yCursor -= rowH;
+            }
+            sr.end();
+
+            batch.setProjectionMatrix(proj);
+            batch.begin();
+            font.getData().setScale(0.68f);
+            yCursor = y + h - 14f + scrollOffset;
+            for (WeaponRegistry.WeaponTier weapon : WeaponRegistry.weaponsByStrengthBonus()) {
+                float rowY = yCursor - rowH;
+                boolean visible = rowY + rowH >= y && rowY <= y + h;
+                if (visible) {
+                    font.setColor(TEXT_UNLOCKED);
+                    font.draw(batch, "+" + weapon.strengthBonus() + " str", x + 16,  rowY + 26);
+                    font.draw(batch, weapon.name(),                          x + 116, rowY + 26);
+                    font.draw(batch, "Atk " + weapon.attackReq(),            x + w - 88, rowY + 26);
+                    // Second line: attack speed in OSRS ticks
+                    font.getData().setScale(0.60f);
+                    font.setColor(TEXT_LOCKED.r, TEXT_LOCKED.g, TEXT_LOCKED.b, 0.75f);
+                    font.draw(batch, weapon.attackSpeedOsrsTicks() + "-tick speed", x + 116, rowY + 13);
+                    font.getData().setScale(0.68f);
+                }
+                yCursor -= rowH;
+            }
+            font.getData().setScale(1f);
+            font.setColor(Color.WHITE);
+            batch.end();
+        }
+
+        /**
+         * Max Hit reference table: shows max hit at key level milestones with two
+         * reference weapons (bare fists +0 str, rune scimitar +67 str).
+         * The row matching the player's current level is highlighted.
+         */
+        private void renderMaxHit(ShapeRenderer sr, SpriteBatch batch, BitmapFont font,
+                                   Matrix4 proj, int level,
+                                   float x, float y, float w, float h, float scrollOffset) {
+            float rowH = 28f;
+
+            sr.setProjectionMatrix(proj);
+            sr.begin(ShapeRenderer.ShapeType.Filled);
+            float yCursor = y + h - 14f + scrollOffset;
+            for (int refLv : MAX_HIT_LEVELS) {
+                float rowY = yCursor - rowH;
+                boolean visible = rowY + rowH >= y && rowY <= y + h;
+                if (visible) {
+                    // Highlight the row whose milestone the player has just reached.
+                    boolean isCurrent = isCurrentMilestone(level, refLv);
+                    sr.setColor(isCurrent ? ROW_CURRENT : ROW_UNLOCKED);
+                    sr.rect(x + 8, rowY + 2, w - 16, rowH - 4);
+                    // Rune scimitar icon in the centre column
+                    ItemIconRenderer.drawItemIcon(sr, x + 72, rowY - 4, 1333);
+                }
+                yCursor -= rowH;
+            }
+            sr.end();
+
+            batch.setProjectionMatrix(proj);
+            batch.begin();
+            font.getData().setScale(0.68f);
+            yCursor = y + h - 14f + scrollOffset;
+            for (int refLv : MAX_HIT_LEVELS) {
+                float rowY = yCursor - rowH;
+                boolean visible = rowY + rowH >= y && rowY <= y + h;
+                if (visible) {
+                    boolean isCurrent = isCurrentMilestone(level, refLv);
+                    font.setColor(isCurrent ? TEXT_NEXT : TEXT_UNLOCKED);
+                    int hitBare = WeaponRegistry.maxHit(refLv, REF_STR_BONUS_NONE);
+                    int hitRune = WeaponRegistry.maxHit(refLv, REF_STR_BONUS_RUNE);
+                    font.draw(batch, "Lv " + refLv,       x + 16,      rowY + 18);
+                    font.draw(batch, "Max: " + hitRune,   x + 116,     rowY + 18);
+                    font.getData().setScale(0.60f);
+                    font.setColor(TEXT_LOCKED.r, TEXT_LOCKED.g, TEXT_LOCKED.b, 0.75f);
+                    font.draw(batch, "Bare: " + hitBare,  x + w - 88,  rowY + 18);
+                    font.getData().setScale(0.68f);
+                }
+                yCursor -= rowH;
+            }
+            font.getData().setScale(1f);
+            font.setColor(Color.WHITE);
+            batch.end();
+        }
+
+        /**
+         * Returns true if {@code refLv} is the highest milestone in MAX_HIT_LEVELS
+         * that the player has reached (i.e. their "current bracket").
+         */
+        private static boolean isCurrentMilestone(int playerLevel, int refLv) {
+            // Find the highest milestone at or below player level
+            int bracket = MAX_HIT_LEVELS[0];
+            for (int lv : MAX_HIT_LEVELS) {
+                if (lv <= playerLevel) {
+                    bracket = lv;
+                }
+            }
+            return refLv == bracket;
         }
     }
 }

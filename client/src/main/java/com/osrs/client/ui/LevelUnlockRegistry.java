@@ -83,9 +83,16 @@ public final class LevelUnlockRegistry {
 
     private static String strengthUnlock(int level) {
         return switch (level) {
-            case 40 -> "You can now wear the berserker ring.";
-            case 70 -> "You can now wield the abyssal whip (Attack 70 also required).";
-            case 99 -> "You have reached the maximum Strength level!";
+            case 10 -> "Your max hit is improving — train on goblins and cows.";
+            case 20 -> "Your melee damage is noticeably stronger.";
+            case 30 -> "Your attacks are hitting harder. Consider upgrading to mithril weapons.";
+            case 40 -> "You can now wield a barrelchest anchor (Attack 40 also required).";
+            case 50 -> "You can now wield a granite maul (Attack 50 also required).";
+            case 60 -> "You can now wield a granite 2h sword (Strength 60 required).";
+            case 70 -> "Your max hit with a rune scimitar reaches 16. Major melee milestone.";
+            case 80 -> "Your max hit with a rune scimitar reaches 18. Consider Slayer training.";
+            case 90 -> "Your max hit with a rune scimitar reaches 20. Near-elite damage output.";
+            case 99 -> "You have reached the maximum Strength level! Max hit: 22 with rune scimitar.";
             default -> null;
         };
     }
