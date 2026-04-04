@@ -235,8 +235,9 @@ public class PlayerRepository {
      * Persists position and all skill XP for a player. Called on logout and
      * on the autosave interval (~60 seconds).
      */
-    public static void savePlayer(Player player) {
+    public static boolean savePlayer(Player player) {
         try (Connection conn = DatabaseManager.getConnection()) {
+            int updatedRows;
             try {
                 PreparedStatement ps = conn.prepareStatement(
                     "UPDATE " + table("players") + " SET " +
@@ -277,7 +278,7 @@ public class PlayerRepository {
                 ps.setLong(25, player.getSkillXp(Player.SKILL_CONSTRUCTION));
                 ps.setInt(26, Math.max(1, player.getSkillLevel(Player.SKILL_PRAYER)));
                 ps.setString(27, player.getName());
-                ps.executeUpdate();
+                updatedRows = ps.executeUpdate();
             } catch (SQLException extendedErr) {
                 PreparedStatement ps = conn.prepareStatement(
                     "UPDATE " + table("players") + " SET " +
@@ -295,12 +296,19 @@ public class PlayerRepository {
                 ps.setLong(7, player.getSkillXp(Player.SKILL_RANGED));
                 ps.setLong(8, player.getSkillXp(Player.SKILL_MAGIC));
                 ps.setString(9, player.getName());
-                ps.executeUpdate();
+                updatedRows = ps.executeUpdate();
                 LOG.debug("Extended skill columns unavailable; saved legacy skills for {}", player.getName());
             }
+            if (updatedRows <= 0) {
+                conn.rollback();
+                LOG.warn("Player save affected no rows for {}", player.getName());
+                return false;
+            }
             conn.commit();
+            return true;
         } catch (SQLException e) {
             LOG.error("Failed to save player: {}", player.getName(), e);
+            return false;
         }
     }
 
@@ -860,6 +868,30 @@ public class PlayerRepository {
 
     private static int toRuntimeEntityId(int dbId) {
         return PLAYER_ENTITY_ID_OFFSET + dbId;
+    }
+
+    public static void auditAdminAction(Player player, String actionType, String details) {
+        if (player == null || actionType == null || actionType.isBlank()) return;
+        if (!DatabaseManager.isHealthy()) return;
+        try (Connection conn = DatabaseManager.getConnection()) {
+            PreparedStatement idPs = conn.prepareStatement(
+                "SELECT id FROM " + table("players") + " WHERE LOWER(username) = LOWER(?)"
+            );
+            idPs.setString(1, player.getName());
+            ResultSet rs = idPs.executeQuery();
+            if (!rs.next()) return;
+            int dbId = rs.getInt("id");
+            PreparedStatement ins = conn.prepareStatement(
+                "INSERT INTO " + table("admin_action_audit") + " (player_id, action_type, details) VALUES (?, ?, ?)"
+            );
+            ins.setInt(1, dbId);
+            ins.setString(2, actionType);
+            ins.setString(3, details);
+            ins.executeUpdate();
+            conn.commit();
+        } catch (SQLException e) {
+            LOG.error("Failed to audit admin action {} for {}", actionType, player.getName(), e);
+        }
     }
 
     private static Player mapPlayerFromRow(ResultSet rs, String username) throws SQLException {

@@ -286,6 +286,15 @@ public class Player extends Entity {
         skillLevel[skillIdx] = levelFromXp(xp);
     }
 
+    public static long xpForLevelTenths(int level) {
+        int clamped = Math.max(1, Math.min(99, level));
+        return XP_TABLE[clamped - 1] * 10L;
+    }
+
+    public static long clampTenthsXp(long xpTenths) {
+        return Math.max(0L, Math.min(2_000_000_000L, xpTenths));
+    }
+
     /**
      * Awards XP to a skill. Recomputes the level and returns true if a
      * level-up occurred (caller should broadcast SkillUpdate with leveled_up=true).

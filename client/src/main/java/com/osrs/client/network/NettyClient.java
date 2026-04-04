@@ -221,6 +221,28 @@ public class NettyClient {
         LOG.debug("Sent MoveBankItemToTab: slot={} tab={}", bankSlot, targetTabIndex);
     }
 
+    public void sendAdminSetSkillLevel(int skillIdx, int targetLevel) {
+        if (channel == null || !channel.isActive()) return;
+        channel.writeAndFlush(NetworkProto.ClientMessage.newBuilder()
+            .setAdminSetSkillLevel(NetworkProto.AdminSetSkillLevel.newBuilder()
+                .setSkillIndex(skillIdx)
+                .setTargetLevel(targetLevel)
+                .setSequence(System.currentTimeMillis()))
+            .build());
+        LOG.debug("Sent AdminSetSkillLevel: skill={} level={}", skillIdx, targetLevel);
+    }
+
+    public void sendAdminAdjustSkillXp(int skillIdx, long deltaXpWhole) {
+        if (channel == null || !channel.isActive()) return;
+        channel.writeAndFlush(NetworkProto.ClientMessage.newBuilder()
+            .setAdminAdjustSkillXp(NetworkProto.AdminAdjustSkillXp.newBuilder()
+                .setSkillIndex(skillIdx)
+                .setDeltaXpWhole(deltaXpWhole)
+                .setSequence(System.currentTimeMillis()))
+            .build());
+        LOG.debug("Sent AdminAdjustSkillXp: skill={} deltaXpWhole={}", skillIdx, deltaXpWhole);
+    }
+
     public void sendStartSkilling(int npcId, NetworkProto.SkillingType skillingType) {
         sendStartSkilling(npcId, skillingType, NetworkProto.FishingActionType.FISHING_ACTION_NONE);
     }

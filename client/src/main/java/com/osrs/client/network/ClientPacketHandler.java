@@ -208,6 +208,8 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
     private final long[] skillTotalXp  = new long[23];
     private boolean localPlayerIsMember = false;
     private boolean localPlayerIsAdminToolsEnabled = false;
+    private String lastAdminActionMessage = "";
+    private boolean lastAdminActionSuccess = false;
     private boolean leveledUp = false;
     private int leveledUpSkill = -1;
 
@@ -320,6 +322,7 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
             case BANK_OPEN -> handleBankOpen(packet.getBankOpen());
             case BANK_CLOSE -> handleBankClose(packet.getBankClose());
             case BANK_SLOT_UPDATE -> handleBankSlotUpdate(packet.getBankSlotUpdate());
+            case ADMIN_ACTION_RESULT -> handleAdminActionResult(packet.getAdminActionResult());
             default -> LOG.debug("Unhandled server message: {}", packet.getPayloadCase());
         }
     }
@@ -344,6 +347,12 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
         }
         this.lastHandshakeResponse = response;
         client.setHandshakeResponse(response);
+    }
+
+    private void handleAdminActionResult(NetworkProto.AdminActionResult result) {
+        lastAdminActionSuccess = result.getSuccess();
+        lastAdminActionMessage = result.getMessage();
+        LOG.info("Admin action result: success={} message='{}'", result.getSuccess(), result.getMessage());
     }
 
     /**
@@ -709,6 +718,12 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
 
     public boolean isMember() { return localPlayerIsMember; }
     public boolean isAdminToolsEnabled() { return localPlayerIsAdminToolsEnabled; }
+    public String getLastAdminActionMessage() {
+        return lastAdminActionMessage;
+    }
+    public boolean wasLastAdminActionSuccessful() {
+        return lastAdminActionSuccess;
+    }
 
     private void handlePlayerDeath(NetworkProto.PlayerDeath death) {
         deathRespawnX = death.getRespawnX();

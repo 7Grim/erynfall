@@ -136,12 +136,14 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             case START_SKILLING      -> handleStartSkilling(ctx, packet.getStartSkilling());
             case TOGGLE_PRAYER       -> handleTogglePrayer(ctx, packet.getTogglePrayer());
             case SET_AUTO_RETALIATE  -> handleSetAutoRetaliate(packet.getSetAutoRetaliate());
-            case OPEN_BANK_REQUEST      -> handleOpenBankRequest(ctx, packet.getOpenBankRequest());
-            case CLOSE_BANK_REQUEST     -> handleCloseBankRequest(ctx, packet.getCloseBankRequest());
-            case DEPOSIT_BANK_ITEM      -> handleDepositBankItem(ctx, packet.getDepositBankItem());
-            case WITHDRAW_BANK_ITEM     -> handleWithdrawBankItem(ctx, packet.getWithdrawBankItem());
-            case REARRANGE_BANK_SLOTS   -> handleRearrangeBankSlots(ctx, packet.getRearrangeBankSlots());
-            case MOVE_BANK_ITEM_TO_TAB  -> handleMoveBankItemToTab(ctx, packet.getMoveBankItemToTab());
+            case OPEN_BANK_REQUEST       -> handleOpenBankRequest(ctx, packet.getOpenBankRequest());
+            case CLOSE_BANK_REQUEST      -> handleCloseBankRequest(ctx, packet.getCloseBankRequest());
+            case DEPOSIT_BANK_ITEM       -> handleDepositBankItem(ctx, packet.getDepositBankItem());
+            case WITHDRAW_BANK_ITEM      -> handleWithdrawBankItem(ctx, packet.getWithdrawBankItem());
+            case REARRANGE_BANK_SLOTS    -> handleRearrangeBankSlots(ctx, packet.getRearrangeBankSlots());
+            case MOVE_BANK_ITEM_TO_TAB   -> handleMoveBankItemToTab(ctx, packet.getMoveBankItemToTab());
+            case ADMIN_SET_SKILL_LEVEL   -> handleAdminSetSkillLevel(ctx, packet.getAdminSetSkillLevel());
+            case ADMIN_ADJUST_SKILL_XP   -> handleAdminAdjustSkillXp(ctx, packet.getAdminAdjustSkillXp());
             default -> LOG.warn("Unhandled payload case: {}", packet.getPayloadCase());
         }
     }
@@ -478,6 +480,61 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             session.getSessionId(), walkTo.getTargetX(), walkTo.getTargetY());
     }
     
+    private Player requireAdminTools(ChannelHandlerContext ctx, long sequence) {
+        if (session == null || !session.isAuthenticated() || session.getPlayer() == null) {
+            sendAdminActionResult(ctx, false, "Not authenticated.", sequence);
+            return null;
+        }
+        Player player = session.getPlayer();
+        if (!player.isAdminToolsEnabled()) {
+            LOG.warn("Rejected admin action from non-admin character {}", player.getName());
+            sendAdminActionResult(ctx, false, "Admin tools not enabled for this character.", sequence);
+            return null;
+        }
+        return player;
+    }
+
+    private void sendAdminActionResult(ChannelHandlerContext ctx, boolean success, String message, long sequence) {
+        ctx.writeAndFlush(NetworkProto.ServerMessage.newBuilder()
+            .setAdminActionResult(NetworkProto.AdminActionResult.newBuilder()
+                .setSuccess(success)
+                .setMessage(message == null ? "" : message)
+                .setSequence(sequence))
+            .build());
+    }
+
+    private void sendSkillSnapshot(ChannelHandlerContext ctx, Player player, int skillIdx) {
+        ctx.writeAndFlush(NetworkProto.ServerMessage.newBuilder()
+            .setSkillUpdate(NetworkProto.SkillUpdate.newBuilder()
+                .setSkillIndex(skillIdx)
+                .setNewLevel(player.getSkillLevel(skillIdx))
+                .setTotalXp(player.getSkillXp(skillIdx) / 10)
+                .setLeveledUp(false))
+            .build());
+    }
+
+    private void syncAdminAffectedVitals(ChannelHandlerContext ctx, Player player, int skillIdx) {
+        if (skillIdx == Player.SKILL_HITPOINTS) {
+            int hpLevel = player.getSkillLevel(Player.SKILL_HITPOINTS);
+            player.setMaxHealth(hpLevel);
+            player.setHealth(hpLevel);
+            server.broadcastToAll(NetworkProto.ServerMessage.newBuilder()
+                .setHealthUpdate(NetworkProto.HealthUpdate.newBuilder()
+                    .setEntityId(player.getId())
+                    .setHealth(hpLevel)
+                    .setMaxHealth(hpLevel))
+                .build());
+        } else if (skillIdx == Player.SKILL_PRAYER) {
+            int prayerLevel = player.getSkillLevel(Player.SKILL_PRAYER);
+            player.setPrayerPoints(prayerLevel);
+            ctx.writeAndFlush(NetworkProto.ServerMessage.newBuilder()
+                .setPrayerPointsUpdate(NetworkProto.PrayerPointsUpdate.newBuilder()
+                    .setCurrent(prayerLevel)
+                    .setMaximum(prayerLevel))
+                .build());
+        }
+    }
+
     private void sendHandshakeResponse(ChannelHandlerContext ctx, boolean success, String message, int playerId) {
         boolean member = success && session != null && session.getPlayer() != null && session.getPlayer().isMember();
         boolean adminToolsEnabled = success && session != null && session.getPlayer() != null
@@ -1028,6 +1085,118 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
         LOG.debug("Moved bank item to tab: player={} slot={} itemId={} tab={}",
             player.getName(), bankSlotIndex, slot.getItemId(), targetTabIndex);
         sendBankOpen(ctx, player);
+    }
+
+    private void handleAdminSetSkillLevel(ChannelHandlerContext ctx, NetworkProto.AdminSetSkillLevel req) {
+        Player player = requireAdminTools(ctx, req.getSequence());
+        if (player == null) return;
+        if (!DatabaseManager.isHealthy()) {
+            sendAdminActionResult(ctx, false, "Database unavailable.", req.getSequence());
+            return;
+        }
+        int skillIdx = req.getSkillIndex();
+        if (skillIdx < 0 || skillIdx >= Player.SKILL_COUNT) {
+            sendAdminActionResult(ctx, false, "Invalid skill.", req.getSequence());
+            return;
+        }
+        int targetLevel = Math.max(1, Math.min(99, req.getTargetLevel()));
+        long targetXpTenths = Player.xpForLevelTenths(targetLevel);
+        long oldXpTenths = player.getSkillXp(skillIdx);
+        int oldLevel = player.getSkillLevel(skillIdx);
+        player.setSkillXp(skillIdx, targetXpTenths);
+        syncAdminAffectedVitals(ctx, player, skillIdx);
+        if (!PlayerRepository.savePlayer(player)) {
+            player.setSkillXp(skillIdx, oldXpTenths);
+            syncAdminAffectedVitals(ctx, player, skillIdx);
+            sendSkillSnapshot(ctx, player, skillIdx);
+            sendAdminActionResult(ctx, false, "Failed to persist admin action.", req.getSequence());
+            return;
+        }
+        PlayerRepository.auditAdminAction(player, "SET_SKILL_LEVEL",
+            "skill=" + skillIdx + ",oldLevel=" + oldLevel + ",newLevel=" + player.getSkillLevel(skillIdx)
+                + ",oldXpTenths=" + oldXpTenths + ",newXpTenths=" + targetXpTenths);
+        sendSkillSnapshot(ctx, player, skillIdx);
+        sendAdminActionResult(ctx, true,
+            "Set " + skillName(skillIdx) + " to level " + player.getSkillLevel(skillIdx) + ".", req.getSequence());
+    }
+
+    private void handleAdminAdjustSkillXp(ChannelHandlerContext ctx, NetworkProto.AdminAdjustSkillXp req) {
+        Player player = requireAdminTools(ctx, req.getSequence());
+        if (player == null) return;
+        if (!DatabaseManager.isHealthy()) {
+            sendAdminActionResult(ctx, false, "Database unavailable.", req.getSequence());
+            return;
+        }
+        int skillIdx = req.getSkillIndex();
+        if (skillIdx < 0 || skillIdx >= Player.SKILL_COUNT) {
+            sendAdminActionResult(ctx, false, "Invalid skill.", req.getSequence());
+            return;
+        }
+        long deltaWhole = req.getDeltaXpWhole();
+        long deltaTenths;
+        if (deltaWhole > Long.MAX_VALUE / 10L) {
+            deltaTenths = Long.MAX_VALUE;
+        } else if (deltaWhole < Long.MIN_VALUE / 10L) {
+            deltaTenths = Long.MIN_VALUE;
+        } else {
+            deltaTenths = deltaWhole * 10L;
+        }
+        long oldXpTenths = player.getSkillXp(skillIdx);
+        int oldLevel = player.getSkillLevel(skillIdx);
+        long summed;
+        if (deltaTenths > 0 && oldXpTenths > Long.MAX_VALUE - deltaTenths) {
+            summed = Long.MAX_VALUE;
+        } else if (deltaTenths < 0 && oldXpTenths < Long.MIN_VALUE - deltaTenths) {
+            summed = Long.MIN_VALUE;
+        } else {
+            summed = oldXpTenths + deltaTenths;
+        }
+        long newXpTenths = Player.clampTenthsXp(summed);
+        player.setSkillXp(skillIdx, newXpTenths);
+        syncAdminAffectedVitals(ctx, player, skillIdx);
+        if (!PlayerRepository.savePlayer(player)) {
+            player.setSkillXp(skillIdx, oldXpTenths);
+            syncAdminAffectedVitals(ctx, player, skillIdx);
+            sendSkillSnapshot(ctx, player, skillIdx);
+            sendAdminActionResult(ctx, false, "Failed to persist admin action.", req.getSequence());
+            return;
+        }
+        PlayerRepository.auditAdminAction(player, "ADJUST_SKILL_XP",
+            "skill=" + skillIdx + ",oldLevel=" + oldLevel + ",newLevel=" + player.getSkillLevel(skillIdx)
+                + ",oldXpTenths=" + oldXpTenths + ",newXpTenths=" + newXpTenths
+                + ",deltaWhole=" + req.getDeltaXpWhole());
+        sendSkillSnapshot(ctx, player, skillIdx);
+        sendAdminActionResult(ctx, true,
+            "Adjusted " + skillName(skillIdx) + " XP by " + req.getDeltaXpWhole() + ".", req.getSequence());
+    }
+
+    private String skillName(int skillIdx) {
+        return switch (skillIdx) {
+            case Player.SKILL_ATTACK -> "Attack";
+            case Player.SKILL_STRENGTH -> "Strength";
+            case Player.SKILL_DEFENCE -> "Defence";
+            case Player.SKILL_HITPOINTS -> "Hitpoints";
+            case Player.SKILL_RANGED -> "Ranged";
+            case Player.SKILL_MAGIC -> "Magic";
+            case Player.SKILL_PRAYER -> "Prayer";
+            case Player.SKILL_WOODCUTTING -> "Woodcutting";
+            case Player.SKILL_FISHING -> "Fishing";
+            case Player.SKILL_COOKING -> "Cooking";
+            case Player.SKILL_MINING -> "Mining";
+            case Player.SKILL_SMITHING -> "Smithing";
+            case Player.SKILL_FIREMAKING -> "Firemaking";
+            case Player.SKILL_CRAFTING -> "Crafting";
+            case Player.SKILL_RUNECRAFTING -> "Runecrafting";
+            case Player.SKILL_FLETCHING -> "Fletching";
+            case Player.SKILL_AGILITY -> "Agility";
+            case Player.SKILL_HERBLORE -> "Herblore";
+            case Player.SKILL_THIEVING -> "Thieving";
+            case Player.SKILL_SLAYER -> "Slayer";
+            case Player.SKILL_FARMING -> "Farming";
+            case Player.SKILL_HUNTER -> "Hunter";
+            case Player.SKILL_CONSTRUCTION -> "Construction";
+            default -> "Skill";
+        };
     }
 
     private boolean tryStartSkilling(ChannelHandlerContext ctx,

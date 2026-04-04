@@ -606,7 +606,7 @@ public class GameScreen extends ApplicationAdapter {
         levelUpOverlay.render(shapeRenderer, screenBatch, font, w, h, screenProjection);
         skillGuidePopup.render(shapeRenderer, screenBatch, font, w, h, screenProjection);
         renderAdminToolsButton(shapeRenderer, screenBatch, font, w, h, screenProjection, mouseScreenX, mouseScreenY);
-        adminToolsPopup.render(shapeRenderer, screenBatch, font, w, h, screenProjection);
+        adminToolsPopup.render(shapeRenderer, screenBatch, font, w, h, screenProjection, handler());
         xpDropOverlay.render(shapeRenderer, screenBatch, font, w, h, screenProjection,
             sidePanel.getPanelX(), SidePanel.TOTAL_H + SidePanel.MARGIN);
         if (handler != null && handler.isBankOpen()) {
@@ -1120,6 +1120,14 @@ public class GameScreen extends ApplicationAdapter {
                 || Gdx.input.isButtonJustPressed(Input.Buttons.RIGHT)
                 || Gdx.input.isButtonJustPressed(Input.Buttons.MIDDLE)) {
                 adminToolsPopup.handleClick(mx, screenMy);
+                AdminToolsPopup.AdminSkillAction action = adminToolsPopup.consumePendingSkillAction();
+                if (action != null && nettyClient != null) {
+                    if (action.setLevel) {
+                        nettyClient.sendAdminSetSkillLevel(action.skillIdx, action.levelValue);
+                    } else {
+                        nettyClient.sendAdminAdjustSkillXp(action.skillIdx, action.xpDeltaWhole);
+                    }
+                }
                 return;
             }
         }

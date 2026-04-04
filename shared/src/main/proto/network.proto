@@ -255,6 +255,18 @@ message MoveBankItemToTab {
     int64 sequence = 3;
 }
 
+message AdminSetSkillLevel {
+    int32 skill_index = 1;
+    int32 target_level = 2;
+    int64 sequence = 3;
+}
+
+message AdminAdjustSkillXp {
+    int32 skill_index = 1;
+    int64 delta_xp_whole = 2;
+    int64 sequence = 3;
+}
+
 message BankOpen {
     int32 capacity = 1;
     repeated BankSlot slots = 2;
@@ -271,6 +283,12 @@ message BankSlotUpdate {
     string item_name = 4;
     int32 flags = 5;
     int32 tab_index = 6;
+}
+
+message AdminActionResult {
+    bool success = 1;
+    string message = 2;
+    int64 sequence = 3;
 }
 
 // EquipmentUpdate: Server → Client
@@ -504,6 +522,8 @@ message ClientMessage {
         WithdrawBankItem withdraw_bank_item = 25;
         RearrangeBankSlots rearrange_bank_slots = 26;
         MoveBankItemToTab move_bank_item_to_tab = 27;
+        AdminSetSkillLevel admin_set_skill_level = 28;
+        AdminAdjustSkillXp admin_adjust_skill_xp = 29;
     }
 }
 
@@ -538,5 +558,6 @@ message ServerMessage {
         BankOpen bank_open = 26;
         BankClose bank_close = 27;
         BankSlotUpdate bank_slot_update = 28;
+        AdminActionResult admin_action_result = 29;
     }
 }
