@@ -14,7 +14,7 @@ maps:
     min_x: 8
     min_y: 8
     max_x: 96
-    max_y: 96
+    max_y: 95
     description: "Starting area for new players"
 
 npcs:
@@ -25,7 +25,7 @@ npcs:
     max_hp: 10
     max_hit: 0
     location: "tutorial_island"
-    x: 52
+    x: 50
     y: 48
     examine: "The first person you should talk to on Tutorial Island."
     wander_radius: 0
@@ -38,194 +38,33 @@ npcs:
     max_hit: 0
     location: "tutorial_island"
     x: 55
-    y: 45
+    y: 48
     examine: "A seasoned fighter who teaches the basics of combat."
     wander_radius: 0
     is_aggressive: false
 
-  # --- Resource nodes: Standard Trees (woodcutting, level 1) ---
-  # Definition ID 100 = "Tree" in WoodcuttingRegistry. Drops normal logs (1511).
-  # Depletes after a single log (SINGLE_LOG). Respawns in 60–100 OSRS ticks (~9–15s).
-  - id: 25
-    name: "Tree"
-    definition_id: 100
+  # --- Banker (Open Zone, y=44) ---
+  - id: 40
+    name: "Banker"
     combat_level: 0
-    max_hp: 1
-    max_hit: 0
-    respawn_delay_ticks: 0
-    location: "tutorial_island"
-    x: 54
-    y: 53
-    examine: "A tree."
-    wander_radius: 0
-    is_aggressive: false
-
-  - id: 26
-    name: "Tree"
-    definition_id: 100
-    combat_level: 0
-    max_hp: 1
-    max_hit: 0
-    respawn_delay_ticks: 0
-    location: "tutorial_island"
-    x: 56
-    y: 53
-    examine: "A tree."
-    wander_radius: 0
-    is_aggressive: false
-
-  - id: 27
-    name: "Tree"
-    definition_id: 100
-    combat_level: 0
-    max_hp: 1
-    max_hit: 0
-    respawn_delay_ticks: 0
-    location: "tutorial_island"
-    x: 54
-    y: 55
-    examine: "A tree."
-    wander_radius: 0
-    is_aggressive: false
-
-  - id: 28
-    name: "Tree"
-    definition_id: 100
-    combat_level: 0
-    max_hp: 1
-    max_hit: 0
-    respawn_delay_ticks: 0
-    location: "tutorial_island"
-    x: 56
-    y: 55
-    examine: "A tree."
-    wander_radius: 0
-    is_aggressive: false
-
-  # --- Resource nodes: Oak Trees (woodcutting) ---
-  - id: 14
-    name: "Oak Tree"
-    definition_id: 101
-    combat_level: 0
-    max_hp: 1
-    max_hit: 0
-    respawn_delay_ticks: 640
-    location: "tutorial_island"
-    x: 58
-    y: 50
-    examine: "A sturdy oak tree."
-    wander_radius: 0
-    is_aggressive: false
-
-  - id: 15
-    name: "Oak Tree"
-    definition_id: 101
-    combat_level: 0
-    max_hp: 1
-    max_hit: 0
-    respawn_delay_ticks: 640
-    location: "tutorial_island"
-    x: 60
-    y: 52
-    examine: "A sturdy oak tree."
-    wander_radius: 0
-    is_aggressive: false
-
-  # --- Resource nodes: Fishing spots ---
-  - id: 16
-    definition_id: 200
-    name: "Fishing Spot"
-    combat_level: 0
-    max_hp: 1
-    max_hit: 0
-    respawn_delay_ticks: 0
-    location: "tutorial_island"
-    x: 66
-    y: 57
-    examine: "I can try to catch some fish here."
-    wander_radius: 0
-    is_aggressive: false
-
-  - id: 17
-    definition_id: 200
-    name: "Fishing Spot"
-    combat_level: 0
-    max_hp: 1
-    max_hit: 0
-    respawn_delay_ticks: 0
-    location: "tutorial_island"
-    x: 68
-    y: 58
-    examine: "I can try to catch some fish here."
-    wander_radius: 0
-    is_aggressive: false
-
-  # --- Resource nodes: Cooking fires ---
-  - id: 18
-    name: "Cooking Fire"
-    combat_level: 0
-    max_hp: 1
-    max_hit: 0
-    respawn_delay_ticks: 0
-    location: "tutorial_island"
-    x: 54
-    y: 60
-    examine: "A fire, perfect for cooking."
-    wander_radius: 0
-    is_aggressive: false
-
-  - id: 19
-    definition_id: 18
-    name: "Cooking Fire"
-    combat_level: 0
-    max_hp: 1
-    max_hit: 0
-    respawn_delay_ticks: 0
-    location: "tutorial_island"
-    x: 57
-    y: 52
-    examine: "A fire, perfect for cooking."
-    wander_radius: 0
-    is_aggressive: false
-
-  # --- Tutorial resource nodes near spawn ---
-  - id: 20
-    definition_id: 200
-    name: "Fishing Spot"
-    combat_level: 0
-    max_hp: 1
+    max_hp: 10
     max_hit: 0
     location: "tutorial_island"
-    x: 52
-    y: 62
-    examine: "A spot teeming with shrimps."
+    x: 50
+    y: 44
+    examine: "A helpful banker."
     wander_radius: 0
     is_aggressive: false
-
-  - id: 21
-    name: "Oak Tree"
-    definition_id: 101
-    combat_level: 0
-    max_hp: 1
-    max_hit: 0
-    location: "tutorial_island"
-    x: 38
-    y: 50
-    examine: "A sturdy oak tree."
-    wander_radius: 0
-    is_aggressive: false
+    is_banker: true
 
   # ==========================================================================
-  # SANDBOX TESTING GROVE — y=20, 30 tiles south of spawn
-  # One of every tree tier in ascending level order (west to east, x=20..41).
-  # 3-tile spacing — close enough to test quickly, not overlapping.
-  # Used to verify: correct log drops, XP values, level unlock gates,
-  # axe tier selection, and depletion/respawn behaviour.
-  # Future: place a Bank Chest at approx (45, 20) once banking is implemented.
+  # WOODCUTTING ZONE — y=37  (rows 36-38)
+  # One of every tree tier in ascending level order (west to east, x=14..42).
+  # 4-tile spacing starting at x=14.
   # ==========================================================================
 
   # Tree (Lv 1, def 100) — normal logs (1511), 25.0 XP, SINGLE_LOG depletion
-  - id: 29
+  - id: 10
     name: "Tree"
     definition_id: 100
     combat_level: 0
@@ -233,29 +72,29 @@ npcs:
     max_hit: 0
     respawn_delay_ticks: 0
     location: "tutorial_island"
-    x: 20
-    y: 20
+    x: 14
+    y: 37
     examine: "A tree."
     wander_radius: 0
     is_aggressive: false
 
   # Oak Tree (Lv 15, def 101) — oak logs (1521), 37.5 XP, 1/8 depletion
-  - id: 30
+  - id: 11
     name: "Oak Tree"
     definition_id: 101
     combat_level: 0
     max_hp: 1
     max_hit: 0
-    respawn_delay_ticks: 0
+    respawn_delay_ticks: 640
     location: "tutorial_island"
-    x: 23
-    y: 20
+    x: 18
+    y: 37
     examine: "A sturdy oak tree."
     wander_radius: 0
     is_aggressive: false
 
   # Willow Tree (Lv 30, def 102) — willow logs (1522), 67.5 XP, 1/8 depletion
-  - id: 31
+  - id: 12
     name: "Willow Tree"
     definition_id: 102
     combat_level: 0
@@ -263,14 +102,14 @@ npcs:
     max_hit: 0
     respawn_delay_ticks: 0
     location: "tutorial_island"
-    x: 26
-    y: 20
+    x: 22
+    y: 37
     examine: "A graceful willow tree."
     wander_radius: 0
     is_aggressive: false
 
   # Teak Tree (Lv 35, def 106) — teak logs (1526), 85.0 XP, 1/8 depletion
-  - id: 32
+  - id: 13
     name: "Teak Tree"
     definition_id: 106
     combat_level: 0
@@ -278,14 +117,14 @@ npcs:
     max_hit: 0
     respawn_delay_ticks: 0
     location: "tutorial_island"
-    x: 29
-    y: 20
+    x: 26
+    y: 37
     examine: "A tropical teak tree."
     wander_radius: 0
     is_aggressive: false
 
   # Maple Tree (Lv 45, def 103) — maple logs (1523), 100.0 XP, 1/8 depletion
-  - id: 33
+  - id: 14
     name: "Maple Tree"
     definition_id: 103
     combat_level: 0
@@ -293,14 +132,14 @@ npcs:
     max_hit: 0
     respawn_delay_ticks: 0
     location: "tutorial_island"
-    x: 32
-    y: 20
+    x: 30
+    y: 37
     examine: "A vibrant maple tree."
     wander_radius: 0
     is_aggressive: false
 
   # Mahogany Tree (Lv 50, def 107) — mahogany logs (1527), 125.0 XP, 1/8 depletion
-  - id: 34
+  - id: 15
     name: "Mahogany Tree"
     definition_id: 107
     combat_level: 0
@@ -308,14 +147,14 @@ npcs:
     max_hit: 0
     respawn_delay_ticks: 0
     location: "tutorial_island"
-    x: 35
-    y: 20
+    x: 34
+    y: 37
     examine: "A rich mahogany tree."
     wander_radius: 0
     is_aggressive: false
 
   # Yew Tree (Lv 60, def 104) — yew logs (1524), 175.0 XP, 1/8 depletion
-  - id: 35
+  - id: 16
     name: "Yew Tree"
     definition_id: 104
     combat_level: 0
@@ -324,13 +163,13 @@ npcs:
     respawn_delay_ticks: 0
     location: "tutorial_island"
     x: 38
-    y: 20
+    y: 37
     examine: "An ancient yew tree."
     wander_radius: 0
     is_aggressive: false
 
   # Magic Tree (Lv 75, def 105) — magic logs (1525), 250.0 XP, 1/8 depletion
-  - id: 36
+  - id: 17
     name: "Magic Tree"
     definition_id: 105
     combat_level: 0
@@ -338,102 +177,20 @@ npcs:
     max_hit: 0
     respawn_delay_ticks: 0
     location: "tutorial_island"
-    x: 41
-    y: 20
+    x: 42
+    y: 37
     examine: "A mystical magic tree."
     wander_radius: 0
     is_aggressive: false
 
-  - id: 37
-    name: "Banker"
-    combat_level: 0
-    max_hp: 10
-    max_hit: 0
-    location: "tutorial_island"
-    x: 45
-    y: 20
-    examine: "A helpful banker."
-    wander_radius: 0
-    is_aggressive: false
-    is_banker: true
-
-  # --- Sandbox Fishing Cove (fixed test spots, east of banker) ---
-  # These spots are intentionally fixed and deterministic for testing.
-  # One of each currently implemented fishing family:
-  # 200 = tutorial net-only
-  # 201 = net/bait
-  # 202 = lure/bait
-  # 203 = cage/harpoon
-  # Tutorial net-only regression spot — shrimps only
-  - id: 38
-    definition_id: 200
-    name: "Fishing Spot"
-    combat_level: 0
-    max_hp: 1
-    max_hit: 0
-    respawn_delay_ticks: 0
-    location: "tutorial_island"
-    x: 49
-    y: 20
-    examine: "A quiet spot for net fishing."
-    wander_radius: 0
-    is_aggressive: false
-
-  # Net/Bait spot — shrimps, anchovies, sardine, herring
-  - id: 39
-    definition_id: 201
-    name: "Fishing Spot"
-    combat_level: 0
-    max_hp: 1
-    max_hit: 0
-    respawn_delay_ticks: 0
-    location: "tutorial_island"
-    x: 52
-    y: 20
-    examine: "A spot suitable for net or bait fishing."
-    wander_radius: 0
-    is_aggressive: false
-
-  # Lure/Bait spot — trout, salmon, pike
-  - id: 40
-    definition_id: 202
-    name: "Fishing Spot"
-    combat_level: 0
-    max_hp: 1
-    max_hit: 0
-    respawn_delay_ticks: 0
-    location: "tutorial_island"
-    x: 55
-    y: 20
-    examine: "A river spot for lure or bait fishing."
-    wander_radius: 0
-    is_aggressive: false
-
-  # Cage/Harpoon spot — lobster, tuna, swordfish
-  - id: 41
-    definition_id: 203
-    name: "Fishing Spot"
-    combat_level: 0
-    max_hp: 1
-    max_hit: 0
-    respawn_delay_ticks: 0
-    location: "tutorial_island"
-    x: 58
-    y: 20
-    examine: "A deep water spot for caging or harpooning."
-    wander_radius: 0
-    is_aggressive: false
-
   # ==========================================================================
-  # SANDBOX MINING COVE — y=17, 3 tiles south of the grove at y=20
-  # One of every rock tier in ascending level order (west to east, x=20..44).
-  # 3-tile spacing — close enough to test quickly, not overlapping.
-  # Used to verify: correct ore drops, XP values, level unlock gates,
-  # pickaxe tier selection, and depletion/respawn behaviour.
+  # MINING ZONE — y=33  (rows 32-34)
+  # One of every rock tier in ascending level order (west to east, x=14..46).
+  # 4-tile spacing starting at x=14.
   # ==========================================================================
 
   # Copper Rock (Lv 1, def 300) — copper ore (436), 17.5 XP, SINGLE_ORE
-  - id: 50
+  - id: 20
     name: "Copper Rock"
     definition_id: 300
     combat_level: 0
@@ -441,14 +198,14 @@ npcs:
     max_hit: 0
     respawn_delay_ticks: 0
     location: "tutorial_island"
-    x: 20
-    y: 17
+    x: 14
+    y: 33
     examine: "A rock containing copper ore."
     wander_radius: 0
     is_aggressive: false
 
   # Tin Rock (Lv 1, def 301) — tin ore (438), 17.5 XP, SINGLE_ORE
-  - id: 51
+  - id: 21
     name: "Tin Rock"
     definition_id: 301
     combat_level: 0
@@ -456,14 +213,14 @@ npcs:
     max_hit: 0
     respawn_delay_ticks: 0
     location: "tutorial_island"
-    x: 23
-    y: 17
+    x: 18
+    y: 33
     examine: "A rock containing tin ore."
     wander_radius: 0
     is_aggressive: false
 
   # Iron Rock (Lv 15, def 302) — iron ore (440), 35.0 XP, CHANCE 1/3
-  - id: 52
+  - id: 22
     name: "Iron Rock"
     definition_id: 302
     combat_level: 0
@@ -471,14 +228,14 @@ npcs:
     max_hit: 0
     respawn_delay_ticks: 0
     location: "tutorial_island"
-    x: 26
-    y: 17
+    x: 22
+    y: 33
     examine: "A rock containing iron ore."
     wander_radius: 0
     is_aggressive: false
 
   # Silver Rock (Lv 20, def 303) — silver ore (442), 40.0 XP, SINGLE_ORE
-  - id: 53
+  - id: 23
     name: "Silver Rock"
     definition_id: 303
     combat_level: 0
@@ -486,14 +243,14 @@ npcs:
     max_hit: 0
     respawn_delay_ticks: 0
     location: "tutorial_island"
-    x: 29
-    y: 17
+    x: 26
+    y: 33
     examine: "A rock containing silver ore."
     wander_radius: 0
     is_aggressive: false
 
   # Coal Rock (Lv 30, def 304) — coal (453), 50.0 XP, CHANCE 1/5
-  - id: 54
+  - id: 24
     name: "Coal Rock"
     definition_id: 304
     combat_level: 0
@@ -501,14 +258,14 @@ npcs:
     max_hit: 0
     respawn_delay_ticks: 0
     location: "tutorial_island"
-    x: 32
-    y: 17
+    x: 30
+    y: 33
     examine: "A rock containing coal."
     wander_radius: 0
     is_aggressive: false
 
   # Gold Rock (Lv 40, def 305) — gold ore (444), 65.0 XP, SINGLE_ORE
-  - id: 55
+  - id: 25
     name: "Gold Rock"
     definition_id: 305
     combat_level: 0
@@ -516,14 +273,14 @@ npcs:
     max_hit: 0
     respawn_delay_ticks: 0
     location: "tutorial_island"
-    x: 35
-    y: 17
+    x: 34
+    y: 33
     examine: "A rock containing gold ore."
     wander_radius: 0
     is_aggressive: false
 
   # Mithril Rock (Lv 55, def 306) — mithril ore (447), 80.0 XP, CHANCE 1/2
-  - id: 56
+  - id: 26
     name: "Mithril Rock"
     definition_id: 306
     combat_level: 0
@@ -532,13 +289,13 @@ npcs:
     respawn_delay_ticks: 0
     location: "tutorial_island"
     x: 38
-    y: 17
+    y: 33
     examine: "A rock containing mithril ore."
     wander_radius: 0
     is_aggressive: false
 
   # Adamantite Rock (Lv 70, def 307) — adamantite ore (449), 95.0 XP, CHANCE 1/2
-  - id: 57
+  - id: 27
     name: "Adamantite Rock"
     definition_id: 307
     combat_level: 0
@@ -546,14 +303,14 @@ npcs:
     max_hit: 0
     respawn_delay_ticks: 0
     location: "tutorial_island"
-    x: 41
-    y: 17
+    x: 42
+    y: 33
     examine: "A rock containing adamantite ore."
     wander_radius: 0
     is_aggressive: false
 
   # Runite Rock (Lv 85, def 308) — runite ore (451), 125.0 XP, SINGLE_ORE
-  - id: 58
+  - id: 28
     name: "Runite Rock"
     definition_id: 308
     combat_level: 0
@@ -561,61 +318,114 @@ npcs:
     max_hit: 0
     respawn_delay_ticks: 0
     location: "tutorial_island"
-    x: 44
-    y: 17
+    x: 46
+    y: 33
     examine: "A rock containing runite ore."
     wander_radius: 0
     is_aggressive: false
 
-  # --- Additional Tutorial rats for kill_rats objective density ---
-  - id: 22
-    definition_id: 3
-    name: "Rat"
-    combat_level: 2
-    max_hp: 8
-    max_hit: 1
-    attack_range: 1
-    respawn_delay_ticks: 3850
-    location: "tutorial_island"
-    x: 67
-    y: 50
-    wander_radius: 3
-    is_aggressive: false
-    loot_table: "rat_basic"
+  # ==========================================================================
+  # FISHING ZONE — y=29  (rows 28-30)
+  # One of each fishing family west to east, 4-tile spacing from x=14.
+  # ==========================================================================
 
-  - id: 23
-    definition_id: 3
-    name: "Rat"
-    combat_level: 2
-    max_hp: 8
-    max_hit: 1
-    attack_range: 1
-    respawn_delay_ticks: 3850
+  # Tutorial net-only spot — shrimps only
+  - id: 30
+    definition_id: 200
+    name: "Fishing Spot"
+    combat_level: 0
+    max_hp: 1
+    max_hit: 0
+    respawn_delay_ticks: 0
     location: "tutorial_island"
-    x: 69
-    y: 52
-    wander_radius: 3
+    x: 14
+    y: 29
+    examine: "I can try to catch some fish here."
+    wander_radius: 0
     is_aggressive: false
-    loot_table: "rat_basic"
 
-  - id: 24
-    definition_id: 3
-    name: "Rat"
-    combat_level: 2
-    max_hp: 8
-    max_hit: 1
-    attack_range: 1
-    respawn_delay_ticks: 3850
+  # Net/Bait spot — shrimps, anchovies, sardine, herring
+  - id: 31
+    definition_id: 201
+    name: "Fishing Spot"
+    combat_level: 0
+    max_hp: 1
+    max_hit: 0
+    respawn_delay_ticks: 0
     location: "tutorial_island"
-    x: 65
-    y: 48
-    wander_radius: 3
+    x: 18
+    y: 29
+    examine: "A spot suitable for net or bait fishing."
+    wander_radius: 0
     is_aggressive: false
-    loot_table: "rat_basic"
 
-  # --- Rats (level 1) — weakest enemy, cannot deal damage (max_hit: 0) ---
+  # Lure/Bait spot — trout, salmon, pike
+  - id: 32
+    definition_id: 202
+    name: "Fishing Spot"
+    combat_level: 0
+    max_hp: 1
+    max_hit: 0
+    respawn_delay_ticks: 0
+    location: "tutorial_island"
+    x: 22
+    y: 29
+    examine: "A river spot for lure or bait fishing."
+    wander_radius: 0
+    is_aggressive: false
+
+  # Cage/Harpoon spot — lobster, tuna, swordfish
+  - id: 33
+    definition_id: 203
+    name: "Fishing Spot"
+    combat_level: 0
+    max_hp: 1
+    max_hit: 0
+    respawn_delay_ticks: 0
+    location: "tutorial_island"
+    x: 26
+    y: 29
+    examine: "A deep water spot for caging or harpooning."
+    wander_radius: 0
+    is_aggressive: false
+
+  # ==========================================================================
+  # COOKING + SERVICES ZONE — y=25  (rows 24-26)
+  # ==========================================================================
+
+  - id: 35
+    name: "Cooking Fire"
+    combat_level: 0
+    max_hp: 1
+    max_hit: 0
+    respawn_delay_ticks: 0
+    location: "tutorial_island"
+    x: 14
+    y: 25
+    examine: "A fire, perfect for cooking."
+    wander_radius: 0
+    is_aggressive: false
+
+  - id: 36
+    name: "Cooking Fire"
+    combat_level: 0
+    max_hp: 1
+    max_hit: 0
+    respawn_delay_ticks: 0
+    location: "tutorial_island"
+    x: 18
+    y: 25
+    examine: "A fire, perfect for cooking."
+    wander_radius: 0
+    is_aggressive: false
+
+  # ==========================================================================
+  # COMBAT LOW ZONE — y=63  (rows 61-65)
+  # Rats and Chickens
+  # ==========================================================================
+
   # OSRS: Rat — Combat 1, HP 2, Max hit 0, Respawn 2 OSRS ticks (308 server ticks)
-  - id: 3
+  - id: 50
     definition_id: 3
     name: "Rat"
     combat_level: 1
@@ -624,14 +434,14 @@ npcs:
     attack_range: 1
     respawn_delay_ticks: 308
     location: "tutorial_island"
-    x: 47
-    y: 47
+    x: 45
+    y: 63
     examine: "A small rat. It doesn't look very threatening."
     wander_radius: 3
     is_aggressive: false
     loot_table: "rat_basic"
 
-  - id: 4
+  - id: 51
     definition_id: 3
     name: "Rat"
     combat_level: 1
@@ -641,12 +451,12 @@ npcs:
     respawn_delay_ticks: 308
     location: "tutorial_island"
     x: 48
-    y: 45
+    y: 63
     wander_radius: 3
     is_aggressive: false
     loot_table: "rat_basic"
 
-  - id: 5
+  - id: 52
     definition_id: 3
     name: "Rat"
     combat_level: 1
@@ -655,15 +465,63 @@ npcs:
     attack_range: 1
     respawn_delay_ticks: 308
     location: "tutorial_island"
-    x: 46
-    y: 49
+    x: 51
+    y: 63
     wander_radius: 3
     is_aggressive: false
     loot_table: "rat_basic"
 
-  # --- Giant Rats (level 3) — first real combat challenge ---
+  # OSRS: Chicken — Combat 1, HP 3, Max hit 1, Respawn 25 OSRS ticks (3850 server ticks)
+  - id: 53
+    name: "Chicken"
+    combat_level: 1
+    max_hp: 3
+    max_hit: 1
+    attack_range: 1
+    respawn_delay_ticks: 3850
+    location: "tutorial_island"
+    x: 30
+    y: 63
+    examine: "It's a chicken. It's looking at you funny."
+    wander_radius: 5
+    is_aggressive: false
+    loot_table: "chicken_basic"
+
+  - id: 54
+    name: "Chicken"
+    combat_level: 1
+    max_hp: 3
+    max_hit: 1
+    attack_range: 1
+    respawn_delay_ticks: 3850
+    location: "tutorial_island"
+    x: 33
+    y: 63
+    wander_radius: 5
+    is_aggressive: false
+    loot_table: "chicken_basic"
+
+  - id: 55
+    name: "Chicken"
+    combat_level: 1
+    max_hp: 3
+    max_hit: 1
+    attack_range: 1
+    respawn_delay_ticks: 3850
+    location: "tutorial_island"
+    x: 36
+    y: 63
+    wander_radius: 5
+    is_aggressive: false
+    loot_table: "chicken_basic"
+
+  # ==========================================================================
+  # COMBAT MID ZONE — y=69  (rows 67-71)
+  # Giant Rats and Goblins
+  # ==========================================================================
+
   # OSRS: Giant rat — Combat 3, HP 5, Max hit 1, Respawn ~25 OSRS ticks (3850 server ticks)
-  - id: 12
+  - id: 60
     definition_id: 3
     name: "Giant Rat"
     combat_level: 3
@@ -673,13 +531,13 @@ npcs:
     respawn_delay_ticks: 3850
     location: "tutorial_island"
     x: 44
-    y: 50
+    y: 69
     examine: "A big, fat, and very ugly rat."
     wander_radius: 4
     is_aggressive: false
     loot_table: "giant_rat_basic"
 
-  - id: 13
+  - id: 61
     definition_id: 3
     name: "Giant Rat"
     combat_level: 3
@@ -688,91 +546,14 @@ npcs:
     attack_range: 1
     respawn_delay_ticks: 3850
     location: "tutorial_island"
-    x: 43
-    y: 48
+    x: 48
+    y: 69
     wander_radius: 4
     is_aggressive: false
     loot_table: "giant_rat_basic"
 
-  # --- Chickens (level 1) — safe for beginners, good feather source ---
-  # OSRS: Chicken — Combat 1, HP 3, Max hit 1, Respawn 25 OSRS ticks (3850 server ticks)
-  - id: 6
-    name: "Chicken"
-    combat_level: 1
-    max_hp: 3
-    max_hit: 1
-    attack_range: 1
-    respawn_delay_ticks: 3850
-    location: "tutorial_island"
-    x: 35
-    y: 35
-    examine: "It's a chicken. It's looking at you funny."
-    wander_radius: 5
-    is_aggressive: false
-    loot_table: "chicken_basic"
-
-  - id: 7
-    name: "Chicken"
-    combat_level: 1
-    max_hp: 3
-    max_hit: 1
-    attack_range: 1
-    respawn_delay_ticks: 3850
-    location: "tutorial_island"
-    x: 37
-    y: 33
-    wander_radius: 5
-    is_aggressive: false
-    loot_table: "chicken_basic"
-
-  - id: 8
-    name: "Chicken"
-    combat_level: 1
-    max_hp: 3
-    max_hit: 1
-    attack_range: 1
-    respawn_delay_ticks: 3850
-    location: "tutorial_island"
-    x: 33
-    y: 37
-    wander_radius: 5
-    is_aggressive: false
-    loot_table: "chicken_basic"
-
-  # --- Cows (level 2) — good early source of cowhide and bones ---
-  # OSRS: Cow — Combat 2, HP 8, Max hit 1, Respawn 45 OSRS ticks (6930 server ticks)
-  - id: 9
-    name: "Cow"
-    combat_level: 2
-    max_hp: 8
-    max_hit: 1
-    attack_range: 1
-    respawn_delay_ticks: 6930
-    location: "tutorial_island"
-    x: 65
-    y: 63
-    examine: "A dairy cow."
-    wander_radius: 6
-    is_aggressive: false
-    loot_table: "cow_basic"
-
-  - id: 10
-    name: "Cow"
-    combat_level: 2
-    max_hp: 8
-    max_hit: 1
-    attack_range: 1
-    respawn_delay_ticks: 6930
-    location: "tutorial_island"
-    x: 67
-    y: 65
-    wander_radius: 6
-    is_aggressive: false
-    loot_table: "cow_basic"
-
-  # --- Goblins (level 2) — slightly tougher, drop coins ---
   # OSRS: Goblin — Combat 2, HP 5, Max hit 1, Respawn 35 OSRS ticks (5390 server ticks)
-  - id: 11
+  - id: 62
     name: "Goblin"
     combat_level: 2
     max_hp: 5
@@ -780,26 +561,61 @@ npcs:
     attack_range: 1
     respawn_delay_ticks: 5390
     location: "tutorial_island"
-    x: 65
-    y: 35
+    x: 58
+    y: 69
     examine: "A vile little green creature."
     wander_radius: 5
     is_aggressive: false
     loot_table: "goblin_basic"
 
+  # ==========================================================================
+  # COMBAT HIGH ZONE — y=75  (rows 73-77)
+  # Cows
+  # ==========================================================================
+
+  # OSRS: Cow — Combat 2, HP 8, Max hit 1, Respawn 45 OSRS ticks (6930 server ticks)
+  - id: 70
+    name: "Cow"
+    combat_level: 2
+    max_hp: 8
+    max_hit: 1
+    attack_range: 1
+    respawn_delay_ticks: 6930
+    location: "tutorial_island"
+    x: 44
+    y: 75
+    examine: "A dairy cow."
+    wander_radius: 6
+    is_aggressive: false
+    loot_table: "cow_basic"
+
+  - id: 71
+    name: "Cow"
+    combat_level: 2
+    max_hp: 8
+    max_hit: 1
+    attack_range: 1
+    respawn_delay_ticks: 6930
+    location: "tutorial_island"
+    x: 48
+    y: 75
+    wander_radius: 6
+    is_aggressive: false
+    loot_table: "cow_basic"
+
 spawns:
   chicken_spawn:
-    npc_ids: [6, 7, 8]
+    npc_ids: [53, 54, 55]
     respawn_ticks: 600
     max_alive: 3
 
   cow_spawn:
-    npc_ids: [9, 10]
+    npc_ids: [70, 71]
     respawn_ticks: 1200
     max_alive: 2
 
   goblin_spawn:
-    npc_ids: [11]
+    npc_ids: [62]
     respawn_ticks: 900
     max_alive: 1
 
