@@ -9,6 +9,8 @@ import com.badlogic.gdx.math.Matrix4;
 import com.badlogic.gdx.utils.Align;
 import com.osrs.shared.FishingRegistry;
 import com.osrs.shared.MiningRegistry;
+import com.osrs.shared.RangedRegistry;
+import com.osrs.shared.SpellRegistry;
 import com.osrs.shared.WeaponRegistry;
 import com.osrs.shared.WoodcuttingRegistry;
 
@@ -22,6 +24,8 @@ public final class SkillGuideRegistry {
     private static final int SKILL_STRENGTH    = 1;
     private static final int SKILL_DEFENCE     = 2;
     private static final int SKILL_HITPOINTS   = 3;
+    private static final int SKILL_RANGED      = 4;
+    private static final int SKILL_MAGIC       = 5;
     private static final int SKILL_WOODCUTTING = 7;
     private static final int SKILL_FISHING = 8;
     private static final int SKILL_MINING = 10;
@@ -32,6 +36,8 @@ public final class SkillGuideRegistry {
         register(SKILL_STRENGTH, new StrengthGuideProvider());
         register(SKILL_DEFENCE, new DefenceGuideProvider());
         register(SKILL_HITPOINTS, new HitpointsGuideProvider());
+        register(SKILL_RANGED, new RangedGuideProvider());
+        register(SKILL_MAGIC, new MagicGuideProvider());
         register(SKILL_WOODCUTTING, new WoodcuttingGuideProvider());
         register(SKILL_FISHING, new FishingGuideProvider());
         register(SKILL_MINING, new MiningGuideProvider());
@@ -1773,6 +1779,462 @@ public final class SkillGuideRegistry {
             font.getData().setScale(1f);
             font.setColor(Color.WHITE);
             batch.end();
+        }
+    }
+
+    // =========================================================================
+    // Magic
+    // =========================================================================
+
+    private static final class MagicGuideProvider implements SkillGuidePopup.SkillGuideProvider {
+
+        private static final List<SkillGuidePopup.GuideSection> SECTIONS = List.of(
+            new SkillGuidePopup.GuideSection("Introduction"),
+            new SkillGuidePopup.GuideSection("Spells"),
+            new SkillGuidePopup.GuideSection("Staves")
+        );
+
+        private static final Color TEXT_MAIN     = new Color(0.24f, 0.16f, 0.06f, 1f);
+        private static final Color TEXT_LOCKED   = new Color(0.45f, 0.36f, 0.24f, 1f);
+        private static final Color TEXT_UNLOCKED = new Color(0.22f, 0.14f, 0.06f, 1f);
+        private static final Color TEXT_NEXT     = new Color(0.48f, 0.28f, 0.04f, 1f);
+        private static final Color ROW_UNLOCKED  = new Color(0.88f, 0.81f, 0.67f, 1f);
+        private static final Color ROW_LOCKED    = new Color(0.78f, 0.71f, 0.57f, 1f);
+        private static final Color ROW_NEXT      = new Color(0.94f, 0.82f, 0.50f, 1f);
+
+        private static final Color COL_WIND  = new Color(0.85f, 0.85f, 0.85f, 1f);
+        private static final Color COL_WATER = new Color(0.25f, 0.55f, 0.95f, 1f);
+        private static final Color COL_EARTH = new Color(0.35f, 0.75f, 0.30f, 1f);
+        private static final Color COL_FIRE  = new Color(0.95f, 0.45f, 0.12f, 1f);
+
+        private static final int[]    STAFF_IDS   = { 1381, 1383, 1385, 1387 };
+        private static final String[] STAFF_NAMES = { "Staff of Air", "Staff of Water", "Staff of Earth", "Staff of Fire" };
+        private static final String[] STAFF_ELEMS = { "Air", "Water", "Earth", "Fire" };
+        private static final Color[]  STAFF_COLS  = { COL_WIND, COL_WATER, COL_EARTH, COL_FIRE };
+
+        @Override
+        public String getTitle(int skillIdx) { return "Magic"; }
+
+        @Override
+        public List<SkillGuidePopup.GuideSection> getSections(int skillIdx) { return SECTIONS; }
+
+        @Override
+        public void renderSectionContent(ShapeRenderer sr, SpriteBatch batch, BitmapFont font,
+                                         Matrix4 proj, int skillIdx, int level, long totalXp,
+                                         int sectionIdx, float contentX, float contentY,
+                                         float contentW, float contentH, float scrollOffset) {
+            if (sectionIdx == 0) {
+                renderIntroduction(sr, batch, font, proj, contentX, contentY, contentW, contentH);
+            } else if (sectionIdx == 1) {
+                renderSpells(sr, batch, font, proj, level, contentX, contentY, contentW, contentH, scrollOffset);
+            } else if (sectionIdx == 2) {
+                renderStaves(sr, batch, font, proj, contentX, contentY, contentW, contentH, scrollOffset);
+            }
+        }
+
+        @Override
+        public float getSectionContentHeight(int skillIdx, int level, int sectionIdx, float contentW) {
+            if (sectionIdx == 1) return 18f + SpellRegistry.allSpells().size() * 30f + 12f;
+            if (sectionIdx == 2) return 18f + STAFF_IDS.length * 30f + 12f;
+            return 236f;
+        }
+
+        private void renderIntroduction(ShapeRenderer sr, SpriteBatch batch, BitmapFont font,
+                                        Matrix4 proj, float x, float y, float w, float h) {
+            final float blockH     = 82f;
+            final float top        = y + h - 14f;
+            final float blockX     = x + 8f;
+            final float blockW     = w - 16f;
+            final float dividerX   = x + 10f;
+            final float dividerW   = w - 20f;
+            final float iconX      = x + 20f;
+            final float textX      = x + 62f;
+            final float textW      = w - 86f;
+            final float textTopPad = 16f;
+            final String[] texts = {
+                "Cast spells to deal elemental damage from up to 7 tiles away. Magic is especially effective against enemies wearing metal armour.",
+                "Elemental staves provide unlimited runes of their element, eliminating that rune cost entirely. A Staff of Fire gives free Fire runes.",
+                "Base cast XP is awarded on every spell attempt. Bonus damage XP is awarded only on a successful hit. Accuracy scales with Magic level."
+            };
+
+            sr.setProjectionMatrix(proj);
+            sr.begin(ShapeRenderer.ShapeType.Filled);
+            for (int i = 0; i < 3; i++) {
+                float by = top - (i + 1) * blockH;
+                sr.setColor(0.92f, 0.84f, 0.69f, 1f);
+                sr.rect(blockX, by, blockW, blockH - 8f);
+                sr.setColor(0.64f, 0.50f, 0.30f, 1f);
+                sr.rect(dividerX, by + blockH - 16f, dividerW, 2f);
+            }
+            drawMagicSparkIcon(sr, iconX, top - blockH + 12f);
+            drawStaffIcon(sr, iconX, top - blockH * 2 + 12f);
+            drawRuneStackIcon(sr, iconX, top - blockH * 3 + 12f);
+            sr.end();
+
+            GlyphLayout wrapped = new GlyphLayout();
+            batch.setProjectionMatrix(proj);
+            batch.begin();
+            font.getData().setScale(0.68f);
+            font.setColor(TEXT_MAIN);
+            for (int i = 0; i < 3; i++) {
+                float by = top - (i + 1) * blockH;
+                wrapped.setText(font, texts[i], TEXT_MAIN, textW, Align.left, true);
+                font.draw(batch, wrapped, textX, by + blockH - 8f - textTopPad);
+            }
+            font.getData().setScale(1f);
+            font.setColor(Color.WHITE);
+            batch.end();
+        }
+
+        private void renderSpells(ShapeRenderer sr, SpriteBatch batch, BitmapFont font,
+                                  Matrix4 proj, int level,
+                                  float x, float y, float w, float h, float scrollOffset) {
+            List<SpellRegistry.Spell> spells = SpellRegistry.allSpells();
+            final float rowH = 30f;
+            final int nextLevel = findNextSpellLevel(level, spells);
+
+            sr.setProjectionMatrix(proj);
+            sr.begin(ShapeRenderer.ShapeType.Filled);
+            float yCursor = y + h - 14f + scrollOffset;
+            for (SpellRegistry.Spell spell : spells) {
+                float rowY = yCursor - rowH;
+                if (rowY + rowH >= y && rowY <= y + h) {
+                    boolean unlocked = level >= spell.magicLevel();
+                    boolean next     = !unlocked && spell.magicLevel() == nextLevel;
+                    sr.setColor(next ? ROW_NEXT : unlocked ? ROW_UNLOCKED : ROW_LOCKED);
+                    sr.rect(x + 8, rowY + 2, w - 16, rowH - 4);
+                    Color dotCol = switch (spell.element()) {
+                        case WIND  -> COL_WIND;
+                        case WATER -> COL_WATER;
+                        case EARTH -> COL_EARTH;
+                        case FIRE  -> COL_FIRE;
+                    };
+                    sr.setColor(dotCol);
+                    sr.rect(x + 14, rowY + (rowH - 10f) / 2f, 10f, 10f);
+                }
+                yCursor -= rowH;
+            }
+            sr.end();
+
+            batch.setProjectionMatrix(proj);
+            batch.begin();
+            font.getData().setScale(0.68f);
+            yCursor = y + h - 14f + scrollOffset;
+            for (SpellRegistry.Spell spell : spells) {
+                float rowY = yCursor - rowH;
+                if (rowY + rowH >= y && rowY <= y + h) {
+                    boolean unlocked = level >= spell.magicLevel();
+                    boolean next     = !unlocked && spell.magicLevel() == nextLevel;
+                    font.setColor(next ? TEXT_NEXT : unlocked ? TEXT_UNLOCKED : TEXT_LOCKED);
+                    font.draw(batch, "Lv " + spell.magicLevel(), x + 30, rowY + 21);
+                    font.draw(batch, spell.name(), x + 80, rowY + 21);
+                    font.getData().setScale(0.58f);
+                    Color sub = next ? TEXT_NEXT : TEXT_LOCKED;
+                    font.setColor(sub.r, sub.g, sub.b, 0.85f);
+                    font.draw(batch, formatXpTenths((int) spell.castXpTenths()) + " xp", x + w - 100, rowY + 22);
+                    font.draw(batch, "max " + spell.baseMaxHit(), x + w - 40, rowY + 22);
+                    font.getData().setScale(0.68f);
+                }
+                yCursor -= rowH;
+            }
+            font.getData().setScale(1f);
+            font.setColor(Color.WHITE);
+            batch.end();
+        }
+
+        private void renderStaves(ShapeRenderer sr, SpriteBatch batch, BitmapFont font,
+                                  Matrix4 proj,
+                                  float x, float y, float w, float h, float scrollOffset) {
+            final float rowH = 30f;
+
+            sr.setProjectionMatrix(proj);
+            sr.begin(ShapeRenderer.ShapeType.Filled);
+            float yCursor = y + h - 14f + scrollOffset;
+            for (int i = 0; i < STAFF_IDS.length; i++) {
+                float rowY = yCursor - rowH;
+                if (rowY + rowH >= y && rowY <= y + h) {
+                    sr.setColor(ROW_UNLOCKED);
+                    sr.rect(x + 8, rowY + 2, w - 16, rowH - 4);
+                    sr.setColor(STAFF_COLS[i]);
+                    sr.rect(x + 14, rowY + (rowH - 10f) / 2f, 10f, 10f);
+                }
+                yCursor -= rowH;
+            }
+            sr.end();
+
+            batch.setProjectionMatrix(proj);
+            batch.begin();
+            font.getData().setScale(0.68f);
+            yCursor = y + h - 14f + scrollOffset;
+            for (int i = 0; i < STAFF_IDS.length; i++) {
+                float rowY = yCursor - rowH;
+                if (rowY + rowH >= y && rowY <= y + h) {
+                    font.setColor(TEXT_UNLOCKED);
+                    font.draw(batch, "Lv 1", x + 30, rowY + 21);
+                    font.draw(batch, STAFF_NAMES[i], x + 80, rowY + 21);
+                    font.getData().setScale(0.58f);
+                    font.setColor(TEXT_LOCKED.r, TEXT_LOCKED.g, TEXT_LOCKED.b, 0.85f);
+                    font.draw(batch, "Infinite " + STAFF_ELEMS[i], x + w - 110, rowY + 22);
+                    font.getData().setScale(0.68f);
+                }
+                yCursor -= rowH;
+            }
+            font.getData().setScale(1f);
+            font.setColor(Color.WHITE);
+            batch.end();
+        }
+
+        private static int findNextSpellLevel(int level, List<SpellRegistry.Spell> spells) {
+            for (SpellRegistry.Spell spell : spells) {
+                if (spell.magicLevel() > level) return spell.magicLevel();
+            }
+            return -1;
+        }
+
+        private static void drawMagicSparkIcon(ShapeRenderer sr, float slotLeft, float slotBottom) {
+            float x = slotLeft + 4f;
+            float y = slotBottom + 3f;
+            sr.setColor(0.35f, 0.45f, 0.90f, 1f);
+            sr.rect(x + 11, y + 4, 5, 14);
+            sr.rect(x + 5, y + 10, 17, 5);
+            sr.setColor(0.65f, 0.75f, 1.00f, 1f);
+            sr.rect(x + 12, y + 8, 3, 6);
+        }
+
+        private static void drawStaffIcon(ShapeRenderer sr, float slotLeft, float slotBottom) {
+            float x = slotLeft + 4f;
+            float y = slotBottom + 3f;
+            sr.setColor(0.45f, 0.32f, 0.18f, 1f);
+            sr.rect(x + 12, y + 2, 3, 16);
+            sr.setColor(0.60f, 0.45f, 0.85f, 1f);
+            sr.rect(x + 10, y + 16, 7, 6);
+        }
+
+        private static void drawRuneStackIcon(ShapeRenderer sr, float slotLeft, float slotBottom) {
+            float x = slotLeft + 4f;
+            float y = slotBottom + 3f;
+            sr.setColor(0.35f, 0.75f, 0.30f, 1f);
+            sr.rect(x + 5, y + 2, 12, 8);
+            sr.setColor(0.25f, 0.55f, 0.95f, 1f);
+            sr.rect(x + 7, y + 7, 12, 8);
+            sr.setColor(0.95f, 0.45f, 0.12f, 1f);
+            sr.rect(x + 9, y + 12, 12, 8);
+        }
+    }
+
+    // =========================================================================
+    // Ranged
+    // =========================================================================
+
+    private static final class RangedGuideProvider implements SkillGuidePopup.SkillGuideProvider {
+
+        private static final List<SkillGuidePopup.GuideSection> SECTIONS = List.of(
+            new SkillGuidePopup.GuideSection("Introduction"),
+            new SkillGuidePopup.GuideSection("Bows"),
+            new SkillGuidePopup.GuideSection("Arrows")
+        );
+
+        private static final Color TEXT_MAIN     = new Color(0.24f, 0.16f, 0.06f, 1f);
+        private static final Color TEXT_LOCKED   = new Color(0.45f, 0.36f, 0.24f, 1f);
+        private static final Color TEXT_UNLOCKED = new Color(0.22f, 0.14f, 0.06f, 1f);
+        private static final Color TEXT_NEXT     = new Color(0.48f, 0.28f, 0.04f, 1f);
+        private static final Color ROW_UNLOCKED  = new Color(0.88f, 0.81f, 0.67f, 1f);
+        private static final Color ROW_LOCKED    = new Color(0.78f, 0.71f, 0.57f, 1f);
+        private static final Color ROW_NEXT      = new Color(0.94f, 0.82f, 0.50f, 1f);
+
+        @Override
+        public String getTitle(int skillIdx) { return "Ranged"; }
+
+        @Override
+        public List<SkillGuidePopup.GuideSection> getSections(int skillIdx) { return SECTIONS; }
+
+        @Override
+        public void renderSectionContent(ShapeRenderer sr, SpriteBatch batch, BitmapFont font,
+                                         Matrix4 proj, int skillIdx, int level, long totalXp,
+                                         int sectionIdx, float contentX, float contentY,
+                                         float contentW, float contentH, float scrollOffset) {
+            if (sectionIdx == 0) {
+                renderIntroduction(sr, batch, font, proj, contentX, contentY, contentW, contentH);
+            } else if (sectionIdx == 1) {
+                renderBows(sr, batch, font, proj, level, contentX, contentY, contentW, contentH, scrollOffset);
+            } else if (sectionIdx == 2) {
+                renderArrows(sr, batch, font, proj, contentX, contentY, contentW, contentH, scrollOffset);
+            }
+        }
+
+        @Override
+        public float getSectionContentHeight(int skillIdx, int level, int sectionIdx, float contentW) {
+            if (sectionIdx == 1) return 18f + RangedRegistry.bows().size() * 32f + 12f;
+            if (sectionIdx == 2) return 18f + RangedRegistry.arrows().size() * 32f + 12f;
+            return 236f;
+        }
+
+        private void renderIntroduction(ShapeRenderer sr, SpriteBatch batch, BitmapFont font,
+                                        Matrix4 proj, float x, float y, float w, float h) {
+            final float blockH     = 82f;
+            final float top        = y + h - 14f;
+            final float blockX     = x + 8f;
+            final float blockW     = w - 16f;
+            final float dividerX   = x + 10f;
+            final float dividerW   = w - 20f;
+            final float iconX      = x + 20f;
+            final float textX      = x + 62f;
+            final float textW      = w - 86f;
+            final float textTopPad = 16f;
+            final String[] texts = {
+                "Shoot enemies from a distance using bows and arrows. Shortbows attack every 5 ticks (3t on Rapid) at 7 tile range; longbows reach 10 tiles.",
+                "Arrow Ranged strength determines your max hit. Always equip the highest-tier arrows available to maximise damage output.",
+                "Use the Rapid attack style at all times for best XP and DPS. Shortbows outperform longbows for training due to their faster attack speed."
+            };
+
+            sr.setProjectionMatrix(proj);
+            sr.begin(ShapeRenderer.ShapeType.Filled);
+            for (int i = 0; i < 3; i++) {
+                float by = top - (i + 1) * blockH;
+                sr.setColor(0.92f, 0.84f, 0.69f, 1f);
+                sr.rect(blockX, by, blockW, blockH - 8f);
+                sr.setColor(0.64f, 0.50f, 0.30f, 1f);
+                sr.rect(dividerX, by + blockH - 16f, dividerW, 2f);
+            }
+            drawBowIcon(sr, iconX, top - blockH + 12f);
+            ItemIconRenderer.drawItemIcon(sr, iconX, top - blockH * 2 + 12f, 892);
+            drawArrowIcon(sr, iconX, top - blockH * 3 + 12f);
+            sr.end();
+
+            GlyphLayout wrapped = new GlyphLayout();
+            batch.setProjectionMatrix(proj);
+            batch.begin();
+            font.getData().setScale(0.68f);
+            font.setColor(TEXT_MAIN);
+            for (int i = 0; i < 3; i++) {
+                float by = top - (i + 1) * blockH;
+                wrapped.setText(font, texts[i], TEXT_MAIN, textW, Align.left, true);
+                font.draw(batch, wrapped, textX, by + blockH - 8f - textTopPad);
+            }
+            font.getData().setScale(1f);
+            font.setColor(Color.WHITE);
+            batch.end();
+        }
+
+        private void renderBows(ShapeRenderer sr, SpriteBatch batch, BitmapFont font,
+                                Matrix4 proj, int level,
+                                float x, float y, float w, float h, float scrollOffset) {
+            List<RangedRegistry.BowTier> bows = RangedRegistry.bows();
+            final float rowH = 32f;
+            final int nextReq = findNextBowLevel(level, bows);
+
+            sr.setProjectionMatrix(proj);
+            sr.begin(ShapeRenderer.ShapeType.Filled);
+            float yCursor = y + h - 14f + scrollOffset;
+            for (RangedRegistry.BowTier bow : bows) {
+                float rowY = yCursor - rowH;
+                if (rowY + rowH >= y && rowY <= y + h) {
+                    boolean unlocked = level >= bow.rangedReq();
+                    boolean next     = !unlocked && bow.rangedReq() == nextReq;
+                    sr.setColor(next ? ROW_NEXT : unlocked ? ROW_UNLOCKED : ROW_LOCKED);
+                    sr.rect(x + 8, rowY + 2, w - 16, rowH - 4);
+                    ItemIconRenderer.drawItemIcon(sr, x + 72, rowY + 1, bow.itemId());
+                }
+                yCursor -= rowH;
+            }
+            sr.end();
+
+            batch.setProjectionMatrix(proj);
+            batch.begin();
+            font.getData().setScale(0.68f);
+            yCursor = y + h - 14f + scrollOffset;
+            for (RangedRegistry.BowTier bow : bows) {
+                float rowY = yCursor - rowH;
+                if (rowY + rowH >= y && rowY <= y + h) {
+                    boolean unlocked = level >= bow.rangedReq();
+                    boolean next     = !unlocked && bow.rangedReq() == nextReq;
+                    font.setColor(next ? TEXT_NEXT : unlocked ? TEXT_UNLOCKED : TEXT_LOCKED);
+                    font.draw(batch, "Lv " + bow.rangedReq(), x + 16, rowY + 22);
+                    font.draw(batch, bow.name(), x + 116, rowY + 22);
+                    font.getData().setScale(0.60f);
+                    Color sub = next ? TEXT_NEXT : TEXT_LOCKED;
+                    font.setColor(sub.r, sub.g, sub.b, 0.75f);
+                    String type = bow.attackSpeedOsrsTicks() == 5 ? "Short 5t" : "Long  6t";
+                    font.draw(batch, type, x + w - 80, rowY + 14);
+                    font.getData().setScale(0.68f);
+                }
+                yCursor -= rowH;
+            }
+            font.getData().setScale(1f);
+            font.setColor(Color.WHITE);
+            batch.end();
+        }
+
+        private void renderArrows(ShapeRenderer sr, SpriteBatch batch, BitmapFont font,
+                                  Matrix4 proj,
+                                  float x, float y, float w, float h, float scrollOffset) {
+            List<RangedRegistry.ArrowTier> arrows = RangedRegistry.arrows();
+            final float rowH = 32f;
+
+            sr.setProjectionMatrix(proj);
+            sr.begin(ShapeRenderer.ShapeType.Filled);
+            float yCursor = y + h - 14f + scrollOffset;
+            for (RangedRegistry.ArrowTier arrow : arrows) {
+                float rowY = yCursor - rowH;
+                if (rowY + rowH >= y && rowY <= y + h) {
+                    sr.setColor(ROW_UNLOCKED);
+                    sr.rect(x + 8, rowY + 2, w - 16, rowH - 4);
+                    ItemIconRenderer.drawItemIcon(sr, x + 72, rowY + 1, arrow.itemId());
+                }
+                yCursor -= rowH;
+            }
+            sr.end();
+
+            batch.setProjectionMatrix(proj);
+            batch.begin();
+            font.getData().setScale(0.68f);
+            yCursor = y + h - 14f + scrollOffset;
+            for (RangedRegistry.ArrowTier arrow : arrows) {
+                float rowY = yCursor - rowH;
+                if (rowY + rowH >= y && rowY <= y + h) {
+                    font.setColor(TEXT_UNLOCKED);
+                    font.draw(batch, arrow.name(), x + 116, rowY + 22);
+                    font.getData().setScale(0.60f);
+                    font.setColor(TEXT_LOCKED.r, TEXT_LOCKED.g, TEXT_LOCKED.b, 0.75f);
+                    font.draw(batch, "+" + arrow.rangedStrength() + " Str", x + w - 70, rowY + 14);
+                    font.getData().setScale(0.68f);
+                }
+                yCursor -= rowH;
+            }
+            font.getData().setScale(1f);
+            font.setColor(Color.WHITE);
+            batch.end();
+        }
+
+        private static int findNextBowLevel(int level, List<RangedRegistry.BowTier> bows) {
+            for (RangedRegistry.BowTier bow : bows) {
+                if (bow.rangedReq() > level) return bow.rangedReq();
+            }
+            return -1;
+        }
+
+        private static void drawBowIcon(ShapeRenderer sr, float slotLeft, float slotBottom) {
+            float x = slotLeft + 4f;
+            float y = slotBottom + 3f;
+            sr.setColor(0.55f, 0.38f, 0.18f, 1f);
+            sr.rect(x + 13, y + 2, 2, 18);
+            sr.setColor(0.70f, 0.55f, 0.30f, 1f);
+            sr.rect(x + 7, y + 4, 8, 2);
+            sr.rect(x + 7, y + 16, 8, 2);
+            sr.setColor(0.85f, 0.82f, 0.75f, 1f);
+            sr.rect(x + 7, y + 5, 1, 12);
+        }
+
+        private static void drawArrowIcon(ShapeRenderer sr, float slotLeft, float slotBottom) {
+            float x = slotLeft + 4f;
+            float y = slotBottom + 3f;
+            sr.setColor(0.55f, 0.40f, 0.18f, 1f);
+            sr.rect(x + 12, y + 2, 2, 16);
+            sr.setColor(0.70f, 0.70f, 0.80f, 1f);
+            sr.rect(x + 11, y + 17, 4, 4);
+            sr.setColor(0.72f, 0.52f, 0.12f, 1f);
+            sr.rect(x + 10, y + 2, 3, 4);
+            sr.rect(x + 13, y + 2, 3, 4);
         }
     }
 }

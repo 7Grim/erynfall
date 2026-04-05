@@ -1185,7 +1185,7 @@ public class SidePanel {
             } else if (hovering && canCast) {
                 sr.setColor(COLOR_SPELL_HOV_BG);
             } else {
-                sr.setColor(0.10f, 0.09f, 0.07f, 1f);
+                sr.setColor(0.15f, 0.13f, 0.11f, 1f);
             }
             sr.rect(contentX + PAD, rowY, CONTENT_W - PAD * 2, ROW_H - 2);
 
