@@ -228,6 +228,41 @@ public class GameScreen extends ApplicationAdapter {
     private int combatTargetId = -1;
 
     // -----------------------------------------------------------------------
+    // Projectile system (Phase 2 ranged visuals)
+    // -----------------------------------------------------------------------
+    /** Arrow travel speed in tiles per second (matches OSRS shortbow feel). */
+    private static final float ARROW_SPEED_TILES_PER_SEC = 15f;
+    /** Peak arc height in isometric camera units (tiles are 16 units tall). */
+    private static final float ARROW_ARC_HEIGHT = 24f;
+
+    private static final class ActiveProjectile {
+        final float srcTileX, srcTileY;
+        final float dstTileX, dstTileY;
+        final float duration;
+        float elapsed;
+        // Hitsplat data applied when arrow lands
+        final int targetTileX, targetTileY;
+        final int damage;
+        final boolean hit;
+        final String chatMessage;  // null = no message
+
+        ActiveProjectile(float srcX, float srcY, float dstX, float dstY, float duration,
+                         int targetTileX, int targetTileY, int damage, boolean hit, String chatMessage) {
+            this.srcTileX    = srcX;   this.srcTileY    = srcY;
+            this.dstTileX    = dstX;   this.dstTileY    = dstY;
+            this.duration    = duration;
+            this.elapsed     = 0f;
+            this.targetTileX = targetTileX;
+            this.targetTileY = targetTileY;
+            this.damage      = damage;
+            this.hit         = hit;
+            this.chatMessage = chatMessage;
+        }
+    }
+
+    private final java.util.List<ActiveProjectile> activeProjectiles = new java.util.ArrayList<>();
+
+    // -----------------------------------------------------------------------
     // Ground item pickup approach
     // -----------------------------------------------------------------------
     /** Ground item ID the player is walking toward to pick up; -1 if none. */
@@ -580,7 +615,9 @@ public class GameScreen extends ApplicationAdapter {
             renderFireAnimation(visualX, visualY);
         }
 
-        // Hitsplats
+        // Projectiles (ranged) + Hitsplats
+        updateProjectiles(delta);
+        renderProjectiles();
         combatUI.update(delta);
         combatUI.render(shapeRenderer, batch, font, camera);
 
@@ -967,17 +1004,26 @@ public class GameScreen extends ApplicationAdapter {
         }
 
         for (ClientPacketHandler.CombatHitEvent evt : h.drainCombatHits()) {
-            combatUI.addDamageNumber(evt.targetX, evt.targetY, evt.damage, evt.hit);
             boolean npcHitMe = (evt.targetId == h.getMyPlayerId());
-            if (npcHitMe) {
-                chatBox.addSystemMessage(evt.hit
-                    ? String.format("You were hit for %d!", evt.damage)
-                    : "The attack missed you.");
+            String chatMsg = npcHitMe
+                ? (evt.hit ? String.format("You were hit for %d!", evt.damage) : "The attack missed you.")
+                : (evt.hit ? String.format("You hit for %d!", evt.damage) : "Your attack missed.");
+
+            if (evt.projectileType > 0) {
+                // Ranged: spawn a flying projectile; hitsplat + chat deferred until it lands
+                float dx = evt.targetX - evt.attackerX;
+                float dy = evt.targetY - evt.attackerY;
+                float dist = (float) Math.sqrt(dx * dx + dy * dy);
+                float duration = Math.max(0.1f, dist / ARROW_SPEED_TILES_PER_SEC);
+                activeProjectiles.add(new ActiveProjectile(
+                    evt.attackerX, evt.attackerY,
+                    evt.targetX,   evt.targetY,
+                    duration,
+                    evt.targetX, evt.targetY, evt.damage, evt.hit, chatMsg));
             } else {
-                chatBox.addSystemMessage(evt.hit
-                    ? String.format("You hit for %d!", evt.damage)
-                    : "Your attack missed.");
-                // XP is shown via XpDropOverlay (per-skill events), not here
+                // Melee / instant: show hitsplat immediately
+                combatUI.addDamageNumber(evt.targetX, evt.targetY, evt.damage, evt.hit);
+                chatBox.addSystemMessage(chatMsg);
             }
         }
 
@@ -3356,6 +3402,42 @@ public class GameScreen extends ApplicationAdapter {
         font.getData().setScale(FontManager.getScale(FontManager.FontContext.BASE_UI));
         font.setColor(COLOR_WHITE);
         screenBatch.end();
+    }
+
+    // -----------------------------------------------------------------------
+    // Projectile update + render
+    // -----------------------------------------------------------------------
+
+    private void updateProjectiles(float delta) {
+        if (activeProjectiles.isEmpty()) return;
+        java.util.Iterator<ActiveProjectile> it = activeProjectiles.iterator();
+        while (it.hasNext()) {
+            ActiveProjectile p = it.next();
+            p.elapsed += delta;
+            if (p.elapsed >= p.duration) {
+                combatUI.addDamageNumber(p.targetTileX, p.targetTileY, p.damage, p.hit);
+                if (p.chatMessage != null) chatBox.addSystemMessage(p.chatMessage);
+                it.remove();
+            }
+        }
+    }
+
+    private void renderProjectiles() {
+        if (activeProjectiles.isEmpty()) return;
+        shapeRenderer.setProjectionMatrix(camera.combined);
+        shapeRenderer.begin(com.badlogic.gdx.graphics.glutils.ShapeRenderer.ShapeType.Filled);
+        shapeRenderer.setColor(1f, 0.72f, 0.1f, 1f); // arrow: orange-gold
+        for (ActiveProjectile p : activeProjectiles) {
+            float progress = p.duration > 0f ? (p.elapsed / p.duration) : 1f;
+            float tileX = p.srcTileX + (p.dstTileX - p.srcTileX) * progress;
+            float tileY = p.srcTileY + (p.dstTileY - p.srcTileY) * progress;
+            float sx = renderer.worldToScreenX(tileX, tileY);
+            float sy = renderer.worldToScreenY(tileX, tileY);
+            // Parabolic arc — peaks at midpoint, zero at src and dst
+            sy += ARROW_ARC_HEIGHT * (float) Math.sin(Math.PI * progress);
+            shapeRenderer.circle(sx, sy, 4f, 8);
+        }
+        shapeRenderer.end();
     }
 
     /**

@@ -64,18 +64,24 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
     public static class CombatHitEvent {
         public final int targetId;
         public final int targetX, targetY;
+        public final int attackerX, attackerY;
+        public final int projectileType;   // 0=melee/instant, 1=arrow, future: bolt/spell
         public final int damage;
         public final boolean hit;
         public final int xpAwarded;
 
         public CombatHitEvent(int targetId, int targetX, int targetY,
+                              int attackerX, int attackerY, int projectileType,
                               int damage, boolean hit, int xpAwarded) {
-            this.targetId = targetId;
-            this.targetX  = targetX;
-            this.targetY  = targetY;
-            this.damage   = damage;
-            this.hit      = hit;
-            this.xpAwarded = xpAwarded;
+            this.targetId      = targetId;
+            this.targetX       = targetX;
+            this.targetY       = targetY;
+            this.attackerX     = attackerX;
+            this.attackerY     = attackerY;
+            this.projectileType = projectileType;
+            this.damage        = damage;
+            this.hit           = hit;
+            this.xpAwarded     = xpAwarded;
         }
     }
 
@@ -450,6 +456,8 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
         pendingCombatHits.add(new CombatHitEvent(
             hit.getTargetId(),
             hit.getTargetX(), hit.getTargetY(),
+            hit.getAttackerX(), hit.getAttackerY(),
+            hit.getProjectileType(),
             hit.getDamage(), hit.getHit(),
             hit.getXpAwarded()
         ));
