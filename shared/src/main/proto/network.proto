@@ -81,8 +81,13 @@ message CombatHit {
     int32 xp_awarded = 5;
     int32 attacker_health = 6;
     int32 target_health = 7;
-    int32 target_x = 8;   // World tile X of the target (for hitsplat positioning)
-    int32 target_y = 9;   // World tile Y of the target
+    int32 target_x = 8;    // World tile X of the target (for hitsplat positioning)
+    int32 target_y = 9;    // World tile Y of the target
+    int32 attacker_x = 10; // World tile X of the attacker (for projectile origin in Phase 2)
+    int32 attacker_y = 11; // World tile Y of the attacker
+    // projectile_type: 0=none(melee), 1=arrow, 2=bolt, 3=spell_wind, 4=spell_water,
+    //                  5=spell_fire, 6=spell_earth  (Phase 2 visual system)
+    int32 projectile_type = 12;
 }
 
 // Attack: Client → Server
@@ -344,6 +349,7 @@ message EquipmentUpdate {
     int32 item_id = 2;
     string item_name = 3;
     int32 flags = 4;
+    int32 quantity = 5;  // Stack size; only meaningful for AMMO slot (slot 3), always 1 otherwise
 }
 
 // GroundItemSpawn: Server → Client

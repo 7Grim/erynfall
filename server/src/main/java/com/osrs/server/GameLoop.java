@@ -18,6 +18,7 @@ import com.osrs.shared.Player;
 import com.osrs.shared.SkillingAction;
 import com.osrs.shared.FishingRegistry;
 import com.osrs.shared.MiningRegistry;
+import com.osrs.shared.RangedRegistry;
 import com.osrs.shared.WeaponRegistry;
 import com.osrs.shared.WoodcuttingRegistry;
 import org.slf4j.Logger;
@@ -543,12 +544,35 @@ public class GameLoop {
                 continue;
             }
 
-            // Per-weapon attack speed: look up OSRS ticks from WeaponRegistry, convert to server ticks.
-            // Unarmed (no weapon equipped) defaults to 4 OSRS ticks (fist attack speed in OSRS).
+            // Per-weapon attack speed: ranged bows use RangedRegistry (accounts for Rapid style);
+            // melee and unarmed fall back to WeaponRegistry (default 4 OSRS ticks = fist speed).
             int equippedWeaponId = player.getEquipment(EquipmentSlot.WEAPON);
-            int attackSpeed = WeaponRegistry.getAttackSpeedServerTicks(equippedWeaponId);
+            String weaponType = com.osrs.server.combat.EquipmentBonusCalculator
+                .getWeaponType(player, world.getItemDefs());
+            boolean isRanged = "ranged".equals(weaponType);
+            int attackSpeed = isRanged
+                ? RangedRegistry.getAttackSpeedServerTicks(equippedWeaponId, player.getCombatStyle())
+                : WeaponRegistry.getAttackSpeedServerTicks(equippedWeaponId);
             if (tickCount - player.getLastAttackTick() < attackSpeed) {
                 continue;
+            }
+
+            // Ranged ammo check: must have at least one arrow in the AMMO slot.
+            if (isRanged) {
+                int ammoId = player.getEquipment(EquipmentSlot.AMMO);
+                if (ammoId <= 0 || player.getAmmoQuantity() <= 0) {
+                    // No ammo — notify once per session and halt attacks until re-equipped.
+                    PlayerSession ps = getSessionForPlayer(player.getId());
+                    if (ps != null) {
+                        nettyServer.sendToPlayer(player.getId(),
+                            NetworkProto.ServerMessage.newBuilder()
+                                .setChatMessage(NetworkProto.ChatMessage.newBuilder()
+                                    .setText("You have run out of ammo!"))
+                                .build());
+                    }
+                    player.setCombatTarget(-1);
+                    continue;
+                }
             }
 
             CombatEngine.HitResult result = combatEngine.calculateHit(player, target, tickCount);
@@ -562,7 +586,7 @@ public class GameLoop {
 
                 // Award XP per OSRS combat style (only on actual damage)
                 if (result.damage > 0) {
-                    awardCombatXp(player, result.damage);
+                    awardCombatXp(player, result.damage, weaponType);
 
                     // Aggro NPC on first damaging hit
                     if (!target.isInCombat()) {
@@ -575,7 +599,17 @@ public class GameLoop {
                 LOG.debug("Player {} missed NPC {}", player.getId(), target.getId());
             }
 
+            // Consume one arrow and maybe drop it at the target's tile.
+            // OSRS: on a miss, arrows have ~75% chance to land at the target's tile.
+            // On a hit, arrows are spent/broken — no drop.
+            if (isRanged) {
+                consumeArrow(player, target, result.hit);
+            }
+
             player.setLastAttackTick(tickCount);
+
+            // Determine projectile type for Phase 2 client rendering
+            int projectileType = isRanged ? 1 : 0; // 1=arrow; future: bolts/spells
 
             // Broadcast CombatHit to all clients
             NetworkProto.ServerMessage combatMsg = NetworkProto.ServerMessage.newBuilder()
@@ -588,7 +622,10 @@ public class GameLoop {
                     .setAttackerHealth(player.getHealth())
                     .setTargetHealth(newTargetHealth)
                     .setTargetX(target.getX())
-                    .setTargetY(target.getY()))
+                    .setTargetY(target.getY())
+                    .setAttackerX(player.getX())
+                    .setAttackerY(player.getY())
+                    .setProjectileType(projectileType))
                 .build();
             nettyServer.broadcastToAll(combatMsg);
 
@@ -997,6 +1034,79 @@ public class GameLoop {
     }
 
     /**
+     * Consumes one arrow from the player's AMMO slot after a ranged attack.
+     *
+     * Drop rules (OSRS-inspired):
+     *  - On a HIT: arrow is spent at the target; no ground drop.
+     *  - On a MISS: 75% chance the arrow lands at the target's tile as a ground item,
+     *    visible only to the shooter (owner-only window applies).
+     *
+     * If the AMMO slot reaches 0, the slot is cleared and the client is notified.
+     */
+    private void consumeArrow(Player player, NPC target, boolean hit) {
+        int ammoId = player.getEquipment(EquipmentSlot.AMMO);
+        if (ammoId <= 0) return;
+
+        int remaining = player.getAmmoQuantity() - 1;
+        player.setAmmoQuantity(remaining);
+
+        if (!hit && random.nextInt(100) < 75) {
+            // Arrow lands at the target's tile
+            ItemDefinition ammoDef = world.getItemDef(ammoId);
+            if (ammoDef != null) {
+                GroundItem gi = world.spawnGroundItem(ammoId, 1,
+                    target.getX(), target.getY(), player.getId(), tickCount);
+                nettyServer.sendToPlayer(player.getId(),
+                    NetworkProto.ServerMessage.newBuilder()
+                        .setGroundItemSpawn(NetworkProto.GroundItemSpawn.newBuilder()
+                            .setGroundItemId(gi.getGroundItemId())
+                            .setItemId(ammoId)
+                            .setQuantity(1)
+                            .setX(target.getX()).setY(target.getY())
+                            .setItemName(ammoDef.name))
+                        .build());
+            }
+        }
+
+        if (remaining <= 0) {
+            player.setEquipment(EquipmentSlot.AMMO, 0);
+            player.setAmmoQuantity(0);
+            PlayerSession ps = getSessionForPlayer(player.getId());
+            if (ps != null) {
+                // Clear the ammo slot on the client
+                nettyServer.sendToPlayer(player.getId(),
+                    NetworkProto.ServerMessage.newBuilder()
+                        .setEquipmentUpdate(NetworkProto.EquipmentUpdate.newBuilder()
+                            .setSlot(EquipmentSlot.AMMO)
+                            .setItemId(0).setItemName("").setFlags(0).setQuantity(0))
+                        .build());
+                nettyServer.sendToPlayer(player.getId(),
+                    NetworkProto.ServerMessage.newBuilder()
+                        .setChatMessage(NetworkProto.ChatMessage.newBuilder()
+                            .setText("You have run out of ammo!"))
+                        .build());
+            }
+            // Stop combat — player must re-equip before continuing.
+            player.setCombatTarget(-1);
+        } else {
+            // Inform the client of the updated ammo count
+            PlayerSession ps = getSessionForPlayer(player.getId());
+            if (ps != null) {
+                ItemDefinition ammoDef = world.getItemDef(ammoId);
+                String name = ammoDef != null ? ammoDef.name : "";
+                int flags   = ammoDef != null ? ammoDef.getFlags() : 0;
+                nettyServer.sendToPlayer(player.getId(),
+                    NetworkProto.ServerMessage.newBuilder()
+                        .setEquipmentUpdate(NetworkProto.EquipmentUpdate.newBuilder()
+                            .setSlot(EquipmentSlot.AMMO)
+                            .setItemId(ammoId).setItemName(name).setFlags(flags)
+                            .setQuantity(remaining))
+                        .build());
+            }
+        }
+    }
+
+    /**
      * Spawn loot drops on the ground at the NPC's tile when it dies.
      * Delegates loot rolling to World (which has access to package-private WorldData).
      * Sends each spawned item to the killer only (owner-only until OWNER_ONLY_TICKS elapses).
@@ -1050,9 +1160,40 @@ public class GameLoop {
      *
      * Source: https://oldschool.runescape.wiki/w/Combat_Options
      */
-    private void awardCombatXp(Player player, int damage) {
+    /**
+     * Awards combat XP following OSRS rules.
+     *
+     * Melee styles (weaponType != "ranged"):
+     *   Accurate   → 4 Attack  XP + 1.33 HP XP per damage
+     *   Aggressive → 4 Strength XP + 1.33 HP XP
+     *   Defensive  → 4 Defence  XP + 1.33 HP XP
+     *   Controlled → 1.33 Attack + 1.33 Strength + 1.33 Defence + 1.33 HP XP
+     *
+     * Ranged styles (weaponType == "ranged"):
+     *   Accurate (Ranged Accurate) → 4 Ranged XP + 1.33 HP XP
+     *   Aggressive (Rapid)         → 4 Ranged XP + 1.33 HP XP
+     *   Defensive (Longrange)      → 2 Ranged XP + 2 Defence XP + 1.33 HP XP
+     *
+     * Source: https://oldschool.runescape.wiki/w/Ranged#Experience
+     */
+    private void awardCombatXp(Player player, int damage, String weaponType) {
         long mainXp = damage * 40L;                       // 4.0 XP/damage stored as tenths
         long hpXp   = Math.round(damage * 13.3);          // 1.33 XP/damage stored as tenths
+
+        if ("ranged".equals(weaponType)) {
+            CombatStyle style = player.getCombatStyle();
+            if (style == CombatStyle.DEFENSIVE) {
+                // Longrange: split between Ranged and Defence
+                long splitXp = damage * 20L;              // 2.0 XP/damage stored as tenths
+                sendSkillUpdate(player, Player.SKILL_RANGED,    splitXp);
+                sendSkillUpdate(player, Player.SKILL_DEFENCE,   splitXp);
+            } else {
+                // Accurate or Rapid: all to Ranged
+                sendSkillUpdate(player, Player.SKILL_RANGED,    mainXp);
+            }
+            sendSkillUpdate(player, Player.SKILL_HITPOINTS, hpXp);
+            return;
+        }
 
         CombatStyle style = player.getCombatStyle();
         switch (style) {

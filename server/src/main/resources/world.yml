@@ -650,6 +650,8 @@ loot_tables:
 
   # --- Chicken (level 1) ---
   # OSRS: Bones (always), Raw chicken (always), Feathers 5-15 (always)
+  # Bronze arrows added: chickens are the classic low-level ranged training target,
+  # so they always drop a small supply of the starter ammo.
   chicken_basic:
     always:
       - item_id: 526    # Bones
@@ -657,6 +659,9 @@ loot_tables:
       - item_id: 2138   # Raw chicken
         quantity: 1
       - item_id: 314    # Feathers
+        quantity: 5
+        max_quantity: 15
+      - item_id: 882    # Bronze arrow (5-15 per kill — keeps ranged trainers stocked)
         quantity: 5
         max_quantity: 15
 
@@ -685,3 +690,11 @@ loot_tables:
         quantity: 1
         max_quantity: 13
         chance: 72      # 72% — matches OSRS drop rate
+      - item_id: 882    # Bronze arrow (1-5, ~30%) — goblins carry crude ammunition
+        quantity: 1
+        max_quantity: 5
+        chance: 30
+    rare:
+      - item_id: 841    # Shortbow (~1% — a looted shortbow)
+        quantity: 1
+        chance: 100     # 100 out of 10000 = 1%

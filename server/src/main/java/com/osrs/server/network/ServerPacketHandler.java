@@ -349,15 +349,26 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             if (eqId <= 0) continue;
             ItemDefinition eqDef = server.getWorld().getItemDef(eqId);
             if (eqDef == null) continue;
-            ctx.writeAndFlush(NetworkProto.ServerMessage.newBuilder()
-                .setEquipmentUpdate(NetworkProto.EquipmentUpdate.newBuilder()
-                    .setSlot(slot)
-                    .setItemId(eqId)
-                    .setItemName(eqDef.name)
-                    .setFlags(eqDef.getFlags()))
-                .build());
+            int qty = (slot == EquipmentSlot.AMMO) ? player.getAmmoQuantity() : 1;
+            sendEquipmentUpdate(ctx, slot, eqId, eqDef.name, eqDef.getFlags(), qty);
         }
         sendEquipmentBonuses(ctx, player);
+    }
+
+    /**
+     * Sends a single EquipmentUpdate packet.
+     * {@code quantity} is meaningful only for the AMMO slot; pass 1 for all other slots.
+     */
+    private void sendEquipmentUpdate(ChannelHandlerContext ctx, int slot,
+                                     int itemId, String name, int flags, int quantity) {
+        ctx.writeAndFlush(NetworkProto.ServerMessage.newBuilder()
+            .setEquipmentUpdate(NetworkProto.EquipmentUpdate.newBuilder()
+                .setSlot(slot)
+                .setItemId(itemId)
+                .setItemName(name)
+                .setFlags(flags)
+                .setQuantity(quantity))
+            .build());
     }
 
     private void sendEquipmentBonuses(ChannelHandlerContext ctx, Player player) {
@@ -2202,7 +2213,16 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
                     + " to wear this.", 0);
                 return;
             }
-            if (def.equipSlot == EquipmentSlot.WEAPON
+            // Ranged weapons (bows, crossbows) and ammo check Ranged level.
+            // Melee weapons check Attack level.
+            boolean isRangedEquip = "ranged".equals(def.weaponType)
+                || def.equipSlot == EquipmentSlot.AMMO;
+            if (isRangedEquip && player.getSkillLevel(Player.SKILL_RANGED) < def.rangedReq) {
+                sendChatMessage(ctx, "You need a Ranged level of " + def.rangedReq
+                    + " to use this.", 0);
+                return;
+            }
+            if (!isRangedEquip && def.equipSlot == EquipmentSlot.WEAPON
                     && player.getSkillLevel(Player.SKILL_ATTACK) < def.attackReq) {
                 sendChatMessage(ctx, "You need an Attack level of " + def.attackReq
                     + " to wield this.", 0);
@@ -2216,33 +2236,40 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             int equipSlot = def.equipSlot;
             if (equipSlot < 0 || equipSlot >= EquipmentSlot.COUNT) return;
 
-            // Swap: currently equipped item goes back into inventory slot being vacated
+            // AMMO slot: transfer the entire stack from inventory; return any previously
+            // equipped ammo to a free inventory slot.
+            if (equipSlot == EquipmentSlot.AMMO && def.stackable) {
+                int prevAmmoId  = player.getEquipment(EquipmentSlot.AMMO);
+                int prevAmmoQty = player.getAmmoQuantity();
+                int incomingQty = player.getInventoryQuantity(slot);
+
+                // Return previous ammo to inventory (use the slot being vacated)
+                player.setInventoryItem(slot, prevAmmoId, prevAmmoId > 0 ? prevAmmoQty : 0);
+
+                // Equip the incoming stack
+                player.setEquipment(EquipmentSlot.AMMO, itemId);
+                player.setAmmoQuantity(incomingQty);
+
+                sendInventorySlot(ctx, player, slot);
+                sendEquipmentUpdate(ctx, EquipmentSlot.AMMO, itemId, def.name, def.getFlags(), incomingQty);
+                sendEquipmentBonuses(ctx, player);
+                LOG.info("Player {} equipped {}×{} into ammo slot", player.getId(), incomingQty, def.name);
+                return;
+            }
+
+            // Standard single-item swap: currently equipped item goes back into the
+            // inventory slot being vacated.
             int oldItemId = player.getEquipment(equipSlot);
             player.setEquipment(equipSlot, itemId);
             player.setInventoryItem(slot, oldItemId, oldItemId > 0 ? 1 : 0);
 
-            // Update player's effective attack range from the equipped weapon
-            // Weapon slot = EquipmentSlot.WEAPON (index 3); only weapons override range
+            // Update player's effective attack range from the newly equipped weapon
             if (equipSlot == EquipmentSlot.WEAPON) {
                 player.setWeaponAttackRange(def.attackRange);
             }
-            // Unequipping (swapping weapon back to empty): restore melee range
-            if (equipSlot == EquipmentSlot.WEAPON && itemId == 0) {
-                player.setWeaponAttackRange(1);
-            }
 
-            // Send updated inventory slot
             sendInventorySlot(ctx, player, slot);
-
-            // Send equipment update
-            ItemDefinition newEquipDef = server.getWorld().getItemDef(itemId);
-            ctx.writeAndFlush(NetworkProto.ServerMessage.newBuilder()
-                .setEquipmentUpdate(NetworkProto.EquipmentUpdate.newBuilder()
-                    .setSlot(equipSlot)
-                    .setItemId(itemId)
-                    .setItemName(newEquipDef.name)
-                    .setFlags(newEquipDef.getFlags()))
-                .build());
+            sendEquipmentUpdate(ctx, equipSlot, itemId, def.name, def.getFlags(), 1);
             LOG.info("Player {} equipped {} into slot {}", player.getId(), def.name, equipSlot);
             updateGenericQuestObjectives(session, Quest.TaskType.EQUIP, def.id);
             sendEquipmentBonuses(ctx, player);
@@ -2269,19 +2296,19 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             return;
         }
 
-        // Move item: equipment slot -> inventory
+        // Move item: equipment slot -> inventory.
+        // AMMO slot: return the full remaining stack, not just qty=1.
+        int returnQty = (equipSlot == EquipmentSlot.AMMO) ? player.getAmmoQuantity() : 1;
         player.setEquipment(equipSlot, 0);
-        player.setInventoryItem(invSlot, itemId, 1);
+        if (equipSlot == EquipmentSlot.AMMO) player.setAmmoQuantity(0);
+        player.setInventoryItem(invSlot, itemId, Math.max(1, returnQty));
 
         if (equipSlot == EquipmentSlot.WEAPON) {
             player.setWeaponAttackRange(1);
         }
 
         sendInventorySlot(ctx, player, invSlot);
-        ctx.writeAndFlush(NetworkProto.ServerMessage.newBuilder()
-            .setEquipmentUpdate(NetworkProto.EquipmentUpdate.newBuilder()
-                .setSlot(equipSlot).setItemId(0).setItemName("").setFlags(0))
-            .build());
+        sendEquipmentUpdate(ctx, equipSlot, 0, "", 0, 0);
         sendEquipmentBonuses(ctx, player);
         LOG.info("Player {} unequipped slot {} (itemId={})", player.getId(), equipSlot, itemId);
     }

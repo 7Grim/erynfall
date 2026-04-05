@@ -62,6 +62,12 @@ public class Player extends Entity {
     private boolean autoRetaliate = true;
     /** Attack range (tiles) based on currently equipped weapon. Default 1 = melee. */
     private int weaponAttackRange = 1;
+    /**
+     * Quantity of item stacked in the AMMO slot (slot 3).
+     * All other equipment slots hold a single item (quantity is implicitly 1).
+     * Decremented on each ranged attack; slot is cleared when it reaches 0.
+     */
+    private int ammoQuantity = 0;
     /** PID — lower value = higher priority in simultaneous action resolution. Re-randomized every 100-150 OSRS ticks. */
     private long pid = 0;
 
@@ -334,6 +340,8 @@ public class Player extends Entity {
 
     public int getWeaponAttackRange() { return weaponAttackRange; }
     public void setWeaponAttackRange(int range) { this.weaponAttackRange = range; }
+    public int getAmmoQuantity() { return ammoQuantity; }
+    public void setAmmoQuantity(int qty) { this.ammoQuantity = Math.max(0, qty); }
 
     /**
      * Effective attack range: weapon range + 2 if using Longrange style (capped at 10).

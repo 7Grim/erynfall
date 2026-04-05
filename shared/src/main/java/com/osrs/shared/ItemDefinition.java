@@ -62,6 +62,8 @@ public class ItemDefinition {
     public int defenceReq  = 1;
     /** Minimum Attack level required to wield this weapon. */
     public int attackReq   = 1;
+    /** Minimum Ranged level required to wield this ranged weapon or equip this ammo. */
+    public int rangedReq   = 1;
     /**
      * Minimum Strength level required to wield this item (e.g. Granite hammer = 50).
      * 0 = no requirement. Note: axes/pickaxes use attackReq, NOT strengthReq — OSRS has

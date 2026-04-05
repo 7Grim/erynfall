@@ -459,8 +459,13 @@ items:
     crush_attack: -2
     melee_strength: 14
 
-  # ── Ranged weapons and ammo ───────────────────────────────────────────────
-  # Source: https://oldschool.runescape.wiki/w/Shortbow
+  # ── Ranged weapons (shortbows + longbows) ────────────────────────────────
+  # All stats sourced from https://oldschool.runescape.wiki/w/Shortbow
+  # and https://oldschool.runescape.wiki/w/Longbow
+  # equip_slot: 4 = WEAPON
+  # weapon_type: "ranged" — triggers ranged combat formulas and Ranged skill usage
+  # attack_range: bow reach in tiles (shortbows 7, longbows 10)
+  # ranged_attack: equipment ranged-attack bonus
 
   - id: 841
     name: "Shortbow"
@@ -473,6 +478,155 @@ items:
     weapon_type: "ranged"
     attack_range: 7
     ranged_attack: 8
+    ranged_req: 1
+
+  - id: 843
+    name: "Oak shortbow"
+    examine: "A shortbow carved from oak."
+    stackable: false
+    store_value: 100
+    equipable: true
+    consumable: false
+    equip_slot: 4
+    weapon_type: "ranged"
+    attack_range: 7
+    ranged_attack: 14
+    ranged_req: 5
+
+  - id: 849
+    name: "Willow shortbow"
+    examine: "A shortbow carved from willow."
+    stackable: false
+    store_value: 200
+    equipable: true
+    consumable: false
+    equip_slot: 4
+    weapon_type: "ranged"
+    attack_range: 7
+    ranged_attack: 19
+    ranged_req: 20
+
+  - id: 853
+    name: "Maple shortbow"
+    examine: "A shortbow carved from maple."
+    stackable: false
+    store_value: 400
+    equipable: true
+    consumable: false
+    equip_slot: 4
+    weapon_type: "ranged"
+    attack_range: 7
+    ranged_attack: 29
+    ranged_req: 30
+
+  - id: 857
+    name: "Yew shortbow"
+    examine: "A shortbow carved from yew."
+    stackable: false
+    store_value: 800
+    equipable: true
+    consumable: false
+    equip_slot: 4
+    weapon_type: "ranged"
+    attack_range: 7
+    ranged_attack: 47
+    ranged_req: 40
+
+  - id: 861
+    name: "Magic shortbow"
+    examine: "A shortbow carved from magic wood."
+    stackable: false
+    store_value: 1600
+    equipable: true
+    consumable: false
+    equip_slot: 4
+    weapon_type: "ranged"
+    attack_range: 7
+    ranged_attack: 75
+    ranged_req: 50
+
+  - id: 839
+    name: "Longbow"
+    examine: "A wooden longbow."
+    stackable: false
+    store_value: 60
+    equipable: true
+    consumable: false
+    equip_slot: 4
+    weapon_type: "ranged"
+    attack_range: 10
+    ranged_attack: 10
+    ranged_req: 1
+
+  - id: 845
+    name: "Oak longbow"
+    examine: "A longbow carved from oak."
+    stackable: false
+    store_value: 120
+    equipable: true
+    consumable: false
+    equip_slot: 4
+    weapon_type: "ranged"
+    attack_range: 10
+    ranged_attack: 14
+    ranged_req: 5
+
+  - id: 847
+    name: "Willow longbow"
+    examine: "A longbow carved from willow."
+    stackable: false
+    store_value: 240
+    equipable: true
+    consumable: false
+    equip_slot: 4
+    weapon_type: "ranged"
+    attack_range: 10
+    ranged_attack: 20
+    ranged_req: 20
+
+  - id: 851
+    name: "Maple longbow"
+    examine: "A longbow carved from maple."
+    stackable: false
+    store_value: 480
+    equipable: true
+    consumable: false
+    equip_slot: 4
+    weapon_type: "ranged"
+    attack_range: 10
+    ranged_attack: 31
+    ranged_req: 30
+
+  - id: 855
+    name: "Yew longbow"
+    examine: "A longbow carved from yew."
+    stackable: false
+    store_value: 960
+    equipable: true
+    consumable: false
+    equip_slot: 4
+    weapon_type: "ranged"
+    attack_range: 10
+    ranged_attack: 50
+    ranged_req: 40
+
+  - id: 859
+    name: "Magic longbow"
+    examine: "A longbow carved from magic wood."
+    stackable: false
+    store_value: 1920
+    equipable: true
+    consumable: false
+    equip_slot: 4
+    weapon_type: "ranged"
+    attack_range: 10
+    ranged_attack: 77
+    ranged_req: 50
+
+  # ── Arrows ────────────────────────────────────────────────────────────────
+  # All stats sourced from https://oldschool.runescape.wiki/w/Arrows
+  # equip_slot: 3 = AMMO
+  # ranged_strength: contributes to ranged max hit via EquipmentBonusCalculator
 
   - id: 882
     name: "Bronze arrow"
@@ -481,8 +635,64 @@ items:
     store_value: 3
     equipable: true
     consumable: false
-    equip_slot: 10             # AMMO
+    equip_slot: 3              # AMMO
     ranged_strength: 7
+    ranged_req: 1
+
+  - id: 884
+    name: "Iron arrow"
+    examine: "Arrows with iron heads."
+    stackable: true
+    store_value: 5
+    equipable: true
+    consumable: false
+    equip_slot: 3              # AMMO
+    ranged_strength: 10
+    ranged_req: 1
+
+  - id: 886
+    name: "Steel arrow"
+    examine: "Arrows with steel heads."
+    stackable: true
+    store_value: 15
+    equipable: true
+    consumable: false
+    equip_slot: 3              # AMMO
+    ranged_strength: 16
+    ranged_req: 5
+
+  - id: 888
+    name: "Mithril arrow"
+    examine: "Arrows with mithril heads."
+    stackable: true
+    store_value: 40
+    equipable: true
+    consumable: false
+    equip_slot: 3              # AMMO
+    ranged_strength: 22
+    ranged_req: 20
+
+  - id: 890
+    name: "Adamant arrow"
+    examine: "Arrows with adamant heads."
+    stackable: true
+    store_value: 120
+    equipable: true
+    consumable: false
+    equip_slot: 3              # AMMO
+    ranged_strength: 31
+    ranged_req: 30
+
+  - id: 892
+    name: "Rune arrow"
+    examine: "Arrows with rune heads."
+    stackable: true
+    store_value: 400
+    equipable: true
+    consumable: false
+    equip_slot: 3              # AMMO
+    ranged_strength: 49
+    ranged_req: 40
 
   # ── Shields ───────────────────────────────────────────────────────────────
   # Source: https://oldschool.runescape.wiki/w/Wooden_shield  (tutorial item)

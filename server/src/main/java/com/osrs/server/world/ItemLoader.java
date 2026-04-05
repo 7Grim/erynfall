@@ -63,6 +63,7 @@ public class ItemLoader {
             def.storeValue      = getInt(raw, "store_value",   1);
             def.defenceReq      = getInt(raw, "defence_req",  1);
             def.attackReq       = getInt(raw, "attack_req",   1);
+            def.rangedReq       = getInt(raw, "ranged_req",   1);
             def.strengthReq     = getInt(raw, "strength_req", 0);
 
             if (def.id > 0) items.put(def.id, def);
