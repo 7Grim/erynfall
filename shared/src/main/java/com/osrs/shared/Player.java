@@ -62,6 +62,8 @@ public class Player extends Entity {
     private boolean autoRetaliate = true;
     /** Attack range (tiles) based on currently equipped weapon. Default 1 = melee. */
     private int weaponAttackRange = 1;
+    /** Selected combat spell ID (SpellRegistry); -1 = no spell selected. */
+    private int selectedSpellId = -1;
     /**
      * Quantity of item stacked in the AMMO slot (slot 3).
      * All other equipment slots hold a single item (quantity is implicitly 1).
@@ -342,6 +344,8 @@ public class Player extends Entity {
     public void setWeaponAttackRange(int range) { this.weaponAttackRange = range; }
     public int getAmmoQuantity() { return ammoQuantity; }
     public void setAmmoQuantity(int qty) { this.ammoQuantity = Math.max(0, qty); }
+    public int getSelectedSpellId() { return selectedSpellId; }
+    public void setSelectedSpellId(int id) { this.selectedSpellId = id; }
 
     /**
      * Effective attack range: weapon range + 2 if using Longrange style (capped at 10).

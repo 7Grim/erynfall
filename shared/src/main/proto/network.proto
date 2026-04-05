@@ -19,6 +19,7 @@ message HandshakeResponse {
     int32 player_id = 3;
     bool is_member = 4;
     bool is_admin_tools_enabled = 5;
+    int32 selected_spell_id = 6;  // -1 = none; persisted auto-cast spell (SpellRegistry ID)
 }
 
 // PlayerMovement: Client → Server
@@ -499,6 +500,12 @@ message SetAutoRetaliate {
     bool enabled = 1;
 }
 
+// SetSpell: Client → Server (select a combat spell to auto-cast)
+message SetSpell {
+    int32 spell_id = 1;   // SpellRegistry spell ID (1–8); -1 = deselect
+    int64 sequence = 2;
+}
+
 // ChatBroadcast: Server → Client (public chat from a nearby player, broadcast to all in range)
 message ChatBroadcast {
     int32  sender_id   = 1;   // Entity ID of the sender (for overhead text placement)
@@ -581,6 +588,7 @@ message ClientMessage {
         AdminSearchItems admin_search_items = 30;
         AdminGiveItem admin_give_item = 31;
         AdminTeleport admin_teleport = 32;
+        SetSpell set_spell = 33;
     }
 }
 

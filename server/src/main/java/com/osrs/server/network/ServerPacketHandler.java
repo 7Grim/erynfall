@@ -19,6 +19,7 @@ import com.osrs.shared.Player;
 import com.osrs.shared.SkillingAction;
 import com.osrs.shared.FishingRegistry;
 import com.osrs.shared.MiningRegistry;
+import com.osrs.shared.SpellRegistry;
 import com.osrs.shared.WoodcuttingRegistry;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
@@ -137,6 +138,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             case START_SKILLING      -> handleStartSkilling(ctx, packet.getStartSkilling());
             case TOGGLE_PRAYER       -> handleTogglePrayer(ctx, packet.getTogglePrayer());
             case SET_AUTO_RETALIATE  -> handleSetAutoRetaliate(packet.getSetAutoRetaliate());
+            case SET_SPELL           -> handleSetSpell(packet.getSetSpell());
             case OPEN_BANK_REQUEST       -> handleOpenBankRequest(ctx, packet.getOpenBankRequest());
             case CLOSE_BANK_REQUEST      -> handleCloseBankRequest(ctx, packet.getCloseBankRequest());
             case DEPOSIT_BANK_ITEM       -> handleDepositBankItem(ctx, packet.getDepositBankItem());
@@ -589,12 +591,15 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             LOG.info("Handshake response for {}: member={} adminToolsEnabled={}",
                 session.getPlayer().getName(), member, adminToolsEnabled);
         }
+        int spellId = (success && session != null && session.getPlayer() != null)
+            ? session.getPlayer().getSelectedSpellId() : -1;
         NetworkProto.HandshakeResponse response = NetworkProto.HandshakeResponse.newBuilder()
             .setSuccess(success)
             .setMessage(message)
             .setPlayerId(playerId)
             .setIsMember(member)
             .setIsAdminToolsEnabled(adminToolsEnabled)
+            .setSelectedSpellId(spellId)
             .build();
         NetworkProto.ServerMessage wrapped = NetworkProto.ServerMessage.newBuilder()
             .setHandshakeResponse(response)
@@ -2437,6 +2442,18 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
         if (session.getPlayer() == null) return;
         session.getPlayer().setAutoRetaliate(req.getEnabled());
         LOG.debug("Player {} autoRetaliate={}", session.getPlayer().getId(), req.getEnabled());
+    }
+
+    private void handleSetSpell(NetworkProto.SetSpell req) {
+        if (session.getPlayer() == null) return;
+        int spellId = req.getSpellId();
+        // Validate: -1 = deselect, otherwise must be a known spell
+        if (spellId != -1 && SpellRegistry.getById(spellId) == null) {
+            LOG.warn("Player {} sent unknown spell ID {}", session.getPlayer().getId(), spellId);
+            return;
+        }
+        session.getPlayer().setSelectedSpellId(spellId);
+        LOG.debug("Player {} selected spell {}", session.getPlayer().getId(), spellId);
     }
 
     private void handleExamineNpc(ChannelHandlerContext ctx, NetworkProto.ExamineNpc req) {

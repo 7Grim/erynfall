@@ -9,6 +9,8 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.Matrix4;
 
+import com.osrs.shared.SpellRegistry;
+
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -287,6 +289,14 @@ public class SidePanel {
     private static final Color COLOR_AR_ON_TEXT   = new Color(0.72f, 1.00f, 0.72f, 1f); // bright green-white
     private static final Color COLOR_AR_OFF_TEXT  = new Color(0.65f, 0.25f, 0.25f, 1f); // muted red
     private static final Color COLOR_AR_LABEL_OFF  = new Color(0.65f, 0.62f, 0.58f, 1f); // dimmed label when off
+    // Magic tab colours (pre-allocated)
+    private static final Color COLOR_SPELL_WIND  = new Color(0.85f, 0.85f, 0.85f, 1f);  // light grey
+    private static final Color COLOR_SPELL_WATER = new Color(0.25f, 0.55f, 0.95f, 1f);  // blue
+    private static final Color COLOR_SPELL_EARTH = new Color(0.35f, 0.75f, 0.30f, 1f);  // green
+    private static final Color COLOR_SPELL_FIRE  = new Color(0.95f, 0.45f, 0.12f, 1f);  // orange-red
+    private static final Color COLOR_SPELL_SEL_BG  = new Color(0.15f, 0.28f, 0.10f, 1f); // selected row bg
+    private static final Color COLOR_SPELL_HOV_BG  = new Color(0.14f, 0.13f, 0.10f, 1f); // hover row bg
+    private static final Color COLOR_SPELL_LOCKED   = new Color(0.42f, 0.38f, 0.32f, 1f); // locked text
     private static final Color COLOR_LOGOUT_BTN_BG    = new Color(0.35f, 0.10f, 0.08f, 1f);
     private static final Color COLOR_LOGOUT_BTN_BR    = new Color(0.75f, 0.20f, 0.15f, 1f);
     private static final Color COLOR_LOGOUT_CONFIRM   = new Color(1.00f, 0.50f, 0.45f, 1f);
@@ -347,6 +357,10 @@ public class SidePanel {
     private int currentPrayerPoints = 0;
     private int maxPrayerPoints     = 0;
     private final java.util.Set<Integer> activePrayerIds = new java.util.HashSet<>();
+    /** Currently selected spell ID (-1 = none). Updated when player clicks a spell. */
+    private int selectedSpellId = -1;
+    /** Pending spell selected by a click — consumed by GameScreen and sent to server. -2 = no click pending. */
+    private int pendingSpellSelected = -2;
     public void setHpState(int current, int max) {
         this.currentHp = current;
         this.maxHp = max;
@@ -420,6 +434,7 @@ public class SidePanel {
             case INVENTORY -> inventoryUI.render(sr, batch, font, panelX + CONTENT_INSET, cY, proj);
             case EQUIPMENT -> renderEquipmentTab(sr, batch, font, proj);
             case PRAYER    -> renderPrayerTab(sr, batch, font, proj, mouseX, mouseY);
+            case MAGIC     -> renderMagicTab(sr, batch, font, proj, mouseX, mouseY);
             case FRIENDS   -> renderFriendsTab(sr, batch, font, proj);
             case SETTINGS  -> renderCharacterTab(sr, batch, font, proj);
             case LOGOUT    -> renderLogoutTab(sr, batch, font, proj);
@@ -1123,6 +1138,95 @@ public class SidePanel {
         font.draw(batch, currentPrayerPoints + " / " + maxPrayerPoints,
             contentX + PAD + 4, barY + BAR_H - 3);
 
+        font.getData().setScale(1f);
+        font.setColor(Color.WHITE);
+        batch.end();
+    }
+
+    private void renderMagicTab(ShapeRenderer sr, SpriteBatch batch, BitmapFont font,
+                                Matrix4 proj, int mouseX, int mouseY) {
+        int contentX = panelX + CONTENT_INSET;
+        final int PAD   = 8;
+        final int ROW_H = 34;
+        int magicLevel  = skillLevels[5];  // SKILL_MAGIC index 5
+
+        // Header
+        batch.setProjectionMatrix(proj);
+        batch.begin();
+        font.getData().setScale(0.85f);
+        font.setColor(0.90f, 0.80f, 0.50f, 1f);
+        font.draw(batch, "Standard Spellbook", contentX + PAD, cY + CONTENT_H - 8);
+        font.getData().setScale(1f);
+        font.setColor(Color.WHITE);
+        batch.end();
+
+        sr.setProjectionMatrix(proj);
+        sr.begin(ShapeRenderer.ShapeType.Filled);
+        sr.setColor(0.45f, 0.38f, 0.22f, 1f);
+        sr.rect(contentX + PAD, cY + CONTENT_H - 20, CONTENT_W - PAD * 2, 1);
+        sr.end();
+
+        List<SpellRegistry.Spell> spells = SpellRegistry.allSpells();
+        int startY = cY + CONTENT_H - 28;
+
+        // Background rows pass
+        sr.begin(ShapeRenderer.ShapeType.Filled);
+        for (int i = 0; i < spells.size(); i++) {
+            SpellRegistry.Spell s = spells.get(i);
+            boolean selected  = (s.id() == selectedSpellId);
+            boolean canCast   = magicLevel >= s.magicLevel();
+            boolean hovering  = mouseX >= contentX + PAD && mouseX <= contentX + CONTENT_W - PAD
+                && mouseY >= startY - (i + 1) * ROW_H
+                && mouseY <= startY - i * ROW_H - 2;
+            int rowY = startY - (i + 1) * ROW_H + 2;
+
+            if (selected) {
+                sr.setColor(COLOR_SPELL_SEL_BG);
+            } else if (hovering && canCast) {
+                sr.setColor(COLOR_SPELL_HOV_BG);
+            } else {
+                sr.setColor(0.10f, 0.09f, 0.07f, 1f);
+            }
+            sr.rect(contentX + PAD, rowY, CONTENT_W - PAD * 2, ROW_H - 2);
+
+            // Element dot
+            Color dotColor = switch (s.element()) {
+                case WIND  -> COLOR_SPELL_WIND;
+                case WATER -> COLOR_SPELL_WATER;
+                case EARTH -> COLOR_SPELL_EARTH;
+                case FIRE  -> COLOR_SPELL_FIRE;
+            };
+            if (!canCast) dotColor = COLOR_SPELL_LOCKED;
+            sr.setColor(dotColor);
+            int dotSz = 14;
+            sr.rect(contentX + PAD + 2, rowY + (ROW_H - 2 - dotSz) / 2f, dotSz, dotSz);
+
+            // Row separator
+            sr.setColor(0.30f, 0.26f, 0.16f, 0.60f);
+            sr.rect(contentX + PAD, rowY, CONTENT_W - PAD * 2, 1);
+        }
+        sr.end();
+
+        // Text pass
+        batch.setProjectionMatrix(proj);
+        batch.begin();
+        for (int i = 0; i < spells.size(); i++) {
+            SpellRegistry.Spell s = spells.get(i);
+            boolean selected = (s.id() == selectedSpellId);
+            boolean canCast  = magicLevel >= s.magicLevel();
+            int rowY = startY - (i + 1) * ROW_H + 2;
+
+            font.getData().setScale(0.76f);
+            font.setColor(selected ? new Color(0.70f, 1.00f, 0.38f, 1f)
+                : canCast  ? new Color(0.88f, 0.84f, 0.72f, 1f)
+                : COLOR_SPELL_LOCKED);
+            font.draw(batch, s.name(), contentX + PAD + 20, rowY + ROW_H - 8);
+
+            font.getData().setScale(0.60f);
+            font.setColor(canCast ? new Color(0.65f, 0.90f, 0.25f, 1f)
+                : new Color(0.75f, 0.45f, 0.18f, 1f));
+            font.draw(batch, "Lv " + s.magicLevel(), contentX + CONTENT_W - PAD - 26, rowY + ROW_H - 8);
+        }
         font.getData().setScale(1f);
         font.setColor(Color.WHITE);
         batch.end();
@@ -2539,6 +2643,25 @@ public class SidePanel {
                     }
                 }
             }
+            case MAGIC -> {
+                int magicLevel = skillLevels[5];
+                final int ROW_H = 34;
+                int startY = cY + CONTENT_H - 28;
+                int contentX = panelX + CONTENT_INSET;
+                List<SpellRegistry.Spell> spells = SpellRegistry.allSpells();
+                for (int i = 0; i < spells.size(); i++) {
+                    SpellRegistry.Spell s = spells.get(i);
+                    int rowY = startY - (i + 1) * ROW_H + 2;
+                    if (mx >= contentX + 8 && mx <= contentX + CONTENT_W - 8
+                     && my >= rowY && my <= rowY + ROW_H - 2) {
+                        if (magicLevel >= s.magicLevel()) {
+                            // Toggle: clicking selected spell deselects it
+                            pendingSpellSelected = (selectedSpellId == s.id()) ? -1 : s.id();
+                        }
+                        return -1;
+                    }
+                }
+            }
             case INVENTORY -> inventoryUI.handleMouseDown(mx, my, 0);
             case SKILLS -> {
                 // Detect which skill cell was clicked using the same layout as renderSkillsTab
@@ -2594,6 +2717,17 @@ public class SidePanel {
     public boolean isLogoutTabActive()   { return activeTab == Tab.LOGOUT; }
     public void    confirmLogout()       { logoutConfirmed = true; activeTab = Tab.INVENTORY; }
     public void    cancelLogout()        { if (activeTab == Tab.LOGOUT) activeTab = Tab.INVENTORY; }
+
+    // Magic tab public API (called from GameScreen)
+    public boolean isMagicTabActive() { return activeTab == Tab.MAGIC; }
+    public void setSelectedSpellId(int id) { this.selectedSpellId = id; }
+    public int getSelectedSpellId() { return selectedSpellId; }
+    /** Returns the spell ID that was just clicked, resetting the pending state. Returns -2 if nothing was clicked. */
+    public int consumePendingSpellSelected() {
+        int id = pendingSpellSelected;
+        pendingSpellSelected = -2;
+        return id;
+    }
 
     // Friends tab public API (called from GameScreen)
     public boolean isAddFriendOverlayActive() { return addFriendOverlay; }

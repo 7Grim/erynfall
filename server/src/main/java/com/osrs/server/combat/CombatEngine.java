@@ -5,6 +5,7 @@ import com.osrs.shared.CombatStyle;
 import com.osrs.shared.ItemDefinition;
 import com.osrs.shared.NPC;
 import com.osrs.shared.Player;
+import com.osrs.shared.SpellRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -58,6 +59,35 @@ public class CombatEngine {
         double hitChance = hitChance(attackRoll, defenceRoll);
 
         int maxHit = playerMaxHit(attacker, bonuses);
+
+        return resolve(hitChance, maxHit, serverTick, attacker.getId(), target.getId());
+    }
+
+    /**
+     * Resolve a single magic attack tick.
+     *
+     * Magic attack roll = effectiveMagicLevel × (magicAttackBonus + 64)
+     *   effectiveMagicLevel = magicLevel + 8  (magic has no style attack bonus in standard spells)
+     *
+     * Magic max hit = spell.baseMaxHit × (1 + magicDamageBonus / 100)
+     *   magicDamageBonus comes from equipment (e.g. tome of fire, arcane spirit shield).
+     *
+     * Source: https://oldschool.runescape.wiki/w/Maximum_hit#Magic
+     *         https://oldschool.runescape.wiki/w/Hit_chance#Magic
+     */
+    public HitResult calculateMagicHit(Player attacker, NPC target, long serverTick, SpellRegistry.Spell spell) {
+        BonusSet bonuses = EquipmentBonusCalculator.calculate(attacker, itemDefs);
+
+        int magicLevel = attacker.getSkillLevel(Player.SKILL_MAGIC);
+        // Standard spells: no combat-style attack bonus (unlike melee Accurate +3)
+        int effectiveMagic = magicLevel + 8;
+        int attackRoll  = effectiveMagic * (bonuses.magicAttack + 64);
+        int defenceRoll = npcDefenceRoll(target);
+        double hitChance = hitChance(attackRoll, defenceRoll);
+
+        // Max hit scales with equipment magic damage bonus (e.g. 10 = +10%)
+        int maxHit = Math.max(1, spell.baseMaxHit()
+            + (int) Math.floor(spell.baseMaxHit() * bonuses.magicDamage / 100.0));
 
         return resolve(hitChance, maxHit, serverTick, attacker.getId(), target.getId());
     }

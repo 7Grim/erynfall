@@ -406,6 +406,16 @@ public class NettyClient {
         LOG.debug("Sent TogglePrayer: id={}", prayerId);
     }
 
+    public void sendSetSpell(int spellId) {
+        if (channel == null || !channel.isActive()) return;
+        channel.writeAndFlush(NetworkProto.ClientMessage.newBuilder()
+            .setSetSpell(NetworkProto.SetSpell.newBuilder()
+                .setSpellId(spellId)
+                .setSequence(System.currentTimeMillis()))
+            .build());
+        LOG.debug("Sent SetSpell: id={}", spellId);
+    }
+
     public void sendSetAutoRetaliate(boolean enabled) {
         if (channel == null || !channel.isActive()) return;
         channel.writeAndFlush(NetworkProto.ClientMessage.newBuilder()

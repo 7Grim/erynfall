@@ -19,6 +19,7 @@ import com.osrs.shared.SkillingAction;
 import com.osrs.shared.FishingRegistry;
 import com.osrs.shared.MiningRegistry;
 import com.osrs.shared.RangedRegistry;
+import com.osrs.shared.SpellRegistry;
 import com.osrs.shared.WeaponRegistry;
 import com.osrs.shared.WoodcuttingRegistry;
 import org.slf4j.Logger;
@@ -545,14 +546,17 @@ public class GameLoop {
             }
 
             // Per-weapon attack speed: ranged bows use RangedRegistry (accounts for Rapid style);
-            // melee and unarmed fall back to WeaponRegistry (default 4 OSRS ticks = fist speed).
+            // magic spells use SpellRegistry fixed speed; melee/unarmed use WeaponRegistry.
             int equippedWeaponId = player.getEquipment(EquipmentSlot.WEAPON);
             String weaponType = com.osrs.server.combat.EquipmentBonusCalculator
                 .getWeaponType(player, world.getItemDefs());
             boolean isRanged = "ranged".equals(weaponType);
+            boolean isMagic  = "magic".equals(weaponType);
             int attackSpeed = isRanged
                 ? RangedRegistry.getAttackSpeedServerTicks(equippedWeaponId, player.getCombatStyle())
-                : WeaponRegistry.getAttackSpeedServerTicks(equippedWeaponId);
+                : isMagic
+                    ? SpellRegistry.ATTACK_SPEED_SERVER_TICKS
+                    : WeaponRegistry.getAttackSpeedServerTicks(equippedWeaponId);
             if (tickCount - player.getLastAttackTick() < attackSpeed) {
                 continue;
             }
@@ -575,7 +579,43 @@ public class GameLoop {
                 }
             }
 
-            CombatEngine.HitResult result = combatEngine.calculateHit(player, target, tickCount);
+            // Magic spell checks: selected spell, level requirement, and rune availability.
+            SpellRegistry.Spell spell = null;
+            if (isMagic) {
+                spell = SpellRegistry.getById(player.getSelectedSpellId());
+                if (spell == null) {
+                    nettyServer.sendToPlayer(player.getId(),
+                        NetworkProto.ServerMessage.newBuilder()
+                            .setChatMessage(NetworkProto.ChatMessage.newBuilder()
+                                .setText("You must select a spell to auto-cast."))
+                            .build());
+                    player.setCombatTarget(-1);
+                    continue;
+                }
+                if (player.getSkillLevel(Player.SKILL_MAGIC) < spell.magicLevel()) {
+                    nettyServer.sendToPlayer(player.getId(),
+                        NetworkProto.ServerMessage.newBuilder()
+                            .setChatMessage(NetworkProto.ChatMessage.newBuilder()
+                                .setText("You need level " + spell.magicLevel()
+                                    + " Magic to cast " + spell.name() + "."))
+                            .build());
+                    player.setCombatTarget(-1);
+                    continue;
+                }
+                if (!hasRunesForSpell(player, spell)) {
+                    nettyServer.sendToPlayer(player.getId(),
+                        NetworkProto.ServerMessage.newBuilder()
+                            .setChatMessage(NetworkProto.ChatMessage.newBuilder()
+                                .setText("You don't have enough runes to cast " + spell.name() + "."))
+                            .build());
+                    player.setCombatTarget(-1);
+                    continue;
+                }
+            }
+
+            CombatEngine.HitResult result = isMagic
+                ? combatEngine.calculateMagicHit(player, target, tickCount, spell)
+                : combatEngine.calculateHit(player, target, tickCount);
 
             int newTargetHealth = target.getHealth();
             if (result.hit) {
@@ -606,10 +646,18 @@ public class GameLoop {
                 consumeArrow(player, target, result.hit);
             }
 
+            // Magic: award base cast XP (always, even on miss) and consume runes.
+            if (isMagic && spell != null) {
+                sendSkillUpdate(player, Player.SKILL_MAGIC, spell.castXpTenths());
+                consumeRunes(player, spell);
+            }
+
             player.setLastAttackTick(tickCount);
 
-            // Determine projectile type for Phase 2 client rendering
-            int projectileType = isRanged ? 1 : 0; // 1=arrow; future: bolts/spells
+            // Determine projectile type for client rendering
+            int projectileType = 0; // 0=melee (no projectile)
+            if (isRanged) projectileType = 1; // arrow
+            else if (isMagic && spell != null) projectileType = SpellRegistry.projectileType(spell.element());
 
             // Broadcast CombatHit to all clients
             NetworkProto.ServerMessage combatMsg = NetworkProto.ServerMessage.newBuilder()
@@ -1107,6 +1155,78 @@ public class GameLoop {
     }
 
     /**
+     * Returns true if the player has sufficient runes in their inventory to cast
+     * the given spell.  Runes provided by an equipped elemental staff are treated
+     * as unlimited and do not need to be in the inventory.
+     */
+    private boolean hasRunesForSpell(Player player, SpellRegistry.Spell spell) {
+        int staffRuneId = SpellRegistry.staffAutoRuneId(player.getEquipment(EquipmentSlot.WEAPON));
+        for (SpellRegistry.RuneCost cost : spell.runes()) {
+            if (cost.runeId() == staffRuneId) continue; // staff provides this rune type
+            if (countInventoryItem(player, cost.runeId()) < cost.quantity()) return false;
+        }
+        return true;
+    }
+
+    /** Counts total quantity of a stackable item across all 28 inventory slots. */
+    private int countInventoryItem(Player player, int itemId) {
+        int total = 0;
+        for (int slot = 0; slot < 28; slot++) {
+            if (player.getInventoryItemId(slot) == itemId) {
+                total += player.getInventoryQuantity(slot);
+            }
+        }
+        return total;
+    }
+
+    /**
+     * Consumes the runes required for one cast of the given spell from the player's
+     * inventory.  Runes provided by an equipped elemental staff are skipped.
+     * Sends InventoryUpdate packets for any changed slots.
+     */
+    private void consumeRunes(Player player, SpellRegistry.Spell spell) {
+        int staffRuneId = SpellRegistry.staffAutoRuneId(player.getEquipment(EquipmentSlot.WEAPON));
+        for (SpellRegistry.RuneCost cost : spell.runes()) {
+            if (cost.runeId() == staffRuneId) continue;
+            removeInventoryItem(player, cost.runeId(), cost.quantity());
+        }
+    }
+
+    /**
+     * Removes up to {@code qty} of {@code itemId} from the player's inventory,
+     * scanning from slot 0 upward.  Sends InventoryUpdate for each modified slot.
+     */
+    private void removeInventoryItem(Player player, int itemId, int qty) {
+        int remaining = qty;
+        for (int slot = 0; slot < 28 && remaining > 0; slot++) {
+            if (player.getInventoryItemId(slot) != itemId) continue;
+            int inSlot = player.getInventoryQuantity(slot);
+            if (inSlot <= remaining) {
+                remaining -= inSlot;
+                player.setInventoryItem(slot, 0, 0);
+                nettyServer.sendToPlayer(player.getId(),
+                    NetworkProto.ServerMessage.newBuilder()
+                        .setInventoryUpdate(NetworkProto.InventoryUpdate.newBuilder()
+                            .setSlot(slot).setItemId(0).setQuantity(0)
+                            .setItemName("").setFlags(0))
+                        .build());
+            } else {
+                int newQty = inSlot - remaining;
+                remaining = 0;
+                player.setInventoryItem(slot, itemId, newQty);
+                ItemDefinition def = world.getItemDef(itemId);
+                nettyServer.sendToPlayer(player.getId(),
+                    NetworkProto.ServerMessage.newBuilder()
+                        .setInventoryUpdate(NetworkProto.InventoryUpdate.newBuilder()
+                            .setSlot(slot).setItemId(itemId).setQuantity(newQty)
+                            .setItemName(def != null ? def.name : "")
+                            .setFlags(def != null ? def.getFlags() : 0))
+                        .build());
+            }
+        }
+    }
+
+    /**
      * Spawn loot drops on the ground at the NPC's tile when it dies.
      * Delegates loot rolling to World (which has access to package-private WorldData).
      * Sends each spawned item to the killer only (owner-only until OWNER_ONLY_TICKS elapses).
@@ -1179,6 +1299,15 @@ public class GameLoop {
     private void awardCombatXp(Player player, int damage, String weaponType) {
         long mainXp = damage * 40L;                       // 4.0 XP/damage stored as tenths
         long hpXp   = Math.round(damage * 13.3);          // 1.33 XP/damage stored as tenths
+
+        // Magic: base cast XP is already awarded separately (even on miss).
+        // On a hit, award additional 2.0 Magic XP/damage + 1.33 HP XP/damage.
+        // Source: https://oldschool.runescape.wiki/w/Magic#Experience
+        if ("magic".equals(weaponType)) {
+            sendSkillUpdate(player, Player.SKILL_MAGIC,    damage * 20L);  // 2.0 XP/damage
+            sendSkillUpdate(player, Player.SKILL_HITPOINTS, hpXp);
+            return;
+        }
 
         if ("ranged".equals(weaponType)) {
             CombatStyle style = player.getCombatStyle();

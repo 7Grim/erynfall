@@ -1668,3 +1668,112 @@ items:
     store_value: 1200
     equipable: false
     consumable: false
+
+  # ── Runes ──────────────────────────────────────────────────────────────────
+  # All rune stats from https://oldschool.runescape.wiki/w/Rune
+
+  - id: 556
+    name: "Air rune"
+    examine: "One of the four basic elemental runes."
+    stackable: true
+    store_value: 4
+    equipable: false
+    consumable: false
+
+  - id: 555
+    name: "Water rune"
+    examine: "One of the four basic elemental runes."
+    stackable: true
+    store_value: 4
+    equipable: false
+    consumable: false
+
+  - id: 557
+    name: "Earth rune"
+    examine: "One of the four basic elemental runes."
+    stackable: true
+    store_value: 4
+    equipable: false
+    consumable: false
+
+  - id: 554
+    name: "Fire rune"
+    examine: "One of the four basic elemental runes."
+    stackable: true
+    store_value: 4
+    equipable: false
+    consumable: false
+
+  - id: 558
+    name: "Mind rune"
+    examine: "A slightly magical rune."
+    stackable: true
+    store_value: 2
+    equipable: false
+    consumable: false
+
+  - id: 562
+    name: "Chaos rune"
+    examine: "Used for medium-level missile spells."
+    stackable: true
+    store_value: 65
+    equipable: false
+    consumable: false
+
+  # ── Elemental Staves ────────────────────────────────────────────────────────
+  # All stats from https://oldschool.runescape.wiki/w/Air_staff (and siblings)
+  # weapon_type: "magic" — triggers magic combat formulas
+  # attack_range: 7 — standard magic combat tile range
+  # Each staff auto-provides unlimited runes of its element (handled by SpellRegistry.staffAutoRuneId)
+
+  - id: 1381
+    name: "Air staff"
+    examine: "A staff of elemental air. Provides unlimited air runes."
+    stackable: false
+    store_value: 1500
+    equipable: true
+    consumable: false
+    equip_slot: 4
+    weapon_type: "magic"
+    attack_range: 7
+    magic_attack: 10
+    attack_req: 1
+
+  - id: 1383
+    name: "Water staff"
+    examine: "A staff of elemental water. Provides unlimited water runes."
+    stackable: false
+    store_value: 1500
+    equipable: true
+    consumable: false
+    equip_slot: 4
+    weapon_type: "magic"
+    attack_range: 7
+    magic_attack: 10
+    attack_req: 1
+
+  - id: 1385
+    name: "Earth staff"
+    examine: "A staff of elemental earth. Provides unlimited earth runes."
+    stackable: false
+    store_value: 1500
+    equipable: true
+    consumable: false
+    equip_slot: 4
+    weapon_type: "magic"
+    attack_range: 7
+    magic_attack: 10
+    attack_req: 1
+
+  - id: 1387
+    name: "Fire staff"
+    examine: "A staff of elemental fire. Provides unlimited fire runes."
+    stackable: false
+    store_value: 1500
+    equipable: true
+    consumable: false
+    equip_slot: 4
+    weapon_type: "magic"
+    attack_range: 7
+    magic_attack: 14
+    attack_req: 1

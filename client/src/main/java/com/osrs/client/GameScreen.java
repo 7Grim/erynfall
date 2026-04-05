@@ -228,35 +228,43 @@ public class GameScreen extends ApplicationAdapter {
     private int combatTargetId = -1;
 
     // -----------------------------------------------------------------------
-    // Projectile system (Phase 2 ranged visuals)
+    // Projectile system (Phase 2 ranged, Phase 3 magic visuals)
     // -----------------------------------------------------------------------
-    /** Arrow travel speed in tiles per second (matches OSRS shortbow feel). */
+    /** Arrow travel speed in tiles per second. */
     private static final float ARROW_SPEED_TILES_PER_SEC = 15f;
-    /** Peak arc height in isometric camera units (tiles are 16 units tall). */
+    /** Magic bolt travel speed in tiles per second (faster than arrows). */
+    private static final float SPELL_SPEED_TILES_PER_SEC = 22f;
+    /** Peak arc height in isometric camera units. */
     private static final float ARROW_ARC_HEIGHT = 24f;
+    /** Lower arc for magic (straighter trajectory). */
+    private static final float SPELL_ARC_HEIGHT = 10f;
 
     private static final class ActiveProjectile {
         final float srcTileX, srcTileY;
         final float dstTileX, dstTileY;
         final float duration;
         float elapsed;
-        // Hitsplat data applied when arrow lands
+        // Hitsplat data applied when projectile lands
         final int targetTileX, targetTileY;
         final int damage;
         final boolean hit;
         final String chatMessage;  // null = no message
+        /** projectile_type from CombatHit: 1=arrow, 3=wind, 4=water, 5=fire, 6=earth */
+        final int projectileType;
 
         ActiveProjectile(float srcX, float srcY, float dstX, float dstY, float duration,
-                         int targetTileX, int targetTileY, int damage, boolean hit, String chatMessage) {
-            this.srcTileX    = srcX;   this.srcTileY    = srcY;
-            this.dstTileX    = dstX;   this.dstTileY    = dstY;
-            this.duration    = duration;
-            this.elapsed     = 0f;
-            this.targetTileX = targetTileX;
-            this.targetTileY = targetTileY;
-            this.damage      = damage;
-            this.hit         = hit;
-            this.chatMessage = chatMessage;
+                         int targetTileX, int targetTileY, int damage, boolean hit,
+                         String chatMessage, int projectileType) {
+            this.srcTileX      = srcX;   this.srcTileY      = srcY;
+            this.dstTileX      = dstX;   this.dstTileY      = dstY;
+            this.duration      = duration;
+            this.elapsed       = 0f;
+            this.targetTileX   = targetTileX;
+            this.targetTileY   = targetTileY;
+            this.damage        = damage;
+            this.hit           = hit;
+            this.chatMessage   = chatMessage;
+            this.projectileType = projectileType;
         }
     }
 
@@ -799,6 +807,7 @@ public class GameScreen extends ApplicationAdapter {
         }
         sidePanel.setSkillData(lvls, xps);
         sidePanel.setMember(h.isMember());
+        sidePanel.setSelectedSpellId(h.getSelectedSpellId());
         if (localPlayerId >= 0) {
             String pname = h.getEntityName(localPlayerId);
             if (pname != null && !pname.isEmpty()) sidePanel.setPlayerName(pname);
@@ -1010,16 +1019,19 @@ public class GameScreen extends ApplicationAdapter {
                 : (evt.hit ? String.format("You hit for %d!", evt.damage) : "Your attack missed.");
 
             if (evt.projectileType > 0) {
-                // Ranged: spawn a flying projectile; hitsplat + chat deferred until it lands
+                // Ranged / magic: spawn a flying projectile; hitsplat deferred until it lands
                 float dx = evt.targetX - evt.attackerX;
                 float dy = evt.targetY - evt.attackerY;
                 float dist = (float) Math.sqrt(dx * dx + dy * dy);
-                float duration = Math.max(0.1f, dist / ARROW_SPEED_TILES_PER_SEC);
+                boolean isSpell = evt.projectileType >= 3;
+                float speed = isSpell ? SPELL_SPEED_TILES_PER_SEC : ARROW_SPEED_TILES_PER_SEC;
+                float duration = Math.max(0.08f, dist / speed);
                 activeProjectiles.add(new ActiveProjectile(
                     evt.attackerX, evt.attackerY,
                     evt.targetX,   evt.targetY,
                     duration,
-                    evt.targetX, evt.targetY, evt.damage, evt.hit, chatMsg));
+                    evt.targetX, evt.targetY, evt.damage, evt.hit, chatMsg,
+                    evt.projectileType));
             } else {
                 // Melee / instant: show hitsplat immediately
                 combatUI.addDamageNumber(evt.targetX, evt.targetY, evt.damage, evt.hit);
@@ -1713,6 +1725,14 @@ public class GameScreen extends ApplicationAdapter {
                     skillGuidePopup.show(skillClickIdx,
                         handler().getSkillLevel(skillClickIdx),
                         handler().getSkillTotalXp(skillClickIdx));
+                }
+                // Magic tab: spell selection
+                int pendingSpell = sidePanel.consumePendingSpellSelected();
+                if (pendingSpell != -2) {
+                    // -1 = deselect, >=1 = spell ID
+                    sidePanel.setSelectedSpellId(pendingSpell);
+                    if (handler() != null) handler().setSelectedSpellId(pendingSpell);
+                    if (nettyClient != null) nettyClient.sendSetSpell(pendingSpell);
                 }
                 long removeFriendId = sidePanel.consumeRemoveFriendRequestedId();
                 if (removeFriendId > 0) {
@@ -3426,16 +3446,24 @@ public class GameScreen extends ApplicationAdapter {
         if (activeProjectiles.isEmpty()) return;
         shapeRenderer.setProjectionMatrix(camera.combined);
         shapeRenderer.begin(com.badlogic.gdx.graphics.glutils.ShapeRenderer.ShapeType.Filled);
-        shapeRenderer.setColor(1f, 0.72f, 0.1f, 1f); // arrow: orange-gold
         for (ActiveProjectile p : activeProjectiles) {
             float progress = p.duration > 0f ? (p.elapsed / p.duration) : 1f;
             float tileX = p.srcTileX + (p.dstTileX - p.srcTileX) * progress;
             float tileY = p.srcTileY + (p.dstTileY - p.srcTileY) * progress;
             float sx = renderer.worldToScreenX(tileX, tileY);
             float sy = renderer.worldToScreenY(tileX, tileY);
-            // Parabolic arc — peaks at midpoint, zero at src and dst
-            sy += ARROW_ARC_HEIGHT * (float) Math.sin(Math.PI * progress);
-            shapeRenderer.circle(sx, sy, 4f, 8);
+            float arcH = (p.projectileType >= 3) ? SPELL_ARC_HEIGHT : ARROW_ARC_HEIGHT;
+            sy += arcH * (float) Math.sin(Math.PI * progress);
+            // Colour by projectile type
+            switch (p.projectileType) {
+                case 3  -> shapeRenderer.setColor(0.90f, 0.90f, 0.90f, 1f); // wind: white
+                case 4  -> shapeRenderer.setColor(0.25f, 0.60f, 1.00f, 1f); // water: blue
+                case 5  -> shapeRenderer.setColor(1.00f, 0.40f, 0.10f, 1f); // fire: orange-red
+                case 6  -> shapeRenderer.setColor(0.30f, 0.75f, 0.25f, 1f); // earth: green
+                default -> shapeRenderer.setColor(1f, 0.72f, 0.1f, 1f);     // arrow: orange-gold
+            }
+            float radius = (p.projectileType >= 3) ? 5f : 4f;
+            shapeRenderer.circle(sx, sy, radius, 10);
         }
         shapeRenderer.end();
     }

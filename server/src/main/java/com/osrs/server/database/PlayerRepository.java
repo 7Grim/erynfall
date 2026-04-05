@@ -248,7 +248,7 @@ public class PlayerRepository {
                         "mining_xp = ?, smithing_xp = ?, firemaking_xp = ?, crafting_xp = ?, " +
                         "runecrafting_xp = ?, fletching_xp = ?, agility_xp = ?, herblore_xp = ?, " +
                         "thieving_xp = ?, slayer_xp = ?, farming_xp = ?, hunter_xp = ?, construction_xp = ?, " +
-                        "prayer_points = ? " +
+                        "prayer_points = ?, selected_spell_id = ? " +
                         "WHERE LOWER(username) = LOWER(?)"
                 );
                 ps.setInt(1, player.getX());
@@ -277,7 +277,8 @@ public class PlayerRepository {
                 ps.setLong(24, player.getSkillXp(Player.SKILL_HUNTER));
                 ps.setLong(25, player.getSkillXp(Player.SKILL_CONSTRUCTION));
                 ps.setInt(26, Math.max(1, player.getSkillLevel(Player.SKILL_PRAYER)));
-                ps.setString(27, player.getName());
+                ps.setInt(27, player.getSelectedSpellId());
+                ps.setString(28, player.getName());
                 updatedRows = ps.executeUpdate();
             } catch (SQLException extendedErr) {
                 PreparedStatement ps = conn.prepareStatement(
@@ -938,6 +939,7 @@ public class PlayerRepository {
         player.setSkillXp(Player.SKILL_HUNTER, safeGetLong(rs, "hunter_xp", 0L));
         player.setSkillXp(Player.SKILL_CONSTRUCTION, safeGetLong(rs, "construction_xp", 0L));
         loadEquipment(player, rs);
+        player.setSelectedSpellId(safeGetInt(rs, "selected_spell_id", -1));
         boolean isMember = false;
         try { isMember = rs.getBoolean("is_member"); } catch (SQLException ignored) {}
         player.setMember(isMember);

@@ -267,8 +267,10 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
     private final int[]    equipmentItemIds = new int[11];
     private final String[] equipmentNames   = new String[11];
     private final int[] equipBonuses = new int[14]; // indices 0-13: stab_attack...prayer
-    /** Current weapon attack range; 1 = melee, 7 = shortbow, etc. */
+    /** Current weapon attack range; 1 = melee, 7 = shortbow/magic staff, etc. */
     private volatile int playerAttackRange = 1;
+    /** Currently selected auto-cast spell ID (-1 = none). */
+    private volatile int selectedSpellId = -1;
 
     // -----------------------------------------------------------------------
     // Ground items: groundItemId → int[]{itemId, quantity, x, y}
@@ -368,6 +370,8 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
             myPlayerId = response.getPlayerId();
             localPlayerIsMember = response.getIsMember();
             localPlayerIsAdminToolsEnabled = response.getIsAdminToolsEnabled();
+            // Restore persisted spell selection from server
+            selectedSpellId = response.getSelectedSpellId();
         } else {
             localPlayerIsAdminToolsEnabled = false;
         }
@@ -1095,6 +1099,8 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
     public String getEquipmentName(int slot)     { return (slot >= 0 && slot < 11) ? equipmentNames[slot]   : ""; }
     public int[] getEquipBonuses() { return equipBonuses; }
     public int   getPlayerAttackRange()          { return playerAttackRange; }
+    public int   getSelectedSpellId()            { return selectedSpellId; }
+    public void  setSelectedSpellId(int id)      { this.selectedSpellId = id; }
 
     /** Snapshot of all ground items — safe to read on the render thread. */
     public Map<Integer, int[]>  getGroundItems()     { return groundItems; }
