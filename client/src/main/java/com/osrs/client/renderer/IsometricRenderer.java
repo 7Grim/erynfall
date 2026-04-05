@@ -325,19 +325,36 @@ public class IsometricRenderer {
     private static String npcSpriteKey(String npcName) {
         if (npcName == null) return "npc_unknown";
         return switch (npcName) {
+            // --- Tutorial staff ---
             case "Tutorial Guide"    -> "npc_guide";
             case "Combat Instructor" -> "npc_instructor";
+            case "Banker"            -> "npc_banker";
+            // --- Combat creatures ---
             case "Rat"               -> "npc_rat";
             case "Giant Rat"         -> "npc_giant_rat";
             case "Chicken"           -> "npc_chicken";
             case "Cow"               -> "npc_cow";
             case "Goblin"            -> "npc_goblin";
+            // --- Trees ---
             case "Tree"              -> "tree";
             case "Oak Tree"          -> "tree_oak";
             case "Willow Tree"       -> "tree_willow";
+            case "Teak Tree"         -> "tree_teak";
             case "Maple Tree"        -> "tree_maple";
+            case "Mahogany Tree"     -> "tree_mahogany";
             case "Yew Tree"          -> "tree_yew";
             case "Magic Tree"        -> "tree_magic";
+            // --- Mining rocks ---
+            case "Copper Rock"       -> "rock_copper";
+            case "Tin Rock"          -> "rock_tin";
+            case "Iron Rock"         -> "rock_iron";
+            case "Silver Rock"       -> "rock_silver";
+            case "Coal Rock"         -> "rock_coal";
+            case "Gold Rock"         -> "rock_gold";
+            case "Mithril Rock"      -> "rock_mithril";
+            case "Adamantite Rock"   -> "rock_adamantite";
+            case "Runite Rock"       -> "rock_runite";
+            // --- Other ---
             case "Fishing Spot"      -> "fishing_spot";
             case "Cooking Fire"      -> "fire";
             default                  -> "npc_unknown";
@@ -364,19 +381,36 @@ public class IsometricRenderer {
 
         sr.begin(ShapeRenderer.ShapeType.Filled);
         switch (npcName == null ? "" : npcName) {
+            // --- Tutorial staff ---
             case "Tutorial Guide"    -> drawGuide(sx, sy);
             case "Combat Instructor" -> drawInstructor(sx, sy);
+            case "Banker"            -> drawBanker(sx, sy);
+            // --- Combat creatures ---
             case "Rat"               -> drawRat(sx, sy);
             case "Giant Rat"         -> drawGiantRat(sx, sy);
             case "Chicken"           -> drawChicken(sx, sy);
             case "Cow"               -> drawCow(sx, sy);
             case "Goblin"            -> drawGoblin(sx, sy);
+            // --- Trees ---
             case "Tree"              -> drawDecorativeTree(sx, sy);
             case "Oak Tree"          -> drawOakTree(sx, sy);
             case "Willow Tree"       -> drawWillowTree(sx, sy);
+            case "Teak Tree"         -> drawTeakTree(sx, sy);
             case "Maple Tree"        -> drawMapleTree(sx, sy);
+            case "Mahogany Tree"     -> drawMahoganyTree(sx, sy);
             case "Yew Tree"          -> drawYewTree(sx, sy);
             case "Magic Tree"        -> drawMagicTree(sx, sy);
+            // --- Mining rocks ---
+            case "Copper Rock"       -> drawRock(sx, sy, 0.80f, 0.40f, 0.15f);
+            case "Tin Rock"          -> drawRock(sx, sy, 0.75f, 0.78f, 0.80f);
+            case "Iron Rock"         -> drawRock(sx, sy, 0.55f, 0.30f, 0.18f);
+            case "Silver Rock"       -> drawRock(sx, sy, 0.88f, 0.88f, 0.92f);
+            case "Coal Rock"         -> drawRock(sx, sy, 0.15f, 0.15f, 0.16f);
+            case "Gold Rock"         -> drawRock(sx, sy, 0.95f, 0.80f, 0.10f);
+            case "Mithril Rock"      -> drawRock(sx, sy, 0.25f, 0.42f, 0.82f);
+            case "Adamantite Rock"   -> drawRock(sx, sy, 0.12f, 0.62f, 0.30f);
+            case "Runite Rock"       -> drawRock(sx, sy, 0.12f, 0.72f, 0.72f);
+            // --- Other ---
             case "Fishing Spot"      -> drawFishingSpot(sx, sy);
             case "Cooking Fire"      -> drawFire(sx, sy);
             default                  -> drawUnknownEntity(sx, sy);
@@ -705,6 +739,75 @@ public class IsometricRenderer {
         sr.rect(sx - 4, sy - 1, 8, 6);
         sr.setColor(1.00f, 0.80f, 0.25f, 1f);
         sr.rect(sx - 2, sy + 1, 4, 4);
+    }
+
+    /** Banker: blue waistcoat, white shirt, gold coin detail. */
+    private void drawBanker(float sx, float sy) {
+        // Legs — dark trousers
+        sr.setColor(0.20f, 0.18f, 0.30f, 1f);
+        sr.rect(sx - 4, sy - 8, 3, 6);
+        sr.rect(sx + 1, sy - 8, 3, 6);
+        // White shirt body
+        sr.setColor(0.94f, 0.94f, 0.90f, 1f);
+        sr.rect(sx - 5, sy - 2, 10, 8);
+        // Blue waistcoat overlay
+        sr.setColor(0.14f, 0.30f, 0.72f, 1f);
+        sr.rect(sx - 4, sy - 1, 8, 6);
+        // Gold coin accent (chest)
+        sr.setColor(0.95f, 0.78f, 0.10f, 1f);
+        sr.rect(sx - 1, sy + 2, 3, 2);
+        // Head
+        sr.setColor(SKIN);
+        sr.rect(sx - 3, sy + 6, 6, 6);
+        // Brown hair
+        sr.setColor(0.38f, 0.24f, 0.10f, 1f);
+        sr.rect(sx - 3, sy + 10, 6, 2);
+    }
+
+    /** Teak Tree (Lv 35): warm orange-brown tropical trunk, dense mid-green canopy. */
+    private void drawTeakTree(float sx, float sy) {
+        sr.setColor(0.55f, 0.30f, 0.10f, 1f);  // warm orange-brown trunk
+        sr.rect(sx - 3, sy - 6, 6, 12);
+        sr.setColor(0.22f, 0.52f, 0.20f, 1f);  // rich green canopy
+        sr.rect(sx - 12, sy + 4, 24, 7);
+        sr.rect(sx - 9, sy + 10, 18, 6);
+        sr.rect(sx - 5, sy + 15, 10, 4);
+        sr.setColor(0.32f, 0.65f, 0.28f, 1f);  // highlight
+        sr.rect(sx - 8, sy + 6, 16, 4);
+    }
+
+    /** Mahogany Tree (Lv 50): dark red-brown trunk, deep rich canopy. */
+    private void drawMahoganyTree(float sx, float sy) {
+        sr.setColor(0.38f, 0.14f, 0.08f, 1f);  // dark mahogany trunk
+        sr.rect(sx - 4, sy - 6, 8, 14);
+        sr.setColor(0.16f, 0.40f, 0.14f, 1f);  // deep dark green
+        sr.rect(sx - 14, sy + 5, 28, 8);
+        sr.rect(sx - 10, sy + 12, 20, 7);
+        sr.rect(sx - 6, sy + 18, 12, 5);
+        sr.setColor(0.22f, 0.52f, 0.18f, 1f);
+        sr.rect(sx - 10, sy + 7, 20, 4);
+    }
+
+    /**
+     * Generic rock node for all Mining ore types.
+     * The ore colour (r,g,b) is the vein colour visible on the grey boulder —
+     * provides instant visual distinction between rock tiers without needing
+     * nine separate draw methods.
+     */
+    private void drawRock(float sx, float sy, float or, float og, float ob) {
+        // Main boulder — dark grey base
+        sr.setColor(0.38f, 0.36f, 0.34f, 1f);
+        sr.rect(sx - 8, sy - 5, 16, 9);
+        // Lighter face highlight (top-left edge catches light)
+        sr.setColor(0.54f, 0.52f, 0.50f, 1f);
+        sr.rect(sx - 8, sy + 2, 10, 2);
+        sr.rect(sx - 8, sy - 1, 3, 4);
+        // Ore vein — coloured strip across the face
+        sr.setColor(or, og, ob, 1f);
+        sr.rect(sx - 5, sy - 1, 10, 3);
+        // Shadow undercut
+        sr.setColor(0.20f, 0.18f, 0.16f, 1f);
+        sr.rect(sx - 7, sy - 5, 14, 2);
     }
 
     /** Unknown entity marker used to make missing renderer cases obvious in-game. */
