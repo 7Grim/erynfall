@@ -351,6 +351,12 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             if (eqDef == null) continue;
             int qty = (slot == EquipmentSlot.AMMO) ? player.getAmmoQuantity() : 1;
             int range = (slot == EquipmentSlot.WEAPON) ? eqDef.attackRange : 0;
+            // Restore server-side weapon range on reconnect/login
+            if (slot == EquipmentSlot.WEAPON) {
+                player.setWeaponAttackRange(eqDef.attackRange);
+                LOG.debug("sendFullEquipment: restored weaponAttackRange={} for player {} (weapon={} id={})",
+                    eqDef.attackRange, player.getId(), eqDef.name, eqId);
+            }
             sendEquipmentUpdate(ctx, slot, eqId, eqDef.name, eqDef.getFlags(), qty, range);
         }
         sendEquipmentBonuses(ctx, player);
@@ -2269,6 +2275,8 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             // Update player's effective attack range from the newly equipped weapon
             if (equipSlot == EquipmentSlot.WEAPON) {
                 player.setWeaponAttackRange(def.attackRange);
+                LOG.debug("Player {} equipped weapon {} (id={}) attackRange={} → weaponAttackRange={}",
+                    player.getId(), def.name, def.id, def.attackRange, player.getWeaponAttackRange());
             }
 
             sendInventorySlot(ctx, player, slot);
