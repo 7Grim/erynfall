@@ -580,6 +580,7 @@ public class GameScreen extends ApplicationAdapter {
         }
 
         updateCameraZoom(delta);
+        renderer.update(delta);
         if (pickupAnimationTimer > 0) pickupAnimationTimer = Math.max(0f, pickupAnimationTimer - delta);
 
         // Camera always follows the player's interpolated visual position

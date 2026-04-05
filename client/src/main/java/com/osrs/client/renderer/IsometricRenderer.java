@@ -2,6 +2,7 @@ package com.osrs.client.renderer;
 
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.OrthographicCamera;
+import com.badlogic.gdx.graphics.g2d.Animation;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
@@ -40,6 +41,14 @@ public class IsometricRenderer {
      */
     private static final float ENTITY_FOOT_OFFSET = -8f;
 
+    /**
+     * How many screen pixels tall the south face of an elevated tile is.
+     * Wall tiles (type 3) and mining rocks get this face drawn below their
+     * top diamond, giving the illusion of height.
+     */
+    private static final float WALL_FACE_H = 10f;
+    private static final float ROCK_FACE_H =  5f;
+
     /** Minimum tile culling radius so we never under-draw at tight zoom. */
     private static final int MIN_RENDER_RADIUS = 36;
 
@@ -67,6 +76,12 @@ public class IsometricRenderer {
     /** Nullable — null means no atlas loaded, fall back to ShapeRenderer for everything. */
     private SpriteSheet spriteSheet;
 
+    /** Accumulated time in seconds — drives water animation and other effects. */
+    private float stateTime = 0f;
+
+    /** Reusable colour to avoid per-frame allocation for animated water. */
+    private final Color animWaterColor = new Color();
+
     public IsometricRenderer(OrthographicCamera camera, SpriteBatch batch, ShapeRenderer shapeRenderer) {
         this.camera = camera;
         this.batch  = batch;
@@ -79,6 +94,13 @@ public class IsometricRenderer {
      */
     public void setSpriteSheet(SpriteSheet sheet) {
         this.spriteSheet = sheet;
+    }
+
+    /**
+     * Advances the animation clock.  Call once per frame before renderWorld().
+     */
+    public void update(float delta) {
+        stateTime += delta;
     }
 
     // -----------------------------------------------------------------------
@@ -138,26 +160,55 @@ public class IsometricRenderer {
                 int type = (tileMap != null) ? tileMap[x][y] : 0;
                 float sx = worldToScreenX(x, y);
                 float sy = worldToScreenY(x, y);
-                fillDiamond(sx, sy, tileColor(type, x, y));
+
+                // Elevation faces drawn first so the top diamond sits on top
+                if (type == 3) drawElevationFace(sx, sy, WALL_FACE_H, 0.26f, 0.26f, 0.26f, 0.20f, 0.20f, 0.20f);
+
+                if (type == 1) {
+                    // Animated water — brightness ripple using two overlapping sine waves
+                    // per-tile phase offset creates a "moving water surface" illusion
+                    float phase = x * 0.72f + y * 1.13f;
+                    float wave  = 0.07f * (float) Math.sin(stateTime * 2.8f + phase)
+                                + 0.03f * (float) Math.sin(stateTime * 5.1f + phase * 1.6f);
+                    boolean a = (x + y) % 2 == 0;
+                    Color base = a ? WATER_A : WATER_B;
+                    animWaterColor.set(
+                        clamp(base.r + wave * 0.15f),
+                        clamp(base.g + wave * 0.10f),
+                        clamp(base.b + wave * 0.40f),
+                        1f);
+                    fillDiamond(sx, sy, animWaterColor);
+                } else {
+                    fillDiamond(sx, sy, tileColor(type, x, y));
+                }
             }
         }
 
         sr.end();
 
         // Sprite pass — draws atlas tiles on top of ShapeRenderer tiles.
-        // Only runs when the atlas is loaded and contains the relevant region.
+        // Water tiles use animation frames (tile_water_0, tile_water_1 …) when present.
         if (spriteSheet != null) {
             batch.setProjectionMatrix(camera.combined);
             batch.begin();
             for (int y = minY; y <= maxY; y++) {
                 for (int x = minX; x <= maxX; x++) {
                     int type = (tileMap != null) ? tileMap[x][y] : 0;
-                    String key = tileKey(type);
-                    TextureRegion region = spriteSheet.getTile(key);
+                    float sx = worldToScreenX(x, y);
+                    float sy = worldToScreenY(x, y);
+
+                    TextureRegion region = null;
+                    if (type == 1) {
+                        // Prefer animated water over static tile_water
+                        Animation<TextureRegion> waterAnim = spriteSheet.getAnimation("tile_water");
+                        if (waterAnim != null) {
+                            region = waterAnim.getKeyFrame(stateTime);
+                        }
+                    }
+                    if (region == null) {
+                        region = spriteSheet.getTile(tileKey(type));
+                    }
                     if (region != null) {
-                        float sx = worldToScreenX(x, y);
-                        float sy = worldToScreenY(x, y);
-                        // Draw tile sprite centred on the diamond centre point
                         batch.draw(region,
                             sx - TILE_WIDTH  / 2f,
                             sy - TILE_HEIGHT / 2f,
@@ -167,6 +218,46 @@ public class IsometricRenderer {
             }
             batch.end();
         }
+    }
+
+    private static float clamp(float v) { return Math.max(0f, Math.min(1f, v)); }
+
+    /**
+     * Draws the isometric south-west and south-east faces of an elevated tile,
+     * simulating wall height without a 3D engine.
+     *
+     * In our isometric system the "front" of a tile (facing the viewer) consists
+     * of two triangular faces below the top diamond:
+     *   SW face (left of bottom vertex)  — medium dark
+     *   SE face (right of bottom vertex) — darkest (faces away from implied sun)
+     *
+     * Both faces must be drawn BEFORE fillDiamond so the top surface sits on top.
+     */
+    private void drawElevationFace(float sx, float sy,
+                                   float faceH,
+                                   float swR, float swG, float swB,
+                                   float seR, float seG, float seB) {
+        float hw = TILE_WIDTH  / 2f;  // 16
+        float hh = TILE_HEIGHT / 2f;  //  8
+        // Diamond base vertices that form the visible front edge
+        float leftX  = sx - hw;  float leftY  = sy;
+        float rightX = sx + hw;  float rightY = sy;
+        float botX   = sx;       float botY   = sy - hh;
+
+        // Project each vertex straight down by faceH
+        float leftLowY  = leftY  - faceH;
+        float rightLowY = rightY - faceH;
+        float botLowY   = botY   - faceH;
+
+        // SW face: left-vertex → bottom-vertex → bottom-low → left-low
+        sr.setColor(swR, swG, swB, 1f);
+        sr.triangle(leftX,  leftY,   botX,  botY,   botX,  botLowY);
+        sr.triangle(leftX,  leftY,   botX,  botLowY, leftX, leftLowY);
+
+        // SE face: right-vertex → bottom-vertex → bottom-low → right-low
+        sr.setColor(seR, seG, seB, 1f);
+        sr.triangle(rightX, rightY,  botX,  botY,   botX,  botLowY);
+        sr.triangle(rightX, rightY,  botX,  botLowY, rightX, rightLowY);
     }
 
     /** Atlas key for a tile type int. */
