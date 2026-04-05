@@ -9,6 +9,8 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.Matrix4;
 
+import com.osrs.client.audio.AudioManager;
+import com.osrs.client.audio.MusicTrack;
 import com.osrs.shared.SpellRegistry;
 
 import java.util.ArrayList;
@@ -144,6 +146,10 @@ public class SidePanel {
     };
 
     private Tab activeTab = Tab.INVENTORY;   // default open tab (OSRS default)
+
+    // Music tab state
+    private AudioManager audioManager;
+    private int musicTabScroll = 0;   // scroll offset for track list (rows)
 
     // -----------------------------------------------------------------------
     // Sub-components / data
@@ -366,6 +372,10 @@ public class SidePanel {
         this.maxHp = max;
     }
 
+    public void setAudioManager(AudioManager am) {
+        this.audioManager = am;
+    }
+
     public void setPrayerState(int current, int max, java.util.Set<Integer> active) {
         this.currentPrayerPoints = current;
         this.maxPrayerPoints     = max;
@@ -438,6 +448,7 @@ public class SidePanel {
             case FRIENDS   -> renderFriendsTab(sr, batch, font, proj);
             case SETTINGS  -> renderCharacterTab(sr, batch, font, proj);
             case LOGOUT    -> renderLogoutTab(sr, batch, font, proj);
+            case MUSIC     -> renderMusicTab(sr, batch, font, proj);
             default        -> renderStubTab(sr, batch, font, proj, activeTab.label);
         }
 
@@ -628,6 +639,233 @@ public class SidePanel {
                 sr.rect(cx - 1, cy - 6, 2, 13);       // stem
                 sr.rect(cx + 1, cy + 5, 6, 2);        // flag horizontal
                 sr.rect(cx + 5, cy + 2, 2, 4);        // flag tail
+            }
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // Music tab
+    // -----------------------------------------------------------------------
+
+    /**
+     * Volume-control UI: 4 clickable bars per row (0 = off, 1-4 = low→full).
+     * Colour-filled bars = active level; darker = inactive.
+     *
+     * Layout within CONTENT area (CONTENT_W=186, CONTENT_H=312):
+     *   title row            cY + 295
+     *   separator            cY + 281
+     *   Music Volume row     cY + 265
+     *   Effects row          cY + 243
+     *   Ambient row          cY + 221
+     *   separator            cY + 208
+     *   Now playing          cY + 192
+     *   separator            cY + 177
+     *   [Auto] button        cY + 162
+     *   separator            cY + 148
+     *   Track list (18px/row, top→bottom)
+     */
+    private void renderMusicTab(ShapeRenderer sr, SpriteBatch batch, BitmapFont font, Matrix4 proj) {
+        int cx  = panelX + CONTENT_INSET;
+        int pad = 10;
+
+        // ── Title ──
+        batch.setProjectionMatrix(proj);
+        batch.begin();
+        font.getData().setScale(0.85f);
+        font.setColor(COLOR_TITLE_GOLD);
+        font.draw(batch, "Music", cx + pad, cY + CONTENT_H - 8);
+        font.getData().setScale(1f);
+        font.setColor(Color.WHITE);
+        batch.end();
+
+        sr.setProjectionMatrix(proj);
+        sr.begin(ShapeRenderer.ShapeType.Filled);
+        sr.setColor(0.45f, 0.38f, 0.22f, 1f);
+        sr.rect(cx + pad, cY + CONTENT_H - 20, CONTENT_W - pad * 2, 1);
+        sr.end();
+
+        // ── Volume controls ──
+        int[] volRows = { cY + CONTENT_H - 38, cY + CONTENT_H - 60, cY + CONTENT_H - 82 };
+        String[] volLabels = { "Music:", "Effects:", "Ambient:" };
+        int[] volLevels = audioManager == null ? new int[]{4, 4, 3}
+            : new int[]{ audioManager.getMusicLevel(), audioManager.getSfxLevel(), audioManager.getAmbientLevel() };
+
+        batch.setProjectionMatrix(proj);
+        batch.begin();
+        font.getData().setScale(0.75f);
+        for (int i = 0; i < 3; i++) {
+            font.setColor(0.80f, 0.78f, 0.60f, 1f);
+            font.draw(batch, volLabels[i], cx + pad, volRows[i] + 11);
+        }
+        font.getData().setScale(1f);
+        font.setColor(Color.WHITE);
+        batch.end();
+
+        sr.setProjectionMatrix(proj);
+        sr.begin(ShapeRenderer.ShapeType.Filled);
+        int barW = 14, barH = 10, barGap = 3;
+        int barStartX = cx + pad + 62;
+        for (int i = 0; i < 3; i++) {
+            int level = volLevels[i];
+            for (int b = 1; b <= AudioManager.MAX_VOLUME_LEVEL; b++) {
+                boolean active = b <= level;
+                if (active) sr.setColor(0.30f, 0.75f, 0.35f, 1f);  // green fill
+                else        sr.setColor(0.22f, 0.22f, 0.20f, 1f);  // dark empty
+                sr.rect(barStartX + (b - 1) * (barW + barGap), volRows[i], barW, barH);
+                // Border
+                sr.setColor(0.50f, 0.45f, 0.30f, 1f);
+                sr.rect(barStartX + (b - 1) * (barW + barGap),     volRows[i],          barW, 1);
+                sr.rect(barStartX + (b - 1) * (barW + barGap),     volRows[i] + barH - 1, barW, 1);
+                sr.rect(barStartX + (b - 1) * (barW + barGap),     volRows[i],          1, barH);
+                sr.rect(barStartX + (b - 1) * (barW + barGap) + barW - 1, volRows[i],  1, barH);
+            }
+        }
+
+        // ── Separator ──
+        sr.setColor(0.45f, 0.38f, 0.22f, 1f);
+        sr.rect(cx + pad, cY + CONTENT_H - 96, CONTENT_W - pad * 2, 1);
+
+        sr.end();
+
+        // ── Now playing ──
+        String nowPlaying = audioManager != null && audioManager.getActiveTrack() != null
+            ? (audioManager.isManualMode() ? "\u266b " : "\u266a ") + audioManager.getActiveTrack().displayName
+            : "[ silence ]";
+        batch.setProjectionMatrix(proj);
+        batch.begin();
+        font.getData().setScale(0.75f);
+        font.setColor(0.75f, 0.88f, 0.68f, 1f);
+        font.draw(batch, nowPlaying, cx + pad, cY + CONTENT_H - 101);
+        font.getData().setScale(1f);
+        font.setColor(Color.WHITE);
+        batch.end();
+
+        // ── Auto / Manual indicator + button ──
+        boolean manual = audioManager != null && audioManager.isManualMode();
+        int btnX = cx + pad;
+        int btnY = cY + CONTENT_H - 130;
+        int btnW = 44, btnH = 14;
+        sr.setProjectionMatrix(proj);
+        sr.begin(ShapeRenderer.ShapeType.Filled);
+        sr.setColor(manual ? 0.40f : 0.28f, manual ? 0.28f : 0.50f, 0.22f, 1f);
+        sr.rect(btnX, btnY, btnW, btnH);
+        sr.setColor(0.55f, 0.48f, 0.30f, 1f);
+        sr.rect(btnX, btnY, btnW, 1); sr.rect(btnX, btnY + btnH - 1, btnW, 1);
+        sr.rect(btnX, btnY, 1, btnH); sr.rect(btnX + btnW - 1, btnY, 1, btnH);
+        sr.end();
+        batch.setProjectionMatrix(proj);
+        batch.begin();
+        font.getData().setScale(0.70f);
+        font.setColor(Color.WHITE);
+        font.draw(batch, manual ? "Manual" : "Auto", btnX + 4, btnY + 11);
+        font.getData().setScale(1f);
+        batch.end();
+
+        // ── Separator ──
+        sr.setProjectionMatrix(proj);
+        sr.begin(ShapeRenderer.ShapeType.Filled);
+        sr.setColor(0.45f, 0.38f, 0.22f, 1f);
+        sr.rect(cx + pad, cY + CONTENT_H - 136, CONTENT_W - pad * 2, 1);
+        sr.end();
+
+        // ── Track list ──
+        MusicTrack[] tracks = audioManager != null ? audioManager.allTracks() : MusicTrack.values();
+        int trackListTop  = cY + CONTENT_H - 140;
+        int rowH          = 18;
+        int visibleRows   = trackListTop / rowH;  // how many fit from top down to cY
+        int startIdx      = Math.max(0, Math.min(musicTabScroll, Math.max(0, tracks.length - visibleRows)));
+
+        MusicTrack active = audioManager != null ? audioManager.getActiveTrack() : null;
+
+        batch.setProjectionMatrix(proj);
+        batch.begin();
+        font.getData().setScale(0.72f);
+
+        for (int i = startIdx; i < tracks.length; i++) {
+            int rowY = trackListTop - (i - startIdx) * rowH;
+            if (rowY < cY + 2) break;
+
+            MusicTrack t = tracks[i];
+            boolean unlocked = audioManager == null || audioManager.isUnlocked(t);
+            boolean playing  = t == active;
+
+            if (playing) {
+                sr.setProjectionMatrix(proj);
+                sr.begin(ShapeRenderer.ShapeType.Filled);
+                sr.setColor(0.20f, 0.32f, 0.20f, 1f);
+                sr.rect(cx + pad - 2, rowY - 4, CONTENT_W - pad * 2 + 4, rowH - 1);
+                sr.end();
+                batch.setProjectionMatrix(proj);
+                batch.begin();
+                font.getData().setScale(0.72f);
+            }
+
+            if (unlocked) {
+                font.setColor(playing ? 0.55f : 0.78f, playing ? 0.95f : 0.85f, playing ? 0.55f : 0.62f, 1f);
+                font.draw(batch, "\u266b " + t.displayName, cx + pad, rowY + 12);
+            } else {
+                font.setColor(0.40f, 0.38f, 0.32f, 1f);
+                font.draw(batch, "? " + t.displayName, cx + pad, rowY + 12);
+            }
+        }
+        font.getData().setScale(1f);
+        font.setColor(Color.WHITE);
+        batch.end();
+    }
+
+    /**
+     * Handle clicks within the music tab content area.
+     * Volume bar clicks adjust level.  Track row clicks play the track (if unlocked).
+     * The Auto/Manual button toggles manual mode.
+     */
+    private void handleMusicTabClick(int mx, int my) {
+        if (audioManager == null) return;
+        int cx  = panelX + CONTENT_INSET;
+        int pad = 10;
+
+        // ── Volume bars ──
+        int[] volRows = { cY + CONTENT_H - 38, cY + CONTENT_H - 60, cY + CONTENT_H - 82 };
+        int barW = 14, barH = 10, barGap = 3;
+        int barStartX = cx + pad + 62;
+        for (int i = 0; i < 3; i++) {
+            if (my < volRows[i] || my > volRows[i] + barH) continue;
+            for (int b = 1; b <= AudioManager.MAX_VOLUME_LEVEL; b++) {
+                int bx = barStartX + (b - 1) * (barW + barGap);
+                if (mx >= bx && mx < bx + barW) {
+                    if      (i == 0) audioManager.setMusicLevel(b);
+                    else if (i == 1) audioManager.setSfxLevel(b);
+                    else             audioManager.setAmbientLevel(b);
+                    return;
+                }
+            }
+            // Clicking left of all bars = mute
+            if (mx < barStartX) {
+                if      (i == 0) audioManager.setMusicLevel(0);
+                else if (i == 1) audioManager.setSfxLevel(0);
+                else             audioManager.setAmbientLevel(0);
+            }
+        }
+
+        // ── Auto / Manual button ──
+        int btnX = cx + pad, btnY = cY + CONTENT_H - 130, btnW = 44, btnH = 14;
+        if (mx >= btnX && mx < btnX + btnW && my >= btnY && my < btnY + btnH) {
+            if (audioManager.isManualMode()) audioManager.setAutoMode();
+            return;
+        }
+
+        // ── Track list ──
+        MusicTrack[] tracks = audioManager.allTracks();
+        int trackListTop = cY + CONTENT_H - 140;
+        int rowH = 18;
+        int visibleRows = trackListTop / rowH;
+        int startIdx = Math.max(0, Math.min(musicTabScroll, Math.max(0, tracks.length - visibleRows)));
+
+        for (int i = startIdx; i < tracks.length; i++) {
+            int rowY = trackListTop - (i - startIdx) * rowH;
+            if (rowY < cY + 2) break;
+            if (my >= rowY - 4 && my < rowY - 4 + rowH) {
+                audioManager.playManualTrack(tracks[i]);
+                return;
             }
         }
     }
@@ -2663,6 +2901,7 @@ public class SidePanel {
                 }
             }
             case INVENTORY -> inventoryUI.handleMouseDown(mx, my, 0);
+            case MUSIC     -> handleMusicTabClick(mx, my);
             case SKILLS -> {
                 // Detect which skill cell was clicked using the same layout as renderSkillsTab
                 final int COLS    = 3;

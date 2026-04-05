@@ -19,6 +19,7 @@ import com.osrs.client.network.ClientPacketHandler;
 import com.osrs.client.network.NettyClient;
 import com.osrs.client.renderer.CoordinateConverter;
 import com.osrs.client.renderer.IsometricRenderer;
+import com.osrs.client.audio.AudioManager;
 import com.osrs.client.renderer.SpriteSheet;
 import com.osrs.client.world.MapLoader;
 import com.osrs.client.ui.AdminToolsPopup;
@@ -113,6 +114,7 @@ public class GameScreen extends ApplicationAdapter {
     private IsometricRenderer renderer;
     /** Null when sprites.atlas has not been packed yet — falls back to ShapeRenderer. */
     private SpriteSheet      spriteSheet;
+    private AudioManager     audioManager;
     private BitmapFont       font;
     private Matrix4          screenProjection;
     private final GlyphLayout gl = new GlyphLayout();
@@ -436,6 +438,8 @@ public class GameScreen extends ApplicationAdapter {
         contextMenu = new ContextMenu();
         combatUI   = new CombatUI();
         sidePanel  = new SidePanel();
+        audioManager = game.getAudioManager();
+        sidePanel.setAudioManager(audioManager);
         dialogueUI = new DialogueUI();
         bankUI = new BankUI();
         miniMap = new MiniMap();
@@ -506,6 +510,132 @@ public class GameScreen extends ApplicationAdapter {
     // -----------------------------------------------------------------------
     // Render loop
     // -----------------------------------------------------------------------
+
+    private record GroundItemRenderEntry(int itemId, int quantity, int tileX, int tileY, float sortY, float sortX) {}
+
+    private record ActorRenderEntry(int entityId,
+                                    boolean isPlayer,
+                                    float tileX,
+                                    float tileY,
+                                    String npcName,
+                                    boolean pickingUp,
+                                    String playerPose,
+                                    int health,
+                                    int maxHealth,
+                                    float sortY,
+                                    float sortX) {}
+
+    private static final java.util.Comparator<GroundItemRenderEntry> GROUND_ITEM_RENDER_ORDER =
+        java.util.Comparator.comparingDouble(GroundItemRenderEntry::sortY)
+            .thenComparingDouble(GroundItemRenderEntry::sortX);
+
+    private static final java.util.Comparator<ActorRenderEntry> ACTOR_RENDER_ORDER =
+        java.util.Comparator.comparingDouble(ActorRenderEntry::sortY)
+            .thenComparingDouble(ActorRenderEntry::sortX)
+            .thenComparingInt(ActorRenderEntry::entityId);
+
+    // Depth sorting contract:
+    // - Ground items render first, sorted back-to-front
+    // - Actors/resources render next, sorted back-to-front
+    // - Health bars and overheads are separate overlay passes
+    // This keeps richer sprites readable without forcing a large renderer refactor yet.
+    private List<GroundItemRenderEntry> collectGroundItemRenderEntries() {
+        List<GroundItemRenderEntry> out = new ArrayList<>();
+        for (Map.Entry<Integer, int[]> entry : groundItemsOnMap.entrySet()) {
+            int[] data = entry.getValue();  // {itemId, qty, x, y}
+            int itemId = data[0];
+            int qty = data[1];
+            int x = data[2];
+            int y = data[3];
+            out.add(new GroundItemRenderEntry(
+                itemId,
+                qty,
+                x,
+                y,
+                renderer.worldToScreenY(x, y),
+                renderer.worldToScreenX(x, y)
+            ));
+        }
+        out.sort(GROUND_ITEM_RENDER_ORDER);
+        return out;
+    }
+
+    private List<ActorRenderEntry> collectActorRenderEntries(ClientPacketHandler handler) {
+        List<ActorRenderEntry> out = new ArrayList<>();
+        if (handler != null) {
+            for (Map.Entry<Integer, int[]> entry : handler.getEntityPositions().entrySet()) {
+                int id = entry.getKey();
+                if (localPlayerId >= 0 && id == localPlayerId) continue;
+
+                float[] vis = npcVisual.get(id);
+                if (vis == null) continue;
+
+                boolean isPlayerEntity = handler.isPlayer(id);
+                String npcName = isPlayerEntity ? null : handler.getEntityName(id);
+                int[] hp = handler.getEntityHealth(id);
+                int health = hp == null ? 0 : hp[0];
+                int maxHealth = hp == null ? 0 : hp[1];
+
+                out.add(new ActorRenderEntry(
+                    id,
+                    isPlayerEntity,
+                    vis[0],
+                    vis[1],
+                    npcName,
+                    false,
+                    null,
+                    health,
+                    maxHealth,
+                    renderer.worldToScreenY(vis[0], vis[1]),
+                    renderer.worldToScreenX(vis[0], vis[1])
+                ));
+            }
+        }
+
+        String localPose = attackAnimTimer > 0f ? currentAttackPose : null;
+        int localMaxHealth = playerMaxHealth > 0 ? playerMaxHealth : 0;
+        int localHealth = playerHealth > 0 ? playerHealth : 0;
+        out.add(new ActorRenderEntry(
+            localPlayerId >= 0 ? localPlayerId : Integer.MAX_VALUE,
+            true,
+            visualX,
+            visualY,
+            null,
+            pickupAnimationTimer > 0,
+            localPose,
+            localHealth,
+            localMaxHealth,
+            renderer.worldToScreenY(visualX, visualY),
+            renderer.worldToScreenX(visualX, visualY)
+        ));
+
+        out.sort(ACTOR_RENDER_ORDER);
+        return out;
+    }
+
+    private void renderGroundItemsLayer(List<GroundItemRenderEntry> entries) {
+        for (GroundItemRenderEntry entry : entries) {
+            renderer.renderGroundItem(entry.tileX(), entry.tileY(), entry.itemId(), entry.quantity());
+        }
+    }
+
+    private void renderActorsLayer(List<ActorRenderEntry> entries) {
+        for (ActorRenderEntry entry : entries) {
+            if (entry.isPlayer()) {
+                renderer.renderPlayer(entry.tileX(), entry.tileY(), entry.pickingUp(), entry.playerPose());
+            } else {
+                renderer.renderNPC(entry.tileX(), entry.tileY(), entry.entityId(), entry.npcName());
+            }
+        }
+    }
+
+    private void renderHealthBarsLayer(List<ActorRenderEntry> entries) {
+        for (ActorRenderEntry entry : entries) {
+            if (entry.maxHealth() > 0 && entry.health() < entry.maxHealth()) {
+                renderer.renderHealthBar(entry.tileX(), entry.tileY(), entry.health(), entry.maxHealth());
+            }
+        }
+    }
 
     @Override
     public void render() {
@@ -581,6 +711,10 @@ public class GameScreen extends ApplicationAdapter {
 
         updateCameraZoom(delta);
         renderer.update(delta);
+        if (audioManager != null) {
+            audioManager.update(delta);
+            audioManager.onPlayerMoved(playerX, playerY);
+        }
         if (pickupAnimationTimer > 0) pickupAnimationTimer = Math.max(0f, pickupAnimationTimer - delta);
 
         // Camera always follows the player's interpolated visual position
@@ -593,42 +727,17 @@ public class GameScreen extends ApplicationAdapter {
 
         // --- World ---
         renderer.renderWorld(tileMap, visualX, visualY);
-
-        // Ground items — rendered before NPCs and player
-        for (Map.Entry<Integer, int[]> entry : groundItemsOnMap.entrySet()) {
-            int[] data = entry.getValue();  // {itemId, qty, x, y}
-            renderer.renderGroundItem(data[2], data[3], data[0], data[1]);
-        }
-        renderGroundItemLabels();
-
-        // Entities — NPCs and other players at their interpolated visual positions
         ClientPacketHandler handler = handler();
-        if (handler != null) {
-            for (Map.Entry<Integer, int[]> entry : handler.getEntityPositions().entrySet()) {
-                int id = entry.getKey();
-                if (localPlayerId >= 0 && id == localPlayerId) continue;  // local player rendered below
-
-                float[] vis = npcVisual.get(id);
-                if (vis == null) continue;
-
-                if (handler.isPlayer(id)) {
-                    // Other connected player — render as player sprite (no action state known)
-                    renderer.renderPlayer(vis[0], vis[1], false, null);
-                } else {
-                    String npcName = handler.getEntityName(id);
-                    renderer.renderNPC(vis[0], vis[1], id, npcName);
-                }
-
-                int[] hp = handler.getEntityHealth(id);
-                if (hp[0] < hp[1]) {
-                    renderer.renderHealthBar(vis[0], vis[1], hp[0], hp[1]);
-                }
-            }
-        }
-
-        // Player (pickup animation plays for 1.8 s after item is clicked)
-        String playerPose = attackAnimTimer > 0f ? currentAttackPose : null;
-        renderer.renderPlayer(visualX, visualY, pickupAnimationTimer > 0, playerPose);
+        // World render layers:
+        //   1. Ground items (depth-sorted)
+        //   2. Actors/resources (depth-sorted, includes local player)
+        //   3. Health bars / overlays
+        List<GroundItemRenderEntry> groundItemEntries = collectGroundItemRenderEntries();
+        List<ActorRenderEntry> actorEntries = collectActorRenderEntries(handler);
+        renderGroundItemsLayer(groundItemEntries);
+        renderActorsLayer(actorEntries);
+        renderHealthBarsLayer(actorEntries);
+        renderGroundItemLabels();
 
         // Firemaking animation — fire on the player's tile
         if (firemakerAnimTimer > 0) {
@@ -1051,6 +1160,12 @@ public class GameScreen extends ApplicationAdapter {
                 combatUI.addDamageNumber(evt.targetX, evt.targetY, evt.damage, evt.hit);
                 chatBox.addSystemMessage(chatMsg);
             }
+            // Play hit or miss sound
+            if (audioManager != null) {
+                audioManager.playSfx(evt.hit
+                    ? com.osrs.client.audio.SoundEffect.COMBAT_HIT
+                    : com.osrs.client.audio.SoundEffect.COMBAT_MISS);
+            }
         }
 
         // XP drop events — show OSRS-style floating XP drops on the right side
@@ -1076,6 +1191,9 @@ public class GameScreen extends ApplicationAdapter {
                 firemakerAnimTimer = 2.5f;
                 firemakerFlicker   = 0f;
             }
+            if (audioManager != null) {
+                audioManager.playSfxForSkill(xp.skillIndex);
+            }
         }
 
         for (ClientPacketHandler.LevelUpEvent lvl : h.drainLevelUps()) {
@@ -1085,6 +1203,9 @@ public class GameScreen extends ApplicationAdapter {
                     "Congratulations, you just advanced a "
                     + skillNames[lvl.skillIndex] + " level. Your "
                     + skillNames[lvl.skillIndex] + " level is now " + lvl.newLevel + ".");
+                if (audioManager != null) {
+                    audioManager.playSfx(com.osrs.client.audio.SoundEffect.LEVEL_UP);
+                }
             }
         }
 
@@ -3667,6 +3788,7 @@ public class GameScreen extends ApplicationAdapter {
         if (screenBatch  != null) screenBatch.dispose();
         if (shapeRenderer!= null) shapeRenderer.dispose();
         if (spriteSheet  != null) spriteSheet.dispose();
+        // AudioManager lifetime is owned by ErynfallGame — do not dispose here.
         // FontManager owns shared font lifecycle.
     }
 

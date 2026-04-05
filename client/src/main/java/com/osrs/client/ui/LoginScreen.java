@@ -61,6 +61,11 @@ public class LoginScreen extends ScreenAdapter {
 
     @Override
     public void show() {
+        // Start login-screen music.  AudioManager handles missing .ogg gracefully.
+        if (game.getAudioManager() != null) {
+            game.getAudioManager().playLoginMusic();
+        }
+
         FontManager.initialize();
         font  = FontManager.regular();
         batch = new SpriteBatch();
