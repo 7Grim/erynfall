@@ -690,7 +690,8 @@ public class PlayerRepository {
         if (!DatabaseManager.isHealthy()) return;
         String sql = "UPDATE " + table("players") + " SET " +
             "equip_head=?, equip_cape=?, equip_neck=?, equip_ammo=?, equip_weapon=?," +
-            "equip_shield=?, equip_body=?, equip_legs=?, equip_hands=?, equip_feet=?, equip_ring=?" +
+            "equip_shield=?, equip_body=?, equip_legs=?, equip_hands=?, equip_feet=?, equip_ring=?," +
+            "ammo_quantity=?" +
             " WHERE id=?";
         try (Connection con = DatabaseManager.getConnection();
              PreparedStatement ps = con.prepareStatement(sql)) {
@@ -707,7 +708,8 @@ public class PlayerRepository {
             ps.setInt(9,  player.getEquipment(EquipmentSlot.HANDS));
             ps.setInt(10, player.getEquipment(EquipmentSlot.FEET));
             ps.setInt(11, player.getEquipment(EquipmentSlot.RING));
-            ps.setInt(12, dbId);
+            ps.setInt(12, player.getAmmoQuantity());
+            ps.setInt(13, dbId);
             ps.executeUpdate();
             con.commit();
         } catch (Exception e) {
@@ -719,7 +721,6 @@ public class PlayerRepository {
         player.setEquipment(EquipmentSlot.HEAD,   safeGetInt(rs, "equip_head",   0));
         player.setEquipment(EquipmentSlot.CAPE,   safeGetInt(rs, "equip_cape",   0));
         player.setEquipment(EquipmentSlot.NECK,   safeGetInt(rs, "equip_neck",   0));
-        player.setEquipment(EquipmentSlot.AMMO,   safeGetInt(rs, "equip_ammo",   0));
         player.setEquipment(EquipmentSlot.WEAPON, safeGetInt(rs, "equip_weapon", 0));
         player.setEquipment(EquipmentSlot.SHIELD, safeGetInt(rs, "equip_shield", 0));
         player.setEquipment(EquipmentSlot.BODY,   safeGetInt(rs, "equip_body",   0));
@@ -727,6 +728,18 @@ public class PlayerRepository {
         player.setEquipment(EquipmentSlot.HANDS,  safeGetInt(rs, "equip_hands",  0));
         player.setEquipment(EquipmentSlot.FEET,   safeGetInt(rs, "equip_feet",   0));
         player.setEquipment(EquipmentSlot.RING,   safeGetInt(rs, "equip_ring",   0));
+        // Ammo slot: only restore if quantity is also known; if qty=0 with an item ID
+        // the data is from before ammo_quantity was tracked — clear the slot to avoid
+        // the "run out of ammo immediately" bug from an inconsistent zero-qty equipped stack.
+        int ammoId  = safeGetInt(rs, "equip_ammo",    0);
+        int ammoQty = safeGetInt(rs, "ammo_quantity",  0);
+        if (ammoId > 0 && ammoQty > 0) {
+            player.setEquipment(EquipmentSlot.AMMO, ammoId);
+            player.setAmmoQuantity(ammoQty);
+        } else {
+            player.setEquipment(EquipmentSlot.AMMO, 0);
+            player.setAmmoQuantity(0);
+        }
     }
 
     public static void saveQuestProgress(Player player, QuestManager questManager) {
