@@ -19,6 +19,7 @@ import com.osrs.client.network.ClientPacketHandler;
 import com.osrs.client.network.NettyClient;
 import com.osrs.client.renderer.CoordinateConverter;
 import com.osrs.client.renderer.IsometricRenderer;
+import com.osrs.client.renderer.SpriteSheet;
 import com.osrs.client.world.MapLoader;
 import com.osrs.client.ui.AdminToolsPopup;
 import com.osrs.client.ui.ChatBox;
@@ -110,6 +111,8 @@ public class GameScreen extends ApplicationAdapter {
     private ShapeRenderer    shapeRenderer;
     private OrthographicCamera camera;
     private IsometricRenderer renderer;
+    /** Null when sprites.atlas has not been packed yet — falls back to ShapeRenderer. */
+    private SpriteSheet      spriteSheet;
     private BitmapFont       font;
     private Matrix4          screenProjection;
     private final GlyphLayout gl = new GlyphLayout();
@@ -426,6 +429,8 @@ public class GameScreen extends ApplicationAdapter {
             0, 0, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
 
         renderer   = new IsometricRenderer(camera, batch, shapeRenderer);
+        spriteSheet = SpriteSheet.load();
+        renderer.setSpriteSheet(spriteSheet);
         mapLoader  = MapLoader.load();
         tileMap    = mapLoader.getLayout();
         contextMenu = new ContextMenu();
@@ -564,6 +569,14 @@ public class GameScreen extends ApplicationAdapter {
         // Middle mouse button resets zoom to OSRS default
         if (Gdx.input.isButtonJustPressed(Input.Buttons.MIDDLE)) {
             targetZoom = ZOOM_DEFAULT;
+        }
+
+        // F5: hot-reload sprite atlas (run mvn generate-resources -pl client first)
+        if (Gdx.input.isKeyJustPressed(Input.Keys.F5)) {
+            if (spriteSheet != null) spriteSheet.dispose();
+            spriteSheet = SpriteSheet.load();
+            renderer.setSpriteSheet(spriteSheet);
+            LOG.info("Sprite atlas reloaded");
         }
 
         updateCameraZoom(delta);
@@ -3654,6 +3667,7 @@ public class GameScreen extends ApplicationAdapter {
         if (batch        != null) batch.dispose();
         if (screenBatch  != null) screenBatch.dispose();
         if (shapeRenderer!= null) shapeRenderer.dispose();
+        if (spriteSheet  != null) spriteSheet.dispose();
         // FontManager owns shared font lifecycle.
     }
 

@@ -76,6 +76,46 @@
 
     <build>
         <plugins>
+            <!-- TexturePacker: packs art/sprites/ → src/main/resources/sprites.atlas
+                 Uses antrun (not exec-maven-plugin) to avoid config-merge conflicts with
+                 the mac/non-mac profiles that also use exec-maven-plugin.
+                 failonerror="false" so the build succeeds when art/sprites/ has no PNGs
+                 yet (artist hasn't exported any files — ShapeRenderer fallback is used). -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-antrun-plugin</artifactId>
+                <version>3.1.0</version>
+                <executions>
+                    <execution>
+                        <id>pack-textures</id>
+                        <phase>generate-resources</phase>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                        <configuration>
+                            <skip>${skipTexturePack}</skip>
+                            <target>
+                                <java classname="com.badlogic.gdx.tools.texturepacker.TexturePacker"
+                                      fork="true" failonerror="false">
+                                    <classpath>
+                                        <path refid="maven.plugin.classpath"/>
+                                    </classpath>
+                                    <arg value="${project.basedir}/../art/sprites"/>
+                                    <arg value="${project.basedir}/src/main/resources"/>
+                                    <arg value="sprites"/>
+                                </java>
+                            </target>
+                        </configuration>
+                    </execution>
+                </executions>
+                <dependencies>
+                    <dependency>
+                        <groupId>com.badlogicgames.gdx</groupId>
+                        <artifactId>gdx-tools</artifactId>
+                        <version>${libgdx.version}</version>
+                    </dependency>
+                </dependencies>
+            </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>

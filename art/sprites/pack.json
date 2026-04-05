@@ -1,0 +1,13 @@
+{
+  "filterMin": "Nearest",
+  "filterMag": "Nearest",
+  "maxWidth": 2048,
+  "maxHeight": 2048,
+  "paddingX": 2,
+  "paddingY": 2,
+  "duplicatePadding": true,
+  "combineSubdirectories": true,
+  "flattenPaths": true,
+  "pot": true,
+  "fast": false
+}

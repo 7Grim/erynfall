@@ -47,3 +47,8 @@ local.properties
 .continue/
 CLAUDE.md
 *.md
+!ARTIST_GUIDE.md
+
+# Generated sprite atlas (packed by TexturePacker at build time — do not commit)
+client/src/main/resources/sprites.atlas
+client/src/main/resources/sprites.png

@@ -3,6 +3,7 @@ package com.osrs.client.renderer;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 
 /**
@@ -11,6 +12,19 @@ import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
  * Coordinate formula (32×16 tile metrics):
  *   screenX = (tileX - tileY) * 16
  *   screenY = (tileX + tileY) *  8
+ *
+ * Sprite pipeline: call {@link #setSpriteSheet(SpriteSheet)} after loading the
+ * atlas.  Any entity or tile with a matching atlas region is drawn via
+ * SpriteBatch; everything else falls back to ShapeRenderer geometry so the game
+ * stays fully playable while art is being added incrementally.
+ *
+ * Sprite naming conventions:
+ *   Tiles   — "tile_grass", "tile_water", "tile_path", "tile_wall", "tile_sand"
+ *   Player  — "player"
+ *   NPCs    — "npc_guide", "npc_instructor", "npc_rat", "npc_giant_rat",
+ *              "npc_chicken", "npc_cow", "npc_goblin"
+ *   Objects — "tree", "tree_oak", "tree_willow", "tree_maple", "tree_yew",
+ *              "tree_magic", "fishing_spot", "fire"
  */
 public class IsometricRenderer {
 
@@ -18,6 +32,13 @@ public class IsometricRenderer {
     public static final int TILE_HEIGHT = 16;
     public static final int MAP_WIDTH   = 104;
     public static final int MAP_HEIGHT  = 104;
+
+    /**
+     * Y-offset (in screen pixels) from the tile origin to the bottom of
+     * entity sprites.  Matches the ShapeRenderer leg bottoms so sprites and
+     * shape entities sit on the same visual ground plane.
+     */
+    private static final float ENTITY_FOOT_OFFSET = -8f;
 
     /** Minimum tile culling radius so we never under-draw at tight zoom. */
     private static final int MIN_RENDER_RADIUS = 36;
@@ -43,10 +64,21 @@ public class IsometricRenderer {
     private final SpriteBatch batch;
     private final ShapeRenderer sr;
 
+    /** Nullable — null means no atlas loaded, fall back to ShapeRenderer for everything. */
+    private SpriteSheet spriteSheet;
+
     public IsometricRenderer(OrthographicCamera camera, SpriteBatch batch, ShapeRenderer shapeRenderer) {
         this.camera = camera;
         this.batch  = batch;
         this.sr     = shapeRenderer;
+    }
+
+    /**
+     * Injects the loaded sprite atlas.  Pass null to revert to ShapeRenderer-only
+     * rendering (e.g. while a reload is in progress).
+     */
+    public void setSpriteSheet(SpriteSheet sheet) {
+        this.spriteSheet = sheet;
     }
 
     // -----------------------------------------------------------------------
@@ -111,6 +143,41 @@ public class IsometricRenderer {
         }
 
         sr.end();
+
+        // Sprite pass — draws atlas tiles on top of ShapeRenderer tiles.
+        // Only runs when the atlas is loaded and contains the relevant region.
+        if (spriteSheet != null) {
+            batch.setProjectionMatrix(camera.combined);
+            batch.begin();
+            for (int y = minY; y <= maxY; y++) {
+                for (int x = minX; x <= maxX; x++) {
+                    int type = (tileMap != null) ? tileMap[x][y] : 0;
+                    String key = tileKey(type);
+                    TextureRegion region = spriteSheet.getTile(key);
+                    if (region != null) {
+                        float sx = worldToScreenX(x, y);
+                        float sy = worldToScreenY(x, y);
+                        // Draw tile sprite centred on the diamond centre point
+                        batch.draw(region,
+                            sx - TILE_WIDTH  / 2f,
+                            sy - TILE_HEIGHT / 2f,
+                            TILE_WIDTH, TILE_HEIGHT);
+                    }
+                }
+            }
+            batch.end();
+        }
+    }
+
+    /** Atlas key for a tile type int. */
+    private static String tileKey(int type) {
+        return switch (type) {
+            case 1  -> "tile_water";
+            case 2  -> "tile_path";
+            case 3  -> "tile_wall";
+            case 4  -> "tile_sand";
+            default -> "tile_grass";
+        };
     }
 
     /** Draw a filled isometric diamond centred at (sx, sy). */
@@ -160,6 +227,20 @@ public class IsometricRenderer {
     public void renderPlayer(float playerX, float playerY, boolean pickingUp, String pendingAction) {
         float sx = worldToScreenX(playerX, playerY);
         float sy = worldToScreenY(playerX, playerY);
+
+        // Sprite-first: draw atlas sprite if available, skip ShapeRenderer geometry
+        if (spriteSheet != null) {
+            TextureRegion region = spriteSheet.getTile("player");
+            if (region != null) {
+                batch.setProjectionMatrix(camera.combined);
+                batch.begin();
+                batch.draw(region,
+                    sx - region.getRegionWidth() / 2f,
+                    sy + ENTITY_FOOT_OFFSET);
+                batch.end();
+                return;
+            }
+        }
 
         // Pickup animation: body crouches (all parts shift down 4px, torso squashes)
         float bodyY   = pickingUp ? sy - 4 : sy;
@@ -240,9 +321,46 @@ public class IsometricRenderer {
         renderNPC((float) npcX, (float) npcY, npcId, npcName);
     }
 
+    /** Maps an NPC display name to its atlas key (e.g. "Giant Rat" → "npc_giant_rat"). */
+    private static String npcSpriteKey(String npcName) {
+        if (npcName == null) return "npc_unknown";
+        return switch (npcName) {
+            case "Tutorial Guide"    -> "npc_guide";
+            case "Combat Instructor" -> "npc_instructor";
+            case "Rat"               -> "npc_rat";
+            case "Giant Rat"         -> "npc_giant_rat";
+            case "Chicken"           -> "npc_chicken";
+            case "Cow"               -> "npc_cow";
+            case "Goblin"            -> "npc_goblin";
+            case "Tree"              -> "tree";
+            case "Oak Tree"          -> "tree_oak";
+            case "Willow Tree"       -> "tree_willow";
+            case "Maple Tree"        -> "tree_maple";
+            case "Yew Tree"          -> "tree_yew";
+            case "Magic Tree"        -> "tree_magic";
+            case "Fishing Spot"      -> "fishing_spot";
+            case "Cooking Fire"      -> "fire";
+            default                  -> "npc_unknown";
+        };
+    }
+
     public void renderNPC(float npcX, float npcY, int npcId, String npcName) {
         float sx = worldToScreenX(npcX, npcY);
         float sy = worldToScreenY(npcX, npcY);
+
+        // Sprite-first: draw atlas sprite if available, skip ShapeRenderer geometry
+        if (spriteSheet != null) {
+            TextureRegion region = spriteSheet.getTile(npcSpriteKey(npcName));
+            if (region != null) {
+                batch.setProjectionMatrix(camera.combined);
+                batch.begin();
+                batch.draw(region,
+                    sx - region.getRegionWidth() / 2f,
+                    sy + ENTITY_FOOT_OFFSET);
+                batch.end();
+                return;
+            }
+        }
 
         sr.begin(ShapeRenderer.ShapeType.Filled);
         switch (npcName == null ? "" : npcName) {
