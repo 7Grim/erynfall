@@ -188,6 +188,15 @@ public class GameScreen extends ApplicationAdapter {
     // -----------------------------------------------------------------------
     /** npcId → float[]{visualX, visualY} */
     private final Map<Integer, float[]> npcVisual = new HashMap<>();
+    private float lastPlayerVisualX = 50f;
+    private float lastPlayerVisualY = 50f;
+    private String playerAnimDir = "s";
+    private float playerAnimTime = 0f;
+    private boolean playerAnimMoving = false;
+    private final Map<Integer, float[]> npcLastVisual = new HashMap<>();
+    private final Map<Integer, String> npcAnimDir = new HashMap<>();
+    private final Map<Integer, Float> npcAnimTime = new HashMap<>();
+    private final Map<Integer, Boolean> npcAnimMoving = new HashMap<>();
 
     // -----------------------------------------------------------------------
     // Ground items (synced from ClientPacketHandler each frame)
@@ -525,6 +534,14 @@ public class GameScreen extends ApplicationAdapter {
                                     float sortY,
                                     float sortX) {}
 
+    private record ShadowRenderEntry(float tileX,
+                                     float tileY,
+                                     float width,
+                                     float height,
+                                     float alpha,
+                                     float sortY,
+                                     float sortX) {}
+
     private static final java.util.Comparator<GroundItemRenderEntry> GROUND_ITEM_RENDER_ORDER =
         java.util.Comparator.comparingDouble(GroundItemRenderEntry::sortY)
             .thenComparingDouble(GroundItemRenderEntry::sortX);
@@ -533,6 +550,10 @@ public class GameScreen extends ApplicationAdapter {
         java.util.Comparator.comparingDouble(ActorRenderEntry::sortY)
             .thenComparingDouble(ActorRenderEntry::sortX)
             .thenComparingInt(ActorRenderEntry::entityId);
+
+    private static final java.util.Comparator<ShadowRenderEntry> SHADOW_RENDER_ORDER =
+        java.util.Comparator.comparingDouble(ShadowRenderEntry::sortY)
+            .thenComparingDouble(ShadowRenderEntry::sortX);
 
     // Depth sorting contract:
     // - Ground items render first, sorted back-to-front
@@ -619,14 +640,174 @@ public class GameScreen extends ApplicationAdapter {
         }
     }
 
+    private List<ShadowRenderEntry> collectShadowRenderEntries(List<ActorRenderEntry> actorEntries) {
+        List<ShadowRenderEntry> out = new ArrayList<>();
+        for (ActorRenderEntry entry : actorEntries) {
+            float width;
+            float height;
+            float alpha;
+
+            if (entry.isPlayer()) {
+                width = 10f;
+                height = 5f;
+                alpha = 0.18f;
+            } else {
+                String npcName = entry.npcName();
+                if ("Rat".equals(npcName) || "Chicken".equals(npcName)) {
+                    width = 8f;
+                    height = 4f;
+                    alpha = 0.16f;
+                } else if ("Cow".equals(npcName) || "Giant Rat".equals(npcName)) {
+                    width = 12f;
+                    height = 6f;
+                    alpha = 0.18f;
+                } else if ("Fishing Spot".equals(npcName) || "Cooking Fire".equals(npcName)) {
+                    width = 12f;
+                    height = 5f;
+                    alpha = 0.14f;
+                } else if ("Tree".equals(npcName)
+                    || "Oak Tree".equals(npcName)
+                    || "Willow Tree".equals(npcName)
+                    || "Teak Tree".equals(npcName)
+                    || "Maple Tree".equals(npcName)
+                    || "Mahogany Tree".equals(npcName)
+                    || "Yew Tree".equals(npcName)
+                    || "Magic Tree".equals(npcName)) {
+                    width = 14f;
+                    height = 6f;
+                    alpha = 0.16f;
+                } else if ("Copper Rock".equals(npcName)
+                    || "Tin Rock".equals(npcName)
+                    || "Iron Rock".equals(npcName)
+                    || "Silver Rock".equals(npcName)
+                    || "Coal Rock".equals(npcName)
+                    || "Gold Rock".equals(npcName)
+                    || "Mithril Rock".equals(npcName)
+                    || "Adamantite Rock".equals(npcName)
+                    || "Runite Rock".equals(npcName)) {
+                    width = 12f;
+                    height = 5f;
+                    alpha = 0.16f;
+                } else {
+                    width = 10f;
+                    height = 5f;
+                    alpha = 0.18f;
+                }
+            }
+
+            out.add(new ShadowRenderEntry(
+                entry.tileX(),
+                entry.tileY(),
+                width,
+                height,
+                alpha,
+                renderer.worldToScreenY(entry.tileX(), entry.tileY()),
+                renderer.worldToScreenX(entry.tileX(), entry.tileY())
+            ));
+        }
+
+        out.sort(SHADOW_RENDER_ORDER);
+        return out;
+    }
+
+    private void renderShadowsLayer(List<ShadowRenderEntry> entries) {
+        for (ShadowRenderEntry entry : entries) {
+            renderer.renderBlobShadow(entry.tileX(), entry.tileY(), entry.width(), entry.height(), entry.alpha());
+        }
+    }
+
+    private void renderFireGlows(ClientPacketHandler handler) {
+        if (handler == null) return;
+        for (Map.Entry<Integer, int[]> entry : handler.getEntityPositions().entrySet()) {
+            int id = entry.getKey();
+            if (handler.isPlayer(id)) continue;
+            String npcName = handler.getEntityName(id);
+            if (!"Cooking Fire".equals(npcName)) continue;
+            float[] vis = npcVisual.get(id);
+            if (vis == null) continue;
+            renderer.renderGroundGlow(vis[0], vis[1], 22f, 10f, 1.0f, 0.55f, 0.15f, 0.12f);
+        }
+    }
+
     private void renderActorsLayer(List<ActorRenderEntry> entries) {
         for (ActorRenderEntry entry : entries) {
             if (entry.isPlayer()) {
-                renderer.renderPlayer(entry.tileX(), entry.tileY(), entry.pickingUp(), entry.playerPose());
+                if (isLocalActorEntry(entry)) {
+                    renderer.renderPlayer(
+                        entry.tileX(),
+                        entry.tileY(),
+                        entry.pickingUp(),
+                        entry.playerPose(),
+                        playerAnimMoving,
+                        playerAnimDir,
+                        playerAnimTime
+                    );
+                } else {
+                    boolean moving = npcAnimMoving.getOrDefault(entry.entityId(), false);
+                    String dir = npcAnimDir.getOrDefault(entry.entityId(), "s");
+                    float time = npcAnimTime.getOrDefault(entry.entityId(), 0f);
+                    renderer.renderPlayer(entry.tileX(), entry.tileY(), false, null, moving, dir, time);
+                }
             } else {
-                renderer.renderNPC(entry.tileX(), entry.tileY(), entry.entityId(), entry.npcName());
+                boolean moving = npcAnimMoving.getOrDefault(entry.entityId(), false);
+                String dir = npcAnimDir.getOrDefault(entry.entityId(), "s");
+                float time = npcAnimTime.getOrDefault(entry.entityId(), 0f);
+                renderer.renderNPC(entry.tileX(), entry.tileY(), entry.entityId(), entry.npcName(), moving, dir, time);
             }
         }
+    }
+
+    private boolean isLocalActorEntry(ActorRenderEntry entry) {
+        if (localPlayerId >= 0) {
+            return entry.entityId() == localPlayerId;
+        }
+        return entry.entityId() == Integer.MAX_VALUE;
+    }
+
+    private String animDirForDelta(float dx, float dy, String fallback) {
+        if (Math.abs(dx) < 0.001f && Math.abs(dy) < 0.001f) return fallback;
+        if (Math.abs(dx) > Math.abs(dy)) {
+            return dx > 0 ? "e" : "w";
+        }
+        return dy > 0 ? "s" : "n";
+    }
+
+    private void updateActorAnimationState(float delta) {
+        float playerDx = visualX - lastPlayerVisualX;
+        float playerDy = visualY - lastPlayerVisualY;
+        playerAnimMoving = Math.abs(playerDx) > 0.001f || Math.abs(playerDy) > 0.001f;
+        playerAnimDir = animDirForDelta(playerDx, playerDy, playerAnimDir);
+        playerAnimTime += delta;
+        lastPlayerVisualX = visualX;
+        lastPlayerVisualY = visualY;
+
+        for (Map.Entry<Integer, float[]> entry : npcVisual.entrySet()) {
+            int entityId = entry.getKey();
+            float[] vis = entry.getValue();
+            float[] last = npcLastVisual.get(entityId);
+            if (last == null) {
+                npcLastVisual.put(entityId, new float[]{vis[0], vis[1]});
+                npcAnimDir.putIfAbsent(entityId, "s");
+                npcAnimTime.putIfAbsent(entityId, 0f);
+                npcAnimMoving.put(entityId, false);
+                continue;
+            }
+
+            float dx = vis[0] - last[0];
+            float dy = vis[1] - last[1];
+            boolean moving = Math.abs(dx) > 0.001f || Math.abs(dy) > 0.001f;
+            String dir = npcAnimDir.getOrDefault(entityId, "s");
+            npcAnimDir.put(entityId, animDirForDelta(dx, dy, dir));
+            npcAnimTime.put(entityId, npcAnimTime.getOrDefault(entityId, 0f) + delta);
+            npcAnimMoving.put(entityId, moving);
+            last[0] = vis[0];
+            last[1] = vis[1];
+        }
+
+        npcLastVisual.keySet().retainAll(npcVisual.keySet());
+        npcAnimDir.keySet().retainAll(npcVisual.keySet());
+        npcAnimTime.keySet().retainAll(npcVisual.keySet());
+        npcAnimMoving.keySet().retainAll(npcVisual.keySet());
     }
 
     private void renderHealthBarsLayer(List<ActorRenderEntry> entries) {
@@ -674,6 +855,7 @@ public class GameScreen extends ApplicationAdapter {
         updateMovement(delta);
         updateRunEnergy(delta);
         updateNpcVisuals(delta);
+        updateActorAnimationState(delta);
         updateClickMarkers(delta);
         if (isWoodcuttingActive) {
             // Loop the chop animation for as long as the server says we're actively woodcutting.
@@ -730,11 +912,16 @@ public class GameScreen extends ApplicationAdapter {
         ClientPacketHandler handler = handler();
         // World render layers:
         //   1. Ground items (depth-sorted)
-        //   2. Actors/resources (depth-sorted, includes local player)
-        //   3. Health bars / overlays
+        //   2. Grounded shadows
+        //   3. Local fire glows
+        //   4. Actors/resources (depth-sorted, includes local player)
+        //   5. Health bars / overlays
         List<GroundItemRenderEntry> groundItemEntries = collectGroundItemRenderEntries();
         List<ActorRenderEntry> actorEntries = collectActorRenderEntries(handler);
+        List<ShadowRenderEntry> shadowEntries = collectShadowRenderEntries(actorEntries);
         renderGroundItemsLayer(groundItemEntries);
+        renderShadowsLayer(shadowEntries);
+        renderFireGlows(handler);
         renderActorsLayer(actorEntries);
         renderHealthBarsLayer(actorEntries);
         renderGroundItemLabels();
@@ -743,6 +930,7 @@ public class GameScreen extends ApplicationAdapter {
         if (firemakerAnimTimer > 0) {
             firemakerAnimTimer -= delta;
             firemakerFlicker   += delta * 8f;
+            renderer.renderGroundGlow(visualX, visualY, 22f, 10f, 1.0f, 0.55f, 0.15f, 0.12f);
             renderFireAnimation(visualX, visualY);
         }
 
@@ -3587,6 +3775,25 @@ public class GameScreen extends ApplicationAdapter {
             float sy = renderer.worldToScreenY(tileX, tileY);
             float arcH = (p.projectileType >= 3) ? SPELL_ARC_HEIGHT : ARROW_ARC_HEIGHT;
             sy += arcH * (float) Math.sin(Math.PI * progress);
+            float radius = (p.projectileType >= 3) ? 5f : 4f;
+
+            if (p.projectileType >= 3) {
+                float gr;
+                float gg;
+                float gb;
+                switch (p.projectileType) {
+                    case 3  -> { gr = 0.88f; gg = 0.92f; gb = 1.00f; } // wind
+                    case 4  -> { gr = 0.30f; gg = 0.62f; gb = 1.00f; } // water
+                    case 5  -> { gr = 1.00f; gg = 0.45f; gb = 0.12f; } // fire
+                    case 6  -> { gr = 0.52f; gg = 0.56f; gb = 0.32f; } // earth
+                    default -> { gr = 0.80f; gg = 0.80f; gb = 0.80f; }
+                }
+                shapeRenderer.setColor(gr, gg, gb, 0.14f);
+                shapeRenderer.circle(sx, sy, radius + 2.5f, 12);
+                shapeRenderer.setColor(gr, gg, gb, 0.08f);
+                shapeRenderer.circle(sx, sy, radius + 4.5f, 12);
+            }
+
             // Colour by projectile type
             switch (p.projectileType) {
                 case 3  -> shapeRenderer.setColor(0.90f, 0.90f, 0.90f, 1f); // wind: white
@@ -3595,7 +3802,6 @@ public class GameScreen extends ApplicationAdapter {
                 case 6  -> shapeRenderer.setColor(0.30f, 0.75f, 0.25f, 1f); // earth: green
                 default -> shapeRenderer.setColor(1f, 0.72f, 0.1f, 1f);     // arrow: orange-gold
             }
-            float radius = (p.projectileType >= 3) ? 5f : 4f;
             shapeRenderer.circle(sx, sy, radius, 10);
         }
         shapeRenderer.end();

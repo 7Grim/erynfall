@@ -20,6 +20,7 @@ You do **not** need to understand the code. You need Aseprite, Java 21, and Mave
 art/
   aseprite/          ← Your source files (.aseprite / .ase) — COMMIT THESE
   sprites/           ← Exported flat PNGs — commit when ready
+    manifest.yaml    ← Authoritative sprite slot spec (source of truth)
     pack.json        ← TexturePacker settings (do not delete or move)
     tile_grass.png.placeholder   ← Slot waiting for your PNG
     npc_guide.png.placeholder    ← (one .placeholder file per needed sprite)
@@ -33,6 +34,16 @@ client/src/main/resources/
   sprites.atlas      ← Auto-generated — do NOT commit, do NOT edit
   sprites.png        ← Auto-generated — do NOT commit, do NOT edit
 ```
+
+---
+
+## Asset manifest (source of truth)
+
+`art/sprites/manifest.yaml` is the canonical registry for sprite slots and requirements.
+It defines key, expected file name, canvas size, pivot, and whether a slot is required.
+
+`*.placeholder` files are convenience labels for artists; they are not the canonical spec.
+If docs and placeholders disagree with the manifest, follow the manifest.
 
 ---
 
@@ -69,6 +80,7 @@ Tile canvas layout (32 × 16):
 | `npc_guide.png` | 16 × 24 px | Bottom-center |
 | `npc_instructor.png` | 16 × 24 px | Bottom-center |
 | `npc_goblin.png` | 16 × 24 px | Bottom-center |
+| `npc_banker.png` | 16 × 24 px | Bottom-center |
 
 Bottom-center anchor means: the **bottom row of pixels** sits at ground level (the tile origin). Horizontally, the sprite is centred on that point.
 
@@ -88,12 +100,22 @@ Bottom-center anchor means: the **bottom row of pixels** sits at ground level (t
 | `tree.png` | **16 × 32 px** | Bottom-center |
 | `tree_oak.png` | 16 × 32 px | Bottom-center |
 | `tree_willow.png` | 16 × 40 px | Bottom-center (willow is taller) |
+| `tree_teak.png` | 16 × 32 px | Bottom-center |
 | `tree_maple.png` | 16 × 36 px | Bottom-center |
+| `tree_mahogany.png` | 16 × 36 px | Bottom-center |
 | `tree_yew.png` | 16 × 40 px | Bottom-center |
 | `tree_magic.png` | 16 × 40 px | Bottom-center |
-| `fishing_spot.png` | 16 × 16 px | Bottom-center |
+| `fishing_spot.png` | 32 × 16 px | Bottom-center |
 | `fire.png` | 16 × 20 px | Bottom-center |
-| `rock.png` | 16 × 12 px | Bottom-center |
+| `rock_copper.png` | 16 × 12 px | Bottom-center |
+| `rock_tin.png` | 16 × 12 px | Bottom-center |
+| `rock_iron.png` | 16 × 12 px | Bottom-center |
+| `rock_silver.png` | 16 × 12 px | Bottom-center |
+| `rock_coal.png` | 16 × 12 px | Bottom-center |
+| `rock_gold.png` | 16 × 12 px | Bottom-center |
+| `rock_mithril.png` | 16 × 12 px | Bottom-center |
+| `rock_adamantite.png` | 16 × 12 px | Bottom-center |
+| `rock_runite.png` | 16 × 12 px | Bottom-center |
 
 ---
 
@@ -145,9 +167,15 @@ The export script produces this naming automatically from Aseprite tags.
 mvn generate-resources -pl client -am
 ```
 
-This runs LibGDX TexturePacker. It reads every `.png` in `art/sprites/` (ignoring `.placeholder` files) and writes:
+This first validates `art/sprites/manifest.yaml` against files in `art/sprites/`, then runs LibGDX TexturePacker.
+TexturePacker reads every `.png` in `art/sprites/` (ignoring `.placeholder` files) and writes:
 - `client/src/main/resources/sprites.atlas`
 - `client/src/main/resources/sprites.png`
+
+To bypass validation in an emergency:
+```bash
+mvn generate-resources -pl client -am -DskipArtValidation=true
+```
 
 If `art/sprites/` contains **no PNGs yet** (only `.placeholder` files), TexturePacker produces no output. The game uses ShapeRenderer placeholder graphics. This is expected and the game is still fully playable.
 
@@ -210,6 +238,7 @@ Sprites replace shapes as you add them. The game is always playable.
 ## File naming reference
 
 All file names are **lowercase with underscores**. The atlas key = file name without `.png`.
+The manifest is authoritative for this list.
 
 | File | Atlas key | What it replaces |
 |---|---|---|
@@ -221,6 +250,7 @@ All file names are **lowercase with underscores**. The atlas key = file name wit
 | `player.png` | `player` | Local player character |
 | `npc_guide.png` | `npc_guide` | Tutorial Guide NPC |
 | `npc_instructor.png` | `npc_instructor` | Combat Instructor NPC |
+| `npc_banker.png` | `npc_banker` | Banker NPC |
 | `npc_goblin.png` | `npc_goblin` | Goblin NPC |
 | `npc_rat.png` | `npc_rat` | Rat (level 1) |
 | `npc_giant_rat.png` | `npc_giant_rat` | Giant Rat (level 3) |
@@ -229,12 +259,22 @@ All file names are **lowercase with underscores**. The atlas key = file name wit
 | `tree.png` | `tree` | Standard tree |
 | `tree_oak.png` | `tree_oak` | Oak tree |
 | `tree_willow.png` | `tree_willow` | Willow tree |
+| `tree_teak.png` | `tree_teak` | Teak tree |
 | `tree_maple.png` | `tree_maple` | Maple tree |
+| `tree_mahogany.png` | `tree_mahogany` | Mahogany tree |
 | `tree_yew.png` | `tree_yew` | Yew tree |
 | `tree_magic.png` | `tree_magic` | Magic tree (glowing blue) |
 | `fishing_spot.png` | `fishing_spot` | Fishing spot |
 | `fire.png` | `fire` | Cooking fire |
-| `rock.png` | `rock` | Rock / ore node |
+| `rock_copper.png` | `rock_copper` | Copper rock |
+| `rock_tin.png` | `rock_tin` | Tin rock |
+| `rock_iron.png` | `rock_iron` | Iron rock |
+| `rock_silver.png` | `rock_silver` | Silver rock |
+| `rock_coal.png` | `rock_coal` | Coal rock |
+| `rock_gold.png` | `rock_gold` | Gold rock |
+| `rock_mithril.png` | `rock_mithril` | Mithril rock |
+| `rock_adamantite.png` | `rock_adamantite` | Adamantite rock |
+| `rock_runite.png` | `rock_runite` | Runite rock |
 
 ---
 

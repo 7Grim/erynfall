@@ -1,0 +1,341 @@
+version: 1
+assets:
+  - key: tile_grass
+    file: tile_grass.png
+    category: tile
+    canvas_width: 32
+    canvas_height: 16
+    pivot: tile-diamond
+    required: true
+    animated: false
+    notes: Base walkable grass tile.
+
+  - key: tile_water
+    file: tile_water.png
+    category: tile
+    canvas_width: 32
+    canvas_height: 16
+    pivot: tile-diamond
+    required: true
+    animated: true
+    notes: Supports tile_water_<frame> animation frames.
+
+  - key: tile_path
+    file: tile_path.png
+    category: tile
+    canvas_width: 32
+    canvas_height: 16
+    pivot: tile-diamond
+    required: true
+    animated: false
+    notes: Dirt path tile.
+
+  - key: tile_wall
+    file: tile_wall.png
+    category: tile
+    canvas_width: 32
+    canvas_height: 16
+    pivot: tile-diamond
+    required: true
+    animated: false
+    notes: Elevated wall top tile.
+
+  - key: tile_sand
+    file: tile_sand.png
+    category: tile
+    canvas_width: 32
+    canvas_height: 16
+    pivot: tile-diamond
+    required: true
+    animated: false
+    notes: Sandy ground tile.
+
+  - key: player
+    file: player.png
+    category: player
+    canvas_width: 16
+    canvas_height: 24
+    pivot: bottom-center
+    required: true
+    animated: false
+    notes: Local and remote player fallback sprite.
+
+  - key: npc_guide
+    file: npc_guide.png
+    category: npc
+    canvas_width: 16
+    canvas_height: 24
+    pivot: bottom-center
+    required: true
+    animated: false
+    notes: Tutorial Guide NPC.
+
+  - key: npc_instructor
+    file: npc_instructor.png
+    category: npc
+    canvas_width: 16
+    canvas_height: 24
+    pivot: bottom-center
+    required: true
+    animated: false
+    notes: Combat Instructor NPC.
+
+  - key: npc_banker
+    file: npc_banker.png
+    category: npc
+    canvas_width: 16
+    canvas_height: 24
+    pivot: bottom-center
+    required: true
+    animated: false
+    notes: Banker NPC.
+
+  - key: npc_rat
+    file: npc_rat.png
+    category: npc
+    canvas_width: 16
+    canvas_height: 12
+    pivot: bottom-center
+    required: true
+    animated: false
+    notes: Rat NPC.
+
+  - key: npc_giant_rat
+    file: npc_giant_rat.png
+    category: npc
+    canvas_width: 24
+    canvas_height: 20
+    pivot: bottom-center
+    required: true
+    animated: false
+    notes: Giant Rat NPC.
+
+  - key: npc_chicken
+    file: npc_chicken.png
+    category: npc
+    canvas_width: 16
+    canvas_height: 12
+    pivot: bottom-center
+    required: true
+    animated: false
+    notes: Chicken NPC.
+
+  - key: npc_cow
+    file: npc_cow.png
+    category: npc
+    canvas_width: 24
+    canvas_height: 20
+    pivot: bottom-center
+    required: true
+    animated: false
+    notes: Cow NPC.
+
+  - key: npc_goblin
+    file: npc_goblin.png
+    category: npc
+    canvas_width: 16
+    canvas_height: 24
+    pivot: bottom-center
+    required: true
+    animated: false
+    notes: Goblin NPC.
+
+  - key: tree
+    file: tree.png
+    category: resource
+    canvas_width: 16
+    canvas_height: 32
+    pivot: bottom-center
+    required: true
+    animated: false
+    notes: Standard tree resource.
+
+  - key: tree_oak
+    file: tree_oak.png
+    category: resource
+    canvas_width: 16
+    canvas_height: 32
+    pivot: bottom-center
+    required: true
+    animated: false
+    notes: Oak tree resource.
+
+  - key: tree_willow
+    file: tree_willow.png
+    category: resource
+    canvas_width: 16
+    canvas_height: 40
+    pivot: bottom-center
+    required: true
+    animated: false
+    notes: Willow tree resource.
+
+  - key: tree_teak
+    file: tree_teak.png
+    category: resource
+    canvas_width: 16
+    canvas_height: 32
+    pivot: bottom-center
+    required: true
+    animated: false
+    notes: Teak tree resource.
+
+  - key: tree_maple
+    file: tree_maple.png
+    category: resource
+    canvas_width: 16
+    canvas_height: 36
+    pivot: bottom-center
+    required: true
+    animated: false
+    notes: Maple tree resource.
+
+  - key: tree_mahogany
+    file: tree_mahogany.png
+    category: resource
+    canvas_width: 16
+    canvas_height: 36
+    pivot: bottom-center
+    required: true
+    animated: false
+    notes: Mahogany tree resource.
+
+  - key: tree_yew
+    file: tree_yew.png
+    category: resource
+    canvas_width: 16
+    canvas_height: 40
+    pivot: bottom-center
+    required: true
+    animated: false
+    notes: Yew tree resource.
+
+  - key: tree_magic
+    file: tree_magic.png
+    category: resource
+    canvas_width: 16
+    canvas_height: 40
+    pivot: bottom-center
+    required: true
+    animated: false
+    notes: Magic tree resource.
+
+  - key: fishing_spot
+    file: fishing_spot.png
+    category: resource
+    canvas_width: 32
+    canvas_height: 16
+    pivot: bottom-center
+    required: true
+    animated: false
+    notes: Fishing spot resource.
+
+  - key: fire
+    file: fire.png
+    category: resource
+    canvas_width: 16
+    canvas_height: 20
+    pivot: bottom-center
+    required: true
+    animated: false
+    notes: Cooking fire resource.
+
+  - key: rock_copper
+    file: rock_copper.png
+    category: resource
+    canvas_width: 16
+    canvas_height: 12
+    pivot: bottom-center
+    required: true
+    animated: false
+    notes: Copper rock resource.
+
+  - key: rock_tin
+    file: rock_tin.png
+    category: resource
+    canvas_width: 16
+    canvas_height: 12
+    pivot: bottom-center
+    required: true
+    animated: false
+    notes: Tin rock resource.
+
+  - key: rock_iron
+    file: rock_iron.png
+    category: resource
+    canvas_width: 16
+    canvas_height: 12
+    pivot: bottom-center
+    required: true
+    animated: false
+    notes: Iron rock resource.
+
+  - key: rock_silver
+    file: rock_silver.png
+    category: resource
+    canvas_width: 16
+    canvas_height: 12
+    pivot: bottom-center
+    required: true
+    animated: false
+    notes: Silver rock resource.
+
+  - key: rock_coal
+    file: rock_coal.png
+    category: resource
+    canvas_width: 16
+    canvas_height: 12
+    pivot: bottom-center
+    required: true
+    animated: false
+    notes: Coal rock resource.
+
+  - key: rock_gold
+    file: rock_gold.png
+    category: resource
+    canvas_width: 16
+    canvas_height: 12
+    pivot: bottom-center
+    required: true
+    animated: false
+    notes: Gold rock resource.
+
+  - key: rock_mithril
+    file: rock_mithril.png
+    category: resource
+    canvas_width: 16
+    canvas_height: 12
+    pivot: bottom-center
+    required: true
+    animated: false
+    notes: Mithril rock resource.
+
+  - key: rock_adamantite
+    file: rock_adamantite.png
+    category: resource
+    canvas_width: 16
+    canvas_height: 12
+    pivot: bottom-center
+    required: true
+    animated: false
+    notes: Adamantite rock resource.
+
+  - key: rock_runite
+    file: rock_runite.png
+    category: resource
+    canvas_width: 16
+    canvas_height: 12
+    pivot: bottom-center
+    required: true
+    animated: false
+    notes: Runite rock resource.
+
+  - key: rock
+    file: rock.png
+    category: legacy
+    canvas_width: 16
+    canvas_height: 12
+    pivot: bottom-center
+    required: false
+    animated: false
+    notes: Legacy generic rock slot kept for compatibility.

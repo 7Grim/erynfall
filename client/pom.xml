@@ -15,6 +15,10 @@
     <name>OSRS Client</name>
     <description>Game client with LibGDX isometric rendering</description>
 
+    <properties>
+        <skipArtValidation>false</skipArtValidation>
+    </properties>
+
     <dependencies>
         <dependency>
             <groupId>com.osrs</groupId>
@@ -86,6 +90,23 @@
                 <artifactId>maven-antrun-plugin</artifactId>
                 <version>3.1.0</version>
                 <executions>
+                    <execution>
+                        <id>validate-art-manifest</id>
+                        <phase>generate-resources</phase>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                        <configuration>
+                            <skip>${skipArtValidation}</skip>
+                            <target>
+                                <exec executable="python3" failonerror="true">
+                                    <arg value="${project.basedir}/../scripts/validate-art.py"/>
+                                    <arg value="--write-key-list"/>
+                                    <arg value="${project.basedir}/src/main/resources/sprite-manifest-keys.txt"/>
+                                </exec>
+                            </target>
+                        </configuration>
+                    </execution>
                     <execution>
                         <id>pack-textures</id>
                         <phase>generate-resources</phase>

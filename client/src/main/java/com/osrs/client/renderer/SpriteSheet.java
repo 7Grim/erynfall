@@ -8,7 +8,9 @@ import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.utils.Array;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Wraps the packed sprites.atlas and provides quick region / animation lookup.
@@ -23,6 +25,8 @@ public class SpriteSheet {
 
     /** Seconds per animation frame. Matches OSRS ~6 fps walk cycle. */
     private static final float FRAME_DURATION = 0.167f;
+    private static final String ATLAS_VALIDATION_PROPERTY = "erynfall.spriteAtlasValidation";
+    private static final String EXPECTED_KEYS_RESOURCE = "sprite-manifest-keys.txt";
 
     private final TextureAtlas atlas;
     private final Map<String, Animation<TextureRegion>> animCache = new HashMap<>();
@@ -50,6 +54,34 @@ public class SpriteSheet {
         // Nearest filter is mandatory for pixel art — prevents bilinear blurring
         atlas.getTextures().forEach(t ->
             t.setFilter(Texture.TextureFilter.Nearest, Texture.TextureFilter.Nearest));
+        logMissingManifestSlots();
+    }
+
+    private void logMissingManifestSlots() {
+        if (!Boolean.parseBoolean(System.getProperty(ATLAS_VALIDATION_PROPERTY, "true"))) {
+            return;
+        }
+        Set<String> expectedKeys = loadExpectedManifestKeys();
+        for (String key : expectedKeys) {
+            if (atlas.findRegion(key) == null) {
+                Gdx.app.log("SpriteSheet", "WARN: manifest key missing from atlas: " + key);
+            }
+        }
+    }
+
+    private Set<String> loadExpectedManifestKeys() {
+        Set<String> keys = new HashSet<>();
+        if (!Gdx.files.internal(EXPECTED_KEYS_RESOURCE).exists()) {
+            Gdx.app.log("SpriteSheet", "WARN: manifest key resource missing: " + EXPECTED_KEYS_RESOURCE);
+            return keys;
+        }
+        String content = Gdx.files.internal(EXPECTED_KEYS_RESOURCE).readString();
+        for (String rawLine : content.split("\\R")) {
+            String line = rawLine.trim();
+            if (line.isEmpty() || line.startsWith("#")) continue;
+            keys.add(line);
+        }
+        return keys;
     }
 
     /**

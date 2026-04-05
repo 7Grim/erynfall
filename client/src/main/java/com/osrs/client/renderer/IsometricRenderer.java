@@ -301,11 +301,11 @@ public class IsometricRenderer {
      * Accepts float coords for smooth interpolated movement.
      */
     public void renderPlayer(float playerX, float playerY) {
-        renderPlayer(playerX, playerY, false, null);
+        renderPlayer(playerX, playerY, false, null, false, "s", 0f);
     }
 
     public void renderPlayer(float playerX, float playerY, boolean pickingUp) {
-        renderPlayer(playerX, playerY, pickingUp, null);
+        renderPlayer(playerX, playerY, pickingUp, null, false, "s", 0f);
     }
 
     /**
@@ -316,12 +316,32 @@ public class IsometricRenderer {
      *                   kneeling to pick up an item (OSRS take animation).
      */
     public void renderPlayer(float playerX, float playerY, boolean pickingUp, String pendingAction) {
+        renderPlayer(playerX, playerY, pickingUp, pendingAction, false, "s", 0f);
+    }
+
+    public void renderPlayer(float playerX, float playerY, boolean pickingUp, String pendingAction,
+                             boolean moving, String animDir, float animTime) {
         float sx = worldToScreenX(playerX, playerY);
         float sy = worldToScreenY(playerX, playerY);
 
         // Sprite-first: draw atlas sprite if available, skip ShapeRenderer geometry
         if (spriteSheet != null) {
-            TextureRegion region = spriteSheet.getTile("player");
+            TextureRegion region = null;
+            if (moving) {
+                Animation<TextureRegion> walkAnim = spriteSheet.getAnimation("player_walk_" + animDir);
+                if (walkAnim != null) {
+                    region = walkAnim.getKeyFrame(animTime, true);
+                }
+            }
+            if (region == null) {
+                Animation<TextureRegion> idleAnim = spriteSheet.getAnimation("player_idle");
+                if (idleAnim != null) {
+                    region = idleAnim.getKeyFrame(animTime, true);
+                }
+            }
+            if (region == null) {
+                region = spriteSheet.getTile("player");
+            }
             if (region != null) {
                 batch.setProjectionMatrix(camera.combined);
                 batch.begin();
@@ -409,7 +429,7 @@ public class IsometricRenderer {
      * @param npcName  entity name from the server (e.g. "Rat", "Chicken")
      */
     public void renderNPC(int npcX, int npcY, int npcId, String npcName) {
-        renderNPC((float) npcX, (float) npcY, npcId, npcName);
+        renderNPC((float) npcX, (float) npcY, npcId, npcName, false, "s", 0f);
     }
 
     /** Maps an NPC display name to its atlas key (e.g. "Giant Rat" → "npc_giant_rat"). */
@@ -453,12 +473,33 @@ public class IsometricRenderer {
     }
 
     public void renderNPC(float npcX, float npcY, int npcId, String npcName) {
+        renderNPC(npcX, npcY, npcId, npcName, false, "s", 0f);
+    }
+
+    public void renderNPC(float npcX, float npcY, int npcId, String npcName,
+                          boolean moving, String animDir, float animTime) {
         float sx = worldToScreenX(npcX, npcY);
         float sy = worldToScreenY(npcX, npcY);
 
         // Sprite-first: draw atlas sprite if available, skip ShapeRenderer geometry
         if (spriteSheet != null) {
-            TextureRegion region = spriteSheet.getTile(npcSpriteKey(npcName));
+            String baseKey = npcSpriteKey(npcName);
+            TextureRegion region = null;
+            if (moving) {
+                Animation<TextureRegion> walkAnim = spriteSheet.getAnimation(baseKey + "_walk_" + animDir);
+                if (walkAnim != null) {
+                    region = walkAnim.getKeyFrame(animTime, true);
+                }
+            }
+            if (region == null) {
+                Animation<TextureRegion> idleAnim = spriteSheet.getAnimation(baseKey + "_idle");
+                if (idleAnim != null) {
+                    region = idleAnim.getKeyFrame(animTime, true);
+                }
+            }
+            if (region == null) {
+                region = spriteSheet.getTile(baseKey);
+            }
             if (region != null) {
                 batch.setProjectionMatrix(camera.combined);
                 batch.begin();
@@ -938,6 +979,25 @@ public class IsometricRenderer {
         // Small diamond: two triangles forming a 8-wide × 8-tall diamond
         sr.triangle(sx,      sy + 4,  sx + 4f, sy,  sx - 4f, sy);   // upper half
         sr.triangle(sx,      sy - 4,  sx + 4f, sy,  sx - 4f, sy);   // lower half
+        sr.end();
+    }
+
+    public void renderBlobShadow(float tileX, float tileY, float width, float height, float alpha) {
+        float sx = worldToScreenX(tileX, tileY);
+        float sy = worldToScreenY(tileX, tileY) - 1f;
+        sr.begin(ShapeRenderer.ShapeType.Filled);
+        sr.setColor(0f, 0f, 0f, alpha);
+        sr.ellipse(sx - width / 2f, sy - height / 2f, width, height);
+        sr.end();
+    }
+
+    public void renderGroundGlow(float tileX, float tileY, float width, float height,
+                                 float r, float g, float b, float alpha) {
+        float sx = worldToScreenX(tileX, tileY);
+        float sy = worldToScreenY(tileX, tileY);
+        sr.begin(ShapeRenderer.ShapeType.Filled);
+        sr.setColor(r, g, b, alpha);
+        sr.ellipse(sx - width / 2f, sy - height / 2f, width, height);
         sr.end();
     }
 
