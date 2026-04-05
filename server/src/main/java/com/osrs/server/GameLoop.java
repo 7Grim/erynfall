@@ -541,6 +541,8 @@ public class GameLoop {
                 Math.abs(player.getY() - target.getY())
             );
             if (dist > player.getAttackRange()) {
+                LOG.debug("Player {} out of range of NPC {} (dist={} range={})",
+                    player.getId(), target.getId(), dist, player.getAttackRange());
                 continue;
             }
 

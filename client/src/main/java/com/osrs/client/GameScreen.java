@@ -491,6 +491,7 @@ public class GameScreen extends ApplicationAdapter {
         processServerEvents();
         handleInput();
         processApproach();
+        processCombatFollow();
         processGroundItemApproach();
         updateMovement(delta);
         updateRunEnergy(delta);
@@ -2313,6 +2314,24 @@ public class GameScreen extends ApplicationAdapter {
      * If the NPC has wandered since we started walking, re-route to its new
      * adjacent tile (but only when our current target is no longer optimal).
      */
+    /**
+     * When the player is in combat but has no pending approach, check whether they are still
+     * in weapon range of the target. If the NPC has wandered out of range, re-queue an approach
+     * so the server's range gate will pass on the next game-loop tick.
+     */
+    private void processCombatFollow() {
+        if (combatTargetId < 0) return;        // not in combat
+        if (pendingNpcId >= 0) return;         // already approaching something
+        ClientPacketHandler h = handler();
+        if (h == null) return;
+        int[] pos = npcLogicalPosition(combatTargetId);
+        if (pos == null) { combatTargetId = -1; return; }
+        int range = getActionRange("attack");
+        if (!isInRange(playerX, playerY, pos[0], pos[1], range)) {
+            startApproach(combatTargetId, "attack");
+        }
+    }
+
     private void processApproach() {
         if (pendingNpcId < 0) return;
         if (pendingActionRetryTimer > 0f) {
