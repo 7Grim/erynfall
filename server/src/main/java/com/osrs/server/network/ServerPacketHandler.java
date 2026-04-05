@@ -561,6 +561,22 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             .build());
     }
 
+    /**
+     * Like sendSkillSnapshot but sets leveledUp=true when newLevel > oldLevel,
+     * so the client queues the correct number of level-up banners.
+     */
+    private void sendSkillSnapshotWithLevelUp(ChannelHandlerContext ctx, Player player,
+                                               int skillIdx, int oldLevel) {
+        int newLevel = player.getSkillLevel(skillIdx);
+        ctx.writeAndFlush(NetworkProto.ServerMessage.newBuilder()
+            .setSkillUpdate(NetworkProto.SkillUpdate.newBuilder()
+                .setSkillIndex(skillIdx)
+                .setNewLevel(newLevel)
+                .setTotalXp(player.getSkillXp(skillIdx) / 10)
+                .setLeveledUp(newLevel > oldLevel))
+            .build());
+    }
+
     private void syncAdminAffectedVitals(ChannelHandlerContext ctx, Player player, int skillIdx) {
         if (skillIdx == Player.SKILL_HITPOINTS) {
             int hpLevel = player.getSkillLevel(Player.SKILL_HITPOINTS);
@@ -1171,7 +1187,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
         PlayerRepository.auditAdminAction(player, "SET_SKILL_LEVEL",
             "skill=" + skillIdx + ",oldLevel=" + oldLevel + ",newLevel=" + player.getSkillLevel(skillIdx)
                 + ",oldXpTenths=" + oldXpTenths + ",newXpTenths=" + targetXpTenths);
-        sendSkillSnapshot(ctx, player, skillIdx);
+        sendSkillSnapshotWithLevelUp(ctx, player, skillIdx, oldLevel);
         sendAdminActionResult(ctx, true,
             "Set " + skillName(skillIdx) + " to level " + player.getSkillLevel(skillIdx) + ".", req.getSequence());
     }
@@ -1221,7 +1237,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             "skill=" + skillIdx + ",oldLevel=" + oldLevel + ",newLevel=" + player.getSkillLevel(skillIdx)
                 + ",oldXpTenths=" + oldXpTenths + ",newXpTenths=" + newXpTenths
                 + ",deltaWhole=" + req.getDeltaXpWhole());
-        sendSkillSnapshot(ctx, player, skillIdx);
+        sendSkillSnapshotWithLevelUp(ctx, player, skillIdx, oldLevel);
         sendAdminActionResult(ctx, true,
             "Adjusted " + skillName(skillIdx) + " XP by " + req.getDeltaXpWhole() + ".", req.getSequence());
     }

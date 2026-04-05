@@ -1078,15 +1078,13 @@ public class GameScreen extends ApplicationAdapter {
             }
         }
 
-        if (h.consumeLevelUp()) {
-            int idx = h.getLeveledUpSkill();
-            if (idx >= 0 && idx < skillNames.length) {
-                int newLevel = h.getSkillLevel(idx);
-                levelUpOverlay.addLevelUp(idx, newLevel);
+        for (ClientPacketHandler.LevelUpEvent lvl : h.drainLevelUps()) {
+            if (lvl.skillIndex >= 0 && lvl.skillIndex < skillNames.length) {
+                levelUpOverlay.addLevelUp(lvl.skillIndex, lvl.newLevel);
                 chatBox.addSystemMessage(
                     "Congratulations, you just advanced a "
-                    + skillNames[idx] + " level. Your "
-                    + skillNames[idx] + " level is now " + newLevel + ".");
+                    + skillNames[lvl.skillIndex] + " level. Your "
+                    + skillNames[lvl.skillIndex] + " level is now " + lvl.newLevel + ".");
             }
         }
 

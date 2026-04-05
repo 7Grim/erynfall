@@ -232,8 +232,17 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
     }
     private final java.util.List<AdminItemSearchEntry> adminItemSearchResults = new java.util.ArrayList<>();
     private String lastAdminItemSearchQuery = "";
-    private boolean leveledUp = false;
-    private int leveledUpSkill = -1;
+    /** Level-up events queued for the render thread. One entry per level gained. */
+    public static class LevelUpEvent {
+        public final int skillIndex;
+        public final int newLevel;
+        public LevelUpEvent(int skillIndex, int newLevel) {
+            this.skillIndex = skillIndex;
+            this.newLevel   = newLevel;
+        }
+    }
+
+    private final ConcurrentLinkedQueue<LevelUpEvent> pendingLevelUps = new ConcurrentLinkedQueue<>();
 
     /** XP gain events queued for the render thread to show as floating text. */
     public static class XpDropEvent {
@@ -484,6 +493,7 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
     private void handleSkillUpdate(NetworkProto.SkillUpdate update) {
         int idx = update.getSkillIndex();
         if (idx >= 0 && idx < skillLevels.length) {
+            int oldLevel = skillLevels[idx];
             skillLevels[idx] = update.getNewLevel();
             long newTotalXp = update.getTotalXp();
             if (suppressSkillDropsUntilWorldState) {
@@ -494,12 +504,17 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
                     pendingXpDrops.add(new XpDropEvent(idx, gained));
                 }
                 skillTotalXp[idx] = newTotalXp;
+                if (update.getLeveledUp()) {
+                    int newLevel = update.getNewLevel();
+                    // Queue one banner per level gained so multi-level jumps
+                    // (e.g. admin XP drop from 40→45) show 5 sequential banners.
+                    int levelsGained = Math.max(1, newLevel - oldLevel);
+                    for (int lvl = newLevel - levelsGained + 1; lvl <= newLevel; lvl++) {
+                        pendingLevelUps.add(new LevelUpEvent(idx, lvl));
+                    }
+                    LOG.info("Level up! Skill {} → {} ({} level(s))", idx, newLevel, levelsGained);
+                }
             }
-        }
-        if (update.getLeveledUp()) {
-            leveledUp = true;
-            leveledUpSkill = idx;
-            LOG.info("LEVEL UP! Skill {} → level {}", idx, update.getNewLevel());
         }
     }
 
@@ -713,8 +728,15 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
         return (idx >= 0 && idx < skillLevels.length) ? skillLevels[idx] : 1;
     }
 
-    public boolean consumeLevelUp() { boolean v = leveledUp; leveledUp = false; return v; }
-    public int getLeveledUpSkill()  { return leveledUpSkill; }
+    /** Drain all queued level-up events for this frame (one per level gained). */
+    public List<LevelUpEvent> drainLevelUps() {
+        if (pendingLevelUps.isEmpty()) return List.of();
+        List<LevelUpEvent> out = new ArrayList<>();
+        LevelUpEvent e;
+        while ((e = pendingLevelUps.poll()) != null) out.add(e);
+        return out;
+    }
+
     public long getSkillTotalXp(int idx) {
         return (idx >= 0 && idx < skillTotalXp.length) ? skillTotalXp[idx] : 0;
     }
