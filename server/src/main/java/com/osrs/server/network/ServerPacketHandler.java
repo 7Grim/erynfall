@@ -350,7 +350,8 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             ItemDefinition eqDef = server.getWorld().getItemDef(eqId);
             if (eqDef == null) continue;
             int qty = (slot == EquipmentSlot.AMMO) ? player.getAmmoQuantity() : 1;
-            sendEquipmentUpdate(ctx, slot, eqId, eqDef.name, eqDef.getFlags(), qty);
+            int range = (slot == EquipmentSlot.WEAPON) ? eqDef.attackRange : 0;
+            sendEquipmentUpdate(ctx, slot, eqId, eqDef.name, eqDef.getFlags(), qty, range);
         }
         sendEquipmentBonuses(ctx, player);
     }
@@ -358,16 +359,18 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
     /**
      * Sends a single EquipmentUpdate packet.
      * {@code quantity} is meaningful only for the AMMO slot; pass 1 for all other slots.
+     * {@code attackRange} is meaningful only for the WEAPON slot; pass 0 for all other slots.
      */
     private void sendEquipmentUpdate(ChannelHandlerContext ctx, int slot,
-                                     int itemId, String name, int flags, int quantity) {
+                                     int itemId, String name, int flags, int quantity, int attackRange) {
         ctx.writeAndFlush(NetworkProto.ServerMessage.newBuilder()
             .setEquipmentUpdate(NetworkProto.EquipmentUpdate.newBuilder()
                 .setSlot(slot)
                 .setItemId(itemId)
                 .setItemName(name)
                 .setFlags(flags)
-                .setQuantity(quantity))
+                .setQuantity(quantity)
+                .setAttackRange(attackRange))
             .build());
     }
 
@@ -2251,7 +2254,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
                 player.setAmmoQuantity(incomingQty);
 
                 sendInventorySlot(ctx, player, slot);
-                sendEquipmentUpdate(ctx, EquipmentSlot.AMMO, itemId, def.name, def.getFlags(), incomingQty);
+                sendEquipmentUpdate(ctx, EquipmentSlot.AMMO, itemId, def.name, def.getFlags(), incomingQty, 0);
                 sendEquipmentBonuses(ctx, player);
                 LOG.info("Player {} equipped {}×{} into ammo slot", player.getId(), incomingQty, def.name);
                 return;
@@ -2269,7 +2272,8 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             }
 
             sendInventorySlot(ctx, player, slot);
-            sendEquipmentUpdate(ctx, equipSlot, itemId, def.name, def.getFlags(), 1);
+            int weaponRange = (equipSlot == EquipmentSlot.WEAPON) ? def.attackRange : 0;
+            sendEquipmentUpdate(ctx, equipSlot, itemId, def.name, def.getFlags(), 1, weaponRange);
             LOG.info("Player {} equipped {} into slot {}", player.getId(), def.name, equipSlot);
             updateGenericQuestObjectives(session, Quest.TaskType.EQUIP, def.id);
             sendEquipmentBonuses(ctx, player);
@@ -2308,7 +2312,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
         }
 
         sendInventorySlot(ctx, player, invSlot);
-        sendEquipmentUpdate(ctx, equipSlot, 0, "", 0, 0);
+        sendEquipmentUpdate(ctx, equipSlot, 0, "", 0, 0, 0);
         sendEquipmentBonuses(ctx, player);
         LOG.info("Player {} unequipped slot {} (itemId={})", player.getId(), equipSlot, itemId);
     }

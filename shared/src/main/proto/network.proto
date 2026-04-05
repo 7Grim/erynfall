@@ -349,7 +349,8 @@ message EquipmentUpdate {
     int32 item_id = 2;
     string item_name = 3;
     int32 flags = 4;
-    int32 quantity = 5;  // Stack size; only meaningful for AMMO slot (slot 3), always 1 otherwise
+    int32 quantity = 5;    // Stack size; only meaningful for AMMO slot (slot 3), always 1 otherwise
+    int32 attack_range = 6; // Weapon attack range; only meaningful for WEAPON slot (slot 4), 0 otherwise
 }
 
 // GroundItemSpawn: Server → Client

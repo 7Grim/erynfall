@@ -261,6 +261,8 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
     private final int[]    equipmentItemIds = new int[11];
     private final String[] equipmentNames   = new String[11];
     private final int[] equipBonuses = new int[14]; // indices 0-13: stab_attack...prayer
+    /** Current weapon attack range; 1 = melee, 7 = shortbow, etc. */
+    private volatile int playerAttackRange = 1;
 
     // -----------------------------------------------------------------------
     // Ground items: groundItemId → int[]{itemId, quantity, x, y}
@@ -811,7 +813,11 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
         if (slot < 0 || slot >= 11) return;
         equipmentItemIds[slot] = update.getItemId();
         equipmentNames[slot]   = update.getItemName();
-        LOG.debug("EquipmentUpdate slot={} itemId={} name={}", slot, update.getItemId(), update.getItemName());
+        // WEAPON slot (4): sync attack range so the client knows how far to stand
+        if (slot == 4) { // EquipmentSlot.WEAPON
+            playerAttackRange = Math.max(1, update.getAttackRange());
+        }
+        LOG.debug("EquipmentUpdate slot={} itemId={} name={} attackRange={}", slot, update.getItemId(), update.getItemName(), playerAttackRange);
     }
 
     private void handleEquipmentBonuses(NetworkProto.EquipmentBonuses msg) {
@@ -1080,6 +1086,7 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
     public int    getEquipmentItemId(int slot)   { return (slot >= 0 && slot < 11) ? equipmentItemIds[slot] : 0; }
     public String getEquipmentName(int slot)     { return (slot >= 0 && slot < 11) ? equipmentNames[slot]   : ""; }
     public int[] getEquipBonuses() { return equipBonuses; }
+    public int   getPlayerAttackRange()          { return playerAttackRange; }
 
     /** Snapshot of all ground items — safe to read on the render thread. */
     public Map<Integer, int[]>  getGroundItems()     { return groundItems; }

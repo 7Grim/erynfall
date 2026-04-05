@@ -2297,13 +2297,14 @@ public class GameScreen extends ApplicationAdapter {
         pendingAction = action;
         pendingActionRetryTimer = 0f;
 
-        if (isInRange(playerX, playerY, pos[0], pos[1])) {
+        int range = getActionRange(action);
+        if (isInRange(playerX, playerY, pos[0], pos[1], range)) {
             executePendingAction();
         } else {
-            int[] dest = closestAdjacentTile(playerX, playerY, pos[0], pos[1]);
+            int[] dest = closestTileInRange(playerX, playerY, pos[0], pos[1], range);
             autoWalkTo(dest[0], dest[1]);
-            LOG.info("Approaching NPC {} for '{}' → walking to ({},{})",
-                npcId, action, dest[0], dest[1]);
+            LOG.info("Approaching NPC {} for '{}' (range={}) → walking to ({},{})",
+                npcId, action, range, dest[0], dest[1]);
         }
     }
 
@@ -2321,13 +2322,14 @@ public class GameScreen extends ApplicationAdapter {
         int[] pos = npcLogicalPosition(pendingNpcId);
         if (pos == null) { clearPendingAction(); return; }
 
-        if (isInRange(playerX, playerY, pos[0], pos[1])) {
+        int range = getActionRange(pendingAction);
+        if (isInRange(playerX, playerY, pos[0], pos[1], range)) {
             executePendingAction();
             return;
         }
 
         // Re-route if the NPC moved and our walk target is stale
-        int[] best = closestAdjacentTile(playerX, playerY, pos[0], pos[1]);
+        int[] best = closestTileInRange(playerX, playerY, pos[0], pos[1], range);
         if (best[0] != pendingWalkTargX || best[1] != pendingWalkTargY) {
             autoWalkTo(best[0], best[1]);
         }
@@ -2396,9 +2398,18 @@ public class GameScreen extends ApplicationAdapter {
         // skilling event from the server should stop the animation loop.
     }
 
-    private boolean isInRange(int px, int py, int nx, int ny) {
+    private boolean isInRange(int px, int py, int nx, int ny, int range) {
         int chebyshev = Math.max(Math.abs(px - nx), Math.abs(py - ny));
-        return chebyshev <= INTERACT_RANGE && !(px == nx && py == ny);
+        return chebyshev <= range && !(px == nx && py == ny);
+    }
+
+    /** Returns the effective interaction range for the given action. */
+    private int getActionRange(String action) {
+        if ("attack".equals(action)) {
+            ClientPacketHandler h = handler();
+            return (h != null) ? h.getPlayerAttackRange() : INTERACT_RANGE;
+        }
+        return INTERACT_RANGE;
     }
 
     // -----------------------------------------------------------------------
@@ -2593,6 +2604,31 @@ public class GameScreen extends ApplicationAdapter {
             }
         }
         return new int[]{bx, by};
+    }
+
+    /**
+     * Returns the closest walkable tile to the player that is within {@code range}
+     * Chebyshev tiles of (nx, ny) but not on the NPC itself.
+     * Falls back to {@link #closestAdjacentTile} when no such tile exists.
+     */
+    private int[] closestTileInRange(int px, int py, int nx, int ny, int range) {
+        if (range <= 1) return closestAdjacentTile(px, py, nx, ny);
+        int[] best = null;
+        double bestDist = Double.MAX_VALUE;
+        for (int dx = -range; dx <= range; dx++) {
+            for (int dy = -range; dy <= range; dy++) {
+                if (dx == 0 && dy == 0) continue;
+                int tx = nx + dx, ty = ny + dy;
+                int cheby = Math.max(Math.abs(dx), Math.abs(dy));
+                if (cheby > range) continue;
+                if (!CoordinateConverter.isValidTile(tx, ty)) continue;
+                if (!isWalkableClientTile(tx, ty)) continue;
+                double d = Math.hypot(px - tx, py - ty);
+                if (d < bestDist) { bestDist = d; best = new int[]{tx, ty}; }
+            }
+        }
+        if (best == null) return closestAdjacentTile(px, py, nx, ny);
+        return best;
     }
 
     private boolean isWalkableClientTile(int x, int y) {
