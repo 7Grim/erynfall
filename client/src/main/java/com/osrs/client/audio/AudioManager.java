@@ -90,9 +90,11 @@ public class AudioManager {
     // -----------------------------------------------------------------------
     // Volume state
     // -----------------------------------------------------------------------
-    private int musicLevel   = 4;
-    private int sfxLevel     = 4;
-    private int ambientLevel = 3;
+    private int musicLevel    = 4;
+    private int sfxLevel      = 4;
+    private int ambientLevel  = 3;
+    /** Saved music level before a mute, so unmute restores it. */
+    private int preMuteLevel  = 4;
 
     // -----------------------------------------------------------------------
     // Music fade state
@@ -295,6 +297,23 @@ public class AudioManager {
         musicLevel = clampLevel(level);
         applyMusicVolume();
         savePreferences();
+    }
+
+    /**
+     * Toggle music between muted (level 0) and the last non-zero level.
+     * Persists the new state immediately.
+     */
+    public void toggleMute() {
+        if (musicLevel > 0) {
+            preMuteLevel = musicLevel;
+            setMusicLevel(0);
+        } else {
+            setMusicLevel(preMuteLevel > 0 ? preMuteLevel : 4);
+        }
+    }
+
+    public boolean isMusicMuted() {
+        return musicLevel == 0;
     }
 
     public void setSfxLevel(int level) {
@@ -517,9 +536,10 @@ public class AudioManager {
     private void loadPreferences() {
         try {
             Preferences p = Gdx.app.getPreferences(PREF_FILE);
-            musicLevel   = clampLevel(p.getInteger("music_level",   4));
-            sfxLevel     = clampLevel(p.getInteger("sfx_level",     4));
-            ambientLevel = clampLevel(p.getInteger("ambient_level", 3));
+            musicLevel   = clampLevel(p.getInteger("music_level",    4));
+            sfxLevel     = clampLevel(p.getInteger("sfx_level",      4));
+            ambientLevel = clampLevel(p.getInteger("ambient_level",  3));
+            preMuteLevel = clampLevel(p.getInteger("pre_mute_level", 4));
             for (MusicTrack t : MusicTrack.values()) {
                 if (p.getBoolean("unlocked_" + t.name(), false)) {
                     unlockedTracks.add(t);
@@ -533,9 +553,10 @@ public class AudioManager {
     private void savePreferences() {
         try {
             Preferences p = Gdx.app.getPreferences(PREF_FILE);
-            p.putInteger("music_level",   musicLevel);
-            p.putInteger("sfx_level",     sfxLevel);
-            p.putInteger("ambient_level", ambientLevel);
+            p.putInteger("music_level",    musicLevel);
+            p.putInteger("sfx_level",      sfxLevel);
+            p.putInteger("ambient_level",  ambientLevel);
+            p.putInteger("pre_mute_level", preMuteLevel);
             for (MusicTrack t : unlockedTracks) {
                 p.putBoolean("unlocked_" + t.name(), true);
             }

@@ -25,13 +25,17 @@ import com.osrs.client.ErynfallGame;
  */
 public class LoginScreen extends ScreenAdapter {
 
-    private static final int PANEL_W         = 400;
-    private static final int PANEL_H         = 290;
-    private static final int FIELD_H         = 28;
-    private static final int BUTTON_H        = 34;
-    private static final int PAD             = 16;
+    private static final int PANEL_W          = 400;
+    private static final int PANEL_H          = 290;
+    private static final int FIELD_H          = 28;
+    private static final int BUTTON_H         = 34;
+    private static final int PAD              = 16;
     private static final int EMAIL_MAX_LEN    = 254;
     private static final int PASSWORD_MAX_LEN = 128;
+
+    /** Mute button: fixed to bottom-right corner of the screen. */
+    private static final int MUTE_BTN_SZ     = 30;
+    private static final int MUTE_BTN_MARGIN = 12;
 
     private final ErynfallGame game;
 
@@ -81,6 +85,11 @@ public class LoginScreen extends ScreenAdapter {
 
                 if (keycode == Input.Keys.ENTER) {
                     submit();
+                    return true;
+                }
+
+                if (keycode == Input.Keys.M) {
+                    if (game.getAudioManager() != null) game.getAudioManager().toggleMute();
                     return true;
                 }
 
@@ -134,6 +143,15 @@ public class LoginScreen extends ScreenAdapter {
                 int efBottom = pY + PANEL_H - 100;    // email field rect bottom -- must match render()
                 int pfBottom = pY + PANEL_H - 160;    // password field rect bottom -- must match render()
                 boolean inX  = screenX >= pX + PAD && screenX <= pX + PAD + fieldW;
+
+                // Mute toggle button (bottom-right corner)
+                int muteX = w - MUTE_BTN_SZ - MUTE_BTN_MARGIN;
+                int muteY = MUTE_BTN_MARGIN;
+                if (screenX >= muteX && screenX <= muteX + MUTE_BTN_SZ
+                 && flippedY >= muteY && flippedY <= muteY + MUTE_BTN_SZ) {
+                    if (game.getAudioManager() != null) game.getAudioManager().toggleMute();
+                    return true;
+                }
 
                 // Click login button
                 if (inX && flippedY >= btnY && flippedY <= btnY + BUTTON_H) {
@@ -324,6 +342,79 @@ public class LoginScreen extends ScreenAdapter {
 
         batch.end();
         font.setColor(Color.WHITE);
+
+        // ── Mute toggle button (bottom-right corner) ──
+        renderMuteButton(w, h);
+    }
+
+    /**
+     * Draws the mute/unmute speaker button in the bottom-right corner.
+     *
+     * Unmuted: filled speaker cone + two arc sound waves.
+     * Muted:   same speaker cone + a diagonal red slash through it.
+     *
+     * ShapeRenderer coordinate system: Y=0 is bottom-left (same as proj).
+     */
+    private void renderMuteButton(int w, int h) {
+        boolean muted = game.getAudioManager() == null || game.getAudioManager().isMusicMuted();
+
+        int bx = w - MUTE_BTN_SZ - MUTE_BTN_MARGIN;   // button left
+        int by = MUTE_BTN_MARGIN;                       // button bottom
+        int cx = bx + MUTE_BTN_SZ / 2;
+        int cy = by + MUTE_BTN_SZ / 2;
+
+        sr.setProjectionMatrix(proj);
+
+        // ── Background panel ──
+        sr.begin(ShapeRenderer.ShapeType.Filled);
+        // Dark background
+        sr.setColor(muted ? 0.18f : 0.08f, muted ? 0.08f : 0.07f, 0.06f, 0.92f);
+        sr.rect(bx, by, MUTE_BTN_SZ, MUTE_BTN_SZ);
+        // Gold border
+        sr.setColor(0.55f, 0.46f, 0.18f, 1f);
+        sr.rect(bx,                     by,                      MUTE_BTN_SZ, 1);  // bottom
+        sr.rect(bx,                     by + MUTE_BTN_SZ - 1,   MUTE_BTN_SZ, 1);  // top
+        sr.rect(bx,                     by,                      1, MUTE_BTN_SZ);  // left
+        sr.rect(bx + MUTE_BTN_SZ - 1,  by,                      1, MUTE_BTN_SZ);  // right
+
+        // ── Speaker body (filled rect) ──
+        sr.setColor(muted ? 0.55f : 0.85f, muted ? 0.52f : 0.82f, muted ? 0.45f : 0.70f, 1f);
+        sr.rect(cx - 1, cy - 4, 4, 8);    // rectangular body
+
+        // ── Speaker cone (filled triangle pointing left) ──
+        sr.triangle(
+            cx - 1, cy - 4,    // back-top
+            cx - 1, cy + 4,    // back-bottom
+            cx - 6, cy         // tip
+        );
+        sr.end();
+
+        if (!muted) {
+            // ── Sound waves (arcs, drawn in Line mode) ──
+            sr.begin(ShapeRenderer.ShapeType.Line);
+            sr.setColor(0.85f, 0.82f, 0.70f, 1f);
+            // Inner wave — small arc to the right of body
+            sr.arc(cx + 3, cy, 5f, -50f, 100f, 7);
+            // Outer wave — larger arc
+            sr.arc(cx + 3, cy, 9f, -42f, 84f, 9);
+            sr.end();
+        } else {
+            // ── Muted slash (red diagonal line through icon) ──
+            sr.begin(ShapeRenderer.ShapeType.Filled);
+            sr.setColor(0.82f, 0.18f, 0.14f, 1f);
+            sr.rectLine(cx - 7, cy - 7, cx + 7, cy + 7, 2f);
+            sr.end();
+        }
+
+        // ── "M" key hint label below button ──
+        batch.setProjectionMatrix(proj);
+        batch.begin();
+        font.getData().setScale(0.60f);
+        font.setColor(0.35f, 0.32f, 0.24f, 1f);
+        font.draw(batch, "[M]", bx + 4, by - 2);
+        font.getData().setScale(1f);
+        font.setColor(Color.WHITE);
+        batch.end();
     }
 
     private void appendChar(char c) {
