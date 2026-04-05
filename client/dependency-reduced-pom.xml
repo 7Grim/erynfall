@@ -12,6 +12,39 @@
   <build>
     <plugins>
       <plugin>
+        <artifactId>maven-antrun-plugin</artifactId>
+        <version>3.1.0</version>
+        <executions>
+          <execution>
+            <id>pack-textures</id>
+            <phase>generate-resources</phase>
+            <goals>
+              <goal>run</goal>
+            </goals>
+            <configuration>
+              <skip>${skipTexturePack}</skip>
+              <target>
+                <java>
+                  <classpath>
+                    <path />
+                  </classpath>
+                  <arg />
+                  <arg />
+                  <arg />
+                </java>
+              </target>
+            </configuration>
+          </execution>
+        </executions>
+        <dependencies>
+          <dependency>
+            <groupId>com.badlogicgames.gdx</groupId>
+            <artifactId>gdx-tools</artifactId>
+            <version>${libgdx.version}</version>
+          </dependency>
+        </dependencies>
+      </plugin>
+      <plugin>
         <artifactId>maven-shade-plugin</artifactId>
         <version>3.5.0</version>
         <executions>

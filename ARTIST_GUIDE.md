@@ -116,35 +116,28 @@ The export script converts tags to numbered PNGs:
 
 ## Step-by-step workflow
 
-### Step 1 — Draw in Aseprite
+### Step 1 — Create your PNG
 
-Create your file in `art/aseprite/` (e.g. `art/aseprite/tile_grass.aseprite`).
+**The only requirement is a PNG file in `art/sprites/` with the correct name.**
+How you produce that PNG is up to you:
 
-Use the canvas size from the spec table. Transparent background. PNG export settings don't matter because the script handles export.
+**Option A — Save directly as PNG (simplest)**
+Use any tool (Aseprite, Photoshop, Krita, Piskel, etc.) and save straight to `art/sprites/tile_grass.png`. Done — skip to Step 2.
 
-### Step 2 — Export to PNG
+**Option B — Export from Aseprite source files**
+Save your `.aseprite` source in `art/aseprite/`, then either:
+- Inside Aseprite: **File → Export As** → save to `art/sprites/tile_grass.png`
+- Or run the batch export script (useful when you have many files):
 
-**Mac / Linux:**
-```bash
-./scripts/export-art.sh
-```
+  Mac / Linux: `./scripts/export-art.sh`
+  Windows: `scripts\export-art.bat`
 
-**Windows:**
-```
-scripts\export-art.bat
-```
+The export script is only needed for **animated sprites** (Aseprite tagged frames → numbered PNGs). For any static single-image sprite, just save the PNG directly.
 
-This exports every `.aseprite` / `.ase` file in `art/aseprite/` to flat PNGs in `art/sprites/`.
+**For animated sprites** the required naming format is `{name}_{tag}_{frame}.png`:
+- `player_walk_n_0.png`, `player_walk_n_1.png`, `player_walk_n_2.png`, `player_walk_n_3.png`
 
-To export a single file:
-```bash
-./scripts/export-art.sh art/aseprite/tile_grass.aseprite
-```
-
-If you prefer to export manually from inside Aseprite:
-- Static sprite: **File → Export As** → save to `art/sprites/tile_grass.png`
-- Animated: **File → Export Sprite Sheet** with tag split, save frames to `art/sprites/`
-  (use filename format `{title}_{tag}_{tagframe}.png`)
+The export script produces this naming automatically from Aseprite tags.
 
 ### Step 3 — Pack the atlas
 
