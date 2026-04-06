@@ -204,6 +204,8 @@ public class GameScreen extends ApplicationAdapter {
     private final Map<Integer, String> npcAnimDir = new HashMap<>();
     private final Map<Integer, Float> npcAnimTime = new HashMap<>();
     private final Map<Integer, Boolean> npcAnimMoving = new HashMap<>();
+    private final Map<Integer, Float> npcActionAnimTimer = new HashMap<>();
+    private static final float NPC_ACTION_ANIM_DURATION = 0.35f;
 
     // -----------------------------------------------------------------------
     // Ground items (synced from ClientPacketHandler each frame)
@@ -760,6 +762,27 @@ public class GameScreen extends ApplicationAdapter {
             || "Cooking Fire".equals(name);
     }
 
+    private boolean isNpcActionAnimated(String npcName) {
+        return "Rat".equals(npcName)
+            || "Giant Rat".equals(npcName)
+            || "Goblin".equals(npcName)
+            || "Chicken".equals(npcName)
+            || "Cow".equals(npcName)
+            || "Banker".equals(npcName)
+            || "Tutorial Guide".equals(npcName)
+            || "Combat Instructor".equals(npcName);
+    }
+
+    private void triggerNpcActionFromCombatHit(ClientPacketHandler h, ClientPacketHandler.CombatHitEvent evt) {
+        int targetId = evt.targetId;
+        if (targetId >= 0 && npcVisual.containsKey(targetId) && !h.isPlayer(targetId)) {
+            String targetName = h.getEntityName(targetId);
+            if (isNpcActionAnimated(targetName)) {
+                npcActionAnimTimer.put(targetId, NPC_ACTION_ANIM_DURATION);
+            }
+        }
+    }
+
     // Local-player readability rule:
     // tall world resources in front of the player fade slightly when they overlap
     // the player's screen-space position. This is the sprite/isometric equivalent
@@ -850,12 +873,13 @@ public class GameScreen extends ApplicationAdapter {
                 String dir = npcAnimDir.getOrDefault(entry.entityId(), "s");
                 float time = npcAnimTime.getOrDefault(entry.entityId(), 0f);
                 float alpha = isObstructingLocalPlayer(entry) ? 0.35f : 1f;
+                boolean actionActive = npcActionAnimTimer.getOrDefault(entry.entityId(), 0f) > 0f;
                 if (mode != MODE_SPRITE) {
                     if (mode == MODE_SHAPE) renderer.endWorldShapePass();
                     renderer.beginWorldSpritePass();
                     mode = MODE_SPRITE;
                 }
-                boolean drawn = renderer.renderNPCSpriteInPass(entry.tileX(), entry.tileY(), entry.entityId(), entry.npcName(), moving, dir, time, alpha);
+                boolean drawn = renderer.renderNPCSpriteInPass(entry.tileX(), entry.tileY(), entry.entityId(), entry.npcName(), moving, dir, time, actionActive, alpha);
                 if (!drawn) {
                     renderer.endWorldSpritePass();
                     renderer.beginWorldShapePass(ShapeRenderer.ShapeType.Filled);
@@ -923,6 +947,18 @@ public class GameScreen extends ApplicationAdapter {
         npcAnimDir.keySet().retainAll(npcVisual.keySet());
         npcAnimTime.keySet().retainAll(npcVisual.keySet());
         npcAnimMoving.keySet().retainAll(npcVisual.keySet());
+        npcActionAnimTimer.keySet().retainAll(npcVisual.keySet());
+
+        java.util.Iterator<Map.Entry<Integer, Float>> actionIt = npcActionAnimTimer.entrySet().iterator();
+        while (actionIt.hasNext()) {
+            Map.Entry<Integer, Float> e = actionIt.next();
+            float next = e.getValue() - delta;
+            if (next <= 0f) {
+                actionIt.remove();
+            } else {
+                e.setValue(next);
+            }
+        }
     }
 
     private void updateRenderZone() {
@@ -1382,6 +1418,7 @@ public class GameScreen extends ApplicationAdapter {
         // Process NPC deaths — remove visuals for despawned NPCs
         for (int deadId : h.drainDespawnedNpcs()) {
             npcVisual.remove(deadId);
+            npcActionAnimTimer.remove(deadId);
             if (combatTargetId == deadId) {
                 combatTargetId = -1;
             }
@@ -1494,6 +1531,7 @@ public class GameScreen extends ApplicationAdapter {
         }
 
         for (ClientPacketHandler.CombatHitEvent evt : h.drainCombatHits()) {
+            triggerNpcActionFromCombatHit(h, evt);
             boolean npcHitMe = (evt.targetId == h.getMyPlayerId());
             String chatMsg = npcHitMe
                 ? (evt.hit ? String.format("You were hit for %d!", evt.damage) : "The attack missed you.")

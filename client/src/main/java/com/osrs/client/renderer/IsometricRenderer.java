@@ -773,7 +773,7 @@ public class IsometricRenderer {
      * @param npcName  entity name from the server (e.g. "Rat", "Chicken")
      */
     public void renderNPC(int npcX, int npcY, int npcId, String npcName) {
-        renderNPC((float) npcX, (float) npcY, npcId, npcName, false, "s", 0f, 1f);
+        renderNPC((float) npcX, (float) npcY, npcId, npcName, false, "s", 0f, false, 1f);
     }
 
     /** Maps an NPC display name to its atlas key (e.g. "Giant Rat" → "npc_giant_rat"). */
@@ -817,19 +817,24 @@ public class IsometricRenderer {
     }
 
     public void renderNPC(float npcX, float npcY, int npcId, String npcName) {
-        renderNPC(npcX, npcY, npcId, npcName, false, "s", 0f, 1f);
+        renderNPC(npcX, npcY, npcId, npcName, false, "s", 0f, false, 1f);
     }
 
     public void renderNPC(float npcX, float npcY, int npcId, String npcName,
                           boolean moving, String animDir, float animTime) {
-        renderNPC(npcX, npcY, npcId, npcName, moving, animDir, animTime, 1f);
+        renderNPC(npcX, npcY, npcId, npcName, moving, animDir, animTime, false, 1f);
     }
 
     public void renderNPC(float npcX, float npcY, int npcId, String npcName,
                           boolean moving, String animDir, float animTime, float alpha) {
+        renderNPC(npcX, npcY, npcId, npcName, moving, animDir, animTime, false, alpha);
+    }
+
+    public void renderNPC(float npcX, float npcY, int npcId, String npcName,
+                          boolean moving, String animDir, float animTime, boolean actionActive, float alpha) {
         if (spriteSheet != null) {
             String baseKey = npcSpriteKeyForName(npcName);
-            TextureRegion region = resolveNpcSpriteRegion(baseKey, moving, animDir, animTime);
+            TextureRegion region = resolveNpcSpriteRegion(baseKey, moving, animDir, animTime, actionActive);
             if (region != null) {
                 batch.setProjectionMatrix(camera.combined);
                 boolean ownsBatch = !batch.isDrawing();
@@ -844,10 +849,11 @@ public class IsometricRenderer {
     }
 
     public boolean renderNPCSpriteInPass(float npcX, float npcY, int npcId, String npcName,
-                                         boolean moving, String animDir, float animTime, float alpha) {
+                                         boolean moving, String animDir, float animTime,
+                                         boolean actionActive, float alpha) {
         if (spriteSheet == null || !batch.isDrawing()) return false;
         String baseKey = npcSpriteKeyForName(npcName);
-        TextureRegion region = resolveNpcSpriteRegion(baseKey, moving, animDir, animTime);
+        TextureRegion region = resolveNpcSpriteRegion(baseKey, moving, animDir, animTime, actionActive);
         if (region == null) return false;
         drawEntitySpriteWithPivot(baseKey, region, worldToScreenX(npcX, npcY), worldToScreenY(npcX, npcY), alpha);
         return true;
@@ -857,7 +863,8 @@ public class IsometricRenderer {
         drawNpcFallback(npcX, npcY, npcName, alpha);
     }
 
-    private TextureRegion resolveNpcSpriteRegion(String baseKey, boolean moving, String animDir, float animTime) {
+    private TextureRegion resolveNpcSpriteRegion(String baseKey, boolean moving, String animDir,
+                                                 float animTime, boolean actionActive) {
         if (spriteSheet == null) return null;
         TextureRegion region = null;
         boolean ambientResource = baseKey.equals("tree")
@@ -869,7 +876,15 @@ public class IsometricRenderer {
         if (ambientResource) {
             region = resolveAmbientResourceRegion(baseKey);
         } else {
-            if (moving) {
+            if (actionActive) {
+                Animation<TextureRegion> actionAnim = spriteSheet.getAnimation(baseKey + "_action");
+                if (actionAnim != null) {
+                    region = actionAnim.getKeyFrame(animTime, true);
+                } else {
+                    region = spriteSheet.getTile(baseKey + "_action");
+                }
+            }
+            if (region == null && moving) {
                 Animation<TextureRegion> walkAnim = spriteSheet.getAnimation(baseKey + "_walk_" + animDir);
                 if (walkAnim != null) {
                     region = walkAnim.getKeyFrame(animTime, true);

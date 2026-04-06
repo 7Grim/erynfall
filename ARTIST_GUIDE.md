@@ -202,6 +202,27 @@ Examples:
 - `player_sword_0.png`
 - `player_spear_0.png`
 
+### NPC action tags (optional first pass)
+
+NPC action loops are also supported with a single `action` tag per NPC key:
+- `npc_rat_action_*`
+- `npc_giant_rat_action_*`
+- `npc_goblin_action_*`
+- `npc_chicken_action_*`
+- `npc_cow_action_*`
+- `npc_banker_action_*`
+- `npc_guide_action_*`
+- `npc_instructor_action_*`
+
+Examples:
+- `npc_goblin_action_0.png`, `npc_goblin_action_1.png`
+- `npc_rat_action_0.png`
+- `npc_banker_action_0.png`
+
+These are optional. If action sprites are absent, NPCs continue using existing walk/idle/static fallback behavior.
+Directional action variants are not required in this first pass.
+These `npc_*_action_*` sequences are now consumed at runtime when NPC action windows are active.
+
 ### Ambient environment animation (optional)
 
 Resources and ambient props can also use optional `idle` loops for subtle world motion.
