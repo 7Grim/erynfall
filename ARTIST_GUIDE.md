@@ -106,6 +106,22 @@ Examples:
 
 All optional overlay/clutter canvases use `32 x 16` with `tile-diamond` pivot in `manifest.yaml`.
 
+### Optional water and coastline assets
+
+Water/coastline enrichment supports optional layered assets:
+- `water_shimmer_0.png`, `water_shimmer_1.png`, ...
+- `water_sparkle_0.png`, `water_sparkle_1.png`, ...
+- `shore_foam_n.png`, `shore_foam_s.png`, `shore_foam_e.png`, `shore_foam_w.png`
+- `shore_wet_n.png`, `shore_wet_s.png`, `shore_wet_e.png`, `shore_wet_w.png`
+
+Intent:
+- Shimmer: subtle animated water movement on top of base water
+- Sparkle: very sparse highlight accents (not every water tile)
+- Foam: light coast accent where water meets land
+- Wet edge: darker/moister shoreline transition on adjacent land tiles
+
+All of these slots are optional. If they are absent, current water rendering still works.
+
 ### Humanoid NPCs and player
 
 | File | Canvas | Anchor |

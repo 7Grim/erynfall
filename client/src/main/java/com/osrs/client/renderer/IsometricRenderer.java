@@ -240,7 +240,22 @@ public class IsometricRenderer {
                 }
             }
 
-            // Pass 2: transition overlays (optional keys, skipped when absent).
+            // Pass 2: optional animated water detail overlays.
+            for (int y = minY; y <= maxY; y++) {
+                for (int x = minX; x <= maxX; x++) {
+                    int type = (tileMap != null) ? tileMap[x][y] : 0;
+                    if (type != 1) continue;
+
+                    float sx = worldToScreenX(x, y);
+                    float sy = worldToScreenY(x, y);
+                    drawAnimatedOverlayIfPresent("water_shimmer", sx, sy, 0.18f);
+                    if (waterSeed(x, y) % 7 == 0) {
+                        drawAnimatedOverlayIfPresent("water_sparkle", sx, sy, 0.10f);
+                    }
+                }
+            }
+
+            // Pass 3: transition overlays (optional keys, skipped when absent).
             for (int y = minY; y <= maxY; y++) {
                 for (int x = minX; x <= maxX; x++) {
                     int type = (tileMap != null) ? tileMap[x][y] : 0;
@@ -253,7 +268,20 @@ public class IsometricRenderer {
                     boolean waterWest = isTile(tileMap, x - 1, y, 1);
 
                     // Shoreline accents: land tiles adjacent to water.
-                    if (type == 0 || type == 2 || type == 4) {
+                    if (isLandTile(type)) {
+                        // 1) wet edge
+                        if (waterNorth) drawOverlayIfPresent("shore_wet_n", sx, sy, 0.15f);
+                        if (waterSouth) drawOverlayIfPresent("shore_wet_s", sx, sy, 0.15f);
+                        if (waterEast) drawOverlayIfPresent("shore_wet_e", sx, sy, 0.15f);
+                        if (waterWest) drawOverlayIfPresent("shore_wet_w", sx, sy, 0.15f);
+
+                        // 2) foam
+                        if (waterNorth) drawOverlayIfPresent("shore_foam_n", sx, sy, 0.18f);
+                        if (waterSouth) drawOverlayIfPresent("shore_foam_s", sx, sy, 0.18f);
+                        if (waterEast) drawOverlayIfPresent("shore_foam_e", sx, sy, 0.18f);
+                        if (waterWest) drawOverlayIfPresent("shore_foam_w", sx, sy, 0.18f);
+
+                        // 3) existing generic shoreline overlay
                         if (waterNorth) drawOverlayIfPresent("edge_shore_n", sx, sy);
                         if (waterSouth) drawOverlayIfPresent("edge_shore_s", sx, sy);
                         if (waterEast) drawOverlayIfPresent("edge_shore_e", sx, sy);
@@ -276,7 +304,7 @@ public class IsometricRenderer {
                 }
             }
 
-            // Pass 3: sparse deterministic clutter.
+            // Pass 4: sparse deterministic clutter.
             for (int y = minY; y <= maxY; y++) {
                 for (int x = minX; x <= maxX; x++) {
                     int type = (tileMap != null) ? tileMap[x][y] : 0;
@@ -333,6 +361,18 @@ public class IsometricRenderer {
         return h & Integer.MAX_VALUE;
     }
 
+    private int waterSeed(int x, int y) {
+        int h = (x * 83492791) ^ (y * 19351301) ^ 0x51f2e3d7;
+        h ^= (h >>> 13);
+        h *= 1274126177;
+        h ^= (h >>> 16);
+        return h & Integer.MAX_VALUE;
+    }
+
+    private boolean isLandTile(int type) {
+        return type == 0 || type == 2 || type == 4;
+    }
+
     private int tileVariantSeed(int x, int y, int type) {
         int h = (x * 92837111) ^ (y * 689287499) ^ (type * 1237);
         h ^= (h >>> 13);
@@ -386,6 +426,20 @@ public class IsometricRenderer {
 
     private void drawOverlayIfPresent(String key, float sx, float sy, float alpha) {
         TextureRegion region = spriteSheet.getTile(key);
+        if (region == null) return;
+        drawTileSpriteWithPivot(key, region, sx, sy, alpha);
+    }
+
+    private void drawAnimatedOverlayIfPresent(String key, float sx, float sy, float alpha) {
+        if (spriteSheet == null) return;
+        TextureRegion region = null;
+        Animation<TextureRegion> anim = spriteSheet.getAnimation(key);
+        if (anim != null) {
+            region = anim.getKeyFrame(stateTime, true);
+        }
+        if (region == null) {
+            region = spriteSheet.getTile(key);
+        }
         if (region == null) return;
         drawTileSpriteWithPivot(key, region, sx, sy, alpha);
     }

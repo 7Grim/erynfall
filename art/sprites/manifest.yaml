@@ -458,6 +458,106 @@ assets:
     animated: false
     notes: Optional shoreline overlay for water to the west.
 
+  - key: water_shimmer
+    file: water_shimmer.png
+    category: overlay
+    canvas_width: 32
+    canvas_height: 16
+    pivot: tile-diamond
+    required: false
+    animated: true
+    notes: Optional subtle animated water shimmer overlay.
+
+  - key: water_sparkle
+    file: water_sparkle.png
+    category: overlay
+    canvas_width: 32
+    canvas_height: 16
+    pivot: tile-diamond
+    required: false
+    animated: true
+    notes: Optional sparse animated sparkle highlights on water.
+
+  - key: shore_foam_n
+    file: shore_foam_n.png
+    category: overlay
+    canvas_width: 32
+    canvas_height: 16
+    pivot: tile-diamond
+    required: false
+    animated: false
+    notes: Optional shoreline foam accent for adjacent water to the north.
+
+  - key: shore_foam_s
+    file: shore_foam_s.png
+    category: overlay
+    canvas_width: 32
+    canvas_height: 16
+    pivot: tile-diamond
+    required: false
+    animated: false
+    notes: Optional shoreline foam accent for adjacent water to the south.
+
+  - key: shore_foam_e
+    file: shore_foam_e.png
+    category: overlay
+    canvas_width: 32
+    canvas_height: 16
+    pivot: tile-diamond
+    required: false
+    animated: false
+    notes: Optional shoreline foam accent for adjacent water to the east.
+
+  - key: shore_foam_w
+    file: shore_foam_w.png
+    category: overlay
+    canvas_width: 32
+    canvas_height: 16
+    pivot: tile-diamond
+    required: false
+    animated: false
+    notes: Optional shoreline foam accent for adjacent water to the west.
+
+  - key: shore_wet_n
+    file: shore_wet_n.png
+    category: overlay
+    canvas_width: 32
+    canvas_height: 16
+    pivot: tile-diamond
+    required: false
+    animated: false
+    notes: Optional wet-edge land accent for adjacent water to the north.
+
+  - key: shore_wet_s
+    file: shore_wet_s.png
+    category: overlay
+    canvas_width: 32
+    canvas_height: 16
+    pivot: tile-diamond
+    required: false
+    animated: false
+    notes: Optional wet-edge land accent for adjacent water to the south.
+
+  - key: shore_wet_e
+    file: shore_wet_e.png
+    category: overlay
+    canvas_width: 32
+    canvas_height: 16
+    pivot: tile-diamond
+    required: false
+    animated: false
+    notes: Optional wet-edge land accent for adjacent water to the east.
+
+  - key: shore_wet_w
+    file: shore_wet_w.png
+    category: overlay
+    canvas_width: 32
+    canvas_height: 16
+    pivot: tile-diamond
+    required: false
+    animated: false
+    notes: Optional wet-edge land accent for adjacent water to the west.
+
   - key: edge_path_grass_n
     file: edge_path_grass_n.png
     category: overlay
