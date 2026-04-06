@@ -199,17 +199,7 @@ public class IsometricRenderer {
                     float sx = worldToScreenX(x, y);
                     float sy = worldToScreenY(x, y);
 
-                    TextureRegion region = null;
-                    if (type == 1) {
-                        // Prefer animated water over static tile_water
-                        Animation<TextureRegion> waterAnim = spriteSheet.getAnimation("tile_water");
-                        if (waterAnim != null) {
-                            region = waterAnim.getKeyFrame(stateTime);
-                        }
-                    }
-                    if (region == null) {
-                        region = spriteSheet.getTile(tileKey(type));
-                    }
+                    TextureRegion region = resolveBaseTileRegion(type, x, y);
                     if (region != null) {
                         drawTileSpriteWithPivot(tileKey(type), region, sx, sy);
                     }
@@ -306,6 +296,33 @@ public class IsometricRenderer {
         h *= 1274126177;
         h ^= (h >>> 16);
         return h & Integer.MAX_VALUE;
+    }
+
+    private int tileVariantSeed(int x, int y, int type) {
+        int h = (x * 92837111) ^ (y * 689287499) ^ (type * 1237);
+        h ^= (h >>> 13);
+        h *= 1274126177;
+        h ^= (h >>> 16);
+        return h & Integer.MAX_VALUE;
+    }
+
+    private TextureRegion resolveBaseTileRegion(int type, int x, int y) {
+        if (spriteSheet == null) return null;
+        String key = tileKey(type);
+        // Water remains special because it prefers animation.
+        if (type == 1) {
+            Animation<TextureRegion> waterAnim = spriteSheet.getAnimation("tile_water");
+            if (waterAnim != null) {
+                return waterAnim.getKeyFrame(stateTime);
+            }
+            return spriteSheet.getTile("tile_water");
+        }
+
+        SpriteSheet.SpriteMeta meta = spriteSheet.getMeta(key);
+        if (meta != null && meta.variantCount() > 0) {
+            return spriteSheet.getDeterministicVariantTile(key, meta.variantCount(), tileVariantSeed(x, y, type));
+        }
+        return spriteSheet.getTile(key);
     }
 
     private void drawOverlayIfPresent(String key, float sx, float sy) {

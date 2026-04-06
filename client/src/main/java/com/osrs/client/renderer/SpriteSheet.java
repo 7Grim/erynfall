@@ -42,6 +42,7 @@ public class SpriteSheet {
         private final int canvasHeight;
         private final String pivot;
         private final boolean animated;
+        private final int variantCount;
         private final Float shadowWidth;
         private final Float shadowHeight;
         private final Float shadowAlpha;
@@ -52,6 +53,7 @@ public class SpriteSheet {
                            int canvasHeight,
                            String pivot,
                            boolean animated,
+                           int variantCount,
                            Float shadowWidth,
                            Float shadowHeight,
                            Float shadowAlpha) {
@@ -61,6 +63,7 @@ public class SpriteSheet {
             this.canvasHeight = canvasHeight;
             this.pivot = pivot;
             this.animated = animated;
+            this.variantCount = variantCount;
             this.shadowWidth = shadowWidth;
             this.shadowHeight = shadowHeight;
             this.shadowAlpha = shadowAlpha;
@@ -77,6 +80,8 @@ public class SpriteSheet {
         public String pivot() { return pivot; }
 
         public boolean animated() { return animated; }
+
+        public int variantCount() { return variantCount; }
 
         public Float shadowWidth() { return shadowWidth; }
 
@@ -132,6 +137,7 @@ public class SpriteSheet {
                 int canvasHeight = asset.getInt("canvas_height", 0);
                 String pivot = asset.getString("pivot", "bottom-center");
                 boolean animated = asset.getBoolean("animated", false);
+                int variantCount = asset.getInt("variant_count", 0);
                 if (key == null || key.isBlank() || canvasWidth <= 0 || canvasHeight <= 0) {
                     continue;
                 }
@@ -147,6 +153,7 @@ public class SpriteSheet {
                     canvasHeight,
                     pivot,
                     animated,
+                    variantCount,
                     shadowWidth,
                     shadowHeight,
                     shadowAlpha
@@ -196,6 +203,18 @@ public class SpriteSheet {
     /** True when the atlas contains a region with the given name. */
     public boolean hasTile(String name) {
         return atlas.findRegion(name) != null;
+    }
+
+    public TextureRegion getVariantTile(String baseKey, int variantIndex) {
+        if (variantIndex < 0) return null;
+        return atlas.findRegion(baseKey + "_" + variantIndex);
+    }
+
+    public TextureRegion getDeterministicVariantTile(String baseKey, int variantCount, int seed) {
+        if (variantCount <= 0) return getTile(baseKey);
+        int idx = Math.floorMod(seed, variantCount);
+        TextureRegion variant = getVariantTile(baseKey, idx);
+        return variant != null ? variant : getTile(baseKey);
     }
 
     /**

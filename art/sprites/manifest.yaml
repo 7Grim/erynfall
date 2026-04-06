@@ -8,7 +8,8 @@ assets:
     pivot: tile-diamond
     required: true
     animated: false
-    notes: Base walkable grass tile.
+    variant_count: 3
+    notes: Base walkable grass tile. Optional variants use tile_grass_0.png .. tile_grass_2.png
 
   - key: tile_water
     file: tile_water.png
@@ -28,7 +29,8 @@ assets:
     pivot: tile-diamond
     required: true
     animated: false
-    notes: Dirt path tile.
+    variant_count: 2
+    notes: Dirt path tile. Optional variants use tile_path_0.png .. tile_path_1.png
 
   - key: tile_wall
     file: tile_wall.png
@@ -38,7 +40,8 @@ assets:
     pivot: tile-diamond
     required: true
     animated: false
-    notes: Elevated wall top tile.
+    variant_count: 2
+    notes: Elevated wall top tile. Optional variants use tile_wall_0.png .. tile_wall_1.png
 
   - key: tile_sand
     file: tile_sand.png
@@ -48,7 +51,8 @@ assets:
     pivot: tile-diamond
     required: true
     animated: false
-    notes: Sandy ground tile.
+    variant_count: 2
+    notes: Sandy ground tile. Optional variants use tile_sand_0.png .. tile_sand_1.png
 
   - key: player
     file: player.png

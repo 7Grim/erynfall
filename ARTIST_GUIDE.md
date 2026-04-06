@@ -82,6 +82,19 @@ Tile canvas layout (32 × 16):
    ╲╱
 ```
 
+#### Optional base material variants
+
+Some base materials support optional deterministic variants.
+
+Naming convention:
+- `tile_grass_0.png`, `tile_grass_1.png`, `tile_grass_2.png`
+- `tile_path_0.png`, `tile_path_1.png`
+- `tile_sand_0.png`, `tile_sand_1.png`
+- `tile_wall_0.png`, `tile_wall_1.png`
+
+These are optional. If only the base file exists (for example `tile_grass.png`), rendering still works.
+When variants are present, the game picks one deterministically per tile location.
+
 ### Optional transition and clutter sprites
 
 The renderer supports optional environment richness keys (shore/path/wall overlays and sparse clutter).

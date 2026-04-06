@@ -28,6 +28,7 @@ class ManifestEntry:
     pivot: str
     required: bool
     animated: bool
+    variant_count: int
     shadow_width: float | None
     shadow_height: float | None
     shadow_alpha: float | None
@@ -155,6 +156,10 @@ def parse_manifest(manifest_path: Path) -> list[ManifestEntry]:
             pivot=str(item["pivot"]),
             required=as_bool(item["required"], "required", str(item["key"])),
             animated=as_bool(item["animated"], "animated", str(item["key"])),
+            variant_count=(
+                as_int(item["variant_count"], "variant_count", str(item["key"]))
+                if "variant_count" in item else 0
+            ),
             shadow_width=(
                 as_float(item["shadow_width"], "shadow_width", str(item["key"]))
                 if "shadow_width" in item else None
@@ -178,6 +183,8 @@ def parse_manifest(manifest_path: Path) -> list[ManifestEntry]:
             raise ValueError(f"Manifest file for '{entry.key}' must end with .png: {entry.file}")
         if entry.canvas_width <= 0 or entry.canvas_height <= 0:
             raise ValueError(f"Manifest dimensions must be positive for key '{entry.key}'")
+        if entry.variant_count < 0:
+            raise ValueError(f"variant_count must be >= 0 for key '{entry.key}'")
         if entry.shadow_width is not None and entry.shadow_width <= 0:
             raise ValueError(f"shadow_width must be > 0 for key '{entry.key}'")
         if entry.shadow_height is not None and entry.shadow_height <= 0:
@@ -211,13 +218,13 @@ def is_frame_for_key(file_name: str, key: str) -> bool:
     return simple is not None or tagged is not None
 
 
-def collect_animation_frames(key: str, sprite_dir: Path) -> dict[str, list[tuple[int, Path]]]:
+def collect_animation_frames(key: str, sprite_dir: Path, include_simple: bool) -> dict[str, list[tuple[int, Path]]]:
     simple_pattern = re.compile(rf"^{re.escape(key)}_(\d+)\.png$")
     tagged_pattern = re.compile(rf"^{re.escape(key)}_(.+)_(\d+)\.png$")
     by_tag: dict[str, list[tuple[int, Path]]] = {}
     for png_path in sprite_dir.glob("*.png"):
-        simple_match = simple_pattern.match(png_path.name)
-        if simple_match:
+        simple_match = simple_pattern.match(png_path.name) if include_simple else None
+        if simple_match is not None:
             tag = "default"
             frame_index = int(simple_match.group(1))
         else:
@@ -230,6 +237,17 @@ def collect_animation_frames(key: str, sprite_dir: Path) -> dict[str, list[tuple
     return by_tag
 
 
+def collect_variant_files(key: str, sprite_dir: Path) -> dict[int, Path]:
+    pattern = re.compile(rf"^{re.escape(key)}_(\d+)\.png$")
+    by_index: dict[int, Path] = {}
+    for png_path in sprite_dir.glob("*.png"):
+        match = pattern.match(png_path.name)
+        if match is None:
+            continue
+        by_index[int(match.group(1))] = png_path
+    return by_index
+
+
 def validate(entries: list[ManifestEntry], sprites_dir: Path) -> tuple[list[str], list[str]]:
     errors: list[str] = []
     warnings: list[str] = []
@@ -240,7 +258,12 @@ def validate(entries: list[ManifestEntry], sprites_dir: Path) -> tuple[list[str]
     for entry in entries:
         png_path = sprites_dir / entry.file
         placeholder_path = sprites_dir / f"{entry.file}.placeholder"
-        frame_groups = collect_animation_frames(entry.key, sprites_dir)
+        variant_files = collect_variant_files(entry.key, sprites_dir)
+        frame_groups = collect_animation_frames(
+            entry.key,
+            sprites_dir,
+            include_simple=entry.animated and entry.variant_count <= 0,
+        )
         has_frames = any(frame_groups.values())
 
         if entry.required and not png_path.exists() and not placeholder_path.exists() and not has_frames:
@@ -259,6 +282,21 @@ def validate(entries: list[ManifestEntry], sprites_dir: Path) -> tuple[list[str]
                     f"dimension mismatch for '{entry.key}': got {width}x{height}, expected "
                     f"{entry.canvas_width}x{entry.canvas_height} ({entry.file})"
                 )
+
+        if entry.variant_count > 0 and variant_files:
+            for index, variant_path in variant_files.items():
+                if index >= entry.variant_count:
+                    errors.append(
+                        f"variant out of declared range for '{entry.key}': found {variant_path.name}, "
+                        f"but variant_count={entry.variant_count}"
+                    )
+                    continue
+                width, height = png_dimensions(variant_path)
+                if width != entry.canvas_width or height != entry.canvas_height:
+                    errors.append(
+                        f"dimension mismatch for variant '{variant_path.name}': got {width}x{height}, "
+                        f"expected {entry.canvas_width}x{entry.canvas_height}"
+                    )
 
         if entry.animated:
             if not png_path.exists() and not has_frames and not placeholder_path.exists():
@@ -289,6 +327,19 @@ def validate(entries: list[ManifestEntry], sprites_dir: Path) -> tuple[list[str]
         name = png_path.name
         if name in manifest_files:
             continue
+
+        matched_variant = False
+        for entry in entries:
+            if entry.variant_count <= 0:
+                continue
+            match = re.match(rf"^{re.escape(entry.key)}_(\d+)\.png$", name)
+            if match is None:
+                continue
+            matched_variant = True
+            break
+        if matched_variant:
+            continue
+
         belongs_to_animated_key = any(
             manifest_by_key[key].animated and is_frame_for_key(name, key)
             for key in manifest_by_key
@@ -320,6 +371,7 @@ def write_runtime_metadata(entries: Iterable[ManifestEntry], output_path: Path) 
             "canvas_height": entry.canvas_height,
             "pivot": entry.pivot,
             "animated": entry.animated,
+            "variant_count": entry.variant_count,
         }
         if entry.shadow_width is not None:
             asset["shadow_width"] = entry.shadow_width
