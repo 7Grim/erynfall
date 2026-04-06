@@ -207,7 +207,9 @@ public class SpriteSheet {
 
     public TextureRegion getVariantTile(String baseKey, int variantIndex) {
         if (variantIndex < 0) return null;
-        return atlas.findRegion(baseKey + "_" + variantIndex);
+        // Variant files are named base_N.png; TexturePacker strips the _N suffix
+        // and packs them as indexed regions — use findRegion(name, index).
+        return atlas.findRegion(baseKey, variantIndex);
     }
 
     public TextureRegion getDeterministicVariantTile(String baseKey, int variantCount, int seed) {
