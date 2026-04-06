@@ -299,7 +299,7 @@ def validate(entries: list[ManifestEntry], sprites_dir: Path) -> tuple[list[str]
                     )
 
         if entry.animated:
-            if not png_path.exists() and not has_frames and not placeholder_path.exists():
+            if entry.required and not png_path.exists() and not has_frames and not placeholder_path.exists():
                 errors.append(
                     f"animated key '{entry.key}' has no base PNG or frame sequence"
                 )

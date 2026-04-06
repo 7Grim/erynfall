@@ -186,6 +186,26 @@ Examples:
 - `player_sword_0.png`
 - `player_spear_0.png`
 
+### Ambient environment animation (optional)
+
+Resources and ambient props can also use optional `idle` loops for subtle world motion.
+
+Examples:
+- `fishing_spot_idle_0.png`, `fishing_spot_idle_1.png`
+- `fire_idle_0.png`
+- `tree_oak_idle_0.png`
+- `rock_gold_idle_0.png`
+- `clutter_reeds_1_idle_0.png`
+
+Style guidance:
+- Fishing spots: gentle bobbing/ripple disturbance
+- Fires: restrained flicker
+- Trees: very light canopy sway only
+- Ore rocks: subtle glint (especially higher-tier ores)
+- Reeds/clutter: minimal sway
+
+If idle frames are absent, the renderer uses the base static sprite automatically.
+
 ---
 
 ## Step-by-step workflow

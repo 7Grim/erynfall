@@ -325,6 +325,15 @@ public class IsometricRenderer {
         return spriteSheet.getTile(key);
     }
 
+    private TextureRegion resolveAmbientResourceRegion(String baseKey) {
+        if (spriteSheet == null) return null;
+        Animation<TextureRegion> idleAnim = spriteSheet.getAnimation(baseKey + "_idle");
+        if (idleAnim != null) {
+            return idleAnim.getKeyFrame(stateTime, true);
+        }
+        return spriteSheet.getTile(baseKey);
+    }
+
     private void drawOverlayIfPresent(String key, float sx, float sy) {
         TextureRegion region = spriteSheet.getTile(key);
         if (region == null) return;
@@ -332,7 +341,16 @@ public class IsometricRenderer {
     }
 
     private void drawClutterIfPresent(String key, float sx, float sy) {
-        TextureRegion region = spriteSheet.getTile(key);
+        TextureRegion region = null;
+        if (spriteSheet != null) {
+            Animation<TextureRegion> idleAnim = spriteSheet.getAnimation(key + "_idle");
+            if (idleAnim != null) {
+                region = idleAnim.getKeyFrame(stateTime, true);
+            }
+            if (region == null) {
+                region = spriteSheet.getTile(key);
+            }
+        }
         if (region == null) return;
         drawTileSpriteWithPivot(key, region, sx, sy);
     }
@@ -668,21 +686,33 @@ public class IsometricRenderer {
         if (spriteSheet != null) {
             String baseKey = npcSpriteKeyForName(npcName);
             TextureRegion region = null;
-            if (moving) {
-                Animation<TextureRegion> walkAnim = spriteSheet.getAnimation(baseKey + "_walk_" + animDir);
-                if (walkAnim != null) {
-                    region = walkAnim.getKeyFrame(animTime, true);
+
+            boolean ambientResource = baseKey.equals("tree")
+                || baseKey.startsWith("tree_")
+                || baseKey.startsWith("rock_")
+                || baseKey.equals("fishing_spot")
+                || baseKey.equals("fire");
+
+            if (ambientResource) {
+                region = resolveAmbientResourceRegion(baseKey);
+            } else {
+                if (moving) {
+                    Animation<TextureRegion> walkAnim = spriteSheet.getAnimation(baseKey + "_walk_" + animDir);
+                    if (walkAnim != null) {
+                        region = walkAnim.getKeyFrame(animTime, true);
+                    }
+                }
+                if (region == null) {
+                    Animation<TextureRegion> idleAnim = spriteSheet.getAnimation(baseKey + "_idle");
+                    if (idleAnim != null) {
+                        region = idleAnim.getKeyFrame(animTime, true);
+                    }
+                }
+                if (region == null) {
+                    region = spriteSheet.getTile(baseKey);
                 }
             }
-            if (region == null) {
-                Animation<TextureRegion> idleAnim = spriteSheet.getAnimation(baseKey + "_idle");
-                if (idleAnim != null) {
-                    region = idleAnim.getKeyFrame(animTime, true);
-                }
-            }
-            if (region == null) {
-                region = spriteSheet.getTile(baseKey);
-            }
+
             if (region != null) {
                 batch.setProjectionMatrix(camera.combined);
                 batch.begin();

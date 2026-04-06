@@ -178,7 +178,7 @@ assets:
     canvas_height: 32
     pivot: bottom-center
     required: true
-    animated: false
+    animated: true
     shadow_width: 14
     shadow_height: 6
     shadow_alpha: 0.16
@@ -191,7 +191,7 @@ assets:
     canvas_height: 32
     pivot: bottom-center
     required: true
-    animated: false
+    animated: true
     shadow_width: 14
     shadow_height: 6
     shadow_alpha: 0.16
@@ -204,7 +204,7 @@ assets:
     canvas_height: 40
     pivot: bottom-center
     required: true
-    animated: false
+    animated: true
     shadow_width: 14
     shadow_height: 6
     shadow_alpha: 0.16
@@ -217,7 +217,7 @@ assets:
     canvas_height: 32
     pivot: bottom-center
     required: true
-    animated: false
+    animated: true
     shadow_width: 14
     shadow_height: 6
     shadow_alpha: 0.16
@@ -230,7 +230,7 @@ assets:
     canvas_height: 36
     pivot: bottom-center
     required: true
-    animated: false
+    animated: true
     shadow_width: 14
     shadow_height: 6
     shadow_alpha: 0.16
@@ -243,7 +243,7 @@ assets:
     canvas_height: 36
     pivot: bottom-center
     required: true
-    animated: false
+    animated: true
     shadow_width: 14
     shadow_height: 6
     shadow_alpha: 0.16
@@ -256,7 +256,7 @@ assets:
     canvas_height: 40
     pivot: bottom-center
     required: true
-    animated: false
+    animated: true
     shadow_width: 14
     shadow_height: 6
     shadow_alpha: 0.16
@@ -269,7 +269,7 @@ assets:
     canvas_height: 40
     pivot: bottom-center
     required: true
-    animated: false
+    animated: true
     shadow_width: 14
     shadow_height: 6
     shadow_alpha: 0.16
@@ -282,7 +282,7 @@ assets:
     canvas_height: 16
     pivot: bottom-center
     required: true
-    animated: false
+    animated: true
     shadow_width: 12
     shadow_height: 5
     shadow_alpha: 0.14
@@ -295,7 +295,7 @@ assets:
     canvas_height: 20
     pivot: bottom-center
     required: true
-    animated: false
+    animated: true
     shadow_width: 12
     shadow_height: 5
     shadow_alpha: 0.14
@@ -308,7 +308,7 @@ assets:
     canvas_height: 12
     pivot: bottom-center
     required: true
-    animated: false
+    animated: true
     shadow_width: 12
     shadow_height: 5
     shadow_alpha: 0.16
@@ -321,7 +321,7 @@ assets:
     canvas_height: 12
     pivot: bottom-center
     required: true
-    animated: false
+    animated: true
     shadow_width: 12
     shadow_height: 5
     shadow_alpha: 0.16
@@ -334,7 +334,7 @@ assets:
     canvas_height: 12
     pivot: bottom-center
     required: true
-    animated: false
+    animated: true
     shadow_width: 12
     shadow_height: 5
     shadow_alpha: 0.16
@@ -347,7 +347,7 @@ assets:
     canvas_height: 12
     pivot: bottom-center
     required: true
-    animated: false
+    animated: true
     shadow_width: 12
     shadow_height: 5
     shadow_alpha: 0.16
@@ -360,7 +360,7 @@ assets:
     canvas_height: 12
     pivot: bottom-center
     required: true
-    animated: false
+    animated: true
     shadow_width: 12
     shadow_height: 5
     shadow_alpha: 0.16
@@ -373,7 +373,7 @@ assets:
     canvas_height: 12
     pivot: bottom-center
     required: true
-    animated: false
+    animated: true
     shadow_width: 12
     shadow_height: 5
     shadow_alpha: 0.16
@@ -386,7 +386,7 @@ assets:
     canvas_height: 12
     pivot: bottom-center
     required: true
-    animated: false
+    animated: true
     shadow_width: 12
     shadow_height: 5
     shadow_alpha: 0.16
@@ -399,7 +399,7 @@ assets:
     canvas_height: 12
     pivot: bottom-center
     required: true
-    animated: false
+    animated: true
     shadow_width: 12
     shadow_height: 5
     shadow_alpha: 0.16
@@ -412,7 +412,7 @@ assets:
     canvas_height: 12
     pivot: bottom-center
     required: true
-    animated: false
+    animated: true
     shadow_width: 12
     shadow_height: 5
     shadow_alpha: 0.16
@@ -585,7 +585,7 @@ assets:
     canvas_height: 16
     pivot: tile-diamond
     required: false
-    animated: false
+    animated: true
     notes: Optional shoreline reeds for non-water tiles near water.
 
   - key: rock
