@@ -19,6 +19,7 @@ import com.osrs.client.network.ClientPacketHandler;
 import com.osrs.client.network.NettyClient;
 import com.osrs.client.renderer.CoordinateConverter;
 import com.osrs.client.renderer.IsometricRenderer;
+import com.osrs.client.renderer.RenderZone;
 import com.osrs.client.audio.AudioManager;
 import com.osrs.client.renderer.SpriteSheet;
 import com.osrs.client.world.MapLoader;
@@ -119,6 +120,12 @@ public class GameScreen extends ApplicationAdapter {
     private Matrix4          screenProjection;
     private final GlyphLayout gl = new GlyphLayout();
     private final GlyphLayout npcTagLayout = new GlyphLayout();
+    private RenderZone activeRenderZone;
+    private float renderZoneTintR = 1f;
+    private float renderZoneTintG = 1f;
+    private float renderZoneTintB = 1f;
+    private float renderZoneTintAlpha = 0f;
+    private float renderZoneVignetteAlpha = 0f;
 
     // -----------------------------------------------------------------------
     // Game objects
@@ -635,9 +642,11 @@ public class GameScreen extends ApplicationAdapter {
     }
 
     private void renderGroundItemsLayer(List<GroundItemRenderEntry> entries) {
+        renderer.beginWorldShapePass(ShapeRenderer.ShapeType.Filled);
         for (GroundItemRenderEntry entry : entries) {
-            renderer.renderGroundItem(entry.tileX(), entry.tileY(), entry.itemId(), entry.quantity());
+            renderer.renderGroundItemInPass(entry.tileX(), entry.tileY(), entry.itemId(), entry.quantity());
         }
+        renderer.endWorldShapePass();
     }
 
     private List<ShadowRenderEntry> collectShadowRenderEntries(List<ActorRenderEntry> actorEntries) {
@@ -727,14 +736,57 @@ public class GameScreen extends ApplicationAdapter {
         return IsometricRenderer.npcSpriteKeyForName(entry.npcName());
     }
 
+    private boolean isOccludingWorldResource(ActorRenderEntry entry) {
+        if (entry.isPlayer()) return false;
+        String name = entry.npcName();
+        return "Tree".equals(name)
+            || "Oak Tree".equals(name)
+            || "Willow Tree".equals(name)
+            || "Teak Tree".equals(name)
+            || "Maple Tree".equals(name)
+            || "Mahogany Tree".equals(name)
+            || "Yew Tree".equals(name)
+            || "Magic Tree".equals(name)
+            || "Copper Rock".equals(name)
+            || "Tin Rock".equals(name)
+            || "Iron Rock".equals(name)
+            || "Silver Rock".equals(name)
+            || "Coal Rock".equals(name)
+            || "Gold Rock".equals(name)
+            || "Mithril Rock".equals(name)
+            || "Adamantite Rock".equals(name)
+            || "Runite Rock".equals(name)
+            || "Fishing Spot".equals(name)
+            || "Cooking Fire".equals(name);
+    }
+
+    // Local-player readability rule:
+    // tall world resources in front of the player fade slightly when they overlap
+    // the player's screen-space position. This is the sprite/isometric equivalent
+    // of OSRS-style roof/foreground readability assistance.
+    private boolean isObstructingLocalPlayer(ActorRenderEntry entry) {
+        if (!isOccludingWorldResource(entry)) return false;
+        float playerSx = renderer.worldToScreenX(visualX, visualY);
+        float playerSy = renderer.worldToScreenY(visualX, visualY);
+        float entrySx = renderer.worldToScreenX(entry.tileX(), entry.tileY());
+        float entrySy = renderer.worldToScreenY(entry.tileX(), entry.tileY());
+        if (entrySy <= playerSy) return false;
+        float dx = Math.abs(entrySx - playerSx);
+        float dy = Math.abs(entrySy - playerSy);
+        return dx <= 18f && dy <= 28f;
+    }
+
     private void renderShadowsLayer(List<ShadowRenderEntry> entries) {
+        renderer.beginWorldShapePass(ShapeRenderer.ShapeType.Filled);
         for (ShadowRenderEntry entry : entries) {
-            renderer.renderBlobShadow(entry.tileX(), entry.tileY(), entry.width(), entry.height(), entry.alpha());
+            renderer.renderBlobShadowInPass(entry.tileX(), entry.tileY(), entry.width(), entry.height(), entry.alpha());
         }
+        renderer.endWorldShapePass();
     }
 
     private void renderFireGlows(ClientPacketHandler handler) {
         if (handler == null) return;
+        renderer.beginWorldShapePass(ShapeRenderer.ShapeType.Filled);
         for (Map.Entry<Integer, int[]> entry : handler.getEntityPositions().entrySet()) {
             int id = entry.getKey();
             if (handler.isPlayer(id)) continue;
@@ -742,15 +794,26 @@ public class GameScreen extends ApplicationAdapter {
             if (!"Cooking Fire".equals(npcName)) continue;
             float[] vis = npcVisual.get(id);
             if (vis == null) continue;
-            renderer.renderGroundGlow(vis[0], vis[1], 22f, 10f, 1.0f, 0.55f, 0.15f, 0.12f);
+            renderer.renderGroundGlowInPass(vis[0], vis[1], 22f, 10f, 1.0f, 0.55f, 0.15f, 0.12f);
         }
+        renderer.endWorldShapePass();
     }
 
     private void renderActorsLayer(List<ActorRenderEntry> entries) {
+        final int MODE_NONE = 0;
+        final int MODE_SPRITE = 1;
+        final int MODE_SHAPE = 2;
+        int mode = MODE_NONE;
+
         for (ActorRenderEntry entry : entries) {
             if (entry.isPlayer()) {
                 if (isLocalActorEntry(entry)) {
-                    renderer.renderPlayer(
+                    if (mode != MODE_SPRITE) {
+                        if (mode == MODE_SHAPE) renderer.endWorldShapePass();
+                        renderer.beginWorldSpritePass();
+                        mode = MODE_SPRITE;
+                    }
+                    boolean drawn = renderer.renderPlayerSpriteInPass(
                         entry.tileX(),
                         entry.tileY(),
                         entry.pickingUp(),
@@ -759,18 +822,53 @@ public class GameScreen extends ApplicationAdapter {
                         playerAnimDir,
                         playerAnimTime
                     );
+                    if (!drawn) {
+                        renderer.endWorldSpritePass();
+                        renderer.beginWorldShapePass(ShapeRenderer.ShapeType.Filled);
+                        mode = MODE_SHAPE;
+                        renderer.renderPlayerFallbackInPass(entry.tileX(), entry.tileY(), entry.pickingUp(), entry.playerPose());
+                    }
                 } else {
                     boolean moving = npcAnimMoving.getOrDefault(entry.entityId(), false);
                     String dir = npcAnimDir.getOrDefault(entry.entityId(), "s");
                     float time = npcAnimTime.getOrDefault(entry.entityId(), 0f);
-                    renderer.renderPlayer(entry.tileX(), entry.tileY(), false, null, moving, dir, time);
+                    if (mode != MODE_SPRITE) {
+                        if (mode == MODE_SHAPE) renderer.endWorldShapePass();
+                        renderer.beginWorldSpritePass();
+                        mode = MODE_SPRITE;
+                    }
+                    boolean drawn = renderer.renderPlayerSpriteInPass(entry.tileX(), entry.tileY(), false, null, moving, dir, time);
+                    if (!drawn) {
+                        renderer.endWorldSpritePass();
+                        renderer.beginWorldShapePass(ShapeRenderer.ShapeType.Filled);
+                        mode = MODE_SHAPE;
+                        renderer.renderPlayerFallbackInPass(entry.tileX(), entry.tileY(), false, null);
+                    }
                 }
             } else {
                 boolean moving = npcAnimMoving.getOrDefault(entry.entityId(), false);
                 String dir = npcAnimDir.getOrDefault(entry.entityId(), "s");
                 float time = npcAnimTime.getOrDefault(entry.entityId(), 0f);
-                renderer.renderNPC(entry.tileX(), entry.tileY(), entry.entityId(), entry.npcName(), moving, dir, time);
+                float alpha = isObstructingLocalPlayer(entry) ? 0.35f : 1f;
+                if (mode != MODE_SPRITE) {
+                    if (mode == MODE_SHAPE) renderer.endWorldShapePass();
+                    renderer.beginWorldSpritePass();
+                    mode = MODE_SPRITE;
+                }
+                boolean drawn = renderer.renderNPCSpriteInPass(entry.tileX(), entry.tileY(), entry.entityId(), entry.npcName(), moving, dir, time, alpha);
+                if (!drawn) {
+                    renderer.endWorldSpritePass();
+                    renderer.beginWorldShapePass(ShapeRenderer.ShapeType.Filled);
+                    mode = MODE_SHAPE;
+                    renderer.renderNPCFallbackInPass(entry.tileX(), entry.tileY(), entry.npcName(), alpha);
+                }
             }
+        }
+
+        if (mode == MODE_SPRITE) {
+            renderer.endWorldSpritePass();
+        } else if (mode == MODE_SHAPE) {
+            renderer.endWorldShapePass();
         }
     }
 
@@ -827,12 +925,59 @@ public class GameScreen extends ApplicationAdapter {
         npcAnimMoving.keySet().retainAll(npcVisual.keySet());
     }
 
+    private void updateRenderZone() {
+        RenderZone zone = RenderZone.findZone(RenderZone.TUTORIAL_ISLAND, playerX, playerY);
+        activeRenderZone = zone;
+        if (zone == null) {
+            renderZoneTintR = 1f;
+            renderZoneTintG = 1f;
+            renderZoneTintB = 1f;
+            renderZoneTintAlpha = 0f;
+            renderZoneVignetteAlpha = 0f;
+            return;
+        }
+        renderZoneTintR = zone.tintR;
+        renderZoneTintG = zone.tintG;
+        renderZoneTintB = zone.tintB;
+        renderZoneTintAlpha = zone.tintAlpha;
+        renderZoneVignetteAlpha = zone.vignetteAlpha;
+    }
+
+    private void renderWorldAmbientTint(int screenW, int screenH) {
+        if (renderZoneTintAlpha <= 0f) return;
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
+        shapeRenderer.setProjectionMatrix(screenProjection);
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+        shapeRenderer.setColor(renderZoneTintR, renderZoneTintG, renderZoneTintB, renderZoneTintAlpha);
+        shapeRenderer.rect(0, 0, screenW, screenH);
+        shapeRenderer.end();
+        Gdx.gl.glDisable(GL20.GL_BLEND);
+    }
+
+    private void renderWorldVignette(int screenW, int screenH) {
+        // Current tutorial/surface zones intentionally keep vignette disabled.
+        // Stronger edge darkening is reserved for future cave/interior-specific mood.
+        if (renderZoneVignetteAlpha <= 0f) return;
+        final int edge = 48;
+        shapeRenderer.setProjectionMatrix(screenProjection);
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+        shapeRenderer.setColor(0f, 0f, 0f, renderZoneVignetteAlpha);
+        shapeRenderer.rect(0, screenH - edge, screenW, edge);
+        shapeRenderer.rect(0, 0, screenW, edge);
+        shapeRenderer.rect(0, edge, edge, screenH - edge * 2);
+        shapeRenderer.rect(screenW - edge, edge, edge, screenH - edge * 2);
+        shapeRenderer.end();
+    }
+
     private void renderHealthBarsLayer(List<ActorRenderEntry> entries) {
+        renderer.beginWorldShapePass(ShapeRenderer.ShapeType.Filled);
         for (ActorRenderEntry entry : entries) {
             if (entry.maxHealth() > 0 && entry.health() < entry.maxHealth()) {
-                renderer.renderHealthBar(entry.tileX(), entry.tileY(), entry.health(), entry.maxHealth());
+                renderer.renderHealthBarInPass(entry.tileX(), entry.tileY(), entry.health(), entry.maxHealth());
             }
         }
+        renderer.endWorldShapePass();
     }
 
     @Override
@@ -923,9 +1068,13 @@ public class GameScreen extends ApplicationAdapter {
             0
         );
         camera.update();
+        updateRenderZone();
 
         // --- World ---
-        renderer.renderWorld(tileMap, visualX, visualY);
+        // World rendering contract:
+        // layer order stays the same, but each layer now renders in consolidated
+        // sprite/shape passes to reduce begin/end churn as visual complexity grows.
+        renderer.renderWorld(tileMap, visualX, visualY, visualX, visualY);
         ClientPacketHandler handler = handler();
         // World render layers:
         //   1. Ground items (depth-sorted)
@@ -966,11 +1115,15 @@ public class GameScreen extends ApplicationAdapter {
         renderOverheadText(delta);
         renderClickMarkers();
 
+        int w = Gdx.graphics.getWidth(), h = Gdx.graphics.getHeight();
+        // Zone ambience affects the world only. UI remains ungraded for readability.
+        renderWorldAmbientTint(w, h);
+        renderWorldVignette(w, h);
+
         // --- Screen-space UI ---
         Gdx.gl.glEnable(GL20.GL_BLEND);
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
 
-        int w = Gdx.graphics.getWidth(), h = Gdx.graphics.getHeight();
         renderHUD();
         if (combatTargetId >= 0) renderOpponentInfo();
         sidePanel.update(delta);
