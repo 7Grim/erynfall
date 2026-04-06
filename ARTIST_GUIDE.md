@@ -72,6 +72,17 @@ Tile canvas layout (32 × 16):
    ╲╱
 ```
 
+### Optional transition and clutter sprites
+
+The renderer supports optional environment richness keys (shore/path/wall overlays and sparse clutter).
+These are **not required** slots and are skipped silently if missing, so gameplay and map behavior are unchanged.
+
+Examples:
+- Transition overlays: `edge_shore_n`, `edge_shore_s`, `edge_shore_e`, `edge_shore_w`, `edge_path_grass_n`, `edge_wall_base`
+- Clutter: `clutter_grass_1`, `clutter_path_1`, `clutter_sand_1`, `clutter_reeds_1`
+
+All optional overlay/clutter canvases use `32 x 16` with `tile-diamond` pivot in `manifest.yaml`.
+
 ### Humanoid NPCs and player
 
 | File | Canvas | Anchor |

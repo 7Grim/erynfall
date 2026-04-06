@@ -330,6 +330,176 @@ assets:
     animated: false
     notes: Runite rock resource.
 
+  - key: edge_shore_n
+    file: edge_shore_n.png
+    category: overlay
+    canvas_width: 32
+    canvas_height: 16
+    pivot: tile-diamond
+    required: false
+    animated: false
+    notes: Optional shoreline overlay for water to the north.
+
+  - key: edge_shore_s
+    file: edge_shore_s.png
+    category: overlay
+    canvas_width: 32
+    canvas_height: 16
+    pivot: tile-diamond
+    required: false
+    animated: false
+    notes: Optional shoreline overlay for water to the south.
+
+  - key: edge_shore_e
+    file: edge_shore_e.png
+    category: overlay
+    canvas_width: 32
+    canvas_height: 16
+    pivot: tile-diamond
+    required: false
+    animated: false
+    notes: Optional shoreline overlay for water to the east.
+
+  - key: edge_shore_w
+    file: edge_shore_w.png
+    category: overlay
+    canvas_width: 32
+    canvas_height: 16
+    pivot: tile-diamond
+    required: false
+    animated: false
+    notes: Optional shoreline overlay for water to the west.
+
+  - key: edge_path_grass_n
+    file: edge_path_grass_n.png
+    category: overlay
+    canvas_width: 32
+    canvas_height: 16
+    pivot: tile-diamond
+    required: false
+    animated: false
+    notes: Optional path edge overlay for grass to the north.
+
+  - key: edge_path_grass_s
+    file: edge_path_grass_s.png
+    category: overlay
+    canvas_width: 32
+    canvas_height: 16
+    pivot: tile-diamond
+    required: false
+    animated: false
+    notes: Optional path edge overlay for grass to the south.
+
+  - key: edge_path_grass_e
+    file: edge_path_grass_e.png
+    category: overlay
+    canvas_width: 32
+    canvas_height: 16
+    pivot: tile-diamond
+    required: false
+    animated: false
+    notes: Optional path edge overlay for grass to the east.
+
+  - key: edge_path_grass_w
+    file: edge_path_grass_w.png
+    category: overlay
+    canvas_width: 32
+    canvas_height: 16
+    pivot: tile-diamond
+    required: false
+    animated: false
+    notes: Optional path edge overlay for grass to the west.
+
+  - key: edge_wall_base
+    file: edge_wall_base.png
+    category: overlay
+    canvas_width: 32
+    canvas_height: 16
+    pivot: tile-diamond
+    required: false
+    animated: false
+    notes: Optional base accent for wall tiles.
+
+  - key: clutter_grass_1
+    file: clutter_grass_1.png
+    category: clutter
+    canvas_width: 32
+    canvas_height: 16
+    pivot: tile-diamond
+    required: false
+    animated: false
+    notes: Optional sparse grass clutter variation 1.
+
+  - key: clutter_grass_2
+    file: clutter_grass_2.png
+    category: clutter
+    canvas_width: 32
+    canvas_height: 16
+    pivot: tile-diamond
+    required: false
+    animated: false
+    notes: Optional sparse grass clutter variation 2.
+
+  - key: clutter_grass_3
+    file: clutter_grass_3.png
+    category: clutter
+    canvas_width: 32
+    canvas_height: 16
+    pivot: tile-diamond
+    required: false
+    animated: false
+    notes: Optional sparse grass clutter variation 3.
+
+  - key: clutter_path_1
+    file: clutter_path_1.png
+    category: clutter
+    canvas_width: 32
+    canvas_height: 16
+    pivot: tile-diamond
+    required: false
+    animated: false
+    notes: Optional sparse path clutter variation 1.
+
+  - key: clutter_path_2
+    file: clutter_path_2.png
+    category: clutter
+    canvas_width: 32
+    canvas_height: 16
+    pivot: tile-diamond
+    required: false
+    animated: false
+    notes: Optional sparse path clutter variation 2.
+
+  - key: clutter_sand_1
+    file: clutter_sand_1.png
+    category: clutter
+    canvas_width: 32
+    canvas_height: 16
+    pivot: tile-diamond
+    required: false
+    animated: false
+    notes: Optional sparse sand clutter variation 1.
+
+  - key: clutter_sand_2
+    file: clutter_sand_2.png
+    category: clutter
+    canvas_width: 32
+    canvas_height: 16
+    pivot: tile-diamond
+    required: false
+    animated: false
+    notes: Optional sparse sand clutter variation 2.
+
+  - key: clutter_reeds_1
+    file: clutter_reeds_1.png
+    category: clutter
+    canvas_width: 32
+    canvas_height: 16
+    pivot: tile-diamond
+    required: false
+    animated: false
+    notes: Optional shoreline reeds for non-water tiles near water.
+
   - key: rock
     file: rock.png
     category: legacy

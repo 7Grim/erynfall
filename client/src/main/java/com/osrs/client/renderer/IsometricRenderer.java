@@ -191,6 +191,8 @@ public class IsometricRenderer {
         if (spriteSheet != null) {
             batch.setProjectionMatrix(camera.combined);
             batch.begin();
+
+            // Pass 1: base tile sprites.
             for (int y = minY; y <= maxY; y++) {
                 for (int x = minX; x <= maxX; x++) {
                     int type = (tileMap != null) ? tileMap[x][y] : 0;
@@ -216,11 +218,116 @@ public class IsometricRenderer {
                     }
                 }
             }
+
+            // Pass 2: transition overlays (optional keys, skipped when absent).
+            for (int y = minY; y <= maxY; y++) {
+                for (int x = minX; x <= maxX; x++) {
+                    int type = (tileMap != null) ? tileMap[x][y] : 0;
+                    float sx = worldToScreenX(x, y);
+                    float sy = worldToScreenY(x, y);
+
+                    boolean waterNorth = isTile(tileMap, x, y - 1, 1);
+                    boolean waterSouth = isTile(tileMap, x, y + 1, 1);
+                    boolean waterEast = isTile(tileMap, x + 1, y, 1);
+                    boolean waterWest = isTile(tileMap, x - 1, y, 1);
+
+                    // Shoreline accents: land tiles adjacent to water.
+                    if (type == 0 || type == 2 || type == 4) {
+                        if (waterNorth) drawOverlayIfPresent("edge_shore_n", sx, sy);
+                        if (waterSouth) drawOverlayIfPresent("edge_shore_s", sx, sy);
+                        if (waterEast) drawOverlayIfPresent("edge_shore_e", sx, sy);
+                        if (waterWest) drawOverlayIfPresent("edge_shore_w", sx, sy);
+                    }
+
+                    // Path-to-grass edge breakup.
+                    if (type == 2) {
+                        if (isTile(tileMap, x, y - 1, 0)) drawOverlayIfPresent("edge_path_grass_n", sx, sy);
+                        if (isTile(tileMap, x, y + 1, 0)) drawOverlayIfPresent("edge_path_grass_s", sx, sy);
+                        if (isTile(tileMap, x + 1, y, 0)) drawOverlayIfPresent("edge_path_grass_e", sx, sy);
+                        if (isTile(tileMap, x - 1, y, 0)) drawOverlayIfPresent("edge_path_grass_w", sx, sy);
+                    }
+
+                    // Wall base accent.
+                    if (type == 3) {
+                        drawOverlayIfPresent("edge_wall_base", sx, sy);
+                    }
+                }
+            }
+
+            // Pass 3: sparse deterministic clutter.
+            for (int y = minY; y <= maxY; y++) {
+                for (int x = minX; x <= maxX; x++) {
+                    int type = (tileMap != null) ? tileMap[x][y] : 0;
+                    float sx = worldToScreenX(x, y);
+                    float sy = worldToScreenY(x, y);
+
+                    int seed = clutterSeed(x, y);
+                    boolean nearWater = isTile(tileMap, x, y - 1, 1)
+                        || isTile(tileMap, x, y + 1, 1)
+                        || isTile(tileMap, x + 1, y, 1)
+                        || isTile(tileMap, x - 1, y, 1);
+                    boolean nearWall = isTile(tileMap, x, y - 1, 3)
+                        || isTile(tileMap, x, y + 1, 3)
+                        || isTile(tileMap, x + 1, y, 3)
+                        || isTile(tileMap, x - 1, y, 3);
+
+                    boolean drewBaseClutter = false;
+                    if (type == 0 && !nearWall && !nearWater && seed % 8 == 0) {
+                        int variant = (seed % 3) + 1;
+                        drawClutterIfPresent("clutter_grass_" + variant, sx, sy);
+                        drewBaseClutter = true;
+                    } else if (type == 2 && seed % 14 == 0) {
+                        int variant = (seed % 2) + 1;
+                        drawClutterIfPresent("clutter_path_" + variant, sx, sy);
+                        drewBaseClutter = true;
+                    } else if (type == 4 && seed % 12 == 0) {
+                        int variant = (seed % 2) + 1;
+                        drawClutterIfPresent("clutter_sand_" + variant, sx, sy);
+                        drewBaseClutter = true;
+                    }
+
+                    if (!drewBaseClutter && type != 1 && type != 3 && nearWater && seed % 18 == 0) {
+                        drawClutterIfPresent("clutter_reeds_1", sx, sy);
+                    }
+                }
+            }
             batch.end();
         }
     }
 
     private static float clamp(float v) { return Math.max(0f, Math.min(1f, v)); }
+
+    private boolean isTile(int[][] tileMap, int x, int y, int expected) {
+        if (tileMap == null) return expected == 0;
+        if (x < 0 || y < 0 || x >= MAP_WIDTH || y >= MAP_HEIGHT) return false;
+        return tileMap[x][y] == expected;
+    }
+
+    private int clutterSeed(int x, int y) {
+        int h = (x * 73856093) ^ (y * 19349663) ^ 0x9e3779b9;
+        h ^= (h >>> 13);
+        h *= 1274126177;
+        h ^= (h >>> 16);
+        return h & Integer.MAX_VALUE;
+    }
+
+    private void drawOverlayIfPresent(String key, float sx, float sy) {
+        TextureRegion region = spriteSheet.getTile(key);
+        if (region == null) return;
+        batch.draw(region,
+            sx - TILE_WIDTH / 2f,
+            sy - TILE_HEIGHT / 2f,
+            TILE_WIDTH, TILE_HEIGHT);
+    }
+
+    private void drawClutterIfPresent(String key, float sx, float sy) {
+        TextureRegion region = spriteSheet.getTile(key);
+        if (region == null) return;
+        batch.draw(region,
+            sx - TILE_WIDTH / 2f,
+            sy - TILE_HEIGHT / 2f,
+            TILE_WIDTH, TILE_HEIGHT);
+    }
 
     /**
      * Draws the isometric south-west and south-east faces of an elevated tile,
