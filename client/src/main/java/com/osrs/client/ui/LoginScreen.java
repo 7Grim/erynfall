@@ -186,6 +186,11 @@ public class LoginScreen extends ScreenAdapter {
     public void render(float delta) {
         if (transitioning) return;
 
+        // Advance audio fades (AudioManager is owned by ErynfallGame, persists across screens)
+        if (game.getAudioManager() != null) {
+            game.getAudioManager().update(delta);
+        }
+
         int w = Gdx.graphics.getWidth();
         int h = Gdx.graphics.getHeight();
         cursorBlink = (cursorBlink + delta) % 1.0f;

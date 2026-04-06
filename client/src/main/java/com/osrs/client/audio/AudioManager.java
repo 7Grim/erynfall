@@ -395,6 +395,12 @@ public class AudioManager {
             }
         }
 
+        // Step 1b: Nothing playing and nothing fading out — start pending immediately.
+        // This handles the first-play case (login music, first zone entry).
+        if (outgoingMusic == null && activeMusic == null && pendingTrack != null) {
+            startPendingMusic();
+        }
+
         // Step 2: Fade in active track
         if (activeMusic != null) {
             if (activeProg < 1f) {
