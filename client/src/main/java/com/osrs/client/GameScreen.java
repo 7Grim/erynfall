@@ -695,6 +695,16 @@ public class GameScreen extends ApplicationAdapter {
                 }
             }
 
+            String spriteKey = actorSpriteKey(entry);
+            if (spriteSheet != null && spriteKey != null) {
+                SpriteSheet.SpriteMeta meta = spriteSheet.getMeta(spriteKey);
+                if (meta != null && meta.shadowWidth() != null && meta.shadowHeight() != null && meta.shadowAlpha() != null) {
+                    width = meta.shadowWidth();
+                    height = meta.shadowHeight();
+                    alpha = meta.shadowAlpha();
+                }
+            }
+
             out.add(new ShadowRenderEntry(
                 entry.tileX(),
                 entry.tileY(),
@@ -708,6 +718,13 @@ public class GameScreen extends ApplicationAdapter {
 
         out.sort(SHADOW_RENDER_ORDER);
         return out;
+    }
+
+    private String actorSpriteKey(ActorRenderEntry entry) {
+        if (entry.isPlayer()) {
+            return "player";
+        }
+        return IsometricRenderer.npcSpriteKeyForName(entry.npcName());
     }
 
     private void renderShadowsLayer(List<ShadowRenderEntry> entries) {

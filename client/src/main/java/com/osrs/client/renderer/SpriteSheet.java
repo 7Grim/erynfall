@@ -6,6 +6,8 @@ import com.badlogic.gdx.graphics.g2d.Animation;
 import com.badlogic.gdx.graphics.g2d.TextureAtlas;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.utils.Array;
+import com.badlogic.gdx.utils.JsonReader;
+import com.badlogic.gdx.utils.JsonValue;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -27,9 +29,61 @@ public class SpriteSheet {
     private static final float FRAME_DURATION = 0.167f;
     private static final String ATLAS_VALIDATION_PROPERTY = "erynfall.spriteAtlasValidation";
     private static final String EXPECTED_KEYS_RESOURCE = "sprite-manifest-keys.txt";
+    private static final String RUNTIME_META_RESOURCE = "sprite-manifest-runtime.json";
 
     private final TextureAtlas atlas;
     private final Map<String, Animation<TextureRegion>> animCache = new HashMap<>();
+    private final Map<String, SpriteMeta> metadataByKey = new HashMap<>();
+
+    public static final class SpriteMeta {
+        private final String key;
+        private final String category;
+        private final int canvasWidth;
+        private final int canvasHeight;
+        private final String pivot;
+        private final boolean animated;
+        private final Float shadowWidth;
+        private final Float shadowHeight;
+        private final Float shadowAlpha;
+
+        private SpriteMeta(String key,
+                           String category,
+                           int canvasWidth,
+                           int canvasHeight,
+                           String pivot,
+                           boolean animated,
+                           Float shadowWidth,
+                           Float shadowHeight,
+                           Float shadowAlpha) {
+            this.key = key;
+            this.category = category;
+            this.canvasWidth = canvasWidth;
+            this.canvasHeight = canvasHeight;
+            this.pivot = pivot;
+            this.animated = animated;
+            this.shadowWidth = shadowWidth;
+            this.shadowHeight = shadowHeight;
+            this.shadowAlpha = shadowAlpha;
+        }
+
+        public String key() { return key; }
+
+        public String category() { return category; }
+
+        public int canvasWidth() { return canvasWidth; }
+
+        public int canvasHeight() { return canvasHeight; }
+
+        public String pivot() { return pivot; }
+
+        public boolean animated() { return animated; }
+
+        public Float shadowWidth() { return shadowWidth; }
+
+        public Float shadowHeight() { return shadowHeight; }
+
+        public Float shadowAlpha() { return shadowAlpha; }
+    }
 
     /**
      * Loads sprites.atlas from the classpath resources.
@@ -54,7 +108,54 @@ public class SpriteSheet {
         // Nearest filter is mandatory for pixel art — prevents bilinear blurring
         atlas.getTextures().forEach(t ->
             t.setFilter(Texture.TextureFilter.Nearest, Texture.TextureFilter.Nearest));
+        loadRuntimeMetadata();
         logMissingManifestSlots();
+    }
+
+    private void loadRuntimeMetadata() {
+        if (!Gdx.files.internal(RUNTIME_META_RESOURCE).exists()) {
+            Gdx.app.log("SpriteSheet", "WARN: runtime metadata resource missing: " + RUNTIME_META_RESOURCE);
+            return;
+        }
+        try {
+            String content = Gdx.files.internal(RUNTIME_META_RESOURCE).readString();
+            JsonValue root = new JsonReader().parse(content);
+            JsonValue assets = root.get("assets");
+            if (assets == null || !assets.isArray()) {
+                Gdx.app.log("SpriteSheet", "WARN: runtime metadata JSON has no assets array");
+                return;
+            }
+            for (JsonValue asset = assets.child; asset != null; asset = asset.next) {
+                String key = asset.getString("key", null);
+                String category = asset.getString("category", "");
+                int canvasWidth = asset.getInt("canvas_width", 0);
+                int canvasHeight = asset.getInt("canvas_height", 0);
+                String pivot = asset.getString("pivot", "bottom-center");
+                boolean animated = asset.getBoolean("animated", false);
+                if (key == null || key.isBlank() || canvasWidth <= 0 || canvasHeight <= 0) {
+                    continue;
+                }
+
+                Float shadowWidth = asset.has("shadow_width") ? asset.getFloat("shadow_width") : null;
+                Float shadowHeight = asset.has("shadow_height") ? asset.getFloat("shadow_height") : null;
+                Float shadowAlpha = asset.has("shadow_alpha") ? asset.getFloat("shadow_alpha") : null;
+
+                metadataByKey.put(key, new SpriteMeta(
+                    key,
+                    category,
+                    canvasWidth,
+                    canvasHeight,
+                    pivot,
+                    animated,
+                    shadowWidth,
+                    shadowHeight,
+                    shadowAlpha
+                ));
+            }
+        } catch (Exception e) {
+            Gdx.app.log("SpriteSheet", "WARN: failed to parse runtime metadata: " + e.getMessage());
+            metadataByKey.clear();
+        }
     }
 
     private void logMissingManifestSlots() {
@@ -117,6 +218,14 @@ public class SpriteSheet {
         return !atlas.findRegions(name).isEmpty();
     }
 
+    public SpriteMeta getMeta(String key) {
+        return metadataByKey.get(key);
+    }
+
+    public boolean hasMeta(String key) {
+        return metadataByKey.containsKey(key);
+    }
+
     /**
      * Reloads the atlas from disk.  Call this after TexturePacker has run
      * (e.g. on F5 hot-reload) to pick up newly exported sprites without
@@ -133,5 +242,6 @@ public class SpriteSheet {
     public void dispose() {
         atlas.dispose();
         animCache.clear();
+        metadataByKey.clear();
     }
 }

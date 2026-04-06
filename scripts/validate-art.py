@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 from collections.abc import Iterable
+import json
 import re
 import struct
 import sys
@@ -27,6 +28,9 @@ class ManifestEntry:
     pivot: str
     required: bool
     animated: bool
+    shadow_width: float | None
+    shadow_height: float | None
+    shadow_alpha: float | None
     notes: str
 
 
@@ -50,6 +54,14 @@ def as_int(value: object, field_name: str, key: str) -> int:
     raise ValueError(f"Field '{field_name}' for key '{key}' must be an integer")
 
 
+def as_float(value: object, field_name: str, key: str) -> float:
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str) and re.fullmatch(r"-?\d+(\.\d+)?", value.strip()):
+        return float(value)
+    raise ValueError(f"Field '{field_name}' for key '{key}' must be numeric")
+
+
 def parse_scalar(raw: str):
     value = raw.strip()
     if value == "":
@@ -62,6 +74,8 @@ def parse_scalar(raw: str):
         return True
     if value == "false":
         return False
+    if re.fullmatch(r"-?\d+\.\d+", value):
+        return float(value)
     if re.fullmatch(r"-?\d+", value):
         return int(value)
     return value
@@ -141,6 +155,18 @@ def parse_manifest(manifest_path: Path) -> list[ManifestEntry]:
             pivot=str(item["pivot"]),
             required=as_bool(item["required"], "required", str(item["key"])),
             animated=as_bool(item["animated"], "animated", str(item["key"])),
+            shadow_width=(
+                as_float(item["shadow_width"], "shadow_width", str(item["key"]))
+                if "shadow_width" in item else None
+            ),
+            shadow_height=(
+                as_float(item["shadow_height"], "shadow_height", str(item["key"]))
+                if "shadow_height" in item else None
+            ),
+            shadow_alpha=(
+                as_float(item["shadow_alpha"], "shadow_alpha", str(item["key"]))
+                if "shadow_alpha" in item else None
+            ),
             notes=str(item["notes"]),
         )
 
@@ -152,6 +178,12 @@ def parse_manifest(manifest_path: Path) -> list[ManifestEntry]:
             raise ValueError(f"Manifest file for '{entry.key}' must end with .png: {entry.file}")
         if entry.canvas_width <= 0 or entry.canvas_height <= 0:
             raise ValueError(f"Manifest dimensions must be positive for key '{entry.key}'")
+        if entry.shadow_width is not None and entry.shadow_width <= 0:
+            raise ValueError(f"shadow_width must be > 0 for key '{entry.key}'")
+        if entry.shadow_height is not None and entry.shadow_height <= 0:
+            raise ValueError(f"shadow_height must be > 0 for key '{entry.key}'")
+        if entry.shadow_alpha is not None and not (0.0 <= entry.shadow_alpha <= 1.0):
+            raise ValueError(f"shadow_alpha must be in [0,1] for key '{entry.key}'")
 
         seen_keys.add(entry.key)
         seen_files.add(entry.file)
@@ -278,11 +310,36 @@ def write_runtime_key_list(entries: Iterable[ManifestEntry], output_path: Path) 
     output_path.write_text(content, encoding="utf-8")
 
 
+def write_runtime_metadata(entries: Iterable[ManifestEntry], output_path: Path) -> None:
+    assets: list[dict[str, object]] = []
+    for entry in sorted(entries, key=lambda e: e.key):
+        asset: dict[str, object] = {
+            "key": entry.key,
+            "category": entry.category,
+            "canvas_width": entry.canvas_width,
+            "canvas_height": entry.canvas_height,
+            "pivot": entry.pivot,
+            "animated": entry.animated,
+        }
+        if entry.shadow_width is not None:
+            asset["shadow_width"] = entry.shadow_width
+        if entry.shadow_height is not None:
+            asset["shadow_height"] = entry.shadow_height
+        if entry.shadow_alpha is not None:
+            asset["shadow_alpha"] = entry.shadow_alpha
+        assets.append(asset)
+
+    payload = {"assets": assets}
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(json.dumps(payload, sort_keys=True, separators=(",", ":")), encoding="utf-8")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Validate art assets against manifest.yaml")
     parser.add_argument("--manifest", default=str(DEFAULT_MANIFEST), help="Path to manifest YAML")
     parser.add_argument("--sprites-dir", default=str(DEFAULT_SPRITES_DIR), help="Path to sprite PNG directory")
     parser.add_argument("--write-key-list", help="Optional output path for runtime expected atlas keys")
+    parser.add_argument("--write-runtime-meta", help="Optional output path for runtime manifest metadata JSON")
     args = parser.parse_args()
 
     manifest_path = Path(args.manifest).resolve()
@@ -310,6 +367,8 @@ def main() -> int:
 
     if args.write_key_list:
         write_runtime_key_list(entries, Path(args.write_key_list).resolve())
+    if args.write_runtime_meta:
+        write_runtime_metadata(entries, Path(args.write_runtime_meta).resolve())
 
     print("ART VALIDATION OK")
     return 0

@@ -42,6 +42,16 @@ client/src/main/resources/
 `art/sprites/manifest.yaml` is the canonical registry for sprite slots and requirements.
 It defines key, expected file name, canvas size, pivot, and whether a slot is required.
 
+Runtime now consumes generated manifest metadata (`sprite-manifest-runtime.json`) for draw alignment.
+That means pivot values affect in-game sprite placement, not just offline validation.
+
+Optional shadow tuning fields are also supported per asset:
+- `shadow_width`
+- `shadow_height`
+- `shadow_alpha`
+
+If shadow fields are omitted, the renderer keeps safe built-in defaults.
+
 `*.placeholder` files are convenience labels for artists; they are not the canonical spec.
 If docs and placeholders disagree with the manifest, follow the manifest.
 

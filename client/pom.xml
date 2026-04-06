@@ -103,6 +103,8 @@
                                     <arg value="${project.basedir}/../scripts/validate-art.py"/>
                                     <arg value="--write-key-list"/>
                                     <arg value="${project.basedir}/src/main/resources/sprite-manifest-keys.txt"/>
+                                    <arg value="--write-runtime-meta"/>
+                                    <arg value="${project.basedir}/src/main/resources/sprite-manifest-runtime.json"/>
                                 </exec>
                             </target>
                         </configuration>

@@ -211,10 +211,7 @@ public class IsometricRenderer {
                         region = spriteSheet.getTile(tileKey(type));
                     }
                     if (region != null) {
-                        batch.draw(region,
-                            sx - TILE_WIDTH  / 2f,
-                            sy - TILE_HEIGHT / 2f,
-                            TILE_WIDTH, TILE_HEIGHT);
+                        drawTileSpriteWithPivot(tileKey(type), region, sx, sy);
                     }
                 }
             }
@@ -314,19 +311,59 @@ public class IsometricRenderer {
     private void drawOverlayIfPresent(String key, float sx, float sy) {
         TextureRegion region = spriteSheet.getTile(key);
         if (region == null) return;
-        batch.draw(region,
-            sx - TILE_WIDTH / 2f,
-            sy - TILE_HEIGHT / 2f,
-            TILE_WIDTH, TILE_HEIGHT);
+        drawTileSpriteWithPivot(key, region, sx, sy);
     }
 
     private void drawClutterIfPresent(String key, float sx, float sy) {
         TextureRegion region = spriteSheet.getTile(key);
         if (region == null) return;
-        batch.draw(region,
-            sx - TILE_WIDTH / 2f,
-            sy - TILE_HEIGHT / 2f,
-            TILE_WIDTH, TILE_HEIGHT);
+        drawTileSpriteWithPivot(key, region, sx, sy);
+    }
+
+    private void drawTileSpriteWithPivot(String spriteKey, TextureRegion region, float sx, float sy) {
+        float drawX = sx - TILE_WIDTH / 2f;
+        float drawY = sy - TILE_HEIGHT / 2f;
+        if (spriteSheet != null) {
+            SpriteSheet.SpriteMeta meta = spriteSheet.getMeta(spriteKey);
+            if (meta != null) {
+                float canvasW = Math.max(1f, meta.canvasWidth());
+                float canvasH = Math.max(1f, meta.canvasHeight());
+                float pivotX = canvasW / 2f;
+                float pivotYFromBottom = switch (meta.pivot()) {
+                    case "center", "tile-diamond" -> canvasH / 2f;
+                    case "bottom-center" -> 0f;
+                    default -> canvasH / 2f;
+                };
+                float scaleX = TILE_WIDTH / canvasW;
+                float scaleY = TILE_HEIGHT / canvasH;
+                drawX = sx - pivotX * scaleX;
+                drawY = sy - pivotYFromBottom * scaleY;
+            }
+        }
+        batch.draw(region, drawX, drawY, TILE_WIDTH, TILE_HEIGHT);
+    }
+
+    private void drawEntitySpriteWithPivot(String spriteKey, TextureRegion region, float sx, float sy) {
+        float drawX = sx - region.getRegionWidth() / 2f;
+        float drawY = sy + ENTITY_FOOT_OFFSET;
+        if (spriteSheet != null) {
+            SpriteSheet.SpriteMeta meta = spriteSheet.getMeta(spriteKey);
+            if (meta != null) {
+                float canvasW = Math.max(1f, meta.canvasWidth());
+                float canvasH = Math.max(1f, meta.canvasHeight());
+                float pivotX = canvasW / 2f;
+                float pivotYFromBottom = switch (meta.pivot()) {
+                    case "bottom-center" -> 0f;
+                    case "center", "tile-diamond" -> canvasH / 2f;
+                    default -> 0f;
+                };
+                float scaleX = region.getRegionWidth() / canvasW;
+                float scaleY = region.getRegionHeight() / canvasH;
+                drawX = sx - pivotX * scaleX;
+                drawY = (sy + ENTITY_FOOT_OFFSET) - pivotYFromBottom * scaleY;
+            }
+        }
+        batch.draw(region, drawX, drawY);
     }
 
     /**
@@ -452,9 +489,7 @@ public class IsometricRenderer {
             if (region != null) {
                 batch.setProjectionMatrix(camera.combined);
                 batch.begin();
-                batch.draw(region,
-                    sx - region.getRegionWidth() / 2f,
-                    sy + ENTITY_FOOT_OFFSET);
+                drawEntitySpriteWithPivot("player", region, sx, sy);
                 batch.end();
                 return;
             }
@@ -540,7 +575,7 @@ public class IsometricRenderer {
     }
 
     /** Maps an NPC display name to its atlas key (e.g. "Giant Rat" → "npc_giant_rat"). */
-    private static String npcSpriteKey(String npcName) {
+    public static String npcSpriteKeyForName(String npcName) {
         if (npcName == null) return "npc_unknown";
         return switch (npcName) {
             // --- Tutorial staff ---
@@ -590,7 +625,7 @@ public class IsometricRenderer {
 
         // Sprite-first: draw atlas sprite if available, skip ShapeRenderer geometry
         if (spriteSheet != null) {
-            String baseKey = npcSpriteKey(npcName);
+            String baseKey = npcSpriteKeyForName(npcName);
             TextureRegion region = null;
             if (moving) {
                 Animation<TextureRegion> walkAnim = spriteSheet.getAnimation(baseKey + "_walk_" + animDir);
@@ -610,9 +645,7 @@ public class IsometricRenderer {
             if (region != null) {
                 batch.setProjectionMatrix(camera.combined);
                 batch.begin();
-                batch.draw(region,
-                    sx - region.getRegionWidth() / 2f,
-                    sy + ENTITY_FOOT_OFFSET);
+                drawEntitySpriteWithPivot(baseKey, region, sx, sy);
                 batch.end();
                 return;
             }

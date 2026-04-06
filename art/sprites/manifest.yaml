@@ -58,6 +58,9 @@ assets:
     pivot: bottom-center
     required: true
     animated: false
+    shadow_width: 10
+    shadow_height: 5
+    shadow_alpha: 0.18
     notes: Local and remote player fallback sprite.
 
   - key: npc_guide
@@ -68,6 +71,9 @@ assets:
     pivot: bottom-center
     required: true
     animated: false
+    shadow_width: 10
+    shadow_height: 5
+    shadow_alpha: 0.18
     notes: Tutorial Guide NPC.
 
   - key: npc_instructor
@@ -78,6 +84,9 @@ assets:
     pivot: bottom-center
     required: true
     animated: false
+    shadow_width: 10
+    shadow_height: 5
+    shadow_alpha: 0.18
     notes: Combat Instructor NPC.
 
   - key: npc_banker
@@ -88,6 +97,9 @@ assets:
     pivot: bottom-center
     required: true
     animated: false
+    shadow_width: 10
+    shadow_height: 5
+    shadow_alpha: 0.18
     notes: Banker NPC.
 
   - key: npc_rat
@@ -98,6 +110,9 @@ assets:
     pivot: bottom-center
     required: true
     animated: false
+    shadow_width: 8
+    shadow_height: 4
+    shadow_alpha: 0.16
     notes: Rat NPC.
 
   - key: npc_giant_rat
@@ -108,6 +123,9 @@ assets:
     pivot: bottom-center
     required: true
     animated: false
+    shadow_width: 12
+    shadow_height: 6
+    shadow_alpha: 0.18
     notes: Giant Rat NPC.
 
   - key: npc_chicken
@@ -118,6 +136,9 @@ assets:
     pivot: bottom-center
     required: true
     animated: false
+    shadow_width: 8
+    shadow_height: 4
+    shadow_alpha: 0.16
     notes: Chicken NPC.
 
   - key: npc_cow
@@ -128,6 +149,9 @@ assets:
     pivot: bottom-center
     required: true
     animated: false
+    shadow_width: 12
+    shadow_height: 6
+    shadow_alpha: 0.18
     notes: Cow NPC.
 
   - key: npc_goblin
@@ -138,6 +162,9 @@ assets:
     pivot: bottom-center
     required: true
     animated: false
+    shadow_width: 10
+    shadow_height: 5
+    shadow_alpha: 0.18
     notes: Goblin NPC.
 
   - key: tree
@@ -148,6 +175,9 @@ assets:
     pivot: bottom-center
     required: true
     animated: false
+    shadow_width: 14
+    shadow_height: 6
+    shadow_alpha: 0.16
     notes: Standard tree resource.
 
   - key: tree_oak
@@ -158,6 +188,9 @@ assets:
     pivot: bottom-center
     required: true
     animated: false
+    shadow_width: 14
+    shadow_height: 6
+    shadow_alpha: 0.16
     notes: Oak tree resource.
 
   - key: tree_willow
@@ -168,6 +201,9 @@ assets:
     pivot: bottom-center
     required: true
     animated: false
+    shadow_width: 14
+    shadow_height: 6
+    shadow_alpha: 0.16
     notes: Willow tree resource.
 
   - key: tree_teak
@@ -178,6 +214,9 @@ assets:
     pivot: bottom-center
     required: true
     animated: false
+    shadow_width: 14
+    shadow_height: 6
+    shadow_alpha: 0.16
     notes: Teak tree resource.
 
   - key: tree_maple
@@ -188,6 +227,9 @@ assets:
     pivot: bottom-center
     required: true
     animated: false
+    shadow_width: 14
+    shadow_height: 6
+    shadow_alpha: 0.16
     notes: Maple tree resource.
 
   - key: tree_mahogany
@@ -198,6 +240,9 @@ assets:
     pivot: bottom-center
     required: true
     animated: false
+    shadow_width: 14
+    shadow_height: 6
+    shadow_alpha: 0.16
     notes: Mahogany tree resource.
 
   - key: tree_yew
@@ -208,6 +253,9 @@ assets:
     pivot: bottom-center
     required: true
     animated: false
+    shadow_width: 14
+    shadow_height: 6
+    shadow_alpha: 0.16
     notes: Yew tree resource.
 
   - key: tree_magic
@@ -218,6 +266,9 @@ assets:
     pivot: bottom-center
     required: true
     animated: false
+    shadow_width: 14
+    shadow_height: 6
+    shadow_alpha: 0.16
     notes: Magic tree resource.
 
   - key: fishing_spot
@@ -228,6 +279,9 @@ assets:
     pivot: bottom-center
     required: true
     animated: false
+    shadow_width: 12
+    shadow_height: 5
+    shadow_alpha: 0.14
     notes: Fishing spot resource.
 
   - key: fire
@@ -238,6 +292,9 @@ assets:
     pivot: bottom-center
     required: true
     animated: false
+    shadow_width: 12
+    shadow_height: 5
+    shadow_alpha: 0.14
     notes: Cooking fire resource.
 
   - key: rock_copper
@@ -248,6 +305,9 @@ assets:
     pivot: bottom-center
     required: true
     animated: false
+    shadow_width: 12
+    shadow_height: 5
+    shadow_alpha: 0.16
     notes: Copper rock resource.
 
   - key: rock_tin
@@ -258,6 +318,9 @@ assets:
     pivot: bottom-center
     required: true
     animated: false
+    shadow_width: 12
+    shadow_height: 5
+    shadow_alpha: 0.16
     notes: Tin rock resource.
 
   - key: rock_iron
@@ -268,6 +331,9 @@ assets:
     pivot: bottom-center
     required: true
     animated: false
+    shadow_width: 12
+    shadow_height: 5
+    shadow_alpha: 0.16
     notes: Iron rock resource.
 
   - key: rock_silver
@@ -278,6 +344,9 @@ assets:
     pivot: bottom-center
     required: true
     animated: false
+    shadow_width: 12
+    shadow_height: 5
+    shadow_alpha: 0.16
     notes: Silver rock resource.
 
   - key: rock_coal
@@ -288,6 +357,9 @@ assets:
     pivot: bottom-center
     required: true
     animated: false
+    shadow_width: 12
+    shadow_height: 5
+    shadow_alpha: 0.16
     notes: Coal rock resource.
 
   - key: rock_gold
@@ -298,6 +370,9 @@ assets:
     pivot: bottom-center
     required: true
     animated: false
+    shadow_width: 12
+    shadow_height: 5
+    shadow_alpha: 0.16
     notes: Gold rock resource.
 
   - key: rock_mithril
@@ -308,6 +383,9 @@ assets:
     pivot: bottom-center
     required: true
     animated: false
+    shadow_width: 12
+    shadow_height: 5
+    shadow_alpha: 0.16
     notes: Mithril rock resource.
 
   - key: rock_adamantite
@@ -318,6 +396,9 @@ assets:
     pivot: bottom-center
     required: true
     animated: false
+    shadow_width: 12
+    shadow_height: 5
+    shadow_alpha: 0.16
     notes: Adamantite rock resource.
 
   - key: rock_runite
@@ -328,6 +409,9 @@ assets:
     pivot: bottom-center
     required: true
     animated: false
+    shadow_width: 12
+    shadow_height: 5
+    shadow_alpha: 0.16
     notes: Runite rock resource.
 
   - key: edge_shore_n
