@@ -28,6 +28,8 @@
                   <arg />
                   <arg />
                   <arg />
+                  <arg />
+                  <arg />
                 </exec>
               </target>
             </configuration>

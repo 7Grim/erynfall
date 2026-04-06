@@ -103,6 +103,32 @@ public class IsometricRenderer {
         stateTime += delta;
     }
 
+    public void beginWorldSpritePass() {
+        batch.setProjectionMatrix(camera.combined);
+        if (!batch.isDrawing()) {
+            batch.begin();
+        }
+    }
+
+    public void endWorldSpritePass() {
+        if (batch.isDrawing()) {
+            batch.end();
+        }
+    }
+
+    public void beginWorldShapePass(ShapeRenderer.ShapeType type) {
+        sr.setProjectionMatrix(camera.combined);
+        if (!sr.isDrawing()) {
+            sr.begin(type);
+        }
+    }
+
+    public void endWorldShapePass() {
+        if (sr.isDrawing()) {
+            sr.end();
+        }
+    }
+
     // -----------------------------------------------------------------------
     // Coordinate conversion
     // -----------------------------------------------------------------------
@@ -135,7 +161,7 @@ public class IsometricRenderer {
      * @param centerX  visual player X (used for viewport culling)
      * @param centerY  visual player Y
      */
-    public void renderWorld(int[][] tileMap, float centerX, float centerY) {
+    public void renderWorld(int[][] tileMap, float centerX, float centerY, float playerX, float playerY) {
         float zoom = camera.zoom;
         float scaledViewportWidth = camera.viewportWidth * zoom;
         float scaledViewportHeight = camera.viewportHeight * zoom;
@@ -160,9 +186,12 @@ public class IsometricRenderer {
                 int type = (tileMap != null) ? tileMap[x][y] : 0;
                 float sx = worldToScreenX(x, y);
                 float sy = worldToScreenY(x, y);
+                float wallAlpha = (type == 3 && wallOccludesPlayer(x, y, playerX, playerY)) ? 0.35f : 1f;
 
                 // Elevation faces drawn first so the top diamond sits on top
-                if (type == 3) drawElevationFace(sx, sy, WALL_FACE_H, 0.26f, 0.26f, 0.26f, 0.20f, 0.20f, 0.20f);
+                if (type == 3) {
+                    drawElevationFace(sx, sy, WALL_FACE_H, 0.26f, 0.26f, 0.26f, 0.20f, 0.20f, 0.20f, wallAlpha);
+                }
 
                 if (type == 1) {
                     // Animated water — brightness ripple using two overlapping sine waves
@@ -178,6 +207,10 @@ public class IsometricRenderer {
                         clamp(base.b + wave * 0.40f),
                         1f);
                     fillDiamond(sx, sy, animWaterColor);
+                } else if (type == 3 && wallAlpha < 1f) {
+                    Color c = tileColor(type, x, y);
+                    sr.setColor(c.r, c.g, c.b, wallAlpha);
+                    fillDiamond(sx, sy, sr.getColor());
                 } else {
                     fillDiamond(sx, sy, tileColor(type, x, y));
                 }
@@ -198,10 +231,11 @@ public class IsometricRenderer {
                     int type = (tileMap != null) ? tileMap[x][y] : 0;
                     float sx = worldToScreenX(x, y);
                     float sy = worldToScreenY(x, y);
+                    float wallAlpha = (type == 3 && wallOccludesPlayer(x, y, playerX, playerY)) ? 0.35f : 1f;
 
                     TextureRegion region = resolveBaseTileRegion(type, x, y);
                     if (region != null) {
-                        drawTileSpriteWithPivot(tileKey(type), region, sx, sy);
+                        drawTileSpriteWithPivot(tileKey(type), region, sx, sy, wallAlpha);
                     }
                 }
             }
@@ -236,7 +270,8 @@ public class IsometricRenderer {
 
                     // Wall base accent.
                     if (type == 3) {
-                        drawOverlayIfPresent("edge_wall_base", sx, sy);
+                        float wallAlpha = wallOccludesPlayer(x, y, playerX, playerY) ? 0.35f : 1f;
+                        drawOverlayIfPresent("edge_wall_base", sx, sy, wallAlpha);
                     }
                 }
             }
@@ -306,6 +341,17 @@ public class IsometricRenderer {
         return h & Integer.MAX_VALUE;
     }
 
+    private boolean wallOccludesPlayer(int wallX, int wallY, float playerX, float playerY) {
+        float wallSx = worldToScreenX(wallX, wallY);
+        float wallSy = worldToScreenY(wallX, wallY);
+        float playerSx = worldToScreenX(playerX, playerY);
+        float playerSy = worldToScreenY(playerX, playerY);
+        if (wallSy <= playerSy) return false;
+        float dx = Math.abs(wallSx - playerSx);
+        float dy = Math.abs(wallSy - playerSy);
+        return dx <= 18f && dy <= 22f;
+    }
+
     private TextureRegion resolveBaseTileRegion(int type, int x, int y) {
         if (spriteSheet == null) return null;
         String key = tileKey(type);
@@ -335,9 +381,13 @@ public class IsometricRenderer {
     }
 
     private void drawOverlayIfPresent(String key, float sx, float sy) {
+        drawOverlayIfPresent(key, sx, sy, 1f);
+    }
+
+    private void drawOverlayIfPresent(String key, float sx, float sy, float alpha) {
         TextureRegion region = spriteSheet.getTile(key);
         if (region == null) return;
-        drawTileSpriteWithPivot(key, region, sx, sy);
+        drawTileSpriteWithPivot(key, region, sx, sy, alpha);
     }
 
     private void drawClutterIfPresent(String key, float sx, float sy) {
@@ -356,6 +406,10 @@ public class IsometricRenderer {
     }
 
     private void drawTileSpriteWithPivot(String spriteKey, TextureRegion region, float sx, float sy) {
+        drawTileSpriteWithPivot(spriteKey, region, sx, sy, 1f);
+    }
+
+    private void drawTileSpriteWithPivot(String spriteKey, TextureRegion region, float sx, float sy, float alpha) {
         float drawX = sx - TILE_WIDTH / 2f;
         float drawY = sy - TILE_HEIGHT / 2f;
         if (spriteSheet != null) {
@@ -375,10 +429,12 @@ public class IsometricRenderer {
                 drawY = sy - pivotYFromBottom * scaleY;
             }
         }
+        batch.setColor(1f, 1f, 1f, alpha);
         batch.draw(region, drawX, drawY, TILE_WIDTH, TILE_HEIGHT);
+        batch.setColor(1f, 1f, 1f, 1f);
     }
 
-    private void drawEntitySpriteWithPivot(String spriteKey, TextureRegion region, float sx, float sy) {
+    private void drawEntitySpriteWithPivot(String spriteKey, TextureRegion region, float sx, float sy, float alpha) {
         float drawX = sx - region.getRegionWidth() / 2f;
         float drawY = sy + ENTITY_FOOT_OFFSET;
         if (spriteSheet != null) {
@@ -398,7 +454,9 @@ public class IsometricRenderer {
                 drawY = (sy + ENTITY_FOOT_OFFSET) - pivotYFromBottom * scaleY;
             }
         }
+        batch.setColor(1f, 1f, 1f, alpha);
         batch.draw(region, drawX, drawY);
+        batch.setColor(1f, 1f, 1f, 1f);
     }
 
     /**
@@ -415,7 +473,8 @@ public class IsometricRenderer {
     private void drawElevationFace(float sx, float sy,
                                    float faceH,
                                    float swR, float swG, float swB,
-                                   float seR, float seG, float seB) {
+                                   float seR, float seG, float seB,
+                                   float alpha) {
         float hw = TILE_WIDTH  / 2f;  // 16
         float hh = TILE_HEIGHT / 2f;  //  8
         // Diamond base vertices that form the visible front edge
@@ -429,12 +488,12 @@ public class IsometricRenderer {
         float botLowY   = botY   - faceH;
 
         // SW face: left-vertex → bottom-vertex → bottom-low → left-low
-        sr.setColor(swR, swG, swB, 1f);
+        sr.setColor(swR, swG, swB, alpha);
         sr.triangle(leftX,  leftY,   botX,  botY,   botX,  botLowY);
         sr.triangle(leftX,  leftY,   botX,  botLowY, leftX, leftLowY);
 
         // SE face: right-vertex → bottom-vertex → bottom-low → right-low
-        sr.setColor(seR, seG, seB, 1f);
+        sr.setColor(seR, seG, seB, alpha);
         sr.triangle(rightX, rightY,  botX,  botY,   botX,  botLowY);
         sr.triangle(rightX, rightY,  botX,  botLowY, rightX, rightLowY);
     }
@@ -505,54 +564,82 @@ public class IsometricRenderer {
 
         // Sprite-first: draw atlas sprite if available, skip ShapeRenderer geometry
         if (spriteSheet != null) {
-            TextureRegion region = null;
-            // Action animations (if present) override walk/idle. Missing action art
-            // falls back cleanly to the existing ShapeRenderer poses below.
-            String actionKey = null;
-            if (pickingUp) {
-                actionKey = "player_pickup";
-            } else if ("chop".equals(pendingAction)) {
-                actionKey = "player_chop";
-            } else if ("mine".equals(pendingAction)) {
-                actionKey = "player_mine";
-            } else if (pendingAction != null && pendingAction.startsWith("fish_")) {
-                actionKey = "player_fish";
-            } else if ("sword".equals(pendingAction)) {
-                actionKey = "player_sword";
-            } else if ("spear".equals(pendingAction)) {
-                actionKey = "player_spear";
-            }
-            if (actionKey != null) {
-                Animation<TextureRegion> actionAnim = spriteSheet.getAnimation(actionKey);
-                if (actionAnim != null) {
-                    region = actionAnim.getKeyFrame(animTime, true);
-                } else {
-                    region = spriteSheet.getTile(actionKey);
-                }
-            }
-            if (region == null && moving) {
-                Animation<TextureRegion> walkAnim = spriteSheet.getAnimation("player_walk_" + animDir);
-                if (walkAnim != null) {
-                    region = walkAnim.getKeyFrame(animTime, true);
-                }
-            }
-            if (region == null) {
-                Animation<TextureRegion> idleAnim = spriteSheet.getAnimation("player_idle");
-                if (idleAnim != null) {
-                    region = idleAnim.getKeyFrame(animTime, true);
-                }
-            }
-            if (region == null) {
-                region = spriteSheet.getTile("player");
-            }
+            TextureRegion region = resolvePlayerSpriteRegion(pickingUp, pendingAction, moving, animDir, animTime);
             if (region != null) {
                 batch.setProjectionMatrix(camera.combined);
-                batch.begin();
-                drawEntitySpriteWithPivot("player", region, sx, sy);
-                batch.end();
+                boolean ownsBatch = !batch.isDrawing();
+                if (ownsBatch) batch.begin();
+                drawEntitySpriteWithPivot("player", region, sx, sy, 1f);
+                if (ownsBatch) batch.end();
                 return;
             }
         }
+
+        drawPlayerFallback(playerX, playerY, pickingUp, pendingAction);
+    }
+
+    public boolean renderPlayerSpriteInPass(float playerX, float playerY, boolean pickingUp, String pendingAction,
+                                            boolean moving, String animDir, float animTime) {
+        if (spriteSheet == null || !batch.isDrawing()) return false;
+        TextureRegion region = resolvePlayerSpriteRegion(pickingUp, pendingAction, moving, animDir, animTime);
+        if (region == null) return false;
+        drawEntitySpriteWithPivot("player", region, worldToScreenX(playerX, playerY), worldToScreenY(playerX, playerY), 1f);
+        return true;
+    }
+
+    public void renderPlayerFallbackInPass(float playerX, float playerY, boolean pickingUp, String pendingAction) {
+        drawPlayerFallback(playerX, playerY, pickingUp, pendingAction);
+    }
+
+    private TextureRegion resolvePlayerSpriteRegion(boolean pickingUp, String pendingAction,
+                                                    boolean moving, String animDir, float animTime) {
+        if (spriteSheet == null) return null;
+        TextureRegion region = null;
+        // Action animations (if present) override walk/idle. Missing action art
+        // falls back cleanly to the existing ShapeRenderer poses below.
+        String actionKey = null;
+        if (pickingUp) {
+            actionKey = "player_pickup";
+        } else if ("chop".equals(pendingAction)) {
+            actionKey = "player_chop";
+        } else if ("mine".equals(pendingAction)) {
+            actionKey = "player_mine";
+        } else if (pendingAction != null && pendingAction.startsWith("fish_")) {
+            actionKey = "player_fish";
+        } else if ("sword".equals(pendingAction)) {
+            actionKey = "player_sword";
+        } else if ("spear".equals(pendingAction)) {
+            actionKey = "player_spear";
+        }
+        if (actionKey != null) {
+            Animation<TextureRegion> actionAnim = spriteSheet.getAnimation(actionKey);
+            if (actionAnim != null) {
+                region = actionAnim.getKeyFrame(animTime, true);
+            } else {
+                region = spriteSheet.getTile(actionKey);
+            }
+        }
+        if (region == null && moving) {
+            Animation<TextureRegion> walkAnim = spriteSheet.getAnimation("player_walk_" + animDir);
+            if (walkAnim != null) {
+                region = walkAnim.getKeyFrame(animTime, true);
+            }
+        }
+        if (region == null) {
+            Animation<TextureRegion> idleAnim = spriteSheet.getAnimation("player_idle");
+            if (idleAnim != null) {
+                region = idleAnim.getKeyFrame(animTime, true);
+            }
+        }
+        if (region == null) {
+            region = spriteSheet.getTile("player");
+        }
+        return region;
+    }
+
+    private void drawPlayerFallback(float playerX, float playerY, boolean pickingUp, String pendingAction) {
+        float sx = worldToScreenX(playerX, playerY);
+        float sy = worldToScreenY(playerX, playerY);
 
         // Pickup animation: body crouches (all parts shift down 4px, torso squashes)
         float bodyY   = pickingUp ? sy - 4 : sy;
@@ -561,7 +648,9 @@ public class IsometricRenderer {
         float headH   = pickingUp ? 5 : 6;
         float hairY   = pickingUp ? headY + headH - 2 : sy + 10;
 
-        sr.begin(ShapeRenderer.ShapeType.Filled);
+        sr.setProjectionMatrix(camera.combined);
+        boolean ownsShape = !sr.isDrawing();
+        if (ownsShape) sr.begin(ShapeRenderer.ShapeType.Filled);
 
         // Legs
         sr.setColor(PANTS);
@@ -620,7 +709,7 @@ public class IsometricRenderer {
             sr.triangle(sx + 9, bodyY + 4, sx + 13, bodyY + 6, sx + 9, bodyY + 8);
         }
 
-        sr.end();
+        if (ownsShape) sr.end();
     }
 
     /**
@@ -630,7 +719,7 @@ public class IsometricRenderer {
      * @param npcName  entity name from the server (e.g. "Rat", "Chicken")
      */
     public void renderNPC(int npcX, int npcY, int npcId, String npcName) {
-        renderNPC((float) npcX, (float) npcY, npcId, npcName, false, "s", 0f);
+        renderNPC((float) npcX, (float) npcY, npcId, npcName, false, "s", 0f, 1f);
     }
 
     /** Maps an NPC display name to its atlas key (e.g. "Giant Rat" → "npc_giant_rat"). */
@@ -674,55 +763,84 @@ public class IsometricRenderer {
     }
 
     public void renderNPC(float npcX, float npcY, int npcId, String npcName) {
-        renderNPC(npcX, npcY, npcId, npcName, false, "s", 0f);
+        renderNPC(npcX, npcY, npcId, npcName, false, "s", 0f, 1f);
     }
 
     public void renderNPC(float npcX, float npcY, int npcId, String npcName,
                           boolean moving, String animDir, float animTime) {
-        float sx = worldToScreenX(npcX, npcY);
-        float sy = worldToScreenY(npcX, npcY);
+        renderNPC(npcX, npcY, npcId, npcName, moving, animDir, animTime, 1f);
+    }
 
-        // Sprite-first: draw atlas sprite if available, skip ShapeRenderer geometry
+    public void renderNPC(float npcX, float npcY, int npcId, String npcName,
+                          boolean moving, String animDir, float animTime, float alpha) {
         if (spriteSheet != null) {
             String baseKey = npcSpriteKeyForName(npcName);
-            TextureRegion region = null;
-
-            boolean ambientResource = baseKey.equals("tree")
-                || baseKey.startsWith("tree_")
-                || baseKey.startsWith("rock_")
-                || baseKey.equals("fishing_spot")
-                || baseKey.equals("fire");
-
-            if (ambientResource) {
-                region = resolveAmbientResourceRegion(baseKey);
-            } else {
-                if (moving) {
-                    Animation<TextureRegion> walkAnim = spriteSheet.getAnimation(baseKey + "_walk_" + animDir);
-                    if (walkAnim != null) {
-                        region = walkAnim.getKeyFrame(animTime, true);
-                    }
-                }
-                if (region == null) {
-                    Animation<TextureRegion> idleAnim = spriteSheet.getAnimation(baseKey + "_idle");
-                    if (idleAnim != null) {
-                        region = idleAnim.getKeyFrame(animTime, true);
-                    }
-                }
-                if (region == null) {
-                    region = spriteSheet.getTile(baseKey);
-                }
-            }
-
+            TextureRegion region = resolveNpcSpriteRegion(baseKey, moving, animDir, animTime);
             if (region != null) {
                 batch.setProjectionMatrix(camera.combined);
-                batch.begin();
-                drawEntitySpriteWithPivot(baseKey, region, sx, sy);
-                batch.end();
+                boolean ownsBatch = !batch.isDrawing();
+                if (ownsBatch) batch.begin();
+                drawEntitySpriteWithPivot(baseKey, region, worldToScreenX(npcX, npcY), worldToScreenY(npcX, npcY), alpha);
+                if (ownsBatch) batch.end();
                 return;
             }
         }
 
-        sr.begin(ShapeRenderer.ShapeType.Filled);
+        drawNpcFallback(npcX, npcY, npcName, alpha);
+    }
+
+    public boolean renderNPCSpriteInPass(float npcX, float npcY, int npcId, String npcName,
+                                         boolean moving, String animDir, float animTime, float alpha) {
+        if (spriteSheet == null || !batch.isDrawing()) return false;
+        String baseKey = npcSpriteKeyForName(npcName);
+        TextureRegion region = resolveNpcSpriteRegion(baseKey, moving, animDir, animTime);
+        if (region == null) return false;
+        drawEntitySpriteWithPivot(baseKey, region, worldToScreenX(npcX, npcY), worldToScreenY(npcX, npcY), alpha);
+        return true;
+    }
+
+    public void renderNPCFallbackInPass(float npcX, float npcY, String npcName, float alpha) {
+        drawNpcFallback(npcX, npcY, npcName, alpha);
+    }
+
+    private TextureRegion resolveNpcSpriteRegion(String baseKey, boolean moving, String animDir, float animTime) {
+        if (spriteSheet == null) return null;
+        TextureRegion region = null;
+        boolean ambientResource = baseKey.equals("tree")
+            || baseKey.startsWith("tree_")
+            || baseKey.startsWith("rock_")
+            || baseKey.equals("fishing_spot")
+            || baseKey.equals("fire");
+
+        if (ambientResource) {
+            region = resolveAmbientResourceRegion(baseKey);
+        } else {
+            if (moving) {
+                Animation<TextureRegion> walkAnim = spriteSheet.getAnimation(baseKey + "_walk_" + animDir);
+                if (walkAnim != null) {
+                    region = walkAnim.getKeyFrame(animTime, true);
+                }
+            }
+            if (region == null) {
+                Animation<TextureRegion> idleAnim = spriteSheet.getAnimation(baseKey + "_idle");
+                if (idleAnim != null) {
+                    region = idleAnim.getKeyFrame(animTime, true);
+                }
+            }
+            if (region == null) {
+                region = spriteSheet.getTile(baseKey);
+            }
+        }
+        return region;
+    }
+
+    private void drawNpcFallback(float npcX, float npcY, String npcName, float alpha) {
+        float sx = worldToScreenX(npcX, npcY);
+        float sy = worldToScreenY(npcX, npcY);
+
+        sr.setProjectionMatrix(camera.combined);
+        boolean ownsShape = !sr.isDrawing();
+        if (ownsShape) sr.begin(ShapeRenderer.ShapeType.Filled);
         switch (npcName == null ? "" : npcName) {
             // --- Tutorial staff ---
             case "Tutorial Guide"    -> drawGuide(sx, sy);
@@ -735,30 +853,30 @@ public class IsometricRenderer {
             case "Cow"               -> drawCow(sx, sy);
             case "Goblin"            -> drawGoblin(sx, sy);
             // --- Trees ---
-            case "Tree"              -> drawDecorativeTree(sx, sy);
-            case "Oak Tree"          -> drawOakTree(sx, sy);
-            case "Willow Tree"       -> drawWillowTree(sx, sy);
-            case "Teak Tree"         -> drawTeakTree(sx, sy);
-            case "Maple Tree"        -> drawMapleTree(sx, sy);
-            case "Mahogany Tree"     -> drawMahoganyTree(sx, sy);
-            case "Yew Tree"          -> drawYewTree(sx, sy);
-            case "Magic Tree"        -> drawMagicTree(sx, sy);
+            case "Tree"              -> drawDecorativeTree(sx, sy, alpha);
+            case "Oak Tree"          -> drawOakTree(sx, sy, alpha);
+            case "Willow Tree"       -> drawWillowTree(sx, sy, alpha);
+            case "Teak Tree"         -> drawTeakTree(sx, sy, alpha);
+            case "Maple Tree"        -> drawMapleTree(sx, sy, alpha);
+            case "Mahogany Tree"     -> drawMahoganyTree(sx, sy, alpha);
+            case "Yew Tree"          -> drawYewTree(sx, sy, alpha);
+            case "Magic Tree"        -> drawMagicTree(sx, sy, alpha);
             // --- Mining rocks ---
-            case "Copper Rock"       -> drawRock(sx, sy, 0.80f, 0.40f, 0.15f);
-            case "Tin Rock"          -> drawRock(sx, sy, 0.75f, 0.78f, 0.80f);
-            case "Iron Rock"         -> drawRock(sx, sy, 0.55f, 0.30f, 0.18f);
-            case "Silver Rock"       -> drawRock(sx, sy, 0.88f, 0.88f, 0.92f);
-            case "Coal Rock"         -> drawRock(sx, sy, 0.15f, 0.15f, 0.16f);
-            case "Gold Rock"         -> drawRock(sx, sy, 0.95f, 0.80f, 0.10f);
-            case "Mithril Rock"      -> drawRock(sx, sy, 0.25f, 0.42f, 0.82f);
-            case "Adamantite Rock"   -> drawRock(sx, sy, 0.12f, 0.62f, 0.30f);
-            case "Runite Rock"       -> drawRock(sx, sy, 0.12f, 0.72f, 0.72f);
+            case "Copper Rock"       -> drawRock(sx, sy, 0.80f, 0.40f, 0.15f, alpha);
+            case "Tin Rock"          -> drawRock(sx, sy, 0.75f, 0.78f, 0.80f, alpha);
+            case "Iron Rock"         -> drawRock(sx, sy, 0.55f, 0.30f, 0.18f, alpha);
+            case "Silver Rock"       -> drawRock(sx, sy, 0.88f, 0.88f, 0.92f, alpha);
+            case "Coal Rock"         -> drawRock(sx, sy, 0.15f, 0.15f, 0.16f, alpha);
+            case "Gold Rock"         -> drawRock(sx, sy, 0.95f, 0.80f, 0.10f, alpha);
+            case "Mithril Rock"      -> drawRock(sx, sy, 0.25f, 0.42f, 0.82f, alpha);
+            case "Adamantite Rock"   -> drawRock(sx, sy, 0.12f, 0.62f, 0.30f, alpha);
+            case "Runite Rock"       -> drawRock(sx, sy, 0.12f, 0.72f, 0.72f, alpha);
             // --- Other ---
-            case "Fishing Spot"      -> drawFishingSpot(sx, sy);
-            case "Cooking Fire"      -> drawFire(sx, sy);
+            case "Fishing Spot"      -> drawFishingSpot(sx, sy, alpha);
+            case "Cooking Fire"      -> drawFire(sx, sy, alpha);
             default                  -> drawUnknownEntity(sx, sy);
         }
-        sr.end();
+        if (ownsShape) sr.end();
     }
 
     // -----------------------------------------------------------------------
@@ -1000,15 +1118,19 @@ public class IsometricRenderer {
 
     /** Decorative non-choppable tree used as world dressing. */
     private void drawDecorativeTree(float sx, float sy) {
-        sr.setColor(0.34f, 0.22f, 0.11f, 1f);
+        drawDecorativeTree(sx, sy, 1f);
+    }
+
+    private void drawDecorativeTree(float sx, float sy, float alpha) {
+        sr.setColor(0.34f, 0.22f, 0.11f, alpha);
         sr.rect(sx - 3, sy - 6, 6, 12);
 
-        sr.setColor(0.10f, 0.34f, 0.13f, 1f);
+        sr.setColor(0.10f, 0.34f, 0.13f, alpha);
         sr.rect(sx - 13, sy + 2, 26, 8);
         sr.rect(sx - 10, sy + 9, 20, 7);
         sr.rect(sx - 6, sy + 15, 12, 5);
 
-        sr.setColor(0.14f, 0.44f, 0.18f, 1f);
+        sr.setColor(0.14f, 0.44f, 0.18f, alpha);
         sr.rect(sx - 9, sy + 4, 18, 4);
     }
 
@@ -1016,71 +1138,99 @@ public class IsometricRenderer {
      * Oak tree resource node used by Woodcutting.
      */
     private void drawOakTree(float sx, float sy) {
+        drawOakTree(sx, sy, 1f);
+    }
+
+    private void drawOakTree(float sx, float sy, float alpha) {
         // Trunk
-        sr.setColor(0.42f, 0.25f, 0.12f, 1f);
+        sr.setColor(0.42f, 0.25f, 0.12f, alpha);
         sr.rect(sx - 4, sy - 6, 8, 14);
 
         // Leaves (simple layered canopy)
-        sr.setColor(0.12f, 0.45f, 0.16f, 1f);
+        sr.setColor(0.12f, 0.45f, 0.16f, alpha);
         sr.rect(sx - 14, sy + 4, 28, 8);
         sr.rect(sx - 11, sy + 11, 22, 7);
         sr.rect(sx - 7, sy + 17, 14, 6);
 
-        sr.setColor(0.20f, 0.60f, 0.24f, 1f);
+        sr.setColor(0.20f, 0.60f, 0.24f, alpha);
         sr.rect(sx - 10, sy + 6, 20, 5);
     }
 
     private void drawWillowTree(float sx, float sy) {
-        sr.setColor(0.38f, 0.24f, 0.11f, 1f);
+        drawWillowTree(sx, sy, 1f);
+    }
+
+    private void drawWillowTree(float sx, float sy, float alpha) {
+        sr.setColor(0.38f, 0.24f, 0.11f, alpha);
         sr.rect(sx - 4, sy - 6, 8, 14);
-        sr.setColor(0.18f, 0.48f, 0.24f, 1f);
+        sr.setColor(0.18f, 0.48f, 0.24f, alpha);
         sr.rect(sx - 15, sy + 3, 30, 7);
         sr.rect(sx - 12, sy + 10, 24, 7);
         sr.rect(sx - 9, sy + 17, 18, 5);
     }
 
     private void drawMapleTree(float sx, float sy) {
-        sr.setColor(0.45f, 0.28f, 0.14f, 1f);
+        drawMapleTree(sx, sy, 1f);
+    }
+
+    private void drawMapleTree(float sx, float sy, float alpha) {
+        sr.setColor(0.45f, 0.28f, 0.14f, alpha);
         sr.rect(sx - 4, sy - 6, 8, 14);
-        sr.setColor(0.70f, 0.36f, 0.12f, 1f);
+        sr.setColor(0.70f, 0.36f, 0.12f, alpha);
         sr.rect(sx - 14, sy + 4, 28, 8);
         sr.rect(sx - 10, sy + 12, 20, 6);
         sr.rect(sx - 6, sy + 18, 12, 4);
     }
 
     private void drawYewTree(float sx, float sy) {
-        sr.setColor(0.30f, 0.20f, 0.11f, 1f);
+        drawYewTree(sx, sy, 1f);
+    }
+
+    private void drawYewTree(float sx, float sy, float alpha) {
+        sr.setColor(0.30f, 0.20f, 0.11f, alpha);
         sr.rect(sx - 4, sy - 6, 8, 14);
-        sr.setColor(0.08f, 0.30f, 0.12f, 1f);
+        sr.setColor(0.08f, 0.30f, 0.12f, alpha);
         sr.rect(sx - 13, sy + 4, 26, 9);
         sr.rect(sx - 10, sy + 13, 20, 7);
         sr.rect(sx - 6, sy + 20, 12, 5);
     }
 
     private void drawMagicTree(float sx, float sy) {
-        sr.setColor(0.22f, 0.17f, 0.22f, 1f);
+        drawMagicTree(sx, sy, 1f);
+    }
+
+    private void drawMagicTree(float sx, float sy, float alpha) {
+        sr.setColor(0.22f, 0.17f, 0.22f, alpha);
         sr.rect(sx - 4, sy - 6, 8, 14);
-        sr.setColor(0.20f, 0.08f, 0.34f, 1f);
+        sr.setColor(0.20f, 0.08f, 0.34f, alpha);
         sr.rect(sx - 15, sy + 4, 30, 8);
         sr.rect(sx - 11, sy + 12, 22, 7);
         sr.rect(sx - 7, sy + 19, 14, 5);
     }
 
     private void drawFishingSpot(float sx, float sy) {
-        sr.setColor(0.10f, 0.45f, 0.75f, 1f);
+        drawFishingSpot(sx, sy, 1f);
+    }
+
+    private void drawFishingSpot(float sx, float sy, float alpha) {
+        sr.setColor(0.10f, 0.45f, 0.75f, alpha);
         sr.rect(sx - 10, sy - 5, 20, 8);
-        sr.setColor(0.70f, 0.90f, 1f, 0.9f);
+        sr.setColor(0.70f, 0.90f, 1f, 0.9f * alpha);
         sr.rect(sx - 6, sy + 1, 12, 2);
-        sr.setColor(0.95f, 0.95f, 0.95f, 1f);
+        sr.setColor(0.95f, 0.95f, 0.95f, alpha);
         sr.rect(sx - 2, sy + 4, 4, 2);
     }
 
     private void drawFire(float sx, float sy) {
-        sr.setColor(0.40f, 0.22f, 0.08f, 1f);
+        drawFire(sx, sy, 1f);
+    }
+
+    private void drawFire(float sx, float sy, float alpha) {
+        sr.setColor(0.40f, 0.22f, 0.08f, alpha);
         sr.rect(sx - 8, sy - 5, 16, 4);
-        sr.setColor(0.95f, 0.45f, 0.05f, 1f);
+        sr.setColor(0.95f, 0.45f, 0.05f, alpha);
         sr.rect(sx - 4, sy - 1, 8, 6);
-        sr.setColor(1.00f, 0.80f, 0.25f, 1f);
+        sr.setColor(1.00f, 0.80f, 0.25f, alpha);
         sr.rect(sx - 2, sy + 1, 4, 4);
     }
 
@@ -1109,25 +1259,33 @@ public class IsometricRenderer {
 
     /** Teak Tree (Lv 35): warm orange-brown tropical trunk, dense mid-green canopy. */
     private void drawTeakTree(float sx, float sy) {
-        sr.setColor(0.55f, 0.30f, 0.10f, 1f);  // warm orange-brown trunk
+        drawTeakTree(sx, sy, 1f);
+    }
+
+    private void drawTeakTree(float sx, float sy, float alpha) {
+        sr.setColor(0.55f, 0.30f, 0.10f, alpha);  // warm orange-brown trunk
         sr.rect(sx - 3, sy - 6, 6, 12);
-        sr.setColor(0.22f, 0.52f, 0.20f, 1f);  // rich green canopy
+        sr.setColor(0.22f, 0.52f, 0.20f, alpha);  // rich green canopy
         sr.rect(sx - 12, sy + 4, 24, 7);
         sr.rect(sx - 9, sy + 10, 18, 6);
         sr.rect(sx - 5, sy + 15, 10, 4);
-        sr.setColor(0.32f, 0.65f, 0.28f, 1f);  // highlight
+        sr.setColor(0.32f, 0.65f, 0.28f, alpha);  // highlight
         sr.rect(sx - 8, sy + 6, 16, 4);
     }
 
     /** Mahogany Tree (Lv 50): dark red-brown trunk, deep rich canopy. */
     private void drawMahoganyTree(float sx, float sy) {
-        sr.setColor(0.38f, 0.14f, 0.08f, 1f);  // dark mahogany trunk
+        drawMahoganyTree(sx, sy, 1f);
+    }
+
+    private void drawMahoganyTree(float sx, float sy, float alpha) {
+        sr.setColor(0.38f, 0.14f, 0.08f, alpha);  // dark mahogany trunk
         sr.rect(sx - 4, sy - 6, 8, 14);
-        sr.setColor(0.16f, 0.40f, 0.14f, 1f);  // deep dark green
+        sr.setColor(0.16f, 0.40f, 0.14f, alpha);  // deep dark green
         sr.rect(sx - 14, sy + 5, 28, 8);
         sr.rect(sx - 10, sy + 12, 20, 7);
         sr.rect(sx - 6, sy + 18, 12, 5);
-        sr.setColor(0.22f, 0.52f, 0.18f, 1f);
+        sr.setColor(0.22f, 0.52f, 0.18f, alpha);
         sr.rect(sx - 10, sy + 7, 20, 4);
     }
 
@@ -1138,18 +1296,22 @@ public class IsometricRenderer {
      * nine separate draw methods.
      */
     private void drawRock(float sx, float sy, float or, float og, float ob) {
+        drawRock(sx, sy, or, og, ob, 1f);
+    }
+
+    private void drawRock(float sx, float sy, float or, float og, float ob, float alpha) {
         // Main boulder — dark grey base
-        sr.setColor(0.38f, 0.36f, 0.34f, 1f);
+        sr.setColor(0.38f, 0.36f, 0.34f, alpha);
         sr.rect(sx - 8, sy - 5, 16, 9);
         // Lighter face highlight (top-left edge catches light)
-        sr.setColor(0.54f, 0.52f, 0.50f, 1f);
+        sr.setColor(0.54f, 0.52f, 0.50f, alpha);
         sr.rect(sx - 8, sy + 2, 10, 2);
         sr.rect(sx - 8, sy - 1, 3, 4);
         // Ore vein — coloured strip across the face
-        sr.setColor(or, og, ob, 1f);
+        sr.setColor(or, og, ob, alpha);
         sr.rect(sx - 5, sy - 1, 10, 3);
         // Shadow undercut
-        sr.setColor(0.20f, 0.18f, 0.16f, 1f);
+        sr.setColor(0.20f, 0.18f, 0.16f, alpha);
         sr.rect(sx - 7, sy - 5, 14, 2);
     }
 
@@ -1170,46 +1332,83 @@ public class IsometricRenderer {
      * Must be called outside any begin/end block — opens and closes its own.
      */
     public void renderGroundItem(int tileX, int tileY, int itemId, int quantity) {
+        boolean ownsShape = !sr.isDrawing();
+        if (ownsShape) {
+            sr.setProjectionMatrix(camera.combined);
+            sr.begin(ShapeRenderer.ShapeType.Filled);
+        }
+        drawGroundItemInternal(tileX, tileY, itemId, quantity);
+        if (ownsShape) sr.end();
+    }
+
+    private void drawGroundItemInternal(int tileX, int tileY, int itemId, int quantity) {
         float sx = worldToScreenX(tileX, tileY);
-        float sy = worldToScreenY(tileX, tileY) + 4f;  // slightly above ground
+        float sy = worldToScreenY(tileX, tileY) + 4f;
 
         final Color c;
         switch (itemId) {
-            case 995  -> c = Color.YELLOW;                           // Coins -- gold
-            case 526  -> c = new Color(0.88f, 0.80f, 0.62f, 1f);   // Bones -- off-white tan
-            case 314  -> c = new Color(0.88f, 0.90f, 0.96f, 1f);   // Feathers -- pale silver-white
-            case 1000 -> c = new Color(0.50f, 0.18f, 0.18f, 1f);   // Rat's tail -- dark maroon
-            case 2134 -> c = new Color(0.80f, 0.28f, 0.28f, 1f);   // Raw rat meat -- raw-meat red
-            case 2138 -> c = new Color(0.90f, 0.65f, 0.58f, 1f);   // Raw chicken -- pale flesh pink
-            case 2142 -> c = new Color(0.42f, 0.26f, 0.10f, 1f);   // Cowhide -- dark leather brown
-            default   -> c = new Color(0.80f, 0.50f, 0.20f, 1f);   // generic brown
+            case 995  -> c = Color.YELLOW;
+            case 526  -> c = new Color(0.88f, 0.80f, 0.62f, 1f);
+            case 314  -> c = new Color(0.88f, 0.90f, 0.96f, 1f);
+            case 1000 -> c = new Color(0.50f, 0.18f, 0.18f, 1f);
+            case 2134 -> c = new Color(0.80f, 0.28f, 0.28f, 1f);
+            case 2138 -> c = new Color(0.90f, 0.65f, 0.58f, 1f);
+            case 2142 -> c = new Color(0.42f, 0.26f, 0.10f, 1f);
+            default   -> c = new Color(0.80f, 0.50f, 0.20f, 1f);
         }
 
-        sr.begin(ShapeRenderer.ShapeType.Filled);
         sr.setColor(c);
-        // Small diamond: two triangles forming a 8-wide × 8-tall diamond
-        sr.triangle(sx,      sy + 4,  sx + 4f, sy,  sx - 4f, sy);   // upper half
-        sr.triangle(sx,      sy - 4,  sx + 4f, sy,  sx - 4f, sy);   // lower half
-        sr.end();
+        sr.triangle(sx,      sy + 4,  sx + 4f, sy,  sx - 4f, sy);
+        sr.triangle(sx,      sy - 4,  sx + 4f, sy,  sx - 4f, sy);
+    }
+
+    public void renderGroundItemInPass(int tileX, int tileY, int itemId, int quantity) {
+        drawGroundItemInternal(tileX, tileY, itemId, quantity);
     }
 
     public void renderBlobShadow(float tileX, float tileY, float width, float height, float alpha) {
+        boolean ownsShape = !sr.isDrawing();
+        if (ownsShape) {
+            sr.setProjectionMatrix(camera.combined);
+            sr.begin(ShapeRenderer.ShapeType.Filled);
+        }
+        drawBlobShadowInternal(tileX, tileY, width, height, alpha);
+        if (ownsShape) sr.end();
+    }
+
+    private void drawBlobShadowInternal(float tileX, float tileY, float width, float height, float alpha) {
         float sx = worldToScreenX(tileX, tileY);
         float sy = worldToScreenY(tileX, tileY) - 1f;
-        sr.begin(ShapeRenderer.ShapeType.Filled);
         sr.setColor(0f, 0f, 0f, alpha);
         sr.ellipse(sx - width / 2f, sy - height / 2f, width, height);
-        sr.end();
+    }
+
+    public void renderBlobShadowInPass(float tileX, float tileY, float width, float height, float alpha) {
+        drawBlobShadowInternal(tileX, tileY, width, height, alpha);
     }
 
     public void renderGroundGlow(float tileX, float tileY, float width, float height,
                                  float r, float g, float b, float alpha) {
+        boolean ownsShape = !sr.isDrawing();
+        if (ownsShape) {
+            sr.setProjectionMatrix(camera.combined);
+            sr.begin(ShapeRenderer.ShapeType.Filled);
+        }
+        drawGroundGlowInternal(tileX, tileY, width, height, r, g, b, alpha);
+        if (ownsShape) sr.end();
+    }
+
+    private void drawGroundGlowInternal(float tileX, float tileY, float width, float height,
+                                        float r, float g, float b, float alpha) {
         float sx = worldToScreenX(tileX, tileY);
         float sy = worldToScreenY(tileX, tileY);
-        sr.begin(ShapeRenderer.ShapeType.Filled);
         sr.setColor(r, g, b, alpha);
         sr.ellipse(sx - width / 2f, sy - height / 2f, width, height);
-        sr.end();
+    }
+
+    public void renderGroundGlowInPass(float tileX, float tileY, float width, float height,
+                                       float r, float g, float b, float alpha) {
+        drawGroundGlowInternal(tileX, tileY, width, height, r, g, b, alpha);
     }
 
     // -----------------------------------------------------------------------
@@ -1225,6 +1424,16 @@ public class IsometricRenderer {
 
     public void renderHealthBar(float tileX, float tileY, int health, int maxHealth) {
         if (maxHealth <= 0) return;
+        boolean ownsShape = !sr.isDrawing();
+        if (ownsShape) {
+            sr.setProjectionMatrix(camera.combined);
+            sr.begin(ShapeRenderer.ShapeType.Filled);
+        }
+        drawHealthBarInternal(tileX, tileY, health, maxHealth);
+        if (ownsShape) sr.end();
+    }
+
+    private void drawHealthBarInternal(float tileX, float tileY, int health, int maxHealth) {
         float sx = worldToScreenX(tileX, tileY);
         float sy = worldToScreenY(tileX, tileY);
         float barY  = sy + 16;
@@ -1232,11 +1441,14 @@ public class IsometricRenderer {
         float barH  = 3f;
         float fill  = (float) health / maxHealth;
 
-        sr.begin(ShapeRenderer.ShapeType.Filled);
         sr.setColor(0.2f, 0.0f, 0.0f, 1f);
         sr.rect(sx - barW / 2, barY, barW, barH);
         sr.setColor(0.0f, 0.8f, 0.0f, 1f);
         sr.rect(sx - barW / 2, barY, barW * fill, barH);
-        sr.end();
+    }
+
+    public void renderHealthBarInPass(float tileX, float tileY, int health, int maxHealth) {
+        if (maxHealth <= 0) return;
+        drawHealthBarInternal(tileX, tileY, health, maxHealth);
     }
 }
