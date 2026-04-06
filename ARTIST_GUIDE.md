@@ -151,9 +151,27 @@ For anything with movement (player walk, NPC walk), use **Aseprite tags**:
 | `walk_s` | 4 | Walking south (toward camera) |
 | `walk_e` | 4 | Walking east |
 | `walk_w` | 4 | Walking west |
+| `pickup` | 1–2 | Item pickup action (optional) |
+| `chop` | 2–4 | Woodcutting action (optional) |
+| `mine` | 2–4 | Mining action (optional) |
+| `fish` | 2–4 | Fishing action (optional) |
+| `sword` | 2–4 | Basic melee sword action (optional) |
+| `spear` | 2–4 | Basic melee spear action (optional) |
 
 The export script converts tags to numbered PNGs:
 `player_walk_n_0.png`, `player_walk_n_1.png`, `player_walk_n_2.png`, `player_walk_n_3.png`
+
+Action tags are optional for this pass and do not require directional variants.
+If action sprites are missing, the game automatically falls back to the current
+ShapeRenderer action poses.
+
+Examples:
+- `player_pickup_0.png`
+- `player_chop_0.png`, `player_chop_1.png`
+- `player_mine_0.png`
+- `player_fish_0.png`
+- `player_sword_0.png`
+- `player_spear_0.png`
 
 ---
 

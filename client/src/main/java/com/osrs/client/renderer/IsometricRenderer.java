@@ -471,7 +471,31 @@ public class IsometricRenderer {
         // Sprite-first: draw atlas sprite if available, skip ShapeRenderer geometry
         if (spriteSheet != null) {
             TextureRegion region = null;
-            if (moving) {
+            // Action animations (if present) override walk/idle. Missing action art
+            // falls back cleanly to the existing ShapeRenderer poses below.
+            String actionKey = null;
+            if (pickingUp) {
+                actionKey = "player_pickup";
+            } else if ("chop".equals(pendingAction)) {
+                actionKey = "player_chop";
+            } else if ("mine".equals(pendingAction)) {
+                actionKey = "player_mine";
+            } else if (pendingAction != null && pendingAction.startsWith("fish_")) {
+                actionKey = "player_fish";
+            } else if ("sword".equals(pendingAction)) {
+                actionKey = "player_sword";
+            } else if ("spear".equals(pendingAction)) {
+                actionKey = "player_spear";
+            }
+            if (actionKey != null) {
+                Animation<TextureRegion> actionAnim = spriteSheet.getAnimation(actionKey);
+                if (actionAnim != null) {
+                    region = actionAnim.getKeyFrame(animTime, true);
+                } else {
+                    region = spriteSheet.getTile(actionKey);
+                }
+            }
+            if (region == null && moving) {
                 Animation<TextureRegion> walkAnim = spriteSheet.getAnimation("player_walk_" + animDir);
                 if (walkAnim != null) {
                     region = walkAnim.getKeyFrame(animTime, true);
