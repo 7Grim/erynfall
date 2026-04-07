@@ -421,6 +421,22 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
                 .setCurrent(prayerLevel)
                 .setMaximum(prayerLevel))
             .build());
+
+        // Sync HP state so the client's health display is correct immediately on login.
+        // player.maxHealth may be 10 (in-memory default) even if the HP skill level is higher,
+        // so derive max HP from the skill level here and correct the server object too.
+        int hpLevel = player.getSkillLevel(Player.SKILL_HITPOINTS);
+        if (player.getMaxHealth() != hpLevel) {
+            int oldHealth = player.getHealth();
+            player.setMaxHealth(hpLevel);                        // also sets health = hpLevel
+            player.setHealth(Math.min(oldHealth, hpLevel));      // restore old HP, capped at new max
+        }
+        ctx.writeAndFlush(NetworkProto.ServerMessage.newBuilder()
+            .setHealthUpdate(NetworkProto.HealthUpdate.newBuilder()
+                .setEntityId(player.getId())
+                .setHealth(player.getHealth())
+                .setMaxHealth(player.getMaxHealth()))
+            .build());
     }
 
     private void interruptSkilling(String reason) {
