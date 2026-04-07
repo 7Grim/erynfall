@@ -178,6 +178,18 @@
     </build>
 
     <profiles>
+        <!-- Windows: skip the Python art-validation step — manifest files are committed to the
+             repo so regeneration is only needed on the artist's Mac/Linux workstation.
+             Python is typically not on the Windows PATH as 'python3' or even 'python'. -->
+        <profile>
+            <id>windows-skip-art-validation</id>
+            <activation>
+                <os><family>windows</family></os>
+            </activation>
+            <properties>
+                <skipArtValidation>true</skipArtValidation>
+            </properties>
+        </profile>
         <!-- macOS requires -XstartOnFirstThread for LWJGL3 OpenGL window -->
         <profile>
             <id>mac</id>
