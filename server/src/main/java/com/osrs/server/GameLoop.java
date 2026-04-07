@@ -1360,6 +1360,18 @@ public class GameLoop {
 
         if (leveledUp) {
             LOG.info("Player {} leveled up skill {} → {}", player.getId(), skillIdx, newLevel);
+            if (skillIdx == Player.SKILL_HITPOINTS) {
+                // Update max HP to the new level and give +1 current HP (OSRS behaviour).
+                int oldHealth = player.getHealth();
+                player.setMaxHealth(newLevel);               // also sets health = newLevel
+                player.setHealth(Math.min(oldHealth + 1, newLevel));
+                nettyServer.broadcastToAll(NetworkProto.ServerMessage.newBuilder()
+                    .setHealthUpdate(NetworkProto.HealthUpdate.newBuilder()
+                        .setEntityId(player.getId())
+                        .setHealth(player.getHealth())
+                        .setMaxHealth(newLevel))
+                    .build());
+            }
         }
 
         nettyServer.sendToPlayer(player.getId(), NetworkProto.ServerMessage.newBuilder()
