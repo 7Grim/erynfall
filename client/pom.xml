@@ -99,7 +99,10 @@
                         <configuration>
                             <skip>${skipArtValidation}</skip>
                             <target>
-                                <exec executable="python3" failonerror="true">
+                                <condition property="python.exe" value="python" else="python3">
+                                    <os family="windows"/>
+                                </condition>
+                                <exec executable="${python.exe}" failonerror="true">
                                     <arg value="${project.basedir}/../scripts/validate-art.py"/>
                                     <arg value="--write-key-list"/>
                                     <arg value="${project.basedir}/src/main/resources/sprite-manifest-keys.txt"/>
