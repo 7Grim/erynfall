@@ -218,11 +218,27 @@ def is_frame_for_key(file_name: str, key: str) -> bool:
     return simple is not None or tagged is not None
 
 
-def collect_animation_frames(key: str, sprite_dir: Path, include_simple: bool) -> dict[str, list[tuple[int, Path]]]:
+def collect_animation_frames(
+    key: str,
+    sprite_dir: Path,
+    include_simple: bool,
+    all_keys: set[str] | None = None,
+) -> dict[str, list[tuple[int, Path]]]:
+    """Collect animation frame files for *key*.
+
+    Files that belong to a more-specific manifest key (one whose name starts
+    with ``key + "_"``) are excluded so that, e.g., ``tree_willow_idle_0.png``
+    is not erroneously claimed by the shorter ``tree`` key.
+    """
     simple_pattern = re.compile(rf"^{re.escape(key)}_(\d+)\.png$")
     tagged_pattern = re.compile(rf"^{re.escape(key)}_(.+)_(\d+)\.png$")
+    # Build the set of more-specific sibling keys once for this call.
+    longer_keys: set[str] = {k for k in (all_keys or set()) if k != key and k.startswith(key + "_")}
     by_tag: dict[str, list[tuple[int, Path]]] = {}
     for png_path in sprite_dir.glob("*.png"):
+        # Skip if a longer key in the manifest owns this file.
+        if any(png_path.name.startswith(lk + "_") for lk in longer_keys):
+            continue
         simple_match = simple_pattern.match(png_path.name) if include_simple else None
         if simple_match is not None:
             tag = "default"
@@ -263,6 +279,7 @@ def validate(entries: list[ManifestEntry], sprites_dir: Path) -> tuple[list[str]
             entry.key,
             sprites_dir,
             include_simple=entry.animated and entry.variant_count <= 0,
+            all_keys=set(manifest_by_key.keys()),
         )
         has_frames = any(frame_groups.values())
 
