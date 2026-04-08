@@ -158,6 +158,17 @@ public class NettyClient {
         LOG.debug("Sent TalkToNpc: npc {}", npcId);
     }
 
+    public void sendClaimNpcSupplies(int npcId) {
+        if (channel == null || !channel.isActive()) return;
+        NetworkProto.ClientMessage msg = NetworkProto.ClientMessage.newBuilder()
+            .setClaimNpcSupplies(NetworkProto.ClaimNpcSupplies.newBuilder()
+                .setNpcId(npcId)
+                .setSequence(System.currentTimeMillis()))
+            .build();
+        channel.writeAndFlush(msg);
+        LOG.debug("Sent ClaimNpcSupplies: npcId={}", npcId);
+    }
+
     public void sendOpenBankRequest(int npcId) {
         NetworkProto.ClientMessage msg = NetworkProto.ClientMessage.newBuilder()
             .setOpenBankRequest(NetworkProto.OpenBankRequest.newBuilder()

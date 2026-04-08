@@ -39,6 +39,9 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
     private static final int MAX_FRIENDS = 200;
     private static final int BRONZE_AXE_ITEM_ID = 1351;
     private static final int SMALL_FISHING_NET_ITEM_ID = 303;
+    private static final int FISHING_BAIT_ITEM_ID = 313;
+    private static final int FISHING_SUPPLIER_BAIT_TARGET = 100;
+    private static final int[] FISHING_SUPPLIER_TOOL_ITEM_IDS = {303, 307, 309, 301, 311};
     private static final int RAW_SHRIMPS_ITEM_ID = 317;
     private static final int BONES_ITEM_ID = 526;
     private static final int  TINDERBOX_ITEM_ID   = 590;
@@ -140,6 +143,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             case SET_AUTO_RETALIATE  -> handleSetAutoRetaliate(packet.getSetAutoRetaliate());
             case SET_SPELL           -> handleSetSpell(packet.getSetSpell());
             case OPEN_BANK_REQUEST       -> handleOpenBankRequest(ctx, packet.getOpenBankRequest());
+            case CLAIM_NPC_SUPPLIES      -> handleClaimNpcSupplies(ctx, packet.getClaimNpcSupplies());
             case CLOSE_BANK_REQUEST      -> handleCloseBankRequest(ctx, packet.getCloseBankRequest());
             case DEPOSIT_BANK_ITEM       -> handleDepositBankItem(ctx, packet.getDepositBankItem());
             case WITHDRAW_BANK_ITEM      -> handleWithdrawBankItem(ctx, packet.getWithdrawBankItem());
@@ -841,6 +845,84 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
         session.setBankOpen(true);
         session.setBankNpcId(npc.getId());
         sendBankOpen(ctx, player);
+    }
+
+    private void handleClaimNpcSupplies(ChannelHandlerContext ctx, NetworkProto.ClaimNpcSupplies request) {
+        if (session == null || !session.isAuthenticated() || session.getPlayer() == null) {
+            return;
+        }
+
+        Player player = session.getPlayer();
+        NPC npc = server.getWorld().getNPC(request.getNpcId());
+        if (npc == null || !npc.isFishingSupplier()) {
+            sendChatMessage(ctx, "They have nothing useful for you.", 1);
+            return;
+        }
+
+        if (player.isInCombat()) {
+            sendChatMessage(ctx, "You are too busy fighting.", 1);
+            return;
+        }
+
+        int chebyshev = Math.max(Math.abs(player.getX() - npc.getX()), Math.abs(player.getY() - npc.getY()));
+        if (chebyshev > 1 || !canReachAnyAdjacentTile(player, npc)) {
+            sendChatMessage(ctx, "I can't reach that!", 1);
+            return;
+        }
+
+        boolean changed = false;
+        boolean blockedBySpace = false;
+
+        for (int itemId : FISHING_SUPPLIER_TOOL_ITEM_IDS) {
+            if (hasItemInInventoryOrEquipmentOrBank(player, itemId)) {
+                continue;
+            }
+            ItemDefinition def = server.getWorld().getItemDef(itemId);
+            if (def == null || def.id <= 0) {
+                continue;
+            }
+            int granted = giveItemToInventory(player, def, 1);
+            if (granted > 0) {
+                changed = true;
+            } else {
+                blockedBySpace = true;
+            }
+        }
+
+        int baitCount = countInventoryItem(player, FISHING_BAIT_ITEM_ID);
+        if (baitCount < FISHING_SUPPLIER_BAIT_TARGET) {
+            ItemDefinition baitDef = server.getWorld().getItemDef(FISHING_BAIT_ITEM_ID);
+            if (baitDef != null && baitDef.id > 0) {
+                int needed = FISHING_SUPPLIER_BAIT_TARGET - baitCount;
+                int granted = giveItemToInventory(player, baitDef, needed);
+                if (granted > 0) {
+                    changed = true;
+                }
+                if (granted < needed) {
+                    blockedBySpace = true;
+                }
+            }
+        }
+
+        if (!changed) {
+            if (blockedBySpace) {
+                sendChatMessage(ctx, "You need more inventory space for supplies.", 1);
+            } else {
+                sendChatMessage(ctx, "You already have the tackle you need.", 0);
+            }
+            return;
+        }
+
+        sendFullInventory(ctx, player);
+        if (DatabaseManager.isHealthy()) {
+            PlayerRepository.saveInventory(player);
+        }
+
+        if (blockedBySpace) {
+            sendChatMessage(ctx, "You receive some supplies, but your inventory is too full for the rest.", 2);
+        } else {
+            sendChatMessage(ctx, "The supplier hands you some fishing tackle.", 0);
+        }
     }
 
     private void flushDirtyBankContainers() {
@@ -1979,6 +2061,26 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             }
         }
         return false;
+    }
+
+    private boolean hasItemInInventoryOrEquipmentOrBank(Player player, int itemId) {
+        if (itemId <= 0) {
+            return false;
+        }
+
+        for (int slot = 0; slot < 28; slot++) {
+            if (player.getInventoryItemId(slot) == itemId) {
+                return true;
+            }
+        }
+
+        for (int slot = 0; slot < EquipmentSlot.COUNT; slot++) {
+            if (player.getEquipment(slot) == itemId) {
+                return true;
+            }
+        }
+
+        return player.findBankSlotByItemId(itemId) >= 0;
     }
 
     private int countInventoryItem(Player player, int itemId) {

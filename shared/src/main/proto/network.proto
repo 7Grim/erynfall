@@ -506,6 +506,11 @@ message SetSpell {
     int64 sequence = 2;
 }
 
+message ClaimNpcSupplies {
+    int32 npc_id = 1;
+    int64 sequence = 2;
+}
+
 // ChatBroadcast: Server → Client (public chat from a nearby player, broadcast to all in range)
 message ChatBroadcast {
     int32  sender_id   = 1;   // Entity ID of the sender (for overhead text placement)
@@ -589,6 +594,7 @@ message ClientMessage {
         AdminGiveItem admin_give_item = 31;
         AdminTeleport admin_teleport = 32;
         SetSpell set_spell = 33;
+        ClaimNpcSupplies claim_npc_supplies = 34;
     }
 }
 

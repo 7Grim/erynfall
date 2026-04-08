@@ -238,7 +238,7 @@ public class GameScreen extends ApplicationAdapter {
     // Approach-and-act state
     // -----------------------------------------------------------------------
     private int    pendingNpcId      = -1;
-    private String pendingAction     = null; // "attack" | "talk" | "chop"
+    private String pendingAction     = null; // "attack" | "talk" | "supplies" | "chop"
     /** Seconds until we can resend talk/attack while in range. */
     private float  pendingActionRetryTimer = 0f;
     /** The walk-target tile we last submitted so we don't spam WalkTo. */
@@ -1473,7 +1473,7 @@ public class GameScreen extends ApplicationAdapter {
         for (String msg : h.drainServerChatMessages()) {
             chatBox.addSystemMessage(msg);
             // Any server response to a talk attempt means the server handled it — stop retrying.
-            if ("talk".equals(pendingAction)) {
+            if ("talk".equals(pendingAction) || "supplies".equals(pendingAction)) {
                 clearPendingAction();
             }
             if ("I can't reach that!".equals(msg)) {
@@ -2991,6 +2991,9 @@ public class GameScreen extends ApplicationAdapter {
             } else if ("cook_at".equals(pendingAction)) {
                 nettyClient.sendStartSkilling(pendingNpcId, NetworkProto.SkillingType.SKILLING_COOKING);
                 pendingActionRetryTimer = 0.25f;
+            } else if ("supplies".equals(pendingAction)) {
+                nettyClient.sendClaimNpcSupplies(pendingNpcId);
+                pendingActionRetryTimer = 0.25f;
             } else if ("bank".equals(pendingAction)) {
                 nettyClient.sendOpenBankRequest(pendingNpcId);
                 pendingActionRetryTimer = 0.25f;
@@ -3351,6 +3354,7 @@ public class GameScreen extends ApplicationAdapter {
                     boolean isFishingSpot = "Fishing Spot".equalsIgnoreCase(rawName);
                     boolean isFire = "Cooking Fire".equalsIgnoreCase(rawName);
                     boolean isBanker = "Banker".equalsIgnoreCase(rawName);
+                    boolean isFishingSupplier = "Fishing Supplier".equalsIgnoreCase(rawName);
 
                     if (level > 0) {
                         // Combat NPC: Attack is the primary option (top)
@@ -3381,6 +3385,9 @@ public class GameScreen extends ApplicationAdapter {
                     } else if (isBanker) {
                         opts.add(new ContextMenu.MenuItem(ContextMenu.Action.BANK, yellowName, id));
                         opts.add(new ContextMenu.MenuItem(ContextMenu.Action.TALK_TO, yellowName, id));
+                    } else if (isFishingSupplier) {
+                        opts.add(new ContextMenu.MenuItem(ContextMenu.Action.SUPPLIES, yellowName, id));
+                        opts.add(new ContextMenu.MenuItem(ContextMenu.Action.TALK_TO, yellowName, id));
                     } else {
                         opts.add(new ContextMenu.MenuItem(ContextMenu.Action.TALK_TO, yellowName, id));
                     }
@@ -3397,6 +3404,7 @@ public class GameScreen extends ApplicationAdapter {
             case "walk"   -> { int[] t = (int[]) item.target; walkTo(t[0], t[1]); }
             case "attack" -> startApproach((Integer) item.target, "attack");
             case "talk"   -> startApproach((Integer) item.target, "talk");
+            case "supplies" -> startApproach((Integer) item.target, "supplies");
             case "bank"   -> startApproach((Integer) item.target, "bank");
             case "chop"   -> startApproach((Integer) item.target, "chop");
             case "mine"   -> startApproach((Integer) item.target, "mine");

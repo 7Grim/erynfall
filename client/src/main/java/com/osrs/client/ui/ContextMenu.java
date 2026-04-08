@@ -31,6 +31,7 @@ public class ContextMenu {
         REMOVE_FRIEND("friend_remove", "Remove friend"),
         ATTACK("attack", "Attack"),
         BANK("bank", "Bank"),
+        SUPPLIES("supplies", "Supplies"),
         TALK_TO("talk", "Talk-to"),
         CHOP("chop", "Chop down"),
         MINE("mine", "Mine"),

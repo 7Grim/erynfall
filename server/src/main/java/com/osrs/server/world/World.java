@@ -143,6 +143,7 @@ public class World {
             npc.setStrengthBonus(npcDef.strengthBonus);
             npc.setDefenceBonus(npcDef.defenceBonus);
             npc.setBanker(npcDef.isBanker);
+            npc.setFishingSupplier(npcDef.isFishingSupplier);
             npcs.put(npcDef.id, npc);
             npcExamineTexts.put(npcDef.id, npcDef.examine);
             LOG.debug("Spawned NPC: {} (id={}, level={}, pos=({}, {}))", 

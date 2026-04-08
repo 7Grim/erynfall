@@ -65,6 +65,14 @@ items:
     equipable: false
     consumable: false
 
+  - id: 2132
+    name: "Raw beef"
+    examine: "I should cook this first."
+    stackable: false
+    store_value: 1
+    equipable: false
+    consumable: false
+
   - id: 303
     name: "Small fishing net"
     examine: "Useful for catching shrimp."

@@ -419,6 +419,20 @@ npcs:
     wander_radius: 0
     is_aggressive: false
 
+  - id: 37
+    name: "Fishing Supplier"
+    combat_level: 0
+    max_hp: 10
+    max_hit: 0
+    respawn_delay_ticks: 0
+    location: "tutorial_island"
+    x: 22
+    y: 25
+    examine: "A supplier of basic fishing tackle."
+    wander_radius: 0
+    is_aggressive: false
+    is_fishing_supplier: true
+
   # ==========================================================================
   # COMBAT LOW ZONE — y=63  (rows 61-65)
   # Rats and Chickens
@@ -666,12 +680,14 @@ loot_tables:
         max_quantity: 15
 
   # --- Cow (level 2) ---
-  # OSRS: Bones (always), Cowhide (always)
+  # Bones, cowhide, and raw beef make cows relevant to both Crafting and Cooking.
   cow_basic:
     always:
       - item_id: 526    # Bones
         quantity: 1
       - item_id: 2142   # Cowhide
+        quantity: 1
+      - item_id: 2132   # Raw beef
         quantity: 1
     common:
       - item_id: 995    # Coins (1-5)
