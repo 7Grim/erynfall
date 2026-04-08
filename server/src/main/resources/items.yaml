@@ -407,6 +407,40 @@ items:
 
   # ── Food ─────────────────────────────────────────────────────────────────
 
+  - id: 2140
+    name: "Cooked chicken"
+    examine: "Mmm this looks tasty."
+    stackable: false
+    store_value: 4
+    equipable: false
+    consumable: true
+    consume_heal: 3
+
+  - id: 2144
+    name: "Burnt chicken"
+    examine: "Oh dear, it's totally burnt!"
+    stackable: false
+    store_value: 1
+    equipable: false
+    consumable: false
+
+  - id: 2148
+    name: "Cooked meat"
+    examine: "Mmm this looks tasty."
+    stackable: false
+    store_value: 4
+    equipable: false
+    consumable: true
+    consume_heal: 3
+
+  - id: 2146
+    name: "Burnt meat"
+    examine: "Oh dear, it's totally burnt!"
+    stackable: false
+    store_value: 1
+    equipable: false
+    consumable: false
+
   - id: 315
     name: "Shrimps"
     examine: "Some nicely cooked shrimps."
@@ -416,14 +450,150 @@ items:
     consumable: true
     consume_heal: 3
 
-  - id: 361
-    name: "Tuna"
-    examine: "A nicely cooked tuna."
+  - id: 7954
+    name: "Burnt shrimps"
+    examine: "Oops!"
+    stackable: false
+    store_value: 1
+    equipable: false
+    consumable: false
+
+  - id: 319
+    name: "Anchovies"
+    examine: "Some nicely cooked anchovies."
+    stackable: false
+    store_value: 15
+    equipable: false
+    consumable: true
+    consume_heal: 1
+
+  - id: 323
+    name: "Burnt fish"
+    examine: "Oops!"
+    stackable: false
+    store_value: 1
+    equipable: false
+    consumable: false
+
+  - id: 325
+    name: "Sardine"
+    examine: "Some nicely cooked sardines."
+    stackable: false
+    store_value: 10
+    equipable: false
+    consumable: true
+    consume_heal: 4
+
+  - id: 369
+    name: "Burnt fish"
+    examine: "Oops!"
+    stackable: false
+    store_value: 1
+    equipable: false
+    consumable: false
+
+  - id: 347
+    name: "Herring"
+    examine: "Some nicely cooked herring."
+    stackable: false
+    store_value: 10
+    equipable: false
+    consumable: true
+    consume_heal: 5
+
+  - id: 357
+    name: "Burnt fish"
+    examine: "Oops!"
+    stackable: false
+    store_value: 1
+    equipable: false
+    consumable: false
+
+  - id: 333
+    name: "Trout"
+    examine: "Some nicely cooked trout."
+    stackable: false
+    store_value: 10
+    equipable: false
+    consumable: true
+    consume_heal: 7
+
+  - id: 343
+    name: "Burnt fish"
+    examine: "Oops!"
+    stackable: false
+    store_value: 1
+    equipable: false
+    consumable: false
+
+  - id: 351
+    name: "Pike"
+    examine: "Some nicely cooked pike."
     stackable: false
     store_value: 20
     equipable: false
     consumable: true
+    consume_heal: 8
+
+  - id: 329
+    name: "Salmon"
+    examine: "Some nicely cooked salmon."
+    stackable: false
+    store_value: 30
+    equipable: false
+    consumable: true
+    consume_heal: 9
+
+  - id: 361
+    name: "Tuna"
+    examine: "A nicely cooked tuna."
+    stackable: false
+    store_value: 40
+    equipable: false
+    consumable: true
     consume_heal: 10
+
+  - id: 367
+    name: "Burnt fish"
+    examine: "Oops!"
+    stackable: false
+    store_value: 1
+    equipable: false
+    consumable: false
+
+  - id: 379
+    name: "Lobster"
+    examine: "This looks tricky to eat."
+    stackable: false
+    store_value: 70
+    equipable: false
+    consumable: true
+    consume_heal: 12
+
+  - id: 381
+    name: "Burnt lobster"
+    examine: "Oops!"
+    stackable: false
+    store_value: 1
+    equipable: false
+    consumable: false
+
+  - id: 373
+    name: "Swordfish"
+    examine: "I'd better be careful eating this!"
+    stackable: false
+    store_value: 80
+    equipable: false
+    consumable: true
+    consume_heal: 14
+
+  - id: 375
+    name: "Burnt swordfish"
+    examine: "Oops!"
+    stackable: false
+    store_value: 1
+    equipable: false
+    consumable: false
 
   - id: 385
     name: "Shark"
