@@ -24,6 +24,9 @@
             <configuration>
               <skip>${skipArtValidation}</skip>
               <target>
+                <condition>
+                  <os />
+                </condition>
                 <exec>
                   <arg />
                   <arg />
@@ -97,6 +100,12 @@
     </plugins>
   </build>
   <profiles>
+    <profile>
+      <id>windows-skip-art-validation</id>
+      <properties>
+        <skipArtValidation>true</skipArtValidation>
+      </properties>
+    </profile>
     <profile>
       <id>mac</id>
       <build>

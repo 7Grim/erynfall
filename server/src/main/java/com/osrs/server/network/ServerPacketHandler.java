@@ -12,6 +12,7 @@ import com.osrs.server.quest.QuestManager;
 import com.osrs.server.world.GroundItem;
 import com.osrs.server.world.World;
 import com.osrs.shared.CombatStyle;
+import com.osrs.shared.CookingRegistry;
 import com.osrs.shared.EquipmentSlot;
 import com.osrs.shared.ItemDefinition;
 import com.osrs.shared.NPC;
@@ -42,7 +43,6 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
     private static final int FISHING_BAIT_ITEM_ID = 313;
     private static final int FISHING_SUPPLIER_BAIT_TARGET = 100;
     private static final int[] FISHING_SUPPLIER_TOOL_ITEM_IDS = {303, 307, 309, 301, 311};
-    private static final int RAW_SHRIMPS_ITEM_ID = 317;
     private static final int BONES_ITEM_ID = 526;
     private static final int  TINDERBOX_ITEM_ID   = 590;
     private static final int[] FIREMAKING_LOG_ITEM_IDS = {1511, 1521, 1522, 1523, 1524, 1525};
@@ -1752,8 +1752,8 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
                 sendChatMessage(ctx, "You are too busy fighting.", 1);
                 return true;
             }
-            if (!hasRawShrimps(player)) {
-                sendChatMessage(ctx, "You have no raw shrimps to cook.", 1);
+            if (!hasCookableFood(player)) {
+                sendChatMessage(ctx, "You have no raw food to cook.", 1);
                 return true;
             }
             if (!canReachAnyAdjacentTile(player, npc)) {
@@ -2096,9 +2096,13 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
         return total;
     }
 
-    private boolean hasRawShrimps(Player player) {
-        for (int i = 0; i < 28; i++) {
-            if (player.getInventoryItemId(i) == RAW_SHRIMPS_ITEM_ID) {
+    private boolean hasCookableFood(Player player) {
+        for (int slot = 0; slot < 28; slot++) {
+            int itemId = player.getInventoryItemId(slot);
+            if (itemId <= 0) {
+                continue;
+            }
+            if (CookingRegistry.getByRawItemId(itemId) != null) {
                 return true;
             }
         }

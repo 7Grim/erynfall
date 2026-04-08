@@ -12,6 +12,7 @@ import com.osrs.server.world.GroundItem;
 import com.osrs.server.world.World;
 import com.osrs.shared.ItemDefinition;
 import com.osrs.shared.CombatStyle;
+import com.osrs.shared.CookingRegistry;
 import com.osrs.shared.EquipmentSlot;
 import com.osrs.shared.NPC;
 import com.osrs.shared.Player;
@@ -91,13 +92,6 @@ public class GameLoop {
     // Fixed mine attempt interval: 3 OSRS ticks per roll (OSRS standard)
     private static final int MINE_ATTEMPT_INTERVAL = MiningRegistry.MINE_ATTEMPT_OSRS_TICKS * OSRS_TICKS_TO_SERVER;
 
-    // Fishing/Cooking base items
-    private static final int RAW_SHRIMPS_ITEM_ID = 317;
-
-    // Cooking (MVP first slice)
-    private static final int COOKED_SHRIMPS_ITEM_ID = 315;
-    private static final int BURNT_SHRIMPS_ITEM_ID = 7954;
-    private static final long COOKED_SHRIMPS_XP = 300L;  // 30.0 XP stored as tenths
     
     public GameLoop(long tickIntervalNs, World world, NettyServer nettyServer) {
         this.tickIntervalNs = tickIntervalNs;
@@ -1720,34 +1714,92 @@ public class GameLoop {
             return;
         }
 
-        announceSkillingActive(player, session, "You start cooking the shrimps.");
+        CookingRegistry.FoodTier food = findFirstCookableFood(player);
+        if (food == null) {
+            sendChatMessageToPlayer(session.getChannel(), "You have no raw food to cook.", 1);
+            stopSkilling(player, session, "no-input");
+            return;
+        }
+
+        String cookedName = food.cookedName() == null ? "food" : food.cookedName().toLowerCase();
+        announceSkillingActive(player, session, "You start cooking the " + cookedName + ".");
 
         if (tickCount < player.getSkillingNextAttemptTick()) {
             return;
         }
 
-        int rawSlot = findInventorySlotByItemId(player, RAW_SHRIMPS_ITEM_ID);
+        int rawSlot = findFirstCookableFoodSlot(player);
         if (rawSlot < 0) {
-            sendChatMessageToPlayer(session.getChannel(), "You have no raw shrimps to cook.", 1);
+            sendChatMessageToPlayer(session.getChannel(), "You have no raw food to cook.", 1);
             stopSkilling(player, session, "no-input");
             return;
         }
 
         int cookingLevel = Math.max(1, player.getSkillLevel(Player.SKILL_COOKING));
-        boolean burn = random.nextDouble() < shrimpBurnChance(cookingLevel);
+        boolean burn = shouldBurn(food, cookingLevel, CookingRegistry.StationType.FIRE);
         if (burn) {
-            player.setInventoryItem(rawSlot, BURNT_SHRIMPS_ITEM_ID, 1);
+            player.setInventoryItem(rawSlot, food.burntItemId(), 1);
             sendInventorySlot(session.getChannel(), player, rawSlot);
-            sendChatMessageToPlayer(session.getChannel(), "You accidentally burn the shrimps.", 1);
+            sendChatMessageToPlayer(session.getChannel(), "You accidentally burn the " + cookedName + ".", 1);
         } else {
-            player.setInventoryItem(rawSlot, COOKED_SHRIMPS_ITEM_ID, 1);
+            player.setInventoryItem(rawSlot, food.cookedItemId(), 1);
             sendInventorySlot(session.getChannel(), player, rawSlot);
-            sendChatMessageToPlayer(session.getChannel(), "You cook the shrimps.", 0);
-            sendSkillUpdate(player, Player.SKILL_COOKING, COOKED_SHRIMPS_XP);
+            sendChatMessageToPlayer(
+                session.getChannel(),
+                "You cook " + cookedArticle(cookedName) + cookedName + ".",
+                0
+            );
+            sendSkillUpdate(player, Player.SKILL_COOKING, food.xpTenths());
             updateSkillQuestObjectives(session, Quest.TaskType.ACTION, fire.getDefinitionId());
         }
 
         player.setSkillingNextAttemptTick(tickCount + nextCookingAttemptTicks(cookingLevel));
+    }
+
+    private CookingRegistry.FoodTier findFirstCookableFood(Player player) {
+        for (int slot = 0; slot < 28; slot++) {
+            int itemId = player.getInventoryItemId(slot);
+            if (itemId <= 0) {
+                continue;
+            }
+            CookingRegistry.FoodTier food = CookingRegistry.getByRawItemId(itemId);
+            if (food != null) {
+                return food;
+            }
+        }
+        return null;
+    }
+
+    private int findFirstCookableFoodSlot(Player player) {
+        for (int slot = 0; slot < 28; slot++) {
+            int itemId = player.getInventoryItemId(slot);
+            if (itemId <= 0) {
+                continue;
+            }
+            if (CookingRegistry.getByRawItemId(itemId) != null) {
+                return slot;
+            }
+        }
+        return -1;
+    }
+
+    private boolean shouldBurn(CookingRegistry.FoodTier food,
+                               int cookingLevel,
+                               CookingRegistry.StationType station) {
+        if (food == null) {
+            return false;
+        }
+
+        int noBurnLevel = CookingRegistry.noBurnLevel(food, station);
+        if (cookingLevel >= noBurnLevel) {
+            return false;
+        }
+
+        int low = CookingRegistry.burnLow(food, station);
+        int high = CookingRegistry.burnHigh(food, station);
+        int chance = (int) interpolatedSuccessChance255(cookingLevel, low, high);
+        chance = Math.max(0, Math.min(255, chance));
+        return !(random.nextInt(255) < chance);
     }
 
     private FishingRegistry.CatchTier rollFishingCatch(FishingRegistry.SpotAction action, int fishingLevel) {
@@ -1780,16 +1832,15 @@ public class GameLoop {
         };
     }
 
-    private double shrimpBurnChance(int cookingLevel) {
-        double chance = 0.55 - (cookingLevel * 0.012);
-        return Math.max(0.06, Math.min(0.55, chance));
+    private int nextCookingAttemptTicks(int cookingLevel) {
+        return nextFishingAttemptTicks(FishingRegistry.ActionType.NET, cookingLevel);
     }
 
-    private int nextCookingAttemptTicks(int cookingLevel) {
-        int base = 170;
-        int speedBonus = Math.min(70, cookingLevel);
-        int interval = Math.max(90, base - speedBonus);
-        return interval;
+    private String cookedArticle(String cookedName) {
+        if (cookedName == null || cookedName.isBlank()) {
+            return "some ";
+        }
+        return cookedName.endsWith("shrimps") || cookedName.endsWith("anchovies") ? "some " : "a ";
     }
 
     private int findInventorySlotByItemId(Player player, int itemId) {
