@@ -3332,9 +3332,12 @@ public class GameScreen extends ApplicationAdapter {
                     // Yellow name with level suffix — OSRS style
                     String yellowName = "[#ffff00]" + rawName + "[]";
                     String levelSuffix = level > 0 ? " (level-" + level + ")" : "";
-                    boolean isTreeResource = "Oak Tree".equalsIgnoreCase(rawName)
+                    boolean isTreeResource = "Tree".equalsIgnoreCase(rawName)
+                        || "Oak Tree".equalsIgnoreCase(rawName)
                         || "Willow Tree".equalsIgnoreCase(rawName)
+                        || "Teak Tree".equalsIgnoreCase(rawName)
                         || "Maple Tree".equalsIgnoreCase(rawName)
+                        || "Mahogany Tree".equalsIgnoreCase(rawName)
                         || "Yew Tree".equalsIgnoreCase(rawName)
                         || "Magic Tree".equalsIgnoreCase(rawName);
                     boolean isMiningRock = "Copper Rock".equalsIgnoreCase(rawName)
