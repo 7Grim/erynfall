@@ -226,20 +226,13 @@ public final class LevelUnlockRegistry {
 
     private static String cookingUnlock(int level) {
         return switch (level) {
-            case 7  -> "You can now cook sardines.";
-            case 10 -> "You can now cook herring.";
-            case 15 -> "You can now cook anchovies.";
-            case 18 -> "You can now cook tuna.";
+            case 5  -> "You can now cook herring.";
+            case 15 -> "You can now cook trout.";
             case 20 -> "You can now cook pike.";
-            case 25 -> "You can now bake bread.";
-            case 28 -> "You can now cook trout.";
-            case 30 -> "You can now cook lobster.";
-            case 35 -> "You can now cook swordfish.";
-            case 41 -> "You can now cook monkfish.";
-            case 50 -> "You can now cook sea turtle.";
-            case 62 -> "You can now cook manta ray.";
-            case 80 -> "You can now cook sharks.";
-            case 82 -> "You can now cook anglerfish.";
+            case 25 -> "You can now cook salmon.";
+            case 30 -> "You can now cook tuna.";
+            case 40 -> "You can now cook lobster.";
+            case 45 -> "You can now cook swordfish.";
             case 99 -> "You have reached the maximum Cooking level!";
             default -> null;
         };

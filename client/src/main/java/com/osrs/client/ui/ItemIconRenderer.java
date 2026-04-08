@@ -125,6 +125,11 @@ public final class ItemIconRenderer {
             case 309 -> drawFlyFishingRodIcon(sr, iconX, iconY);
             case 301 -> drawLobsterPotIcon(sr, iconX, iconY);
             case 311 -> drawHarpoonIcon(sr, iconX, iconY);
+            case 590 -> drawFireIcon(sr, iconX, iconY);
+            case 2138 -> drawRawChickenIcon(sr, iconX, iconY);
+            case 2132, 2134 -> drawRawMeatIcon(sr, iconX, iconY);
+            case 2140 -> drawCookedChickenIcon(sr, iconX, iconY);
+            case 2148 -> drawCookedMeatIcon(sr, iconX, iconY);
             case 317 -> drawRawShrimpsIcon(sr, iconX, iconY);
             case 321 -> drawAnchoviesIcon(sr, iconX, iconY);
             case 327 -> drawSardineIcon(sr, iconX, iconY);
@@ -136,7 +141,15 @@ public final class ItemIconRenderer {
             case 359 -> drawTunaIcon(sr, iconX, iconY);
             case 371 -> drawSwordfishIcon(sr, iconX, iconY);
             case 315 -> drawCookedShrimpsIcon(sr, iconX, iconY);
+            case 319 -> drawCookedAnchoviesIcon(sr, iconX, iconY);
+            case 325 -> drawCookedSardineIcon(sr, iconX, iconY);
+            case 347 -> drawCookedHerringIcon(sr, iconX, iconY);
+            case 333 -> drawCookedTroutIcon(sr, iconX, iconY);
+            case 351 -> drawCookedPikeIcon(sr, iconX, iconY);
+            case 329 -> drawCookedSalmonIcon(sr, iconX, iconY);
             case 361 -> drawCookedTunaIcon(sr, iconX, iconY);
+            case 379 -> drawCookedLobsterIcon(sr, iconX, iconY);
+            case 373 -> drawCookedSwordfishIcon(sr, iconX, iconY);
             case 385 -> drawSharkIcon(sr, iconX, iconY);
             case 7954 -> drawBurntShrimpsIcon(sr, iconX, iconY);
             case 526  -> drawBonesIcon(sr, iconX, iconY);
@@ -525,6 +538,52 @@ public final class ItemIconRenderer {
         sr.rect(x + 18, y + 16, 2, 6);
     }
 
+    private static void drawFireIcon(ShapeRenderer sr, float x, float y) {
+        sr.setColor(0.30f, 0.22f, 0.14f, 1f);
+        sr.rect(x + 4, y + 6, 18, 3);
+        sr.rect(x + 5, y + 10, 16, 2);
+        sr.setColor(0.92f, 0.34f, 0.10f, 1f);
+        sr.rect(x + 10, y + 12, 6, 10);
+        sr.setColor(1f, 0.66f, 0.14f, 1f);
+        sr.rect(x + 11, y + 14, 4, 6);
+    }
+
+    private static void drawRawChickenIcon(ShapeRenderer sr, float x, float y) {
+        sr.setColor(0.90f, 0.78f, 0.68f, 1f);
+        sr.rect(x + 7, y + 8, 12, 10);
+        sr.setColor(0.80f, 0.64f, 0.54f, 1f);
+        sr.rect(x + 18, y + 10, 4, 3);
+        sr.setColor(0.96f, 0.88f, 0.80f, 1f);
+        sr.rect(x + 10, y + 14, 5, 2);
+    }
+
+    private static void drawRawMeatIcon(ShapeRenderer sr, float x, float y) {
+        sr.setColor(0.82f, 0.18f, 0.20f, 1f);
+        sr.rect(x + 7, y + 8, 13, 10);
+        sr.setColor(0.62f, 0.10f, 0.12f, 1f);
+        sr.rect(x + 8, y + 9, 11, 3);
+        sr.setColor(0.96f, 0.78f, 0.72f, 1f);
+        sr.rect(x + 11, y + 13, 5, 2);
+    }
+
+    private static void drawCookedChickenIcon(ShapeRenderer sr, float x, float y) {
+        sr.setColor(0.82f, 0.50f, 0.18f, 1f);
+        sr.rect(x + 7, y + 8, 12, 10);
+        sr.setColor(0.62f, 0.34f, 0.10f, 1f);
+        sr.rect(x + 18, y + 10, 4, 3);
+        sr.setColor(0.98f, 0.74f, 0.40f, 1f);
+        sr.rect(x + 10, y + 14, 5, 2);
+    }
+
+    private static void drawCookedMeatIcon(ShapeRenderer sr, float x, float y) {
+        sr.setColor(0.72f, 0.34f, 0.14f, 1f);
+        sr.rect(x + 7, y + 8, 13, 10);
+        sr.setColor(0.52f, 0.22f, 0.08f, 1f);
+        sr.rect(x + 8, y + 9, 11, 3);
+        sr.setColor(0.94f, 0.66f, 0.36f, 1f);
+        sr.rect(x + 11, y + 13, 5, 2);
+    }
+
     private static void drawRawShrimpsIcon(ShapeRenderer sr, float x, float y) {
         sr.setColor(0.45f, 0.62f, 0.78f, 1f);
         sr.rect(x + 5, y + 9, 13, 6);
@@ -599,6 +658,30 @@ public final class ItemIconRenderer {
         sr.rect(x + 8, y + 12, 2, 1);
     }
 
+    private static void drawCookedAnchoviesIcon(ShapeRenderer sr, float x, float y) {
+        drawCookedFishBody(sr, x, y, new Color(0.86f, 0.60f, 0.30f, 1f), new Color(0.66f, 0.40f, 0.18f, 1f));
+    }
+
+    private static void drawCookedSardineIcon(ShapeRenderer sr, float x, float y) {
+        drawCookedFishBody(sr, x, y, new Color(0.82f, 0.56f, 0.28f, 1f), new Color(0.62f, 0.36f, 0.16f, 1f));
+    }
+
+    private static void drawCookedHerringIcon(ShapeRenderer sr, float x, float y) {
+        drawCookedFishBody(sr, x, y, new Color(0.78f, 0.52f, 0.26f, 1f), new Color(0.58f, 0.32f, 0.14f, 1f));
+    }
+
+    private static void drawCookedTroutIcon(ShapeRenderer sr, float x, float y) {
+        drawCookedFishBody(sr, x, y, new Color(0.86f, 0.58f, 0.24f, 1f), new Color(0.68f, 0.38f, 0.12f, 1f));
+    }
+
+    private static void drawCookedPikeIcon(ShapeRenderer sr, float x, float y) {
+        drawCookedFishBody(sr, x, y, new Color(0.84f, 0.56f, 0.24f, 1f), new Color(0.64f, 0.36f, 0.12f, 1f));
+    }
+
+    private static void drawCookedSalmonIcon(ShapeRenderer sr, float x, float y) {
+        drawCookedFishBody(sr, x, y, new Color(0.90f, 0.52f, 0.22f, 1f), new Color(0.70f, 0.32f, 0.12f, 1f));
+    }
+
     private static void drawCookedTunaIcon(ShapeRenderer sr, float x, float y) {
         // Cooked tuna — warm golden-brown tones
         sr.setColor(0.78f, 0.52f, 0.20f, 1f);
@@ -608,6 +691,22 @@ public final class ItemIconRenderer {
         sr.rect(x + 18, y + 11, 2, 3);
         sr.setColor(0.98f, 0.80f, 0.50f, 1f);
         sr.rect(x + 9, y + 13, 2, 1);
+    }
+
+    private static void drawCookedLobsterIcon(ShapeRenderer sr, float x, float y) {
+        sr.setColor(0.82f, 0.44f, 0.16f, 1f);
+        sr.rect(x + 8, y + 8, 10, 9);
+        sr.setColor(0.94f, 0.58f, 0.24f, 1f);
+        sr.rect(x + 9, y + 15, 8, 2);
+        sr.setColor(0.62f, 0.28f, 0.10f, 1f);
+        sr.rect(x + 5, y + 10, 3, 3);
+        sr.rect(x + 18, y + 10, 3, 3);
+    }
+
+    private static void drawCookedSwordfishIcon(ShapeRenderer sr, float x, float y) {
+        drawCookedFishBody(sr, x, y, new Color(0.80f, 0.50f, 0.20f, 1f), new Color(0.58f, 0.30f, 0.10f, 1f));
+        sr.setColor(0.98f, 0.86f, 0.56f, 1f);
+        sr.rect(x + 18, y + 12, 5, 1);
     }
 
     private static void drawSharkIcon(ShapeRenderer sr, float x, float y) {
@@ -630,6 +729,16 @@ public final class ItemIconRenderer {
         sr.setColor(0.12f, 0.11f, 0.10f, 1f);
         sr.rect(x + 3, y + 10, 3, 4);
         sr.rect(x + 17, y + 10, 3, 4);
+    }
+
+    private static void drawCookedFishBody(ShapeRenderer sr, float x, float y, Color body, Color tail) {
+        sr.setColor(body);
+        sr.rect(x + 6, y + 10, 12, 5);
+        sr.setColor(tail);
+        sr.rect(x + 4, y + 11, 2, 3);
+        sr.rect(x + 18, y + 11, 2, 3);
+        sr.setColor(0.98f, 0.86f, 0.56f, 1f);
+        sr.rect(x + 9, y + 13, 2, 1);
     }
 
     private static void drawBonesIcon(ShapeRenderer sr, float x, float y) {

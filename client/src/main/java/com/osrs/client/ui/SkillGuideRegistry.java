@@ -7,6 +7,7 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.Matrix4;
 import com.badlogic.gdx.utils.Align;
+import com.osrs.shared.CookingRegistry;
 import com.osrs.shared.FishingRegistry;
 import com.osrs.shared.MiningRegistry;
 import com.osrs.shared.RangedRegistry;
@@ -28,6 +29,7 @@ public final class SkillGuideRegistry {
     private static final int SKILL_MAGIC       = 5;
     private static final int SKILL_WOODCUTTING = 7;
     private static final int SKILL_FISHING = 8;
+    private static final int SKILL_COOKING = 9;
     private static final int SKILL_MINING = 10;
     private static final Map<Integer, SkillGuidePopup.SkillGuideProvider> PROVIDERS = new HashMap<>();
 
@@ -40,6 +42,7 @@ public final class SkillGuideRegistry {
         register(SKILL_MAGIC, new MagicGuideProvider());
         register(SKILL_WOODCUTTING, new WoodcuttingGuideProvider());
         register(SKILL_FISHING, new FishingGuideProvider());
+        register(SKILL_COOKING, new CookingGuideProvider());
         register(SKILL_MINING, new MiningGuideProvider());
     }
 
@@ -858,6 +861,186 @@ public final class SkillGuideRegistry {
                 }
             }
             return -1;
+        }
+    }
+
+    private static final class CookingGuideProvider implements SkillGuidePopup.SkillGuideProvider {
+
+        private static final List<SkillGuidePopup.GuideSection> SECTIONS = List.of(
+            new SkillGuidePopup.GuideSection("Introduction"),
+            new SkillGuidePopup.GuideSection("Foods")
+        );
+
+        private static final Color TEXT_MAIN = new Color(0.24f, 0.16f, 0.06f, 1f);
+        private static final Color TEXT_LOCKED = new Color(0.45f, 0.36f, 0.24f, 1f);
+        private static final Color TEXT_UNLOCKED = new Color(0.22f, 0.14f, 0.06f, 1f);
+        private static final Color TEXT_NEXT = new Color(0.48f, 0.28f, 0.04f, 1f);
+        private static final Color ROW_UNLOCKED = new Color(0.88f, 0.81f, 0.67f, 1f);
+        private static final Color ROW_LOCKED = new Color(0.78f, 0.71f, 0.57f, 1f);
+        private static final Color ROW_NEXT = new Color(0.94f, 0.82f, 0.50f, 1f);
+
+        @Override
+        public String getTitle(int skillIdx) {
+            return "Cooking";
+        }
+
+        @Override
+        public List<SkillGuidePopup.GuideSection> getSections(int skillIdx) {
+            return SECTIONS;
+        }
+
+        @Override
+        public void renderSectionContent(ShapeRenderer shapeRenderer,
+                                         SpriteBatch batch,
+                                         BitmapFont font,
+                                         Matrix4 projection,
+                                         int skillIdx,
+                                         int level,
+                                         long totalXp,
+                                         int sectionIdx,
+                                         float contentX,
+                                         float contentY,
+                                         float contentW,
+                                         float contentH,
+                                         float scrollOffset) {
+            if (sectionIdx == 0) {
+                renderIntroduction(shapeRenderer, batch, font, projection, contentX, contentY, contentW, contentH);
+            } else if (sectionIdx == 1) {
+                renderFoods(shapeRenderer, batch, font, projection, level, contentX, contentY, contentW, contentH, scrollOffset);
+            }
+        }
+
+        @Override
+        public float getSectionContentHeight(int skillIdx, int level, int sectionIdx, float contentW) {
+            if (sectionIdx == 1) {
+                return 18f + progressionFoods().size() * 36f + 12f;
+            }
+            return 236f;
+        }
+
+        private void renderIntroduction(ShapeRenderer shapeRenderer,
+                                        SpriteBatch batch,
+                                        BitmapFont font,
+                                        Matrix4 projection,
+                                        float x,
+                                        float y,
+                                        float w,
+                                        float h) {
+            final float blockH = 82f;
+            final float top = y + h - 14f;
+            final float blockX = x + 8f;
+            final float blockW = w - 16f;
+            final float dividerX = x + 10f;
+            final float dividerW = w - 20f;
+            final float iconX = x + 20f;
+            final float textX = x + 62f;
+            final float textW = w - 86f;
+            final float textTopPad = 16f;
+            final String[] texts = {
+                "Cook raw fish and meat on a fire to make edible food.",
+                "As your Cooking level rises, you unlock better foods and burn them less often.",
+                "Cooked food restores Hitpoints and supports combat, skilling trips, and travel."
+            };
+
+            shapeRenderer.setProjectionMatrix(projection);
+            shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+            for (int i = 0; i < 3; i++) {
+                float by = top - (i + 1) * blockH;
+                shapeRenderer.setColor(0.92f, 0.84f, 0.69f, 1f);
+                shapeRenderer.rect(blockX, by, blockW, blockH - 8f);
+                shapeRenderer.setColor(0.64f, 0.50f, 0.30f, 1f);
+                shapeRenderer.rect(dividerX, by + blockH - 16f, dividerW, 2f);
+            }
+            ItemIconRenderer.drawItemIcon(shapeRenderer, iconX, top - blockH + 12f, 2138);
+            ItemIconRenderer.drawItemIcon(shapeRenderer, iconX, top - blockH * 2 + 12f, 590);
+            ItemIconRenderer.drawItemIcon(shapeRenderer, iconX, top - blockH * 3 + 12f, 2140);
+            shapeRenderer.end();
+
+            GlyphLayout wrapped = new GlyphLayout();
+            batch.setProjectionMatrix(projection);
+            batch.begin();
+            font.getData().setScale(0.68f);
+            font.setColor(TEXT_MAIN);
+            for (int i = 0; i < 3; i++) {
+                float by = top - (i + 1) * blockH;
+                float blockInnerTop = by + blockH - 8f;
+                wrapped.setText(font, texts[i], TEXT_MAIN, textW, Align.left, true);
+                font.draw(batch, wrapped, textX, blockInnerTop - textTopPad);
+            }
+            font.getData().setScale(1f);
+            font.setColor(Color.WHITE);
+            batch.end();
+        }
+
+        private void renderFoods(ShapeRenderer shapeRenderer,
+                                 SpriteBatch batch,
+                                 BitmapFont font,
+                                 Matrix4 projection,
+                                 int level,
+                                 float x,
+                                 float y,
+                                 float w,
+                                 float h,
+                                 float scrollOffset) {
+            List<CookingRegistry.FoodTier> foods = progressionFoods();
+            float rowH = 36f;
+            int nextReq = findNextFoodLevel(level);
+
+            shapeRenderer.setProjectionMatrix(projection);
+            shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+            float yCursor = y + h - 14f + scrollOffset;
+            for (CookingRegistry.FoodTier food : foods) {
+                float rowY = yCursor - rowH;
+                boolean visible = rowY + rowH >= y && rowY <= y + h;
+                if (visible) {
+                    boolean unlocked = level >= food.levelRequirement();
+                    boolean next = !unlocked && food.levelRequirement() == nextReq;
+                    shapeRenderer.setColor(next ? ROW_NEXT : unlocked ? ROW_UNLOCKED : ROW_LOCKED);
+                    shapeRenderer.rect(x + 8, rowY + 2, w - 16, rowH - 4);
+                    ItemIconRenderer.drawItemIcon(shapeRenderer, x + 72, rowY + 3, food.cookedItemId());
+                }
+                yCursor -= rowH;
+            }
+            shapeRenderer.end();
+
+            batch.setProjectionMatrix(projection);
+            batch.begin();
+            font.getData().setScale(0.68f);
+            yCursor = y + h - 14f + scrollOffset;
+            for (CookingRegistry.FoodTier food : foods) {
+                float rowY = yCursor - rowH;
+                boolean visible = rowY + rowH >= y && rowY <= y + h;
+                if (visible) {
+                    boolean unlocked = level >= food.levelRequirement();
+                    boolean next = !unlocked && food.levelRequirement() == nextReq;
+                    font.setColor(next ? TEXT_NEXT : unlocked ? TEXT_UNLOCKED : TEXT_LOCKED);
+                    font.draw(batch, "Lv " + food.levelRequirement(), x + 16, rowY + 26);
+                    font.draw(batch, food.cookedName(), x + 116, rowY + 26);
+                    font.draw(batch, formatXpTenths(food.xpTenths()) + " xp", x + w - 154, rowY + 26);
+                    font.draw(batch, "Heal " + food.healAmount(), x + w - 74, rowY + 26);
+                }
+                yCursor -= rowH;
+            }
+            font.getData().setScale(1f);
+            font.setColor(Color.WHITE);
+            batch.end();
+        }
+
+        private static int findNextFoodLevel(int level) {
+            for (CookingRegistry.FoodTier food : progressionFoods()) {
+                if (food.levelRequirement() > level) {
+                    return food.levelRequirement();
+                }
+            }
+            return -1;
+        }
+
+        private static List<CookingRegistry.FoodTier> progressionFoods() {
+            Map<Integer, CookingRegistry.FoodTier> uniqueCookedFoods = new java.util.LinkedHashMap<>();
+            for (CookingRegistry.FoodTier food : CookingRegistry.foods()) {
+                uniqueCookedFoods.putIfAbsent(food.cookedItemId(), food);
+            }
+            return new java.util.ArrayList<>(uniqueCookedFoods.values());
         }
     }
 
