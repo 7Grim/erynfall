@@ -813,6 +813,8 @@ public class IsometricRenderer {
             case "Fishing Spot"      -> "fishing_spot";
             case "Cooking Fire"      -> "fire";
             case "Cooking Range"     -> "cooking_range";
+            case "Furnace"           -> "furnace";
+            case "Anvil"             -> "anvil";
             default                  -> "npc_unknown";
         };
     }
@@ -945,6 +947,8 @@ public class IsometricRenderer {
             case "Fishing Spot"      -> drawFishingSpot(sx, sy, alpha);
             case "Cooking Fire"      -> drawFire(sx, sy, alpha);
             case "Cooking Range"     -> drawCookingRange(sx, sy, alpha);
+            case "Furnace"           -> drawFurnace(sx, sy, alpha);
+            case "Anvil"             -> drawAnvil(sx, sy, alpha);
             default                  -> drawUnknownEntity(sx, sy);
         }
         if (ownsShape) sr.end();
@@ -1312,6 +1316,23 @@ public class IsometricRenderer {
         sr.rect(sx - 6, sy + 2, 12, 3);
         sr.setColor(0.18f, 0.16f, 0.14f, alpha);
         sr.rect(sx - 4, sy - 2, 8, 3);
+    }
+
+    private void drawFurnace(float sx, float sy, float alpha) {
+        sr.setColor(0.38f, 0.30f, 0.22f, alpha);
+        sr.rect(sx - 8, sy - 6, 16, 10);
+        sr.setColor(0.22f, 0.18f, 0.14f, alpha);
+        sr.rect(sx - 4, sy - 2, 8, 4);
+        sr.setColor(0.85f, 0.45f, 0.12f, alpha);
+        sr.rect(sx - 2, sy + 1, 4, 2);
+    }
+
+    private void drawAnvil(float sx, float sy, float alpha) {
+        sr.setColor(0.52f, 0.52f, 0.56f, alpha);
+        sr.rect(sx - 7, sy - 2, 14, 4);
+        sr.rect(sx - 2, sy - 6, 4, 4);
+        sr.setColor(0.70f, 0.70f, 0.74f, alpha);
+        sr.rect(sx - 6, sy + 2, 12, 2);
     }
 
     /** Banker: blue waistcoat, white shirt, gold coin detail. */

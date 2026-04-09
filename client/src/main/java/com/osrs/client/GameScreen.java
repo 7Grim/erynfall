@@ -3359,6 +3359,7 @@ public class GameScreen extends ApplicationAdapter {
                         || "Cooking Range".equalsIgnoreCase(rawName);
                     boolean isBanker = "Banker".equalsIgnoreCase(rawName);
                     boolean isFishingSupplier = "Fishing Supplier".equalsIgnoreCase(rawName);
+                    boolean isSmithingSupplier = "Smithing Supplier".equalsIgnoreCase(rawName);
 
                     if (level > 0) {
                         // Combat NPC: Attack is the primary option (top)
@@ -3389,7 +3390,7 @@ public class GameScreen extends ApplicationAdapter {
                     } else if (isBanker) {
                         opts.add(new ContextMenu.MenuItem(ContextMenu.Action.BANK, yellowName, id));
                         opts.add(new ContextMenu.MenuItem(ContextMenu.Action.TALK_TO, yellowName, id));
-                    } else if (isFishingSupplier) {
+                    } else if (isFishingSupplier || isSmithingSupplier) {
                         opts.add(new ContextMenu.MenuItem(ContextMenu.Action.SUPPLIES, yellowName, id));
                         opts.add(new ContextMenu.MenuItem(ContextMenu.Action.TALK_TO, yellowName, id));
                     } else {

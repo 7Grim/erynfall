@@ -124,6 +124,7 @@ public class WorldLoader {
                     npcDef2.defenceBonus    = getInt(npcDef, "defence_bonus",  0);
                     npcDef2.isBanker        = getBoolean(npcDef, "is_banker", false);
                     npcDef2.isFishingSupplier = getBoolean(npcDef, "is_fishing_supplier", false);
+                    npcDef2.isSmithingSupplier = getBoolean(npcDef, "is_smithing_supplier", false);
 
                     worldData.npcs.add(npcDef2);
                 }
@@ -210,6 +211,7 @@ class WorldData {
         public int defenceBonus  = 0;
         public boolean isBanker;
         public boolean isFishingSupplier;
+        public boolean isSmithingSupplier;
     }
     
     static class LootTable {

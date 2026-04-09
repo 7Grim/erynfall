@@ -14,6 +14,7 @@ public class NPC extends Entity {
     private boolean aggressive;
     private boolean banker;
     private boolean fishingSupplier;
+    private boolean smithingSupplier;
 
     /** Spawn-point: NPC returns/wanders within wanderRadius of this tile. */
     private int spawnX, spawnY;
@@ -123,6 +124,14 @@ public class NPC extends Entity {
 
     public void setFishingSupplier(boolean fishingSupplier) {
         this.fishingSupplier = fishingSupplier;
+    }
+
+    public boolean isSmithingSupplier() {
+        return smithingSupplier;
+    }
+
+    public void setSmithingSupplier(boolean smithingSupplier) {
+        this.smithingSupplier = smithingSupplier;
     }
 
     public int getSpawnX() { return spawnX; }

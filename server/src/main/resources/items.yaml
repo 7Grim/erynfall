@@ -137,6 +137,14 @@ items:
     equipable: false
     consumable: false
 
+  - id: 2347
+    name: "Hammer"
+    examine: "Good for hitting things."
+    stackable: false
+    store_value: 5
+    equipable: false
+    consumable: false
+
   - id: 321
     name: "Raw anchovies"
     examine: "I should cook these first."

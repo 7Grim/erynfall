@@ -41,6 +41,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
     private static final int BRONZE_AXE_ITEM_ID = 1351;
     private static final int SMALL_FISHING_NET_ITEM_ID = 303;
     private static final int FISHING_BAIT_ITEM_ID = 313;
+    private static final int HAMMER_ITEM_ID = 2347;
     private static final int FISHING_SUPPLIER_BAIT_TARGET = 100;
     private static final int[] FISHING_SUPPLIER_TOOL_ITEM_IDS = {303, 307, 309, 301, 311};
     private static final int BONES_ITEM_ID = 526;
@@ -854,7 +855,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
 
         Player player = session.getPlayer();
         NPC npc = server.getWorld().getNPC(request.getNpcId());
-        if (npc == null || !npc.isFishingSupplier()) {
+        if (npc == null || (!npc.isFishingSupplier() && !npc.isSmithingSupplier())) {
             sendChatMessage(ctx, "They have nothing useful for you.", 1);
             return;
         }
@@ -867,6 +868,38 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
         int chebyshev = Math.max(Math.abs(player.getX() - npc.getX()), Math.abs(player.getY() - npc.getY()));
         if (chebyshev > 1 || !canReachAnyAdjacentTile(player, npc)) {
             sendChatMessage(ctx, "I can't reach that!", 1);
+            return;
+        }
+
+        if (npc.isSmithingSupplier()) {
+            boolean changed = false;
+            boolean blockedBySpace = false;
+
+            if (!hasItemInInventoryOrEquipmentOrBank(player, HAMMER_ITEM_ID)) {
+                ItemDefinition hammer = server.getWorld().getItemDef(HAMMER_ITEM_ID);
+                if (hammer != null && hammer.id > 0) {
+                    if (giveItemToInventory(player, hammer, 1) > 0) {
+                        changed = true;
+                    } else {
+                        blockedBySpace = true;
+                    }
+                }
+            }
+
+            if (!changed) {
+                if (blockedBySpace) {
+                    sendChatMessage(ctx, "You need more inventory space for supplies.", 1);
+                } else {
+                    sendChatMessage(ctx, "You already have the tools you need.", 0);
+                }
+                return;
+            }
+
+            sendFullInventory(ctx, player);
+            if (DatabaseManager.isHealthy()) {
+                PlayerRepository.saveInventory(player);
+            }
+            sendChatMessage(ctx, "The supplier hands you a hammer.", 0);
             return;
         }
 

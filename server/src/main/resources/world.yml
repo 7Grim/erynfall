@@ -449,6 +449,48 @@ npcs:
     wander_radius: 0
     is_aggressive: false
 
+  - id: 39
+    name: "Smithing Supplier"
+    combat_level: 0
+    max_hp: 10
+    max_hit: 0
+    respawn_delay_ticks: 0
+    location: "tutorial_island"
+    x: 30
+    y: 25
+    examine: "A supplier of basic smithing tools."
+    wander_radius: 0
+    is_aggressive: false
+    is_smithing_supplier: true
+
+  - id: 40
+    definition_id: 500
+    name: "Furnace"
+    combat_level: 0
+    max_hp: 1
+    max_hit: 0
+    respawn_delay_ticks: 0
+    location: "tutorial_island"
+    x: 14
+    y: 21
+    examine: "A furnace for smelting ores."
+    wander_radius: 0
+    is_aggressive: false
+
+  - id: 41
+    definition_id: 501
+    name: "Anvil"
+    combat_level: 0
+    max_hp: 1
+    max_hit: 0
+    respawn_delay_ticks: 0
+    location: "tutorial_island"
+    x: 18
+    y: 21
+    examine: "An anvil for smithing metal."
+    wander_radius: 0
+    is_aggressive: false
+
   # ==========================================================================
   # COMBAT LOW ZONE — y=63  (rows 61-65)
   # Rats and Chickens
