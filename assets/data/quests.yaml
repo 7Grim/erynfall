@@ -47,7 +47,7 @@ quests:
       - id: "cook_food"
         type: "action"
         description: "Cook 5 food items at the cooking fire"
-        npc_id: 35
+        npc_id: 400
         count: 5
         reward_xp: 100
         

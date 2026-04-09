@@ -705,6 +705,7 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
             return actions.isEmpty() ? null : actions.get(0);
         }
         if ("Cooking Fire".equalsIgnoreCase(name)) return "cook_at";
+        if ("Cooking Range".equalsIgnoreCase(name)) return "cook_at";
         return null;
     }
 

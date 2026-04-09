@@ -1698,8 +1698,10 @@ public class GameLoop {
     }
 
     private void processCooking(Player player, PlayerSession session) {
-        NPC fire = world.getNPC(player.getSkillingTargetNpcId());
-        if (fire == null || fire.isDead() || !"Cooking Fire".equalsIgnoreCase(fire.getName())) {
+        NPC station = world.getNPC(player.getSkillingTargetNpcId());
+        if (station == null || station.isDead()
+                || (!"Cooking Fire".equalsIgnoreCase(station.getName())
+                && !"Cooking Range".equalsIgnoreCase(station.getName()))) {
             stopSkilling(player, session, "target-invalid");
             return;
         }
@@ -1710,7 +1712,7 @@ public class GameLoop {
             return;
         }
 
-        if (!ensureInRangeOrStep(player, session, fire, "Cooking")) {
+        if (!ensureInRangeOrStep(player, session, station, "Cooking")) {
             return;
         }
 
@@ -1736,7 +1738,7 @@ public class GameLoop {
         }
 
         int cookingLevel = Math.max(1, player.getSkillLevel(Player.SKILL_COOKING));
-        boolean burn = shouldBurn(food, cookingLevel, CookingRegistry.StationType.FIRE);
+        boolean burn = shouldBurn(food, cookingLevel, cookingStationType(station));
         if (burn) {
             player.setInventoryItem(rawSlot, food.burntItemId(), 1);
             sendInventorySlot(session.getChannel(), player, rawSlot);
@@ -1750,10 +1752,19 @@ public class GameLoop {
                 0
             );
             sendSkillUpdate(player, Player.SKILL_COOKING, food.xpTenths());
-            updateSkillQuestObjectives(session, Quest.TaskType.ACTION, fire.getDefinitionId());
+            updateSkillQuestObjectives(session, Quest.TaskType.ACTION, station.getDefinitionId());
         }
 
         player.setSkillingNextAttemptTick(tickCount + nextCookingAttemptTicks(cookingLevel));
+    }
+
+    private CookingRegistry.StationType cookingStationType(NPC station) {
+        if (station == null || station.getName() == null) {
+            return CookingRegistry.StationType.FIRE;
+        }
+        return "Cooking Range".equalsIgnoreCase(station.getName())
+            ? CookingRegistry.StationType.RANGE
+            : CookingRegistry.StationType.FIRE;
     }
 
     private CookingRegistry.FoodTier findFirstCookableFood(Player player) {

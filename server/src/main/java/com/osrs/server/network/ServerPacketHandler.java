@@ -1744,7 +1744,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
 
         String npcName = npc.getName();
 
-        if ("Cooking Fire".equalsIgnoreCase(npcName)) {
+        if ("Cooking Fire".equalsIgnoreCase(npcName) || "Cooking Range".equalsIgnoreCase(npcName)) {
             if (strictType && requestedType != NetworkProto.SkillingType.SKILLING_COOKING) {
                 return false;
             }

@@ -394,6 +394,7 @@ npcs:
   # ==========================================================================
 
   - id: 35
+    definition_id: 400
     name: "Cooking Fire"
     combat_level: 0
     max_hp: 1
@@ -407,6 +408,7 @@ npcs:
     is_aggressive: false
 
   - id: 36
+    definition_id: 400
     name: "Cooking Fire"
     combat_level: 0
     max_hp: 1
@@ -432,6 +434,20 @@ npcs:
     wander_radius: 0
     is_aggressive: false
     is_fishing_supplier: true
+
+  - id: 38
+    definition_id: 401
+    name: "Cooking Range"
+    combat_level: 0
+    max_hp: 1
+    max_hit: 0
+    respawn_delay_ticks: 0
+    location: "tutorial_island"
+    x: 26
+    y: 25
+    examine: "A range for cooking food."
+    wander_radius: 0
+    is_aggressive: false
 
   # ==========================================================================
   # COMBAT LOW ZONE — y=63  (rows 61-65)

@@ -672,7 +672,9 @@ public class GameScreen extends ApplicationAdapter {
                     width = 12f;
                     height = 6f;
                     alpha = 0.18f;
-                } else if ("Fishing Spot".equals(npcName) || "Cooking Fire".equals(npcName)) {
+                } else if ("Fishing Spot".equals(npcName)
+                    || "Cooking Fire".equals(npcName)
+                    || "Cooking Range".equals(npcName)) {
                     width = 12f;
                     height = 5f;
                     alpha = 0.14f;
@@ -759,7 +761,8 @@ public class GameScreen extends ApplicationAdapter {
             || "Adamantite Rock".equals(name)
             || "Runite Rock".equals(name)
             || "Fishing Spot".equals(name)
-            || "Cooking Fire".equals(name);
+            || "Cooking Fire".equals(name)
+            || "Cooking Range".equals(name);
     }
 
     private boolean isNpcActionAnimated(String npcName) {
@@ -3352,7 +3355,8 @@ public class GameScreen extends ApplicationAdapter {
                         || "Adamantite Rock".equalsIgnoreCase(rawName)
                         || "Runite Rock".equalsIgnoreCase(rawName);
                     boolean isFishingSpot = "Fishing Spot".equalsIgnoreCase(rawName);
-                    boolean isFire = "Cooking Fire".equalsIgnoreCase(rawName);
+                    boolean isCookingStation = "Cooking Fire".equalsIgnoreCase(rawName)
+                        || "Cooking Range".equalsIgnoreCase(rawName);
                     boolean isBanker = "Banker".equalsIgnoreCase(rawName);
                     boolean isFishingSupplier = "Fishing Supplier".equalsIgnoreCase(rawName);
 
@@ -3380,7 +3384,7 @@ public class GameScreen extends ApplicationAdapter {
                                 opts.add(new ContextMenu.MenuItem(ContextMenu.Action.HARPOON, yellowName, id));
                             }
                         }
-                    } else if (isFire) {
+                    } else if (isCookingStation) {
                         opts.add(new ContextMenu.MenuItem(ContextMenu.Action.COOK_AT, yellowName, id));
                     } else if (isBanker) {
                         opts.add(new ContextMenu.MenuItem(ContextMenu.Action.BANK, yellowName, id));

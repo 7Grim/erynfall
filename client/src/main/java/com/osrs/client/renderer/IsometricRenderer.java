@@ -812,6 +812,7 @@ public class IsometricRenderer {
             // --- Other ---
             case "Fishing Spot"      -> "fishing_spot";
             case "Cooking Fire"      -> "fire";
+            case "Cooking Range"     -> "cooking_range";
             default                  -> "npc_unknown";
         };
     }
@@ -943,6 +944,7 @@ public class IsometricRenderer {
             // --- Other ---
             case "Fishing Spot"      -> drawFishingSpot(sx, sy, alpha);
             case "Cooking Fire"      -> drawFire(sx, sy, alpha);
+            case "Cooking Range"     -> drawCookingRange(sx, sy, alpha);
             default                  -> drawUnknownEntity(sx, sy);
         }
         if (ownsShape) sr.end();
@@ -1301,6 +1303,15 @@ public class IsometricRenderer {
         sr.rect(sx - 4, sy - 1, 8, 6);
         sr.setColor(1.00f, 0.80f, 0.25f, alpha);
         sr.rect(sx - 2, sy + 1, 4, 4);
+    }
+
+    private void drawCookingRange(float sx, float sy, float alpha) {
+        sr.setColor(0.40f, 0.32f, 0.22f, alpha);
+        sr.rect(sx - 8, sy - 6, 16, 8);
+        sr.setColor(0.62f, 0.54f, 0.44f, alpha);
+        sr.rect(sx - 6, sy + 2, 12, 3);
+        sr.setColor(0.18f, 0.16f, 0.14f, alpha);
+        sr.rect(sx - 4, sy - 2, 8, 3);
     }
 
     /** Banker: blue waistcoat, white shirt, gold coin detail. */
