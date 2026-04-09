@@ -256,13 +256,15 @@ public final class LevelUnlockRegistry {
     private static String smithingUnlock(int level) {
         return switch (level) {
             case 15 -> "You can now smelt iron bars.";
-            case 20 -> "You can now smith iron equipment.";
+            case 20 -> "You can now smith iron scimitars and full helms.";
             case 30 -> "You can now smelt steel bars.";
             case 40 -> "You can now smelt gold bars.";
             case 50 -> "You can now smelt mithril bars.";
-            case 60 -> "You can now smelt adamantite bars.";
-            case 70 -> "You can now smith rune equipment.";
+            case 55 -> "You can now smith mithril scimitars.";
+            case 70 -> "You can now smelt adamantite bars.";
+            case 75 -> "You can now smith adamant scimitars.";
             case 85 -> "You can now smelt runite bars.";
+            case 90 -> "You can now smith rune scimitars.";
             case 99 -> "You have reached the maximum Smithing level!";
             default -> null;
         };
