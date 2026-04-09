@@ -188,6 +188,18 @@ public class GameScreen extends ApplicationAdapter {
     private static final float ZOOM_MAX = 2.0f;   // Zoomed in (2x closer view)
     private int pendingScrollAmount = 0;
 
+    // Camera model:
+    // fixed isometric angle + persistent arrow-key pan offset around the player.
+    // This is a safe OSRS-feel step without committing to full world rotation yet.
+    private float cameraPanOffsetX = 0f;
+    private float cameraPanOffsetY = 0f;
+    private float targetCameraPanOffsetX = 0f;
+    private float targetCameraPanOffsetY = 0f;
+    private static final float CAMERA_PAN_SPEED = 220f;
+    private static final float CAMERA_PAN_SMOOTH = 10f;
+    private static final float CAMERA_PAN_MAX_X = 180f;
+    private static final float CAMERA_PAN_MAX_Y = 120f;
+
     // -----------------------------------------------------------------------
     // NPC smooth movement
     // NPC logical positions come from ClientPacketHandler (server-driven).
@@ -1093,6 +1105,7 @@ public class GameScreen extends ApplicationAdapter {
         }
 
         updateCameraZoom(delta);
+        updateCameraPanInput(delta);
         renderer.update(delta);
         if (audioManager != null) {
             audioManager.update(delta);
@@ -1100,10 +1113,11 @@ public class GameScreen extends ApplicationAdapter {
         }
         if (pickupAnimationTimer > 0) pickupAnimationTimer = Math.max(0f, pickupAnimationTimer - delta);
 
-        // Camera always follows the player's interpolated visual position
+        // Camera follows the player's interpolated visual position with a persistent
+        // OSRS-style arrow-key pan offset around the player.
         camera.position.set(
-            renderer.worldToScreenX(visualX, visualY),
-            renderer.worldToScreenY(visualX, visualY),
+            renderer.worldToScreenX(visualX, visualY) + cameraPanOffsetX,
+            renderer.worldToScreenY(visualX, visualY) + cameraPanOffsetY,
             0
         );
         camera.update();
@@ -1204,6 +1218,38 @@ public class GameScreen extends ApplicationAdapter {
         currentZoom = targetZoom;
         camera.zoom = currentZoom;
         camera.update();
+    }
+
+    private void updateCameraPanInput(float delta) {
+        float dx = 0f;
+        float dy = 0f;
+
+        if (Gdx.input.isKeyPressed(Input.Keys.LEFT)) {
+            dx -= CAMERA_PAN_SPEED * delta;
+        }
+        if (Gdx.input.isKeyPressed(Input.Keys.RIGHT)) {
+            dx += CAMERA_PAN_SPEED * delta;
+        }
+        if (Gdx.input.isKeyPressed(Input.Keys.UP)) {
+            dy += CAMERA_PAN_SPEED * delta;
+        }
+        if (Gdx.input.isKeyPressed(Input.Keys.DOWN)) {
+            dy -= CAMERA_PAN_SPEED * delta;
+        }
+
+        targetCameraPanOffsetX = Math.max(-CAMERA_PAN_MAX_X,
+            Math.min(CAMERA_PAN_MAX_X, targetCameraPanOffsetX + dx));
+        targetCameraPanOffsetY = Math.max(-CAMERA_PAN_MAX_Y,
+            Math.min(CAMERA_PAN_MAX_Y, targetCameraPanOffsetY + dy));
+
+        if (Gdx.input.isKeyJustPressed(Input.Keys.HOME)) {
+            targetCameraPanOffsetX = 0f;
+            targetCameraPanOffsetY = 0f;
+        }
+
+        float blend = Math.min(1f, CAMERA_PAN_SMOOTH * delta);
+        cameraPanOffsetX += (targetCameraPanOffsetX - cameraPanOffsetX) * blend;
+        cameraPanOffsetY += (targetCameraPanOffsetY - cameraPanOffsetY) * blend;
     }
 
     private boolean isInUiArea(int mouseX, int mouseY) {
