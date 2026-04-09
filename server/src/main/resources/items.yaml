@@ -612,6 +612,72 @@ items:
     consumable: true
     consume_heal: 20
 
+  # ── Bars ──────────────────────────────────────────────────────────────────
+
+  - id: 2349
+    name: "Bronze bar"
+    examine: "A bar of bronze."
+    stackable: false
+    store_value: 56
+    equipable: false
+    consumable: false
+
+  - id: 2351
+    name: "Iron bar"
+    examine: "A bar of iron."
+    stackable: false
+    store_value: 149
+    equipable: false
+    consumable: false
+
+  - id: 2355
+    name: "Silver bar"
+    examine: "A bar of silver."
+    stackable: false
+    store_value: 95
+    equipable: false
+    consumable: false
+
+  - id: 2353
+    name: "Steel bar"
+    examine: "A bar of steel."
+    stackable: false
+    store_value: 557
+    equipable: false
+    consumable: false
+
+  - id: 2357
+    name: "Gold bar"
+    examine: "A bar of gold."
+    stackable: false
+    store_value: 107
+    equipable: false
+    consumable: false
+
+  - id: 2359
+    name: "Mithril bar"
+    examine: "A bar of refined mithril."
+    stackable: false
+    store_value: 898
+    equipable: false
+    consumable: false
+
+  - id: 2361
+    name: "Adamantite bar"
+    examine: "A bar of refined adamantite."
+    stackable: false
+    store_value: 1916
+    equipable: false
+    consumable: false
+
+  - id: 2363
+    name: "Runite bar"
+    examine: "A bar of refined runite."
+    stackable: false
+    store_value: 12261
+    equipable: false
+    consumable: false
+
   # ── Weapons ──────────────────────────────────────────────────────────────
   # Source: https://oldschool.runescape.wiki/w/Bronze_sword
 
