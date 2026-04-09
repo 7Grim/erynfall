@@ -169,6 +169,36 @@ public class NettyClient {
         LOG.debug("Sent ClaimNpcSupplies: npcId={}", npcId);
     }
 
+    public void sendOpenSmeltingMenu(int furnaceNpcId) {
+        if (channel == null || !channel.isActive()) return;
+        channel.writeAndFlush(NetworkProto.ClientMessage.newBuilder()
+            .setOpenSmeltingMenu(NetworkProto.OpenSmeltingMenu.newBuilder()
+                .setFurnaceNpcId(furnaceNpcId)
+                .setSequence(System.currentTimeMillis()))
+            .build());
+        LOG.debug("Sent OpenSmeltingMenu: furnaceNpcId={}", furnaceNpcId);
+    }
+
+    public void sendStartSmelting(int furnaceNpcId, int barItemId) {
+        if (channel == null || !channel.isActive()) return;
+        channel.writeAndFlush(NetworkProto.ClientMessage.newBuilder()
+            .setStartSmelting(NetworkProto.StartSmelting.newBuilder()
+                .setFurnaceNpcId(furnaceNpcId)
+                .setBarItemId(barItemId)
+                .setSequence(System.currentTimeMillis()))
+            .build());
+        LOG.debug("Sent StartSmelting: furnaceNpcId={} barItemId={}", furnaceNpcId, barItemId);
+    }
+
+    public void sendCloseSmeltingMenu() {
+        if (channel == null || !channel.isActive()) return;
+        channel.writeAndFlush(NetworkProto.ClientMessage.newBuilder()
+            .setCloseSmeltingMenu(NetworkProto.CloseSmeltingMenu.newBuilder()
+                .setSequence(System.currentTimeMillis()))
+            .build());
+        LOG.debug("Sent CloseSmeltingMenu");
+    }
+
     public void sendOpenBankRequest(int npcId) {
         NetworkProto.ClientMessage msg = NetworkProto.ClientMessage.newBuilder()
             .setOpenBankRequest(NetworkProto.OpenBankRequest.newBuilder()

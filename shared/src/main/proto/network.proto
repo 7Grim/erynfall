@@ -171,6 +171,7 @@ enum SkillingType {
     SKILLING_FISHING = 2;
     SKILLING_COOKING = 3;
     SKILLING_MINING = 4;
+    SKILLING_SMITHING = 5;
 }
 
 enum SkillingState {
@@ -511,6 +512,34 @@ message ClaimNpcSupplies {
     int64 sequence = 2;
 }
 
+message OpenSmeltingMenu {
+    int32 furnace_npc_id = 1;
+    int64 sequence = 2;
+}
+
+message StartSmelting {
+    int32 furnace_npc_id = 1;
+    int32 bar_item_id = 2;
+    int64 sequence = 3;
+}
+
+message CloseSmeltingMenu {
+    int64 sequence = 1;
+}
+
+message SmeltingBarOption {
+    int32 bar_item_id = 1;
+    string bar_name = 2;
+    int32 level_required = 3;
+    int32 xp_tenths = 4;
+    int32 success_percent = 5;
+}
+
+message SmeltingMenuOpen {
+    int32 furnace_npc_id = 1;
+    repeated SmeltingBarOption options = 2;
+}
+
 // ChatBroadcast: Server → Client (public chat from a nearby player, broadcast to all in range)
 message ChatBroadcast {
     int32  sender_id   = 1;   // Entity ID of the sender (for overhead text placement)
@@ -595,6 +624,9 @@ message ClientMessage {
         AdminTeleport admin_teleport = 32;
         SetSpell set_spell = 33;
         ClaimNpcSupplies claim_npc_supplies = 34;
+        OpenSmeltingMenu open_smelting_menu = 35;
+        StartSmelting start_smelting = 36;
+        CloseSmeltingMenu close_smelting_menu = 37;
     }
 }
 
@@ -632,5 +664,6 @@ message ServerMessage {
         AdminActionResult admin_action_result = 29;
         AdminItemSearchResults admin_item_search_results = 30;
         AdminTeleportApplied admin_teleport_applied = 31;
+        SmeltingMenuOpen smelting_menu_open = 32;
     }
 }

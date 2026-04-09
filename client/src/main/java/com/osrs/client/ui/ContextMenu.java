@@ -41,6 +41,7 @@ public class ContextMenu {
         CAGE("fish_cage", "Cage"),
         HARPOON("fish_harpoon", "Harpoon"),
         COOK_AT("cook_at", "Cook-at"),
+        SMELT_AT("smelt_at", "Smelt-at"),
         TAKE("take", "Take"),
         EAT("inv_eat", "Eat"),
         WIELD("inv_wield", "Wield"),

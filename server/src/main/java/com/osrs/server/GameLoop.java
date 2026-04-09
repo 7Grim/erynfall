@@ -20,6 +20,7 @@ import com.osrs.shared.SkillingAction;
 import com.osrs.shared.FishingRegistry;
 import com.osrs.shared.MiningRegistry;
 import com.osrs.shared.RangedRegistry;
+import com.osrs.shared.SmithingRegistry;
 import com.osrs.shared.SpellRegistry;
 import com.osrs.shared.WeaponRegistry;
 import com.osrs.shared.WoodcuttingRegistry;
@@ -91,6 +92,7 @@ public class GameLoop {
     private static final int CHOP_ATTEMPT_INTERVAL = WoodcuttingRegistry.CHOP_ATTEMPT_OSRS_TICKS * OSRS_TICKS_TO_SERVER;
     // Fixed mine attempt interval: 3 OSRS ticks per roll (OSRS standard)
     private static final int MINE_ATTEMPT_INTERVAL = MiningRegistry.MINE_ATTEMPT_OSRS_TICKS * OSRS_TICKS_TO_SERVER;
+    private static final int COAL_ITEM_ID = 453;
 
     
     public GameLoop(long tickIntervalNs, World world, NettyServer nettyServer) {
@@ -1397,8 +1399,130 @@ public class GameLoop {
                 processCooking(player, session);
             } else if (player.getSkillingAction() == SkillingAction.MINING) {
                 processMining(player, session);
+            } else if (player.getSkillingAction() == SkillingAction.SMITHING) {
+                processSmithing(player, session);
             }
         }
+    }
+
+    private void processSmithing(Player player, PlayerSession session) {
+        NPC furnace = world.getNPC(player.getSkillingTargetNpcId());
+        if (furnace == null || furnace.isDead() || !isFurnace(furnace)) {
+            stopSkilling(player, session, "target-invalid");
+            return;
+        }
+
+        if (player.isInCombat()) {
+            sendChatMessageToPlayer(session.getChannel(), "You are too busy fighting.", 1);
+            stopSkilling(player, session, "combat");
+            return;
+        }
+
+        if (player.isInDialogue()) {
+            sendChatMessageToPlayer(session.getChannel(), "Finish your conversation first.", 1);
+            stopSkilling(player, session, "dialogue");
+            return;
+        }
+
+        int chebyshev = Math.max(Math.abs(player.getX() - furnace.getX()), Math.abs(player.getY() - furnace.getY()));
+        if (chebyshev > 1) {
+            sendChatMessageToPlayer(session.getChannel(), "I can't reach that!", 1);
+            stopSkilling(player, session, "out-of-range");
+            return;
+        }
+
+        int barItemId;
+        try {
+            barItemId = Integer.parseInt(player.getSkillingMetadata());
+        } catch (NumberFormatException e) {
+            stopSkilling(player, session, "invalid-selection");
+            return;
+        }
+
+        SmithingRegistry.BarTier bar = SmithingRegistry.getBarByItemId(barItemId);
+        if (bar == null) {
+            stopSkilling(player, session, "invalid-selection");
+            return;
+        }
+
+        int smithingLevel = Math.max(1, player.getSkillLevel(Player.SKILL_SMITHING));
+        if (smithingLevel < bar.levelRequirement()) {
+            sendChatMessageToPlayer(session.getChannel(),
+                "You need a Smithing level of " + bar.levelRequirement() + " to smelt " + bar.name().toLowerCase() + ".",
+                1);
+            stopSkilling(player, session, "level-requirement");
+            return;
+        }
+
+        announceSkillingActive(player, session, "You begin smelting " + article(bar.name()) + bar.name().toLowerCase() + ".");
+
+        if (tickCount < player.getSkillingNextAttemptTick()) {
+            return;
+        }
+
+        if (!hasSmeltingIngredients(player, bar)) {
+            sendChatMessageToPlayer(session.getChannel(), "You don't have the required ores to smelt that bar.", 1);
+            stopSkilling(player, session, "missing-ingredients");
+            return;
+        }
+
+        removeInventoryItem(player, bar.oreItemIdA(), bar.oreQtyA());
+        if (bar.oreItemIdB() > 0 && bar.oreQtyB() > 0) {
+            removeInventoryItem(player, bar.oreItemIdB(), bar.oreQtyB());
+        }
+        if (bar.coalRequired() > 0) {
+            removeInventoryItem(player, COAL_ITEM_ID, bar.coalRequired());
+        }
+
+        player.setSkillingNextAttemptTick(tickCount + nextCookingAttemptTicks(smithingLevel));
+
+        boolean success = random.nextInt(100) < bar.successPercent();
+        if (!success) {
+            sendChatMessageToPlayer(session.getChannel(), "You fail to smelt the ore.", 1);
+            return;
+        }
+
+        int slot = player.getFirstEmptySlot();
+        if (slot < 0) {
+            sendChatMessageToPlayer(session.getChannel(), "Your inventory is too full to hold any more bars.", 1);
+            stopSkilling(player, session, "inventory-full");
+            return;
+        }
+
+        player.setInventoryItem(slot, bar.itemId(), 1);
+        sendInventorySlot(session.getChannel(), player, slot);
+        sendSkillUpdate(player, Player.SKILL_SMITHING, bar.xpTenths());
+        sendChatMessageToPlayer(session.getChannel(), "You smelt " + article(bar.name()) + bar.name().toLowerCase() + ".", 0);
+    }
+
+    private boolean isFurnace(NPC npc) {
+        return npc != null
+            && (npc.getDefinitionId() == SmithingRegistry.FURNACE_DEFINITION_ID
+            || "Furnace".equalsIgnoreCase(npc.getName()));
+    }
+
+    private boolean hasSmeltingIngredients(Player player, SmithingRegistry.BarTier bar) {
+        if (bar == null) {
+            return false;
+        }
+        if (bar.oreItemIdA() > 0 && countInventoryItem(player, bar.oreItemIdA()) < bar.oreQtyA()) {
+            return false;
+        }
+        if (bar.oreItemIdB() > 0 && countInventoryItem(player, bar.oreItemIdB()) < bar.oreQtyB()) {
+            return false;
+        }
+        if (bar.coalRequired() > 0 && countInventoryItem(player, COAL_ITEM_ID) < bar.coalRequired()) {
+            return false;
+        }
+        return true;
+    }
+
+    private String article(String text) {
+        if (text == null || text.isBlank()) {
+            return "a ";
+        }
+        char first = Character.toLowerCase(text.charAt(0));
+        return (first == 'a' || first == 'e' || first == 'i' || first == 'o' || first == 'u') ? "an " : "a ";
     }
 
     private void processWoodcutting(Player player, PlayerSession session) {
@@ -1942,6 +2066,7 @@ public class GameLoop {
             case FISHING -> NetworkProto.SkillingType.SKILLING_FISHING;
             case COOKING -> NetworkProto.SkillingType.SKILLING_COOKING;
             case MINING -> NetworkProto.SkillingType.SKILLING_MINING;
+            case SMITHING -> NetworkProto.SkillingType.SKILLING_SMITHING;
             case NONE -> NetworkProto.SkillingType.SKILLING_NONE;
         };
     }

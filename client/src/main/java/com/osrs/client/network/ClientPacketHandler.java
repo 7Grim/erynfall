@@ -313,6 +313,39 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
     private volatile boolean bankOpen = false;
     private volatile int bankCapacity = 0;
 
+    public static class SmeltingBarOptionSnapshot {
+        public final int barItemId;
+        public final String barName;
+        public final int levelRequired;
+        public final int xpTenths;
+        public final int successPercent;
+
+        public SmeltingBarOptionSnapshot(int barItemId,
+                                         String barName,
+                                         int levelRequired,
+                                         int xpTenths,
+                                         int successPercent) {
+            this.barItemId = barItemId;
+            this.barName = barName == null ? "" : barName;
+            this.levelRequired = levelRequired;
+            this.xpTenths = xpTenths;
+            this.successPercent = successPercent;
+        }
+    }
+
+    public static class SmeltingMenuOpenEvent {
+        public final int furnaceNpcId;
+        public final List<SmeltingBarOptionSnapshot> options;
+
+        public SmeltingMenuOpenEvent(int furnaceNpcId, List<SmeltingBarOptionSnapshot> options) {
+            this.furnaceNpcId = furnaceNpcId;
+            this.options = options;
+        }
+    }
+
+    private final ConcurrentLinkedQueue<SmeltingMenuOpenEvent> pendingSmeltingMenus =
+        new ConcurrentLinkedQueue<>();
+
     public ClientPacketHandler(NettyClient client) {
         this.client = client;
     }
@@ -360,6 +393,7 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
             case ADMIN_ACTION_RESULT -> handleAdminActionResult(packet.getAdminActionResult());
             case ADMIN_ITEM_SEARCH_RESULTS -> handleAdminItemSearchResults(packet.getAdminItemSearchResults());
             case ADMIN_TELEPORT_APPLIED -> handleAdminTeleportApplied(packet.getAdminTeleportApplied());
+            case SMELTING_MENU_OPEN -> handleSmeltingMenuOpen(packet.getSmeltingMenuOpen());
             default -> LOG.debug("Unhandled server message: {}", packet.getPayloadCase());
         }
     }
@@ -706,6 +740,7 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
         }
         if ("Cooking Fire".equalsIgnoreCase(name)) return "cook_at";
         if ("Cooking Range".equalsIgnoreCase(name)) return "cook_at";
+        if ("Furnace".equalsIgnoreCase(name)) return "smelt_at";
         return null;
     }
 
@@ -995,6 +1030,20 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
             msg.getSlot(), msg.getItemId(), msg.getQuantity());
     }
 
+    private void handleSmeltingMenuOpen(NetworkProto.SmeltingMenuOpen msg) {
+        List<SmeltingBarOptionSnapshot> options = new ArrayList<>();
+        for (NetworkProto.SmeltingBarOption option : msg.getOptionsList()) {
+            options.add(new SmeltingBarOptionSnapshot(
+                option.getBarItemId(),
+                option.getBarName(),
+                option.getLevelRequired(),
+                option.getXpTenths(),
+                option.getSuccessPercent()
+            ));
+        }
+        pendingSmeltingMenus.add(new SmeltingMenuOpenEvent(msg.getFurnaceNpcId(), options));
+    }
+
     /** Drain server chat messages queued this frame. */
     public List<String> drainServerChatMessages() {
         if (serverChatMessages.isEmpty()) return List.of();
@@ -1075,6 +1124,14 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
         List<FriendActionResultEvent> out = new ArrayList<>();
         FriendActionResultEvent e;
         while ((e = pendingFriendActionResults.poll()) != null) out.add(e);
+        return out;
+    }
+
+    public List<SmeltingMenuOpenEvent> drainSmeltingMenuEvents() {
+        if (pendingSmeltingMenus.isEmpty()) return List.of();
+        List<SmeltingMenuOpenEvent> out = new ArrayList<>();
+        SmeltingMenuOpenEvent e;
+        while ((e = pendingSmeltingMenus.poll()) != null) out.add(e);
         return out;
     }
 

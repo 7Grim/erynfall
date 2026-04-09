@@ -17,6 +17,7 @@ import com.osrs.shared.EquipmentSlot;
 import com.osrs.shared.ItemDefinition;
 import com.osrs.shared.NPC;
 import com.osrs.shared.Player;
+import com.osrs.shared.SmithingRegistry;
 import com.osrs.shared.SkillingAction;
 import com.osrs.shared.FishingRegistry;
 import com.osrs.shared.MiningRegistry;
@@ -44,6 +45,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
     private static final int HAMMER_ITEM_ID = 2347;
     private static final int FISHING_SUPPLIER_BAIT_TARGET = 100;
     private static final int[] FISHING_SUPPLIER_TOOL_ITEM_IDS = {303, 307, 309, 301, 311};
+    private static final int COAL_ITEM_ID = 453;
     private static final int BONES_ITEM_ID = 526;
     private static final int  TINDERBOX_ITEM_ID   = 590;
     private static final int[] FIREMAKING_LOG_ITEM_IDS = {1511, 1521, 1522, 1523, 1524, 1525};
@@ -145,6 +147,9 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             case SET_SPELL           -> handleSetSpell(packet.getSetSpell());
             case OPEN_BANK_REQUEST       -> handleOpenBankRequest(ctx, packet.getOpenBankRequest());
             case CLAIM_NPC_SUPPLIES      -> handleClaimNpcSupplies(ctx, packet.getClaimNpcSupplies());
+            case OPEN_SMELTING_MENU      -> handleOpenSmeltingMenu(ctx, packet.getOpenSmeltingMenu());
+            case START_SMELTING          -> handleStartSmelting(ctx, packet.getStartSmelting());
+            case CLOSE_SMELTING_MENU     -> handleCloseSmeltingMenu(ctx, packet.getCloseSmeltingMenu());
             case CLOSE_BANK_REQUEST      -> handleCloseBankRequest(ctx, packet.getCloseBankRequest());
             case DEPOSIT_BANK_ITEM       -> handleDepositBankItem(ctx, packet.getDepositBankItem());
             case WITHDRAW_BANK_ITEM      -> handleWithdrawBankItem(ctx, packet.getWithdrawBankItem());
@@ -956,6 +961,140 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
         } else {
             sendChatMessage(ctx, "The supplier hands you some fishing tackle.", 0);
         }
+    }
+
+    private void handleOpenSmeltingMenu(ChannelHandlerContext ctx, NetworkProto.OpenSmeltingMenu request) {
+        if (session == null || !session.isAuthenticated() || session.getPlayer() == null) {
+            return;
+        }
+
+        Player player = session.getPlayer();
+        NPC furnace = server.getWorld().getNPC(request.getFurnaceNpcId());
+        if (!isFurnace(furnace)) {
+            sendChatMessage(ctx, "You can't smelt anything here.", 1);
+            return;
+        }
+        if (player.isInCombat()) {
+            sendChatMessage(ctx, "You are too busy fighting.", 1);
+            return;
+        }
+
+        int chebyshev = Math.max(Math.abs(player.getX() - furnace.getX()), Math.abs(player.getY() - furnace.getY()));
+        if (chebyshev > 2 || !canReachAnyAdjacentTile(player, furnace)) {
+            sendChatMessage(ctx, "I can't reach that!", 1);
+            return;
+        }
+
+        java.util.List<SmithingRegistry.BarTier> options = collectSmeltableBars(player);
+        if (options.isEmpty()) {
+            sendChatMessage(ctx, "You have no ores to smelt.", 1);
+            return;
+        }
+
+        NetworkProto.SmeltingMenuOpen.Builder open = NetworkProto.SmeltingMenuOpen.newBuilder()
+            .setFurnaceNpcId(furnace.getId());
+        for (SmithingRegistry.BarTier bar : options) {
+            open.addOptions(NetworkProto.SmeltingBarOption.newBuilder()
+                .setBarItemId(bar.itemId())
+                .setBarName(bar.name())
+                .setLevelRequired(bar.levelRequirement())
+                .setXpTenths(bar.xpTenths())
+                .setSuccessPercent(bar.successPercent()));
+        }
+
+        ctx.writeAndFlush(NetworkProto.ServerMessage.newBuilder()
+            .setSmeltingMenuOpen(open)
+            .build());
+    }
+
+    private void handleStartSmelting(ChannelHandlerContext ctx, NetworkProto.StartSmelting request) {
+        if (session == null || !session.isAuthenticated() || session.getPlayer() == null) {
+            return;
+        }
+
+        Player player = session.getPlayer();
+        NPC furnace = server.getWorld().getNPC(request.getFurnaceNpcId());
+        if (!isFurnace(furnace)) {
+            sendChatMessage(ctx, "You can't smelt anything here.", 1);
+            return;
+        }
+        if (player.isInCombat()) {
+            sendChatMessage(ctx, "You are too busy fighting.", 1);
+            return;
+        }
+        int chebyshev = Math.max(Math.abs(player.getX() - furnace.getX()), Math.abs(player.getY() - furnace.getY()));
+        if (chebyshev > 1 || !canReachAnyAdjacentTile(player, furnace)) {
+            sendChatMessage(ctx, "I can't reach that!", 1);
+            return;
+        }
+
+        SmithingRegistry.BarTier bar = SmithingRegistry.getBarByItemId(request.getBarItemId());
+        if (bar == null) {
+            sendChatMessage(ctx, "You can't smelt that.", 1);
+            return;
+        }
+        int smithingLevel = Math.max(1, player.getSkillLevel(Player.SKILL_SMITHING));
+        if (smithingLevel < bar.levelRequirement()) {
+            sendChatMessage(ctx,
+                "You need a Smithing level of " + bar.levelRequirement() + " to smelt " + bar.name().toLowerCase() + ".",
+                1);
+            return;
+        }
+        if (!hasSmeltingIngredients(player, bar)) {
+            sendChatMessage(ctx, "You don't have the required ores to smelt that bar.", 1);
+            return;
+        }
+
+        if (player.isSkilling() && (player.getSkillingAction() != SkillingAction.SMITHING
+            || player.getSkillingTargetNpcId() != furnace.getId()
+            || !Integer.toString(bar.itemId()).equals(player.getSkillingMetadata()))) {
+            interruptSkilling("interrupted");
+        }
+
+        player.startSkillingAction(SkillingAction.SMITHING, furnace.getId(), server.getCurrentTick() + 1);
+        player.setSkillingMetadata(Integer.toString(bar.itemId()));
+        sendSkillingStateUpdate(ctx, NetworkProto.SkillingType.SKILLING_SMITHING,
+            NetworkProto.SkillingState.SKILLING_STATE_QUEUED, furnace.getId(), "queued");
+    }
+
+    private void handleCloseSmeltingMenu(ChannelHandlerContext ctx, NetworkProto.CloseSmeltingMenu request) {
+        // No server-side modal state to clear yet.
+    }
+
+    private boolean isFurnace(NPC npc) {
+        return npc != null
+            && (npc.getDefinitionId() == SmithingRegistry.FURNACE_DEFINITION_ID
+            || "Furnace".equalsIgnoreCase(npc.getName()));
+    }
+
+    private java.util.List<SmithingRegistry.BarTier> collectSmeltableBars(Player player) {
+        java.util.List<SmithingRegistry.BarTier> bars = new java.util.ArrayList<>();
+        int smithingLevel = Math.max(1, player.getSkillLevel(Player.SKILL_SMITHING));
+        for (SmithingRegistry.BarTier bar : SmithingRegistry.bars()) {
+            if (smithingLevel < bar.levelRequirement()) {
+                continue;
+            }
+            if (hasSmeltingIngredients(player, bar)) {
+                bars.add(bar);
+            }
+        }
+        return bars;
+    }
+
+    private boolean hasSmeltingIngredients(Player player, SmithingRegistry.BarTier bar) {
+        if (bar == null) {
+            return false;
+        }
+        if (bar.oreItemIdA() > 0 && countInventoryItem(player, bar.oreItemIdA()) < bar.oreQtyA()) {
+            return false;
+        }
+        if (bar.oreItemIdB() > 0 && countInventoryItem(player, bar.oreItemIdB()) < bar.oreQtyB()) {
+            return false;
+        }
+        if (bar.coalRequired() > 0 && countInventoryItem(player, COAL_ITEM_ID) < bar.coalRequired()) {
+            return false;
+        }
+        return true;
     }
 
     private void flushDirtyBankContainers() {
@@ -2936,6 +3075,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             case FISHING -> NetworkProto.SkillingType.SKILLING_FISHING;
             case COOKING -> NetworkProto.SkillingType.SKILLING_COOKING;
             case MINING -> NetworkProto.SkillingType.SKILLING_MINING;
+            case SMITHING -> NetworkProto.SkillingType.SKILLING_SMITHING;
             case NONE -> NetworkProto.SkillingType.SKILLING_NONE;
         };
     }

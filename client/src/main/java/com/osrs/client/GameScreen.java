@@ -34,6 +34,7 @@ import com.osrs.client.ui.LevelUpOverlay;
 import com.osrs.client.ui.SkillGuidePopup;
 import com.osrs.client.ui.MiniMap;
 import com.osrs.client.ui.SidePanel;
+import com.osrs.client.ui.SmeltingUI;
 import com.osrs.client.ui.XpDropOverlay;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -136,6 +137,7 @@ public class GameScreen extends ApplicationAdapter {
     private SidePanel    sidePanel;
     private DialogueUI   dialogueUI;
     private BankUI       bankUI;
+    private SmeltingUI   smeltingUI;
     private ChatBox      chatBox;
     private MiniMap      miniMap;
     private XpDropOverlay xpDropOverlay;
@@ -472,6 +474,7 @@ public class GameScreen extends ApplicationAdapter {
         sidePanel.setAudioManager(audioManager);
         dialogueUI = new DialogueUI();
         bankUI = new BankUI();
+        smeltingUI = new SmeltingUI();
         miniMap = new MiniMap();
         chatBox        = new ChatBox();
         xpDropOverlay  = new XpDropOverlay();
@@ -1188,6 +1191,8 @@ public class GameScreen extends ApplicationAdapter {
             w, h, playerX, playerY, tileMap, handler());
         if (dialogueUI.isVisible()) {
             renderDialogueOverlay(mouseScreenX, mouseScreenY);
+        } else if (smeltingUI.isVisible()) {
+            smeltingUI.render(shapeRenderer, screenBatch, font, w, h, screenProjection, mouseScreenX, mouseScreenY);
         } else {
             chatBox.render(shapeRenderer, screenBatch, font, w, h, screenProjection);
         }
@@ -1257,6 +1262,7 @@ public class GameScreen extends ApplicationAdapter {
         if (isAdminToolsButtonVisible() && isAdminToolsButtonHit(mouseX, mouseY, Gdx.graphics.getHeight())) return true;
         if (sidePanel != null && sidePanel.isOverPanel(mouseX, mouseY)) return true;
         if (dialogueUI != null && dialogueUI.isVisible() && dialogueUI.isOverDialogue(mouseX, mouseY)) return true;
+        if (smeltingUI != null && smeltingUI.isVisible() && smeltingUI.isOver(mouseX, mouseY)) return true;
         if (adminToolsPopup != null && adminToolsPopup.isVisible()) return true;
         if (skillGuidePopup != null && skillGuidePopup.isVisible()) return true;
         if (contextMenu != null && contextMenu.isVisible()) return true;
@@ -1355,6 +1361,7 @@ public class GameScreen extends ApplicationAdapter {
             lastStepSentY = Integer.MIN_VALUE;
             clearPendingAction();
             combatTargetId = -1;
+            smeltingUI.close();
         }
 
         playerHealth    = h.getPlayerHealth();
@@ -1509,11 +1516,29 @@ public class GameScreen extends ApplicationAdapter {
                     NetworkProto.SkillingType.SKILLING_FISHING;
                 case "cook_at" -> NetworkProto.SkillingType.SKILLING_COOKING;
                 case "mine" -> NetworkProto.SkillingType.SKILLING_MINING;
+                case "smelt_at" -> NetworkProto.SkillingType.SKILLING_SMITHING;
                 default -> NetworkProto.SkillingType.SKILLING_NONE;
             };
             if (pendingType == skillingEvent.type && pendingNpcId == skillingEvent.targetNpcId
                 && (skillingEvent.state == NetworkProto.SkillingState.SKILLING_STATE_ACTIVE
                 || skillingEvent.state == NetworkProto.SkillingState.SKILLING_STATE_STOPPED)) {
+                clearPendingAction();
+            }
+        }
+
+        for (ClientPacketHandler.SmeltingMenuOpenEvent event : h.drainSmeltingMenuEvents()) {
+            List<SmeltingUI.Option> options = new ArrayList<>();
+            for (ClientPacketHandler.SmeltingBarOptionSnapshot option : event.options) {
+                options.add(new SmeltingUI.Option(
+                    option.barItemId,
+                    option.barName,
+                    option.levelRequired,
+                    option.xpTenths,
+                    option.successPercent
+                ));
+            }
+            smeltingUI.open(event.furnaceNpcId, options);
+            if (pendingNpcId == event.furnaceNpcId && "smelt_at".equals(pendingAction)) {
                 clearPendingAction();
             }
         }
@@ -1541,6 +1566,8 @@ public class GameScreen extends ApplicationAdapter {
                 || "This tree has been chopped down.".equals(msg)
                 || "There are no fish here right now.".equals(msg)
                 || "This rock is depleted.".equals(msg)
+                || "You have no ores to smelt.".equals(msg)
+                || msg.contains("smelt")
                 || "You are too busy fighting.".equals(msg)
                 || "Your inventory is too full to hold any more logs.".equals(msg)
                 || "Your inventory is too full to hold any more ore.".equals(msg)) {
@@ -1574,6 +1601,7 @@ public class GameScreen extends ApplicationAdapter {
             visualY   = playerY;
             combatTargetId = -1;
             clearPendingAction();
+            smeltingUI.close();
             chatBox.addSystemMessage("Oh dear, you are dead!");
             LOG.info("Death screen shown — respawning at ({}, {})", playerX, playerY);
         }
@@ -1790,6 +1818,11 @@ public class GameScreen extends ApplicationAdapter {
 
         if (dialogueUI.isVisible()) {
             handleDialogueInput();
+            return;
+        }
+
+        if (smeltingUI.isVisible()) {
+            handleSmeltingInput();
             return;
         }
 
@@ -2593,6 +2626,44 @@ public class GameScreen extends ApplicationAdapter {
         }
     }
 
+    private void handleSmeltingInput() {
+        int mx = Gdx.input.getX();
+        int screenMy = Gdx.graphics.getHeight() - Gdx.input.getY();
+
+        if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
+            int furnaceNpcId = smeltingUI.getFurnaceNpcId();
+            smeltingUI.close();
+            if (nettyClient != null && furnaceNpcId >= 0) {
+                nettyClient.sendCloseSmeltingMenu();
+            }
+            return;
+        }
+
+        if (!Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)) {
+            return;
+        }
+
+        if (!smeltingUI.isOver(mx, screenMy) || smeltingUI.isCloseButtonHit(mx, screenMy)) {
+            smeltingUI.close();
+            if (nettyClient != null) {
+                nettyClient.sendCloseSmeltingMenu();
+            }
+            return;
+        }
+
+        int selectedBarItemId = smeltingUI.getClickedBarItemId(mx, screenMy);
+        if (selectedBarItemId < 0) {
+            return;
+        }
+
+        int furnaceNpcId = smeltingUI.getFurnaceNpcId();
+        if (nettyClient != null && furnaceNpcId >= 0) {
+            nettyClient.sendStartSmelting(furnaceNpcId, selectedBarItemId);
+            nettyClient.sendCloseSmeltingMenu();
+        }
+        smeltingUI.close();
+    }
+
     private void submitDialogueOptionByIndex(int index) {
         if (dialogueUI.getCurrentPhase() != DialogueUI.DialoguePhase.PLAYER_CHOOSING) {
             return;
@@ -2610,6 +2681,7 @@ public class GameScreen extends ApplicationAdapter {
         logoutRequested = true;
         clearPendingAction();
         pendingGroundItemId = -1;
+        smeltingUI.close();
         chatBox.addSystemMessage("Logging out...");
 
         if (nettyClient != null && nettyClient.isConnected()) {
@@ -3040,6 +3112,9 @@ public class GameScreen extends ApplicationAdapter {
             } else if ("cook_at".equals(pendingAction)) {
                 nettyClient.sendStartSkilling(pendingNpcId, NetworkProto.SkillingType.SKILLING_COOKING);
                 pendingActionRetryTimer = 0.25f;
+            } else if ("smelt_at".equals(pendingAction)) {
+                nettyClient.sendOpenSmeltingMenu(pendingNpcId);
+                pendingActionRetryTimer = 0.25f;
             } else if ("supplies".equals(pendingAction)) {
                 nettyClient.sendClaimNpcSupplies(pendingNpcId);
                 pendingActionRetryTimer = 0.25f;
@@ -3403,6 +3478,7 @@ public class GameScreen extends ApplicationAdapter {
                     boolean isFishingSpot = "Fishing Spot".equalsIgnoreCase(rawName);
                     boolean isCookingStation = "Cooking Fire".equalsIgnoreCase(rawName)
                         || "Cooking Range".equalsIgnoreCase(rawName);
+                    boolean isFurnace = "Furnace".equalsIgnoreCase(rawName);
                     boolean isBanker = "Banker".equalsIgnoreCase(rawName);
                     boolean isFishingSupplier = "Fishing Supplier".equalsIgnoreCase(rawName);
                     boolean isSmithingSupplier = "Smithing Supplier".equalsIgnoreCase(rawName);
@@ -3433,6 +3509,8 @@ public class GameScreen extends ApplicationAdapter {
                         }
                     } else if (isCookingStation) {
                         opts.add(new ContextMenu.MenuItem(ContextMenu.Action.COOK_AT, yellowName, id));
+                    } else if (isFurnace) {
+                        opts.add(new ContextMenu.MenuItem(ContextMenu.Action.SMELT_AT, yellowName, id));
                     } else if (isBanker) {
                         opts.add(new ContextMenu.MenuItem(ContextMenu.Action.BANK, yellowName, id));
                         opts.add(new ContextMenu.MenuItem(ContextMenu.Action.TALK_TO, yellowName, id));
@@ -3465,6 +3543,7 @@ public class GameScreen extends ApplicationAdapter {
             case "fish_cage" -> startApproach((Integer) item.target, "fish_cage");
             case "fish_harpoon" -> startApproach((Integer) item.target, "fish_harpoon");
             case "cook_at" -> startApproach((Integer) item.target, "cook_at");
+            case "smelt_at" -> startApproach((Integer) item.target, "smelt_at");
             case "trade_player"  -> LOG.info("Trade not yet implemented for player {}", item.target);
             case "follow_player" -> LOG.info("Follow not yet implemented for player {}", item.target);
             case "challenge_player" -> LOG.info("Challenge not yet implemented for player {}", item.target);
