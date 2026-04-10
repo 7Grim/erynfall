@@ -49,8 +49,10 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -85,6 +87,11 @@ public class GameScreen extends ApplicationAdapter {
     private static final Color FALLBACK_ITEM_LOGS = new Color(0.54f, 0.34f, 0.16f, 1f);
     private static final Color FALLBACK_ITEM_ORE = new Color(0.56f, 0.58f, 0.62f, 1f);
     private static final Color FALLBACK_ITEM_OTHER = new Color(0.82f, 0.78f, 0.62f, 1f);
+    private static final float BILLBOARD_BASE_PLAYER_HEIGHT = 1.10f;
+    private static final float BILLBOARD_BASE_NPC_HEIGHT = 1.05f;
+    private static final float GROUND_ITEM_BILLBOARD_BASE_Y = 0.08f;
+    private static final float GROUND_ITEM_LABEL_HEIGHT_3D = 0.70f;
+    private static final int MAX_GROUND_ITEM_LABELS_3D = 24;
 
     /** Displayed in the top-right HUD. Update this string each release. */
     private static final String GAME_VERSION = "Alpha 0.0.1";
@@ -1089,7 +1096,8 @@ public class GameScreen extends ApplicationAdapter {
             if (entry.maxHealth() <= 0 || entry.health() >= entry.maxHealth()) {
                 continue;
             }
-            if (!projectWorldToScreen3D(entry.tileX(), entry.tileY(), entry.isPlayer() ? 2.0f : 2.2f, projectedWorldPoint)) {
+            float billboardHeight = actorBillboardHeight3D(entry, resolveActorSpriteRegion3D(entry));
+            if (!projectWorldToScreen3D(entry.tileX(), entry.tileY(), billboardHeight + 0.30f, projectedWorldPoint)) {
                 continue;
             }
             float ratio = Math.max(0f, Math.min(1f, entry.health() / (float) Math.max(1, entry.maxHealth())));
@@ -1239,6 +1247,7 @@ public class GameScreen extends ApplicationAdapter {
             renderActorsLayer3D(actorEntries);
             renderer3d.endEntityPass();
             renderHealthBarsLayer3D(actorEntries);
+            renderGroundItemLabels();
         } else {
             renderer2d.renderWorld(tileMap, visualX, visualY, visualX, visualY, activeMaterialProfile);
             renderGroundItemsLayer(groundItemEntries);
@@ -1388,12 +1397,8 @@ public class GameScreen extends ApplicationAdapter {
         }
         for (ActorRenderEntry entry : entries) {
             TextureRegion region = resolveActorSpriteRegion3D(entry);
-            float baseHeight = region != null ? (region.getRegionHeight() / 16f) : 1.05f;
-            float baseWidthRatio = region != null
-                ? (region.getRegionWidth() / (float) Math.max(1, region.getRegionHeight()))
-                : 0.72f;
-            float height = Math.max(0.7f, Math.min(2.0f, baseHeight));
-            float width = Math.max(0.4f, Math.min(1.8f, height * baseWidthRatio));
+            float height = actorBillboardHeight3D(entry, region);
+            float width = actorBillboardWidth3D(entry, region, height);
             float alpha = entry.isPlayer() ? 1f : (isObstructingLocalPlayer(entry) ? 0.35f : 1f);
             if (region != null) {
                 renderer3d.renderEntityBillboard(entry.tileX(), entry.tileY(), region, width, height, alpha);
@@ -1420,27 +1425,88 @@ public class GameScreen extends ApplicationAdapter {
         }
         for (GroundItemRenderEntry entry : entries) {
             TextureRegion region = resolveGroundItemSpriteRegion3D(entry.itemId());
-            float height = 0.46f;
-            float width = 0.46f;
+            float height = 0.60f;
+            float width = 0.60f;
             if (region != null) {
                 float ratio = region.getRegionWidth() / (float) Math.max(1, region.getRegionHeight());
-                width = Math.max(0.34f, Math.min(0.72f, height * ratio));
-                renderer3d.renderEntityBillboard(entry.tileX(), entry.tileY(), region, width, height, 0.95f);
+                width = Math.max(0.46f, Math.min(0.90f, height * ratio));
+                renderer3d.renderEntityBillboardAtHeight(
+                    entry.tileX(),
+                    entry.tileY(),
+                    GROUND_ITEM_BILLBOARD_BASE_Y,
+                    region,
+                    width,
+                    height,
+                    0.96f
+                );
             } else {
                 Color c = groundItemFallbackColor(entry.itemId());
                 renderer3d.renderEntityBillboard(
                     entry.tileX(),
                     entry.tileY(),
+                    GROUND_ITEM_BILLBOARD_BASE_Y,
                     null,
                     width,
                     height,
                     c.r,
                     c.g,
                     c.b,
-                    0.92f
+                    0.94f
                 );
             }
         }
+    }
+
+    private float actorBillboardHeight3D(ActorRenderEntry entry, TextureRegion region) {
+        String spriteKey = actorSpriteKey(entry);
+        float baseHeight = entry.isPlayer() ? BILLBOARD_BASE_PLAYER_HEIGHT : BILLBOARD_BASE_NPC_HEIGHT;
+        float scale = actorBillboardScale3D(entry);
+
+        if (spriteSheet != null && spriteKey != null) {
+            SpriteSheet.SpriteMeta meta = spriteSheet.getMeta(spriteKey);
+            if (meta != null && meta.canvasHeight() > 0) {
+                baseHeight = meta.canvasHeight() / 16f;
+            }
+        } else if (region != null) {
+            baseHeight = region.getRegionHeight() / 16f;
+        }
+
+        return Math.max(0.72f, Math.min(2.35f, baseHeight * scale));
+    }
+
+    private float actorBillboardWidth3D(ActorRenderEntry entry, TextureRegion region, float height) {
+        String spriteKey = actorSpriteKey(entry);
+        float ratio = 0.72f;
+
+        if (spriteSheet != null && spriteKey != null) {
+            SpriteSheet.SpriteMeta meta = spriteSheet.getMeta(spriteKey);
+            if (meta != null && meta.canvasWidth() > 0 && meta.canvasHeight() > 0) {
+                ratio = meta.canvasWidth() / (float) meta.canvasHeight();
+            }
+        } else if (region != null) {
+            ratio = region.getRegionWidth() / (float) Math.max(1, region.getRegionHeight());
+        }
+
+        return Math.max(0.42f, Math.min(2.05f, height * ratio));
+    }
+
+    private float actorBillboardScale3D(ActorRenderEntry entry) {
+        if (entry.isPlayer()) {
+            return 1f;
+        }
+        String name = entry.npcName();
+        if (name == null) {
+            return 1f;
+        }
+        return switch (name) {
+            case "Rat", "Chicken" -> 0.78f;
+            case "Giant Rat" -> 0.92f;
+            case "Cow" -> 1.15f;
+            case "Tree", "Oak Tree", "Willow Tree", "Teak Tree", "Maple Tree", "Mahogany Tree", "Yew Tree", "Magic Tree" -> 1.22f;
+            case "Copper Rock", "Tin Rock", "Iron Rock", "Silver Rock", "Coal Rock", "Gold Rock", "Mithril Rock", "Adamantite Rock", "Runite Rock" -> 1.06f;
+            case "Fishing Spot", "Cooking Fire", "Cooking Range", "Furnace", "Anvil" -> 0.96f;
+            default -> 1f;
+        };
     }
 
     private TextureRegion resolveGroundItemSpriteRegion3D(int itemId) {
@@ -4490,6 +4556,72 @@ public class GameScreen extends ApplicationAdapter {
 
     private void renderGroundItemLabels() {
         if (groundItemsOnMap.isEmpty()) return;
+
+        if (use3DRenderer) {
+            screenBatch.setProjectionMatrix(screenProjection);
+            screenBatch.begin();
+
+            font.getData().setScale(FontManager.getScale(FontManager.FontContext.SMALL_LABEL));
+            font.setColor(FontManager.TEXT_YELLOW);
+            gl.setText(font, "");
+
+            List<Map.Entry<Integer, int[]>> items = new ArrayList<>(groundItemsOnMap.entrySet());
+            items.sort((a, b) -> {
+                int[] ad = a.getValue();
+                int[] bd = b.getValue();
+                int da = Math.abs(ad[2] - playerX) + Math.abs(ad[3] - playerY);
+                int db = Math.abs(bd[2] - playerX) + Math.abs(bd[3] - playerY);
+                if (da != db) {
+                    return Integer.compare(da, db);
+                }
+                if (ad[3] != bd[3]) {
+                    return Integer.compare(ad[3], bd[3]);
+                }
+                return Integer.compare(ad[2], bd[2]);
+            });
+
+            Set<Long> occupiedLabelCells = new HashSet<>();
+            int labelsDrawn = 0;
+            for (Map.Entry<Integer, int[]> itemEntry : items) {
+                if (labelsDrawn >= MAX_GROUND_ITEM_LABELS_3D) {
+                    break;
+                }
+
+                int[] data = itemEntry.getValue();
+
+                String itemName = groundItemNamesMap.get(itemEntry.getKey());
+                if (itemName == null || itemName.isEmpty()) {
+                    continue;
+                }
+
+                if (!projectWorldToScreen3D(data[2], data[3], GROUND_ITEM_LABEL_HEIGHT_3D, projectedWorldPoint)) {
+                    continue;
+                }
+
+                int cellX = (int) (projectedWorldPoint.x / 92f);
+                int cellY = (int) (projectedWorldPoint.y / 26f);
+                long cellKey = (((long) cellX) << 32) ^ (cellY & 0xffffffffL);
+                if (occupiedLabelCells.contains(cellKey)) {
+                    continue;
+                }
+
+                gl.setText(font, itemName);
+                float textX = projectedWorldPoint.x - gl.width * 0.5f;
+                float textY = projectedWorldPoint.y;
+                font.setColor(0f, 0f, 0f, 0.84f);
+                font.draw(screenBatch, itemName, textX + 1f, textY - 1f);
+                font.setColor(FontManager.TEXT_YELLOW);
+                font.draw(screenBatch, itemName, textX, textY);
+
+                occupiedLabelCells.add(cellKey);
+                labelsDrawn++;
+            }
+
+            screenBatch.end();
+            font.getData().setScale(FontManager.getScale(FontManager.FontContext.BASE_UI));
+            font.setColor(COLOR_WHITE);
+            return;
+        }
 
         batch.setProjectionMatrix(camera.combined);
         batch.begin();

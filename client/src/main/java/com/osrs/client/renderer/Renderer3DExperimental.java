@@ -213,11 +213,34 @@ public class Renderer3DExperimental {
                                       float width,
                                       float height,
                                       float alpha) {
-        renderEntityBillboard(tileX, tileY, region, width, height, 1f, 1f, 1f, alpha);
+        renderEntityBillboard(tileX, tileY, 0f, region, width, height, 1f, 1f, 1f, alpha);
+    }
+
+    public void renderEntityBillboardAtHeight(float tileX,
+                                              float tileY,
+                                              float baseY,
+                                              TextureRegion region,
+                                              float width,
+                                              float height,
+                                              float alpha) {
+        renderEntityBillboard(tileX, tileY, baseY, region, width, height, 1f, 1f, 1f, alpha);
     }
 
     public void renderEntityBillboard(float tileX,
                                       float tileY,
+                                      TextureRegion region,
+                                      float width,
+                                      float height,
+                                      float tintR,
+                                      float tintG,
+                                      float tintB,
+                                      float alpha) {
+        renderEntityBillboard(tileX, tileY, 0f, region, width, height, tintR, tintG, tintB, alpha);
+    }
+
+    public void renderEntityBillboard(float tileX,
+                                      float tileY,
+                                      float baseY,
                                       TextureRegion region,
                                       float width,
                                       float height,
@@ -230,7 +253,7 @@ public class Renderer3DExperimental {
             return;
         }
         Decal decal = obtainDecal(effectiveRegion, width, height);
-        decal.setPosition(tileX + 0.5f, height * 0.5f, tileY + 0.5f);
+        decal.setPosition(tileX + 0.5f, baseY + height * 0.5f, tileY + 0.5f);
         decal.lookAt(camera.position, camera.up);
         decal.setColor(
             Math.max(0f, Math.min(1f, tintR)),
