@@ -391,6 +391,12 @@ Important migration note:
 - Some shell/decorative 3D props are placed through `client/src/main/resources/static_props.yaml`.
 - Those placements are visual-only for the experimental 3D renderer and currently do not add gameplay collision or interaction.
 
+Actor model prototype notes:
+- The experimental renderer now supports a first actor-model prototype path using state-swapped static meshes (not animated rigs).
+- Example keys: `player_idle.g3dj`, `player_walk.g3dj`, `player_chop.g3dj`, `npc_banker_idle.g3dj`, `npc_goblin_action.g3dj`.
+- Actor models are rotated in-engine for facing direction.
+- Do not create directional actor model files in this pass (`player_walk_n.g3dj`, etc.).
+
 ---
 
 ## Replacing a placeholder

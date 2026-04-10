@@ -1254,12 +1254,10 @@ public class GameScreen extends ApplicationAdapter {
         if (use3DRenderer) {
             renderer3d.renderTerrain(tileMap, visualX, visualY, activeMaterialProfile);
             renderStaticProps3D();
-            renderer3d.beginStaticPropPass();
             renderer3d.beginEntityPass();
             renderGroundItemsLayer3D(groundItemEntries);
             renderActorsLayer3D(actorEntries);
             renderer3d.endEntityPass();
-            renderer3d.endStaticPropPass();
             renderHealthBarsLayer3D(actorEntries);
             renderGroundItemLabels();
         } else {
@@ -1409,16 +1407,45 @@ public class GameScreen extends ApplicationAdapter {
         if (renderer3d == null) {
             return;
         }
-        for (ActorRenderEntry entry : entries) {
+
+        boolean[] modelRendered = new boolean[entries.size()];
+
+        renderer3d.beginStaticPropPass();
+        for (int i = 0; i < entries.size(); i++) {
+            ActorRenderEntry entry = entries.get(i);
+            String staticModelKey = resolveStaticPropModelKey3D(entry);
+            if (staticModelKey != null && renderer3d.renderStaticPropModel(staticModelKey, entry.tileX(), entry.tileY(), 1f)) {
+                modelRendered[i] = true;
+            }
+        }
+        renderer3d.endStaticPropPass();
+
+        renderer3d.beginActorModelPass();
+        for (int i = 0; i < entries.size(); i++) {
+            if (modelRendered[i]) {
+                continue;
+            }
+            ActorRenderEntry entry = entries.get(i);
+            String actorModelKey = resolveActorModelKey3D(entry);
+            if (actorModelKey != null) {
+                float yawDegrees = actorModelYawDegrees(entry);
+                float alpha = entry.isPlayer() ? 1f : (isObstructingLocalPlayer(entry) ? 0.35f : 1f);
+                if (renderer3d.renderActorModel(actorModelKey, entry.tileX(), entry.tileY(), yawDegrees, alpha)) {
+                    modelRendered[i] = true;
+                }
+            }
+        }
+        renderer3d.endActorModelPass();
+
+        for (int i = 0; i < entries.size(); i++) {
+            if (modelRendered[i]) {
+                continue;
+            }
+            ActorRenderEntry entry = entries.get(i);
             TextureRegion region = resolveActorSpriteRegion3D(entry);
             float height = actorBillboardHeight3D(entry, region);
             float width = actorBillboardWidth3D(entry, region, height);
             float alpha = entry.isPlayer() ? 1f : (isObstructingLocalPlayer(entry) ? 0.35f : 1f);
-
-            String staticModelKey = resolveStaticPropModelKey3D(entry);
-            if (staticModelKey != null && renderer3d.renderStaticPropModel(staticModelKey, entry.tileX(), entry.tileY(), alpha)) {
-                continue;
-            }
 
             if (region != null) {
                 renderer3d.renderEntityBillboard(entry.tileX(), entry.tileY(), region, width, height, alpha);
@@ -1542,6 +1569,59 @@ public class GameScreen extends ApplicationAdapter {
                 "tree", "tree_oak", "tree_willow", "tree_maple", "tree_mahogany", "tree_yew", "tree_magic",
                 "rock_copper", "rock_tin", "rock_iron", "rock_silver", "rock_coal", "rock_gold", "rock_mithril", "rock_adamantite", "rock_runite" -> spriteKey;
             default -> null;
+        };
+    }
+
+    private String resolveActorModelKey3D(ActorRenderEntry entry) {
+        if (entry.isPlayer()) {
+            if (entry.pickingUp()) {
+                return "player_pickup";
+            }
+            if ("chop".equals(entry.playerPose())) {
+                return "player_chop";
+            }
+            if ("mine".equals(entry.playerPose())) {
+                return "player_mine";
+            }
+            if (entry.playerPose() != null && entry.playerPose().startsWith("fish")) {
+                return "player_fish";
+            }
+            if ("sword".equals(entry.playerPose())) {
+                return "player_sword";
+            }
+            if ("spear".equals(entry.playerPose())) {
+                return "player_spear";
+            }
+            boolean moving = entry.entityId() == localPlayerId && playerAnimMoving;
+            return moving ? "player_walk" : "player_idle";
+        }
+
+        String name = entry.npcName();
+        if ("Banker".equals(name)) {
+            return npcAnimMoving.getOrDefault(entry.entityId(), false) ? "npc_banker_walk" : "npc_banker_idle";
+        }
+        if ("Goblin".equals(name)) {
+            boolean actionActive = npcActionAnimTimer.getOrDefault(entry.entityId(), 0f) > 0f;
+            if (actionActive) {
+                return "npc_goblin_action";
+            }
+            return npcAnimMoving.getOrDefault(entry.entityId(), false) ? "npc_goblin_walk" : "npc_goblin_idle";
+        }
+        return null;
+    }
+
+    private float actorModelYawDegrees(ActorRenderEntry entry) {
+        String dir;
+        if (entry.isPlayer()) {
+            dir = playerAnimDir;
+        } else {
+            dir = npcAnimDir.getOrDefault(entry.entityId(), "s");
+        }
+        return switch (dir) {
+            case "n" -> 180f;
+            case "e" -> -90f;
+            case "w" -> 90f;
+            default -> 0f;
         };
     }
 

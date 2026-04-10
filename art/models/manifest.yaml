@@ -208,3 +208,107 @@ assets:
     origin: tile-center
     required: false
     notes: Small barrel prop.
+  - key: player_idle
+    file: player_idle.g3dj
+    category: actor
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Low-poly player idle pose for 3D prototype evaluation.
+  - key: player_walk
+    file: player_walk.g3dj
+    category: actor
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Low-poly player walk pose for 3D prototype evaluation.
+  - key: player_pickup
+    file: player_pickup.g3dj
+    category: actor
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Low-poly player pickup pose.
+  - key: player_chop
+    file: player_chop.g3dj
+    category: actor
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Low-poly player woodcutting pose.
+  - key: player_mine
+    file: player_mine.g3dj
+    category: actor
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Low-poly player mining pose.
+  - key: player_fish
+    file: player_fish.g3dj
+    category: actor
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Low-poly player fishing pose.
+  - key: player_sword
+    file: player_sword.g3dj
+    category: actor
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Low-poly player sword combat pose.
+  - key: player_spear
+    file: player_spear.g3dj
+    category: actor
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Low-poly player spear/staff combat pose.
+  - key: npc_banker_idle
+    file: npc_banker_idle.g3dj
+    category: actor
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Low-poly banker idle pose.
+  - key: npc_banker_walk
+    file: npc_banker_walk.g3dj
+    category: actor
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Low-poly banker walk pose.
+  - key: npc_goblin_idle
+    file: npc_goblin_idle.g3dj
+    category: actor
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Low-poly goblin idle pose.
+  - key: npc_goblin_walk
+    file: npc_goblin_walk.g3dj
+    category: actor
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Low-poly goblin walk pose.
+  - key: npc_goblin_action
+    file: npc_goblin_action.g3dj
+    category: actor
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Low-poly goblin combat/action pose.
