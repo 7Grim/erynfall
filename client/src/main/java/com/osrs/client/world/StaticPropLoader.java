@@ -1,19 +1,15 @@
 package com.osrs.client.world;
 
+import com.badlogic.gdx.Gdx;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
-import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
 public final class StaticPropLoader {
-
-    private static final Logger LOG = LoggerFactory.getLogger(StaticPropLoader.class);
 
     private StaticPropLoader() {}
 
@@ -35,14 +31,15 @@ public final class StaticPropLoader {
 
     public static List<StaticPropPlacement> load() {
         ObjectMapper mapper = new ObjectMapper(new YAMLFactory());
-        try (InputStream is = StaticPropLoader.class.getResourceAsStream("/static_props.yaml")) {
-            if (is == null) {
-                LOG.warn("static_props.yaml not found in classpath; no placed static props loaded");
+        try {
+            if (!Gdx.files.internal("static_props.yaml").exists()) {
+                Gdx.app.log("StaticPropLoader", "WARN: static_props.yaml not found in classpath");
                 return List.of();
             }
 
+            String yaml = Gdx.files.internal("static_props.yaml").readString();
             @SuppressWarnings("unchecked")
-            Map<String, Object> data = mapper.readValue(is, Map.class);
+            Map<String, Object> data = mapper.readValue(yaml, Map.class);
             Object propsObj = data.get("props");
             if (!(propsObj instanceof List<?> rows)) {
                 return List.of();
@@ -73,10 +70,11 @@ public final class StaticPropLoader {
                 placements.add(new StaticPropPlacement(key, x, y, rotationY, scale));
             }
 
-            LOG.info("Loaded {} placed static props", placements.size());
+            Gdx.app.log("StaticPropLoader", "Loaded " + placements.size() + " placed static props");
             return Collections.unmodifiableList(placements);
         } catch (Exception e) {
-            throw new RuntimeException("Failed to load static_props.yaml", e);
+            Gdx.app.log("StaticPropLoader", "WARN: failed to load static_props.yaml: " + e.getMessage());
+            return List.of();
         }
     }
 }
