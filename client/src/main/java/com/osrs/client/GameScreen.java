@@ -28,6 +28,7 @@ import com.osrs.client.renderer.Renderer3DExperimental;
 import com.osrs.client.audio.AudioManager;
 import com.osrs.client.renderer.SpriteSheet;
 import com.osrs.client.world.MapLoader;
+import com.osrs.client.world.StaticPropLoader;
 import com.osrs.client.ui.AdminToolsPopup;
 import com.osrs.client.ui.ChatBox;
 import com.osrs.client.ui.CombatUI;
@@ -151,6 +152,7 @@ public class GameScreen extends ApplicationAdapter {
     /** Null when sprites.atlas has not been packed yet — falls back to ShapeRenderer. */
     private SpriteSheet      spriteSheet;
     private ModelLibrary     modelLibrary;
+    private List<StaticPropLoader.StaticPropPlacement> staticPropPlacements = List.of();
     private AudioManager     audioManager;
     private BitmapFont       font;
     private Matrix4          screenProjection;
@@ -518,6 +520,7 @@ public class GameScreen extends ApplicationAdapter {
         renderer3d.setModelLibrary(modelLibrary);
         mapLoader  = MapLoader.load();
         tileMap    = mapLoader.getLayout();
+        staticPropPlacements = StaticPropLoader.load();
         renderer3d.rebuildTerrain(tileMap);
         contextMenu = new ContextMenu();
         combatUI   = new CombatUI();
@@ -1196,6 +1199,7 @@ public class GameScreen extends ApplicationAdapter {
             if (modelLibrary != null) modelLibrary.dispose();
             spriteSheet = SpriteSheet.load();
             modelLibrary = ModelLibrary.load();
+            staticPropPlacements = StaticPropLoader.load();
             renderer2d.setSpriteSheet(spriteSheet);
             renderer3d.setSpriteSheet(spriteSheet);
             renderer3d.setModelLibrary(modelLibrary);
@@ -1249,6 +1253,7 @@ public class GameScreen extends ApplicationAdapter {
         List<ShadowRenderEntry> shadowEntries = collectShadowRenderEntries(actorEntries);
         if (use3DRenderer) {
             renderer3d.renderTerrain(tileMap, visualX, visualY, activeMaterialProfile);
+            renderStaticProps3D();
             renderer3d.beginStaticPropPass();
             renderer3d.beginEntityPass();
             renderGroundItemsLayer3D(groundItemEntries);
@@ -1538,6 +1543,18 @@ public class GameScreen extends ApplicationAdapter {
                 "rock_copper", "rock_tin", "rock_iron", "rock_silver", "rock_coal", "rock_gold", "rock_mithril", "rock_adamantite", "rock_runite" -> spriteKey;
             default -> null;
         };
+    }
+
+    private void renderStaticProps3D() {
+        if (renderer3d == null || staticPropPlacements == null || staticPropPlacements.isEmpty()) {
+            return;
+        }
+
+        renderer3d.beginStaticPropPass();
+        for (StaticPropLoader.StaticPropPlacement prop : staticPropPlacements) {
+            renderer3d.renderPlacedStaticPropModel(prop.key, prop.x, prop.y, prop.rotationYDegrees, prop.scale);
+        }
+        renderer3d.endStaticPropPass();
     }
 
     private TextureRegion resolveGroundItemSpriteRegion3D(int itemId) {

@@ -160,3 +160,51 @@ assets:
     origin: tile-center
     required: false
     notes: Static runite rock model.
+  - key: building_shell_small
+    file: building_shell_small.g3dj
+    category: shell
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Small static building shell for the 3D renderer.
+  - key: dock_platform
+    file: dock_platform.g3dj
+    category: prop
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Small dock platform section for shoreline/town dressing.
+  - key: dock_stairs
+    file: dock_stairs.g3dj
+    category: prop
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Small dock stair/ramp section.
+  - key: table_small
+    file: table_small.g3dj
+    category: prop
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Small static table prop.
+  - key: crate_small
+    file: crate_small.g3dj
+    category: prop
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Small crate prop.
+  - key: barrel_small
+    file: barrel_small.g3dj
+    category: prop
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Small barrel prop.

@@ -1,0 +1,31 @@
+props:
+  - key: building_shell_small
+    x: 14
+    y: 46
+    rotation_y_degrees: 0
+    scale: 1.0
+  - key: dock_platform
+    x: 18
+    y: 43
+    rotation_y_degrees: 0
+    scale: 1.0
+  - key: dock_stairs
+    x: 18
+    y: 45
+    rotation_y_degrees: 0
+    scale: 1.0
+  - key: table_small
+    x: 18
+    y: 48
+    rotation_y_degrees: 0
+    scale: 1.0
+  - key: crate_small
+    x: 16
+    y: 48
+    rotation_y_degrees: 0
+    scale: 1.0
+  - key: barrel_small
+    x: 20
+    y: 48
+    rotation_y_degrees: 0
+    scale: 1.0

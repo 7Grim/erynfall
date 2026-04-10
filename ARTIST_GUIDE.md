@@ -388,6 +388,8 @@ Important migration note:
 - Static prop models are first-pass, optional upgrades.
 - If a model file is missing, the renderer falls back to the existing sprite billboard path.
 - Sprite impostors remain the default safety net until full 3D migration is complete.
+- Some shell/decorative 3D props are placed through `client/src/main/resources/static_props.yaml`.
+- Those placements are visual-only for the experimental 3D renderer and currently do not add gameplay collision or interaction.
 
 ---
 

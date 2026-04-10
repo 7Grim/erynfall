@@ -322,6 +322,14 @@ public class Renderer3DExperimental {
     }
 
     public boolean renderStaticPropModel(String key, float tileX, float tileY, float alpha) {
+        return renderPlacedStaticPropModel(key, tileX, tileY, 0f, -1f);
+    }
+
+    public boolean renderPlacedStaticPropModel(String key,
+                                               float tileX,
+                                               float tileY,
+                                               float rotationYDegrees,
+                                               float scaleOverride) {
         if (key == null || key.isBlank() || modelLibrary == null || !modelLibrary.hasModel(key)) {
             return false;
         }
@@ -340,8 +348,12 @@ public class Renderer3DExperimental {
         ModelInstance instance = obtainStaticPropInstance(key, model);
         instance.transform.idt();
         instance.transform.translate(tileX + 0.5f, 0f, tileY + 0.5f);
-        if (meta.scale() > 0f && Math.abs(meta.scale() - 1f) > 0.0001f) {
-            instance.transform.scale(meta.scale(), meta.scale(), meta.scale());
+        float effectiveScale = scaleOverride > 0f ? scaleOverride : meta.scale();
+        if (effectiveScale > 0f && Math.abs(effectiveScale - 1f) > 0.0001f) {
+            instance.transform.scale(effectiveScale, effectiveScale, effectiveScale);
+        }
+        if (Math.abs(rotationYDegrees) > 0.0001f) {
+            instance.transform.rotate(Vector3.Y, rotationYDegrees);
         }
         if (!"tile-center".equals(meta.origin())) {
             instance.transform.translate(0f, 0f, 0f);
