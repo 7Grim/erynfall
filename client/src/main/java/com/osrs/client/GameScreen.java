@@ -845,10 +845,7 @@ public class GameScreen extends ApplicationAdapter {
             || "Giant Rat".equals(npcName)
             || "Goblin".equals(npcName)
             || "Chicken".equals(npcName)
-            || "Cow".equals(npcName)
-            || "Banker".equals(npcName)
-            || "Tutorial Guide".equals(npcName)
-            || "Combat Instructor".equals(npcName);
+            || "Cow".equals(npcName);
     }
 
     private void triggerNpcActionFromCombatHit(ClientPacketHandler h, ClientPacketHandler.CombatHitEvent evt) {
@@ -1634,12 +1631,46 @@ public class GameScreen extends ApplicationAdapter {
         if ("Banker".equals(name)) {
             return npcAnimMoving.getOrDefault(entry.entityId(), false) ? "npc_banker_walk" : "npc_banker_idle";
         }
+        if ("Tutorial Guide".equals(name)) {
+            return npcAnimMoving.getOrDefault(entry.entityId(), false) ? "npc_guide_walk" : "npc_guide_idle";
+        }
+        if ("Combat Instructor".equals(name)) {
+            return npcAnimMoving.getOrDefault(entry.entityId(), false) ? "npc_instructor_walk" : "npc_instructor_idle";
+        }
         if ("Goblin".equals(name)) {
             boolean actionActive = npcActionAnimTimer.getOrDefault(entry.entityId(), 0f) > 0f;
             if (actionActive) {
                 return "npc_goblin_action";
             }
             return npcAnimMoving.getOrDefault(entry.entityId(), false) ? "npc_goblin_walk" : "npc_goblin_idle";
+        }
+        if ("Rat".equals(name)) {
+            boolean actionActive = npcActionAnimTimer.getOrDefault(entry.entityId(), 0f) > 0f;
+            if (actionActive) {
+                return "npc_rat_action";
+            }
+            return npcAnimMoving.getOrDefault(entry.entityId(), false) ? "npc_rat_walk" : "npc_rat_idle";
+        }
+        if ("Giant Rat".equals(name)) {
+            boolean actionActive = npcActionAnimTimer.getOrDefault(entry.entityId(), 0f) > 0f;
+            if (actionActive) {
+                return "npc_giant_rat_action";
+            }
+            return npcAnimMoving.getOrDefault(entry.entityId(), false) ? "npc_giant_rat_walk" : "npc_giant_rat_idle";
+        }
+        if ("Chicken".equals(name)) {
+            boolean actionActive = npcActionAnimTimer.getOrDefault(entry.entityId(), 0f) > 0f;
+            if (actionActive) {
+                return "npc_chicken_action";
+            }
+            return npcAnimMoving.getOrDefault(entry.entityId(), false) ? "npc_chicken_walk" : "npc_chicken_idle";
+        }
+        if ("Cow".equals(name)) {
+            boolean actionActive = npcActionAnimTimer.getOrDefault(entry.entityId(), 0f) > 0f;
+            if (actionActive) {
+                return "npc_cow_action";
+            }
+            return npcAnimMoving.getOrDefault(entry.entityId(), false) ? "npc_cow_walk" : "npc_cow_idle";
         }
         return null;
     }
