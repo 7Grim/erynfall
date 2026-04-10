@@ -19,13 +19,23 @@ public final class StaticPropLoader {
         public final int y;
         public final float rotationYDegrees;
         public final float scale;
+        public final String visibility_group;
+        public final String visibilityGroup;
 
-        public StaticPropPlacement(String key, int x, int y, float rotationYDegrees, float scale) {
+        public StaticPropPlacement(String key,
+                                   int x,
+                                   int y,
+                                   float rotationYDegrees,
+                                   float scale,
+                                   String visibilityGroup) {
             this.key = key;
             this.x = x;
             this.y = y;
             this.rotationYDegrees = rotationYDegrees;
             this.scale = scale;
+            String group = visibilityGroup == null ? "base" : visibilityGroup.trim().toLowerCase();
+            this.visibilityGroup = group.isBlank() ? "base" : group;
+            this.visibility_group = this.visibilityGroup;
         }
     }
 
@@ -63,11 +73,12 @@ public final class StaticPropLoader {
                 int y = prop.get("y") instanceof Number n ? n.intValue() : 0;
                 float rotationY = prop.get("rotation_y_degrees") instanceof Number n ? n.floatValue() : 0f;
                 float scale = prop.get("scale") instanceof Number n ? n.floatValue() : 1f;
+                String visibilityGroup = String.valueOf(prop.getOrDefault("visibility_group", "base"));
                 if (scale <= 0f) {
                     scale = 1f;
                 }
 
-                placements.add(new StaticPropPlacement(key, x, y, rotationY, scale));
+                placements.add(new StaticPropPlacement(key, x, y, rotationY, scale, visibilityGroup));
             }
 
             Gdx.app.log("StaticPropLoader", "Loaded " + placements.size() + " placed static props");

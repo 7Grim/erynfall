@@ -91,6 +91,7 @@ public class GameScreen extends ApplicationAdapter {
     private static final Color FALLBACK_ITEM_LOGS = new Color(0.54f, 0.34f, 0.16f, 1f);
     private static final Color FALLBACK_ITEM_ORE = new Color(0.56f, 0.58f, 0.62f, 1f);
     private static final Color FALLBACK_ITEM_OTHER = new Color(0.82f, 0.78f, 0.62f, 1f);
+    private static final float ROOF_PROP_OCCLUSION_ALPHA = 0.24f;
     private static final float BILLBOARD_BASE_PLAYER_HEIGHT = 1.10f;
     private static final float BILLBOARD_BASE_NPC_HEIGHT = 1.05f;
     private static final float GROUND_ITEM_BILLBOARD_BASE_Y = 0.08f;
@@ -1749,9 +1750,25 @@ public class GameScreen extends ApplicationAdapter {
 
         renderer3d.beginStaticPropPass();
         for (StaticPropLoader.StaticPropPlacement prop : staticPropPlacements) {
-            renderer3d.renderPlacedStaticPropModel(prop.key, prop.x, prop.y, prop.rotationYDegrees, prop.scale);
+            if ("roof".equals(prop.visibilityGroup)) {
+                continue;
+            }
+            renderer3d.renderPlacedStaticPropModel(prop.key, prop.x, prop.y, prop.rotationYDegrees, prop.scale, 1f);
+        }
+        for (StaticPropLoader.StaticPropPlacement prop : staticPropPlacements) {
+            if (!"roof".equals(prop.visibilityGroup)) {
+                continue;
+            }
+            float alpha = propOccludesLocalPlayer(prop) ? ROOF_PROP_OCCLUSION_ALPHA : 1f;
+            renderer3d.renderPlacedStaticPropModel(prop.key, prop.x, prop.y, prop.rotationYDegrees, prop.scale, alpha);
         }
         renderer3d.endStaticPropPass();
+    }
+
+    private boolean propOccludesLocalPlayer(StaticPropLoader.StaticPropPlacement prop) {
+        float dx = Math.abs((prop.x + 0.5f) - (visualX + 0.5f));
+        float dy = Math.abs((prop.y + 0.5f) - (visualY + 0.5f));
+        return dx <= 2.5f && dy <= 2.5f;
     }
 
     private TextureRegion resolveGroundItemSpriteRegion3D(int itemId) {

@@ -364,7 +364,7 @@ public class Renderer3DExperimental {
     }
 
     public boolean renderStaticPropModel(String key, float tileX, float tileY, float alpha) {
-        return renderPlacedStaticPropModel(key, tileX, tileY, 0f, -1f);
+        return renderPlacedStaticPropModel(key, tileX, tileY, 0f, -1f, alpha);
     }
 
     public boolean renderPlacedStaticPropModel(String key,
@@ -372,6 +372,15 @@ public class Renderer3DExperimental {
                                                float tileY,
                                                float rotationYDegrees,
                                                float scaleOverride) {
+        return renderPlacedStaticPropModel(key, tileX, tileY, rotationYDegrees, scaleOverride, 1f);
+    }
+
+    public boolean renderPlacedStaticPropModel(String key,
+                                               float tileX,
+                                               float tileY,
+                                               float rotationYDegrees,
+                                               float scaleOverride,
+                                               float alpha) {
         if (key == null || key.isBlank() || modelLibrary == null || !modelLibrary.hasModel(key)) {
             return false;
         }
@@ -401,7 +410,62 @@ public class Renderer3DExperimental {
             instance.transform.translate(0f, 0f, 0f);
         }
 
+        float clampedAlpha = Math.max(0f, Math.min(1f, alpha));
+        float[] previousDiffuseAlpha = null;
+        float[] previousBlendAlpha = null;
+        int[] previousBlendSource = null;
+        int[] previousBlendDest = null;
+        boolean[] hadBlend = null;
+        if (clampedAlpha < 0.999f) {
+            int materialCount = instance.materials.size;
+            previousDiffuseAlpha = new float[materialCount];
+            previousBlendAlpha = new float[materialCount];
+            previousBlendSource = new int[materialCount];
+            previousBlendDest = new int[materialCount];
+            hadBlend = new boolean[materialCount];
+            for (int i = 0; i < materialCount; i++) {
+                Material material = instance.materials.get(i);
+                ColorAttribute diffuse = (ColorAttribute) material.get(ColorAttribute.Diffuse);
+                previousDiffuseAlpha[i] = diffuse != null ? diffuse.color.a : 1f;
+
+                BlendingAttribute blend = (BlendingAttribute) material.get(BlendingAttribute.Type);
+                if (blend != null) {
+                    hadBlend[i] = true;
+                    previousBlendAlpha[i] = blend.opacity;
+                    previousBlendSource[i] = blend.sourceFunction;
+                    previousBlendDest[i] = blend.destFunction;
+                }
+
+                if (diffuse != null) {
+                    diffuse.color.a = clampedAlpha;
+                }
+                material.set(new BlendingAttribute(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA, clampedAlpha));
+            }
+        }
+
+        if (clampedAlpha < 0.999f) {
+            Gdx.gl.glDepthMask(false);
+        }
         modelBatch.render(instance, environment);
+        if (clampedAlpha < 0.999f) {
+            Gdx.gl.glDepthMask(true);
+        }
+
+        if (clampedAlpha < 0.999f) {
+            for (int i = 0; i < instance.materials.size; i++) {
+                Material material = instance.materials.get(i);
+                ColorAttribute diffuse = (ColorAttribute) material.get(ColorAttribute.Diffuse);
+                if (diffuse != null && previousDiffuseAlpha != null) {
+                    diffuse.color.a = previousDiffuseAlpha[i];
+                }
+                if (hadBlend != null && hadBlend[i] && previousBlendAlpha != null
+                    && previousBlendSource != null && previousBlendDest != null) {
+                    material.set(new BlendingAttribute(previousBlendSource[i], previousBlendDest[i], previousBlendAlpha[i]));
+                } else {
+                    material.remove(BlendingAttribute.Type);
+                }
+            }
+        }
 
         if (ownsPass) {
             endStaticPropPass();

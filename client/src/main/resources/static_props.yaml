@@ -4,28 +4,34 @@ props:
     y: 46
     rotation_y_degrees: 0
     scale: 1.0
+    visibility_group: roof
   - key: dock_platform
     x: 48
     y: 42
     rotation_y_degrees: 0
     scale: 1.0
+    visibility_group: base
   - key: dock_stairs
     x: 48
     y: 44
     rotation_y_degrees: 0
     scale: 1.0
+    visibility_group: base
   - key: table_small
     x: 48
     y: 48
     rotation_y_degrees: 0
     scale: 1.0
+    visibility_group: base
   - key: crate_small
     x: 46
     y: 48
     rotation_y_degrees: 0
     scale: 1.0
+    visibility_group: base
   - key: barrel_small
     x: 50
     y: 48
     rotation_y_degrees: 0
     scale: 1.0
+    visibility_group: base
