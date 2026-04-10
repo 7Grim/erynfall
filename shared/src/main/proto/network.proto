@@ -574,6 +574,36 @@ message SmithingMenuOpen {
     repeated SmithingProductOption options = 2;
 }
 
+message OpenShop {
+    int32 npc_id = 1;
+    int64 sequence = 2;
+}
+
+message ShopStockEntry {
+    int32 item_id = 1;
+    string item_name = 2;
+    int32 quantity = 3;
+    int32 price = 4;
+    int32 flags = 5;
+}
+
+message ShopOpen {
+    int32 npc_id = 1;
+    string shop_name = 2;
+    repeated ShopStockEntry stock = 3;
+}
+
+message BuyShopItem {
+    int32 npc_id = 1;
+    int32 item_id = 2;
+    int32 quantity = 3;
+    int64 sequence = 4;
+}
+
+message CloseShop {
+    int64 sequence = 1;
+}
+
 // ChatBroadcast: Server → Client (public chat from a nearby player, broadcast to all in range)
 message ChatBroadcast {
     int32  sender_id   = 1;   // Entity ID of the sender (for overhead text placement)
@@ -664,6 +694,9 @@ message ClientMessage {
         OpenSmithingMenu open_smithing_menu = 38;
         StartSmithingProduct start_smithing_product = 39;
         CloseSmithingMenu close_smithing_menu = 40;
+        OpenShop open_shop = 41;
+        BuyShopItem buy_shop_item = 42;
+        CloseShop close_shop = 43;
     }
 }
 
@@ -703,5 +736,6 @@ message ServerMessage {
         AdminTeleportApplied admin_teleport_applied = 31;
         SmeltingMenuOpen smelting_menu_open = 32;
         SmithingMenuOpen smithing_menu_open = 33;
+        ShopOpen shop_open = 34;
     }
 }

@@ -229,6 +229,37 @@ public class NettyClient {
         LOG.debug("Sent CloseSmithingMenu");
     }
 
+    public void sendOpenShop(int npcId) {
+        if (channel == null || !channel.isActive()) return;
+        channel.writeAndFlush(NetworkProto.ClientMessage.newBuilder()
+            .setOpenShop(NetworkProto.OpenShop.newBuilder()
+                .setNpcId(npcId)
+                .setSequence(System.currentTimeMillis()))
+            .build());
+        LOG.debug("Sent OpenShop: npcId={}", npcId);
+    }
+
+    public void sendBuyShopItem(int npcId, int itemId, int quantity) {
+        if (channel == null || !channel.isActive()) return;
+        channel.writeAndFlush(NetworkProto.ClientMessage.newBuilder()
+            .setBuyShopItem(NetworkProto.BuyShopItem.newBuilder()
+                .setNpcId(npcId)
+                .setItemId(itemId)
+                .setQuantity(quantity)
+                .setSequence(System.currentTimeMillis()))
+            .build());
+        LOG.debug("Sent BuyShopItem: npcId={} itemId={} qty={}", npcId, itemId, quantity);
+    }
+
+    public void sendCloseShop() {
+        if (channel == null || !channel.isActive()) return;
+        channel.writeAndFlush(NetworkProto.ClientMessage.newBuilder()
+            .setCloseShop(NetworkProto.CloseShop.newBuilder()
+                .setSequence(System.currentTimeMillis()))
+            .build());
+        LOG.debug("Sent CloseShop");
+    }
+
     public void sendOpenBankRequest(int npcId) {
         NetworkProto.ClientMessage msg = NetworkProto.ClientMessage.newBuilder()
             .setOpenBankRequest(NetworkProto.OpenBankRequest.newBuilder()

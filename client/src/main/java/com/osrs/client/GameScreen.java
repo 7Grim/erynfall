@@ -40,6 +40,7 @@ import com.osrs.client.ui.MiniMap;
 import com.osrs.client.ui.SidePanel;
 import com.osrs.client.ui.SmithingUI;
 import com.osrs.client.ui.SmeltingUI;
+import com.osrs.client.ui.ShopUI;
 import com.osrs.client.ui.XpDropOverlay;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -73,6 +74,17 @@ public class GameScreen extends ApplicationAdapter {
     private static final Color COLOR_YELLOW = FontManager.TEXT_YELLOW;
     private static final Color COLOR_RED = new Color(1.0f, 0.0f, 0.0f, 1f);
     private static final Color COLOR_GOLD = FontManager.TEXT_GOLD;
+    private static final Color FALLBACK_ACTOR_PLAYER = new Color(0.86f, 0.78f, 0.62f, 1f);
+    private static final Color FALLBACK_ACTOR_TREE = new Color(0.30f, 0.56f, 0.24f, 1f);
+    private static final Color FALLBACK_ACTOR_STONE = new Color(0.52f, 0.52f, 0.56f, 1f);
+    private static final Color FALLBACK_ACTOR_FISH = new Color(0.22f, 0.58f, 0.84f, 1f);
+    private static final Color FALLBACK_ACTOR_FIRE = new Color(0.95f, 0.42f, 0.14f, 1f);
+    private static final Color FALLBACK_ACTOR_OTHER = new Color(0.76f, 0.72f, 0.62f, 1f);
+    private static final Color FALLBACK_ITEM_COINS = new Color(1.0f, 0.85f, 0.15f, 1f);
+    private static final Color FALLBACK_ITEM_BONES = new Color(0.86f, 0.78f, 0.66f, 1f);
+    private static final Color FALLBACK_ITEM_LOGS = new Color(0.54f, 0.34f, 0.16f, 1f);
+    private static final Color FALLBACK_ITEM_ORE = new Color(0.56f, 0.58f, 0.62f, 1f);
+    private static final Color FALLBACK_ITEM_OTHER = new Color(0.82f, 0.78f, 0.62f, 1f);
 
     /** Displayed in the top-right HUD. Update this string each release. */
     private static final String GAME_VERSION = "Alpha 0.0.1";
@@ -135,6 +147,7 @@ public class GameScreen extends ApplicationAdapter {
     private Matrix4          screenProjection;
     private final GlyphLayout gl = new GlyphLayout();
     private final GlyphLayout npcTagLayout = new GlyphLayout();
+    private final Vector3 projectedWorldPoint = new Vector3();
     private RenderZone activeRenderZone;
     private float renderZoneTintR = 1f;
     private float renderZoneTintG = 1f;
@@ -163,6 +176,7 @@ public class GameScreen extends ApplicationAdapter {
     private BankUI       bankUI;
     private SmeltingUI   smeltingUI;
     private SmithingUI   smithingUI;
+    private ShopUI       shopUI;
     private ChatBox      chatBox;
     private MiniMap      miniMap;
     private XpDropOverlay xpDropOverlay;
@@ -503,6 +517,7 @@ public class GameScreen extends ApplicationAdapter {
         bankUI = new BankUI();
         smeltingUI = new SmeltingUI();
         smithingUI = new SmithingUI();
+        shopUI = new ShopUI();
         miniMap = new MiniMap();
         chatBox        = new ChatBox();
         xpDropOverlay  = new XpDropOverlay();
@@ -1064,6 +1079,47 @@ public class GameScreen extends ApplicationAdapter {
         renderer.endWorldShapePass();
     }
 
+    private void renderHealthBarsLayer3D(List<ActorRenderEntry> entries) {
+        if (!use3DRenderer || entries.isEmpty()) {
+            return;
+        }
+        shapeRenderer.setProjectionMatrix(screenProjection);
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+        for (ActorRenderEntry entry : entries) {
+            if (entry.maxHealth() <= 0 || entry.health() >= entry.maxHealth()) {
+                continue;
+            }
+            if (!projectWorldToScreen3D(entry.tileX(), entry.tileY(), entry.isPlayer() ? 2.0f : 2.2f, projectedWorldPoint)) {
+                continue;
+            }
+            float ratio = Math.max(0f, Math.min(1f, entry.health() / (float) Math.max(1, entry.maxHealth())));
+            float w = 34f;
+            float h = 5f;
+            float x = projectedWorldPoint.x - w * 0.5f;
+            float y = projectedWorldPoint.y + 3f;
+
+            shapeRenderer.setColor(0.20f, 0f, 0f, 0.9f);
+            shapeRenderer.rect(x, y, w, h);
+            if (ratio > 0.5f) {
+                shapeRenderer.setColor(0.1f, 0.8f, 0.1f, 0.95f);
+            } else if (ratio > 0.25f) {
+                shapeRenderer.setColor(0.9f, 0.8f, 0.0f, 0.95f);
+            } else {
+                shapeRenderer.setColor(0.9f, 0.1f, 0.1f, 0.95f);
+            }
+            shapeRenderer.rect(x, y, w * ratio, h);
+        }
+        shapeRenderer.end();
+    }
+
+    private boolean projectWorldToScreen3D(float tileX, float tileY, float worldHeight, Vector3 out) {
+        if (camera3d == null) {
+            return false;
+        }
+        out.set(tileX + 0.5f, worldHeight, tileY + 0.5f).prj(camera3d.combined);
+        return out.z >= 0f && out.z <= 1f;
+    }
+
     @Override
     public void render() {
         if (authState == AuthState.FAILED) {
@@ -1177,8 +1233,12 @@ public class GameScreen extends ApplicationAdapter {
         List<ActorRenderEntry> actorEntries = collectActorRenderEntries(handler);
         List<ShadowRenderEntry> shadowEntries = collectShadowRenderEntries(actorEntries);
         if (use3DRenderer) {
-            renderer3d.renderTerrain(tileMap);
+            renderer3d.renderTerrain(tileMap, visualX, visualY);
+            renderer3d.beginEntityPass();
+            renderGroundItemsLayer3D(groundItemEntries);
             renderActorsLayer3D(actorEntries);
+            renderer3d.endEntityPass();
+            renderHealthBarsLayer3D(actorEntries);
         } else {
             renderer2d.renderWorld(tileMap, visualX, visualY, visualX, visualY, activeMaterialProfile);
             renderGroundItemsLayer(groundItemEntries);
@@ -1208,11 +1268,9 @@ public class GameScreen extends ApplicationAdapter {
         chatBox.update(delta);
         xpDropOverlay.update(delta);
         levelUpOverlay.update(delta);
-        if (!use3DRenderer) {
-            renderOtherPlayerNametags();
-            renderOverheadText(delta);
-            renderClickMarkers();
-        }
+        renderOtherPlayerNametags();
+        renderOverheadText(delta);
+        renderClickMarkers();
 
         int w = Gdx.graphics.getWidth(), h = Gdx.graphics.getHeight();
         // Zone ambience affects the world only. UI remains ungraded for readability.
@@ -1226,6 +1284,7 @@ public class GameScreen extends ApplicationAdapter {
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
 
         renderHUD();
+        renderRendererModeLabel();
         if (combatTargetId >= 0) renderOpponentInfo();
         sidePanel.update(delta);
         // Convert LibGDX mouse Y (0=top) to screen Y (0=bottom)
@@ -1241,6 +1300,8 @@ public class GameScreen extends ApplicationAdapter {
             smeltingUI.render(shapeRenderer, screenBatch, font, w, h, screenProjection, mouseScreenX, mouseScreenY);
         } else if (smithingUI.isVisible()) {
             smithingUI.render(shapeRenderer, screenBatch, font, w, h, screenProjection, mouseScreenX, mouseScreenY);
+        } else if (shopUI.isVisible()) {
+            shopUI.render(shapeRenderer, screenBatch, font, w, h, screenProjection, mouseScreenX, mouseScreenY);
         } else {
             chatBox.render(shapeRenderer, screenBatch, font, w, h, screenProjection);
         }
@@ -1322,20 +1383,117 @@ public class GameScreen extends ApplicationAdapter {
     }
 
     private void renderActorsLayer3D(List<ActorRenderEntry> entries) {
-        if (renderer3d == null || spriteSheet == null) {
+        if (renderer3d == null) {
             return;
         }
         for (ActorRenderEntry entry : entries) {
             TextureRegion region = resolveActorSpriteRegion3D(entry);
-            if (region == null) {
-                continue;
-            }
-            float height = Math.max(0.7f, Math.min(2.0f, region.getRegionHeight() / 16f));
-            float width = Math.max(0.4f, Math.min(1.8f, height * (region.getRegionWidth() / (float) Math.max(1, region.getRegionHeight()))));
+            float baseHeight = region != null ? (region.getRegionHeight() / 16f) : 1.05f;
+            float baseWidthRatio = region != null
+                ? (region.getRegionWidth() / (float) Math.max(1, region.getRegionHeight()))
+                : 0.72f;
+            float height = Math.max(0.7f, Math.min(2.0f, baseHeight));
+            float width = Math.max(0.4f, Math.min(1.8f, height * baseWidthRatio));
             float alpha = entry.isPlayer() ? 1f : (isObstructingLocalPlayer(entry) ? 0.35f : 1f);
-            renderer3d.renderEntityBillboard(entry.tileX(), entry.tileY(), region, width, height, alpha);
+            if (region != null) {
+                renderer3d.renderEntityBillboard(entry.tileX(), entry.tileY(), region, width, height, alpha);
+            } else {
+                Color fallback = fallbackActorBillboardColor(entry);
+                renderer3d.renderEntityBillboard(
+                    entry.tileX(),
+                    entry.tileY(),
+                    null,
+                    width,
+                    height,
+                    fallback.r,
+                    fallback.g,
+                    fallback.b,
+                    alpha
+                );
+            }
         }
-        renderer3d.flushEntityBillboards();
+    }
+
+    private void renderGroundItemsLayer3D(List<GroundItemRenderEntry> entries) {
+        if (renderer3d == null || entries.isEmpty()) {
+            return;
+        }
+        for (GroundItemRenderEntry entry : entries) {
+            TextureRegion region = resolveGroundItemSpriteRegion3D(entry.itemId());
+            float height = 0.46f;
+            float width = 0.46f;
+            if (region != null) {
+                float ratio = region.getRegionWidth() / (float) Math.max(1, region.getRegionHeight());
+                width = Math.max(0.34f, Math.min(0.72f, height * ratio));
+                renderer3d.renderEntityBillboard(entry.tileX(), entry.tileY(), region, width, height, 0.95f);
+            } else {
+                Color c = groundItemFallbackColor(entry.itemId());
+                renderer3d.renderEntityBillboard(
+                    entry.tileX(),
+                    entry.tileY(),
+                    null,
+                    width,
+                    height,
+                    c.r,
+                    c.g,
+                    c.b,
+                    0.92f
+                );
+            }
+        }
+    }
+
+    private TextureRegion resolveGroundItemSpriteRegion3D(int itemId) {
+        if (spriteSheet == null) {
+            return null;
+        }
+        String[] keys = {
+            "item_" + itemId,
+            "inv_item_" + itemId,
+            "icon_item_" + itemId,
+            "ground_item_" + itemId
+        };
+        for (String key : keys) {
+            TextureRegion direct = spriteSheet.getTile(key);
+            if (direct != null) {
+                return direct;
+            }
+            com.badlogic.gdx.graphics.g2d.Animation<TextureRegion> anim = spriteSheet.getAnimation(key);
+            if (anim != null) {
+                return anim.getKeyFrame(playerAnimTime, true);
+            }
+        }
+        return null;
+    }
+
+    private Color fallbackActorBillboardColor(ActorRenderEntry entry) {
+        if (entry.isPlayer()) {
+            return FALLBACK_ACTOR_PLAYER;
+        }
+        String name = entry.npcName() == null ? "" : entry.npcName();
+        if (name.contains("Tree")) {
+            return FALLBACK_ACTOR_TREE;
+        }
+        if (name.contains("Rock") || name.contains("Anvil") || name.contains("Furnace")) {
+            return FALLBACK_ACTOR_STONE;
+        }
+        if ("Fishing Spot".equals(name)) {
+            return FALLBACK_ACTOR_FISH;
+        }
+        if ("Cooking Fire".equals(name)) {
+            return FALLBACK_ACTOR_FIRE;
+        }
+        return FALLBACK_ACTOR_OTHER;
+    }
+
+    private Color groundItemFallbackColor(int itemId) {
+        return switch (itemId) {
+            case 995, 1000 -> FALLBACK_ITEM_COINS;
+            case 526 -> FALLBACK_ITEM_BONES;
+            case 1511, 1521, 1522, 1523, 1524, 1525, 1526, 1527 -> FALLBACK_ITEM_LOGS;
+            case 436, 438, 440, 442, 444, 447, 449, 451, 453 -> FALLBACK_ITEM_ORE;
+            default -> FALLBACK_ITEM_OTHER;
+        };
     }
 
     private TextureRegion resolveActorSpriteRegion3D(ActorRenderEntry entry) {
@@ -1485,6 +1643,7 @@ public class GameScreen extends ApplicationAdapter {
         if (dialogueUI != null && dialogueUI.isVisible() && dialogueUI.isOverDialogue(mouseX, mouseY)) return true;
         if (smeltingUI != null && smeltingUI.isVisible() && smeltingUI.isOver(mouseX, mouseY)) return true;
         if (smithingUI != null && smithingUI.isVisible() && smithingUI.isOver(mouseX, mouseY)) return true;
+        if (shopUI != null && shopUI.isVisible() && shopUI.isOver(mouseX, mouseY)) return true;
         if (adminToolsPopup != null && adminToolsPopup.isVisible()) return true;
         if (skillGuidePopup != null && skillGuidePopup.isVisible()) return true;
         if (contextMenu != null && contextMenu.isVisible()) return true;
@@ -1587,6 +1746,8 @@ public class GameScreen extends ApplicationAdapter {
             h.clearSmeltingMenu();
             smithingUI.dismiss();
             h.clearSmithingMenu();
+            shopUI.dismiss();
+            h.clearShop();
         }
 
         playerHealth    = h.getPlayerHealth();
@@ -1791,6 +1952,23 @@ public class GameScreen extends ApplicationAdapter {
             }
         }
 
+        if (h.consumeShopUpdate() && h.isShopOpen()) {
+            List<ShopUI.StockRow> stockRows = new ArrayList<>();
+            for (ClientPacketHandler.ShopStockEntrySnapshot entry : h.getShopStock()) {
+                stockRows.add(new ShopUI.StockRow(
+                    entry.itemId,
+                    entry.itemName,
+                    entry.quantity,
+                    entry.price,
+                    entry.flags
+                ));
+            }
+            shopUI.show(h.getShopNpcId(), h.getShopName(), stockRows);
+            if (pendingNpcId == h.getShopNpcId() && "shop_at".equals(pendingAction)) {
+                clearPendingAction();
+            }
+        }
+
         // Server chat messages ("I can't reach that!", "Too late — it's gone!", etc.)
         for (String msg : h.drainServerChatMessages()) {
             chatBox.addSystemMessage(msg);
@@ -1819,6 +1997,12 @@ public class GameScreen extends ApplicationAdapter {
                 || "You need a hammer to smith items.".equals(msg)
                 || "You do not have bars for anything you can smith.".equals(msg)
                 || msg.contains("smith")
+                || "They are not trading right now.".equals(msg)
+                || "They are not here.".equals(msg)
+                || "You don't have enough coins.".equals(msg)
+                || "This shop doesn't sell that item.".equals(msg)
+                || "Your inventory is too full to buy that.".equals(msg)
+                || msg.startsWith("You buy ")
                 || "You are too busy fighting.".equals(msg)
                 || "Your inventory is too full to hold any more logs.".equals(msg)
                 || "Your inventory is too full to hold any more ore.".equals(msg)) {
@@ -1856,6 +2040,8 @@ public class GameScreen extends ApplicationAdapter {
             h.clearSmeltingMenu();
             smithingUI.dismiss();
             h.clearSmithingMenu();
+            shopUI.dismiss();
+            h.clearShop();
             chatBox.addSystemMessage("Oh dear, you are dead!");
             LOG.info("Death screen shown — respawning at ({}, {})", playerX, playerY);
         }
@@ -2089,6 +2275,11 @@ public class GameScreen extends ApplicationAdapter {
 
         if (smithingUI.isVisible()) {
             handleSmithingInput();
+            return;
+        }
+
+        if (shopUI.isVisible()) {
+            handleShopInput();
             return;
         }
 
@@ -3012,6 +3203,55 @@ public class GameScreen extends ApplicationAdapter {
         }
     }
 
+    private void handleShopInput() {
+        int mx = Gdx.input.getX();
+        int screenMy = Gdx.graphics.getHeight() - Gdx.input.getY();
+
+        if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
+            int shopNpcId = shopUI.getNpcId();
+            shopUI.dismiss();
+            if (nettyClient != null && shopNpcId >= 0) {
+                nettyClient.sendCloseShop();
+            }
+            ClientPacketHandler h = handler();
+            if (h != null) {
+                h.clearShop();
+            }
+            return;
+        }
+
+        if (!Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)) {
+            return;
+        }
+
+        if (!shopUI.isOver(mx, screenMy)) {
+            shopUI.dismiss();
+            if (nettyClient != null) {
+                nettyClient.sendCloseShop();
+            }
+            ClientPacketHandler h = handler();
+            if (h != null) {
+                h.clearShop();
+            }
+            return;
+        }
+
+        shopUI.handleClick(mx, screenMy);
+        ShopUI.PendingPurchase purchase = shopUI.consumePendingPurchase();
+        if (purchase != null && nettyClient != null) {
+            nettyClient.sendBuyShopItem(purchase.npcId, purchase.itemId, purchase.quantity);
+        }
+        if (!shopUI.isVisible()) {
+            if (nettyClient != null) {
+                nettyClient.sendCloseShop();
+            }
+            ClientPacketHandler h = handler();
+            if (h != null) {
+                h.clearShop();
+            }
+        }
+    }
+
     private void submitDialogueOptionByIndex(int index) {
         if (dialogueUI.getCurrentPhase() != DialogueUI.DialoguePhase.PLAYER_CHOOSING) {
             return;
@@ -3031,10 +3271,12 @@ public class GameScreen extends ApplicationAdapter {
         pendingGroundItemId = -1;
         smeltingUI.dismiss();
         smithingUI.dismiss();
+        shopUI.dismiss();
         ClientPacketHandler h = handler();
         if (h != null) {
             h.clearSmeltingMenu();
             h.clearSmithingMenu();
+            h.clearShop();
         }
         chatBox.addSystemMessage("Logging out...");
 
@@ -3478,6 +3720,9 @@ public class GameScreen extends ApplicationAdapter {
             } else if ("bank".equals(pendingAction)) {
                 nettyClient.sendOpenBankRequest(pendingNpcId);
                 pendingActionRetryTimer = 0.25f;
+            } else if ("shop_at".equals(pendingAction)) {
+                nettyClient.sendOpenShop(pendingNpcId);
+                pendingActionRetryTimer = 0.25f;
             }
         }
     }
@@ -3839,6 +4084,7 @@ public class GameScreen extends ApplicationAdapter {
                     boolean isBanker = "Banker".equalsIgnoreCase(rawName);
                     boolean isFishingSupplier = "Fishing Supplier".equalsIgnoreCase(rawName);
                     boolean isSmithingSupplier = "Smithing Supplier".equalsIgnoreCase(rawName);
+                    boolean isShopkeeper = isFishingSupplier || isSmithingSupplier;
 
                     if (level > 0) {
                         // Combat NPC: Attack is the primary option (top)
@@ -3873,7 +4119,8 @@ public class GameScreen extends ApplicationAdapter {
                     } else if (isBanker) {
                         opts.add(new ContextMenu.MenuItem(ContextMenu.Action.BANK, yellowName, id));
                         opts.add(new ContextMenu.MenuItem(ContextMenu.Action.TALK_TO, yellowName, id));
-                    } else if (isFishingSupplier || isSmithingSupplier) {
+                    } else if (isShopkeeper) {
+                        opts.add(new ContextMenu.MenuItem(ContextMenu.Action.SHOP, yellowName, id));
                         opts.add(new ContextMenu.MenuItem(ContextMenu.Action.SUPPLIES, yellowName, id));
                         opts.add(new ContextMenu.MenuItem(ContextMenu.Action.TALK_TO, yellowName, id));
                     } else {
@@ -3894,6 +4141,7 @@ public class GameScreen extends ApplicationAdapter {
             case "talk"   -> startApproach((Integer) item.target, "talk");
             case "supplies" -> startApproach((Integer) item.target, "supplies");
             case "bank"   -> startApproach((Integer) item.target, "bank");
+            case "shop_at" -> startApproach((Integer) item.target, "shop_at");
             case "chop"   -> startApproach((Integer) item.target, "chop");
             case "mine"   -> startApproach((Integer) item.target, "mine");
             case "fish_net" -> startApproach((Integer) item.target, "fish_net");
@@ -4080,6 +4328,84 @@ public class GameScreen extends ApplicationAdapter {
 
         if (overheadTexts.isEmpty() && !prayerIndicatorVisible) return;
 
+        if (use3DRenderer) {
+            if (!overheadTexts.isEmpty()) {
+                screenBatch.setProjectionMatrix(screenProjection);
+                screenBatch.begin();
+            }
+
+            for (Map.Entry<Integer, OverheadText> entry : overheadTexts.entrySet()) {
+                int entityId = entry.getKey();
+                OverheadText ot = entry.getValue();
+
+                float tx;
+                float ty;
+                if (entityId == localPlayerId) {
+                    tx = visualX;
+                    ty = visualY;
+                } else {
+                    float[] vis = npcVisual.get(entityId);
+                    if (vis != null) {
+                        tx = vis[0];
+                        ty = vis[1];
+                    } else if (h != null) {
+                        int[] pos = h.getEntityPosition(entityId);
+                        if (pos == null) {
+                            continue;
+                        }
+                        tx = pos[0];
+                        ty = pos[1];
+                    } else {
+                        continue;
+                    }
+                }
+
+                if (!projectWorldToScreen3D(tx, ty, 2.35f, projectedWorldPoint)) {
+                    continue;
+                }
+
+                float alpha = (ot.timer < 0.5f) ? ot.timer / 0.5f : 1f;
+                gl.setText(font, ot.text);
+                float textX = projectedWorldPoint.x - gl.width * 0.5f;
+                float textY = projectedWorldPoint.y;
+
+                font.setColor(0f, 0f, 0f, alpha * 0.85f);
+                font.draw(screenBatch, ot.text, textX + 1f, textY - 1f);
+                font.setColor(COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b, alpha);
+                font.draw(screenBatch, ot.text, textX, textY);
+            }
+
+            if (!overheadTexts.isEmpty()) {
+                screenBatch.end();
+            }
+
+            int overheadPrayerId = -1;
+            if (localActivePrayers.contains(PRAYER_ID_PROTECT_FROM_MELEE)) {
+                overheadPrayerId = PRAYER_ID_PROTECT_FROM_MELEE;
+            } else if (localActivePrayers.contains(PRAYER_ID_PROTECT_FROM_MISSILES)) {
+                overheadPrayerId = PRAYER_ID_PROTECT_FROM_MISSILES;
+            } else if (localActivePrayers.contains(PRAYER_ID_PROTECT_FROM_MAGIC)) {
+                overheadPrayerId = PRAYER_ID_PROTECT_FROM_MAGIC;
+            }
+
+            if (overheadPrayerId >= 0 && projectWorldToScreen3D(visualX, visualY, 2.7f, projectedWorldPoint)) {
+                shapeRenderer.setProjectionMatrix(screenProjection);
+                shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+                if (overheadPrayerId == PRAYER_ID_PROTECT_FROM_MELEE) {
+                    shapeRenderer.setColor(0.2f, 0.5f, 1.0f, 1f);
+                } else if (overheadPrayerId == PRAYER_ID_PROTECT_FROM_MISSILES) {
+                    shapeRenderer.setColor(0.2f, 0.85f, 0.3f, 1f);
+                } else {
+                    shapeRenderer.setColor(0.85f, 0.2f, 0.2f, 1f);
+                }
+                shapeRenderer.circle(projectedWorldPoint.x, projectedWorldPoint.y, 4f);
+                shapeRenderer.end();
+            }
+
+            font.setColor(COLOR_WHITE);
+            return;
+        }
+
         Gdx.gl.glEnable(GL20.GL_BLEND);
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
 
@@ -4197,6 +4523,11 @@ public class GameScreen extends ApplicationAdapter {
         ClientPacketHandler h = handler();
         if (h == null) return;
 
+        if (use3DRenderer) {
+            renderEntityNametags3D(h);
+            return;
+        }
+
         boolean started = false;
         font.getData().setScale(FontManager.getScale(FontManager.FontContext.TOOLTIP));
 
@@ -4238,8 +4569,114 @@ public class GameScreen extends ApplicationAdapter {
         }
     }
 
+    private void renderEntityNametags3D(ClientPacketHandler h) {
+        boolean started = false;
+        font.getData().setScale(FontManager.getScale(FontManager.FontContext.TOOLTIP));
+
+        for (Map.Entry<Integer, int[]> entry : h.getEntityPositions().entrySet()) {
+            int id = entry.getKey();
+            if (localPlayerId >= 0 && id == localPlayerId) {
+                continue;
+            }
+
+            float[] vis = npcVisual.get(id);
+            float tx;
+            float ty;
+            if (vis != null) {
+                tx = vis[0];
+                ty = vis[1];
+            } else {
+                int[] pos = entry.getValue();
+                tx = pos[0];
+                ty = pos[1];
+            }
+
+            String name = h.getEntityName(id);
+            if (name == null || name.isBlank()) {
+                continue;
+            }
+
+            boolean isPlayerEntity = h.isPlayer(id);
+            float height = isPlayerEntity ? 1.85f : 2.05f;
+            if (!projectWorldToScreen3D(tx, ty, height, projectedWorldPoint)) {
+                continue;
+            }
+
+            if (!started) {
+                screenBatch.setProjectionMatrix(screenProjection);
+                screenBatch.begin();
+                started = true;
+            }
+
+            npcTagLayout.setText(font, name);
+            float textX = projectedWorldPoint.x - npcTagLayout.width * 0.5f;
+            float textY = projectedWorldPoint.y;
+
+            font.setColor(0f, 0f, 0f, 0.8f);
+            font.draw(screenBatch, name, textX + 1f, textY - 1f);
+            if (isPlayerEntity) {
+                font.setColor(COLOR_YELLOW);
+            } else {
+                font.setColor(0.92f, 0.92f, 0.86f, 1f);
+            }
+            font.draw(screenBatch, name, textX, textY);
+        }
+
+        font.getData().setScale(FontManager.getScale(FontManager.FontContext.BASE_UI));
+        font.setColor(COLOR_WHITE);
+        if (started) {
+            screenBatch.end();
+        }
+    }
+
     private void renderClickMarkers() {
         if (clickMarkers.isEmpty()) return;
+
+        if (use3DRenderer) {
+            shapeRenderer.setProjectionMatrix(screenProjection);
+            shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+            for (ClickMarker m : clickMarkers) {
+                if (m.expired()) {
+                    continue;
+                }
+                if (!projectWorldToScreen3D(m.tileX, m.tileY, 0.05f, projectedWorldPoint)) {
+                    continue;
+                }
+
+                float alpha = m.alpha();
+                float sx = projectedWorldPoint.x;
+                float sy = projectedWorldPoint.y;
+                float rot = m.rotationRad();
+
+                if (m.isAction) {
+                    shapeRenderer.setColor(1f, 0.18f, 0.18f, alpha);
+                } else {
+                    shapeRenderer.setColor(1f, 1f, 0f, alpha);
+                }
+
+                float outerR = 9f;
+                float innerR = 3.5f;
+                float wingW = 2.5f;
+                for (int i = 0; i < 4; i++) {
+                    float arm = rot + i * com.badlogic.gdx.math.MathUtils.PI / 2f;
+                    float perp = arm + com.badlogic.gdx.math.MathUtils.PI / 2f;
+                    float cosArm = com.badlogic.gdx.math.MathUtils.cos(arm);
+                    float sinArm = com.badlogic.gdx.math.MathUtils.sin(arm);
+                    float cosPerp = com.badlogic.gdx.math.MathUtils.cos(perp);
+                    float sinPerp = com.badlogic.gdx.math.MathUtils.sin(perp);
+
+                    float tipX = sx + cosArm * outerR;
+                    float tipY = sy + sinArm * outerR;
+                    float b1x = sx + cosArm * innerR + cosPerp * wingW;
+                    float b1y = sy + sinArm * innerR + sinPerp * wingW;
+                    float b2x = sx + cosArm * innerR - cosPerp * wingW;
+                    float b2y = sy + sinArm * innerR - sinPerp * wingW;
+                    shapeRenderer.triangle(tipX, tipY, b1x, b1y, b2x, b2y);
+                }
+            }
+            shapeRenderer.end();
+            return;
+        }
 
         Gdx.gl.glEnable(GL20.GL_BLEND);
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
@@ -4642,6 +5079,26 @@ public class GameScreen extends ApplicationAdapter {
         // Always reset font to defaults after HUD draw
         font.setColor(COLOR_WHITE);
         font.getData().setScale(FontManager.getScale(FontManager.FontContext.BASE_UI));
+    }
+
+    private void renderRendererModeLabel() {
+        int w = Gdx.graphics.getWidth();
+        int h = Gdx.graphics.getHeight();
+        String modeLabel = use3DRenderer ? "Renderer: 3D Experimental" : "Renderer: 2D Isometric";
+
+        screenBatch.setProjectionMatrix(screenProjection);
+        screenBatch.begin();
+        font.getData().setScale(FontManager.getScale(FontManager.FontContext.SMALL_LABEL));
+        gl.setText(font, modeLabel);
+        float x = w - gl.width - 12f;
+        float y = h - 12f;
+        font.setColor(0f, 0f, 0f, 0.75f);
+        font.draw(screenBatch, modeLabel, x + 1f, y - 1f);
+        font.setColor(0.88f, 0.88f, 0.88f, 0.95f);
+        font.draw(screenBatch, modeLabel, x, y);
+        font.getData().setScale(FontManager.getScale(FontManager.FontContext.BASE_UI));
+        font.setColor(COLOR_WHITE);
+        screenBatch.end();
     }
 
     // -----------------------------------------------------------------------

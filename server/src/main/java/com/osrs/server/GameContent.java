@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.osrs.server.quest.DialogueEngine;
 import com.osrs.server.quest.Quest;
+import com.osrs.shared.ShopDefinition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -17,6 +18,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.Locale;
 
 /**
  * Game content initialization (quests, dialogues, etc.).
@@ -29,11 +31,15 @@ public class GameContent {
     private final DialogueEngine dialogueEngine;
     private final Map<Integer, String> npcInitialDialogueIds;
     private final Map<Integer, Quest> questDefinitions;
+    private final Map<String, ShopDefinition> shopDefinitionsById;
+    private final Map<String, ShopDefinition> shopDefinitionsByNpcName;
     
     public GameContent() {
         this.dialogueEngine = new DialogueEngine();
         this.npcInitialDialogueIds = new HashMap<>();
         this.questDefinitions = new LinkedHashMap<>();
+        this.shopDefinitionsById = new LinkedHashMap<>();
+        this.shopDefinitionsByNpcName = new LinkedHashMap<>();
     }
     
     /**
@@ -44,9 +50,10 @@ public class GameContent {
 
         int dialogueCount = loadDialoguesFromYaml();
         int questCount = loadQuestsFromYaml();
+        int shopCount = loadShopsFromYaml();
 
-        LOG.info("Loaded {} dialogues, {} quest definitions, {} NPC dialogue entry points",
-            dialogueCount, questCount, npcInitialDialogueIds.size());
+        LOG.info("Loaded {} dialogues, {} quest definitions, {} shops, {} NPC dialogue entry points",
+            dialogueCount, questCount, shopCount, npcInitialDialogueIds.size());
     }
 
     @SuppressWarnings("unchecked")
@@ -238,6 +245,81 @@ public class GameContent {
         String asString = value.toString();
         return asString.isBlank() ? null : asString;
     }
+
+    @SuppressWarnings("unchecked")
+    private int loadShopsFromYaml() {
+        shopDefinitionsById.clear();
+        shopDefinitionsByNpcName.clear();
+
+        try (InputStream is = openContentStream("shops.yaml")) {
+            if (is == null) {
+                LOG.info("shops.yaml not found; no data-driven shops loaded");
+                return 0;
+            }
+
+            ObjectMapper mapper = new ObjectMapper(new YAMLFactory());
+            Map<String, Object> root = mapper.readValue(is, Map.class);
+            Object shopsObj = root.get("shops");
+            if (!(shopsObj instanceof List<?> shopsList)) {
+                LOG.warn("shops.yaml missing 'shops' list");
+                return 0;
+            }
+
+            int loaded = 0;
+            for (Object shopObj : shopsList) {
+                if (!(shopObj instanceof Map<?, ?> shopMapRaw)) {
+                    continue;
+                }
+                Map<String, Object> shopMap = (Map<String, Object>) shopMapRaw;
+                String id = getString(shopMap, "id", "").trim();
+                String name = getString(shopMap, "name", "").trim();
+                String npcName = getString(shopMap, "npc_name", "").trim();
+                if (id.isEmpty() || name.isEmpty() || npcName.isEmpty()) {
+                    LOG.warn("Skipping invalid shop definition (id='{}', name='{}', npc_name='{}')", id, name, npcName);
+                    continue;
+                }
+
+                List<ShopDefinition.StockEntry> stockEntries = new java.util.ArrayList<>();
+                Object stockObj = shopMap.get("stock");
+                if (stockObj instanceof List<?> stockList) {
+                    for (Object stockEntryObj : stockList) {
+                        if (!(stockEntryObj instanceof Map<?, ?> stockMapRaw)) {
+                            continue;
+                        }
+                        Map<String, Object> stockMap = (Map<String, Object>) stockMapRaw;
+                        int itemId = getInt(stockMap, "item_id", -1);
+                        int quantity = Math.max(0, getInt(stockMap, "quantity", 0));
+                        Integer price = stockMap.containsKey("price")
+                            ? Integer.valueOf(getInt(stockMap, "price", 0))
+                            : null;
+                        if (itemId <= 0 || quantity <= 0) {
+                            LOG.warn("Skipping invalid stock entry in shop '{}' (item_id={}, quantity={})", id, itemId, quantity);
+                            continue;
+                        }
+                        if (price != null && price <= 0) {
+                            price = null;
+                        }
+                        stockEntries.add(new ShopDefinition.StockEntry(itemId, quantity, price));
+                    }
+                }
+
+                if (stockEntries.isEmpty()) {
+                    LOG.warn("Skipping shop '{}' because it has no valid stock entries", id);
+                    continue;
+                }
+
+                ShopDefinition shop = new ShopDefinition(id, name, npcName, List.copyOf(stockEntries));
+                shopDefinitionsById.put(id, shop);
+                shopDefinitionsByNpcName.put(npcName.toLowerCase(Locale.ROOT), shop);
+                loaded++;
+            }
+
+            return loaded;
+        } catch (Exception e) {
+            LOG.error("Failed to load shops.yaml", e);
+            return 0;
+        }
+    }
     
     public DialogueEngine getDialogueEngine() {
         return dialogueEngine;
@@ -249,5 +331,19 @@ public class GameContent {
 
     public Map<Integer, Quest> getQuestDefinitions() {
         return new LinkedHashMap<>(questDefinitions);
+    }
+
+    public ShopDefinition getShopByNpcName(String npcName) {
+        if (npcName == null || npcName.isBlank()) {
+            return null;
+        }
+        return shopDefinitionsByNpcName.get(npcName.toLowerCase(Locale.ROOT));
+    }
+
+    public ShopDefinition getShopById(String shopId) {
+        if (shopId == null || shopId.isBlank()) {
+            return null;
+        }
+        return shopDefinitionsById.get(shopId);
     }
 }

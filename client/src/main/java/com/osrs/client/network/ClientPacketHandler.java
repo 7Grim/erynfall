@@ -382,6 +382,33 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
     private volatile boolean smithingMenuUpdatePending = false;
     private volatile int smithingMenuNpcId = -1;
 
+    public static class ShopStockEntrySnapshot {
+        public final int itemId;
+        public final String itemName;
+        public final int quantity;
+        public final int price;
+        public final int flags;
+
+        public ShopStockEntrySnapshot(int itemId,
+                                      String itemName,
+                                      int quantity,
+                                      int price,
+                                      int flags) {
+            this.itemId = itemId;
+            this.itemName = itemName == null ? "" : itemName;
+            this.quantity = quantity;
+            this.price = price;
+            this.flags = flags;
+        }
+    }
+
+    private final Object shopLock = new Object();
+    private final List<ShopStockEntrySnapshot> shopStock = new ArrayList<>();
+    private volatile boolean shopOpen = false;
+    private volatile boolean shopUpdatePending = false;
+    private volatile int shopNpcId = -1;
+    private volatile String shopName = "";
+
     public ClientPacketHandler(NettyClient client) {
         this.client = client;
     }
@@ -431,6 +458,7 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
             case ADMIN_TELEPORT_APPLIED -> handleAdminTeleportApplied(packet.getAdminTeleportApplied());
             case SMELTING_MENU_OPEN -> handleSmeltingMenuOpen(packet.getSmeltingMenuOpen());
             case SMITHING_MENU_OPEN -> handleSmithingMenuOpen(packet.getSmithingMenuOpen());
+            case SHOP_OPEN -> handleShopOpen(packet.getShopOpen());
             default -> LOG.debug("Unhandled server message: {}", packet.getPayloadCase());
         }
     }
@@ -1114,6 +1142,27 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
         smithingMenuUpdatePending = true;
     }
 
+    private void handleShopOpen(NetworkProto.ShopOpen msg) {
+        List<ShopStockEntrySnapshot> snapshot = new ArrayList<>();
+        for (NetworkProto.ShopStockEntry stockEntry : msg.getStockList()) {
+            snapshot.add(new ShopStockEntrySnapshot(
+                stockEntry.getItemId(),
+                stockEntry.getItemName(),
+                stockEntry.getQuantity(),
+                stockEntry.getPrice(),
+                stockEntry.getFlags()
+            ));
+        }
+        synchronized (shopLock) {
+            shopStock.clear();
+            shopStock.addAll(snapshot);
+        }
+        shopNpcId = msg.getNpcId();
+        shopName = msg.getShopName();
+        shopOpen = true;
+        shopUpdatePending = true;
+    }
+
     /** Drain server chat messages queued this frame. */
     public List<String> drainServerChatMessages() {
         if (serverChatMessages.isEmpty()) return List.of();
@@ -1253,6 +1302,40 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
         smithingMenuOpen = false;
         smithingMenuNpcId = -1;
         smithingMenuUpdatePending = false;
+    }
+
+    public boolean consumeShopUpdate() {
+        boolean updated = shopUpdatePending;
+        shopUpdatePending = false;
+        return updated;
+    }
+
+    public boolean isShopOpen() {
+        return shopOpen;
+    }
+
+    public int getShopNpcId() {
+        return shopNpcId;
+    }
+
+    public String getShopName() {
+        return shopName;
+    }
+
+    public List<ShopStockEntrySnapshot> getShopStock() {
+        synchronized (shopLock) {
+            return Collections.unmodifiableList(new ArrayList<>(shopStock));
+        }
+    }
+
+    public void clearShop() {
+        synchronized (shopLock) {
+            shopStock.clear();
+        }
+        shopOpen = false;
+        shopUpdatePending = false;
+        shopNpcId = -1;
+        shopName = "";
     }
 
     /** A public chat message from a nearby player. */
