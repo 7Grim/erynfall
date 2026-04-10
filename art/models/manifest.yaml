@@ -984,3 +984,211 @@ assets:
     rot_x: 0.0
     rot_y: 0.0
     rot_z: -18.0
+  - key: equip_weapon_shortbow
+    file: equip_weapon_shortbow.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Weapon attachment for Shortbow.
+    equip_slot: 4
+    item_id: 841
+    offset_x: 0.0
+    offset_y: 0.0
+    offset_z: 0.0
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: 0.0
+  - key: equip_weapon_oak_shortbow
+    file: equip_weapon_oak_shortbow.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Weapon attachment for Oak shortbow.
+    equip_slot: 4
+    item_id: 843
+    offset_x: 0.0
+    offset_y: 0.0
+    offset_z: 0.0
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: 0.0
+  - key: equip_weapon_willow_shortbow
+    file: equip_weapon_willow_shortbow.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Weapon attachment for Willow shortbow.
+    equip_slot: 4
+    item_id: 849
+    offset_x: 0.0
+    offset_y: 0.0
+    offset_z: 0.0
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: 0.0
+  - key: equip_weapon_maple_shortbow
+    file: equip_weapon_maple_shortbow.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Weapon attachment for Maple shortbow.
+    equip_slot: 4
+    item_id: 853
+    offset_x: 0.0
+    offset_y: 0.0
+    offset_z: 0.0
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: 0.0
+  - key: equip_weapon_yew_shortbow
+    file: equip_weapon_yew_shortbow.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Weapon attachment for Yew shortbow.
+    equip_slot: 4
+    item_id: 857
+    offset_x: 0.0
+    offset_y: 0.0
+    offset_z: 0.0
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: 0.0
+  - key: equip_weapon_magic_shortbow
+    file: equip_weapon_magic_shortbow.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Weapon attachment for Magic shortbow.
+    equip_slot: 4
+    item_id: 861
+    offset_x: 0.0
+    offset_y: 0.0
+    offset_z: 0.0
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: 0.0
+  - key: equip_weapon_longbow
+    file: equip_weapon_longbow.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Weapon attachment for Longbow.
+    equip_slot: 4
+    item_id: 839
+    offset_x: 0.0
+    offset_y: 0.0
+    offset_z: 0.0
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: 0.0
+  - key: equip_weapon_oak_longbow
+    file: equip_weapon_oak_longbow.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Weapon attachment for Oak longbow.
+    equip_slot: 4
+    item_id: 845
+    offset_x: 0.0
+    offset_y: 0.0
+    offset_z: 0.0
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: 0.0
+  - key: equip_weapon_willow_longbow
+    file: equip_weapon_willow_longbow.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Weapon attachment for Willow longbow.
+    equip_slot: 4
+    item_id: 847
+    offset_x: 0.0
+    offset_y: 0.0
+    offset_z: 0.0
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: 0.0
+  - key: equip_weapon_maple_longbow
+    file: equip_weapon_maple_longbow.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Weapon attachment for Maple longbow.
+    equip_slot: 4
+    item_id: 851
+    offset_x: 0.0
+    offset_y: 0.0
+    offset_z: 0.0
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: 0.0
+  - key: equip_weapon_yew_longbow
+    file: equip_weapon_yew_longbow.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Weapon attachment for Yew longbow.
+    equip_slot: 4
+    item_id: 855
+    offset_x: 0.0
+    offset_y: 0.0
+    offset_z: 0.0
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: 0.0
+  - key: equip_weapon_magic_longbow
+    file: equip_weapon_magic_longbow.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Weapon attachment for Magic longbow.
+    equip_slot: 4
+    item_id: 859
+    offset_x: 0.0
+    offset_y: 0.0
+    offset_z: 0.0
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: 0.0
+  - key: equip_weapon_air_staff
+    file: equip_weapon_air_staff.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Weapon attachment for Air staff.
+    equip_slot: 4
+    item_id: 1381
+    offset_x: 0.0
+    offset_y: 0.0
+    offset_z: 0.0
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: 0.0

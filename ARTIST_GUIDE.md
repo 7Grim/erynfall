@@ -404,6 +404,7 @@ Equipment attachment prototype notes:
 - Missing attachment models are expected and safe; the base player model still renders.
 - This is first-pass coverage only. Not every equipable item needs an attachment model yet.
 - Remote players may continue using billboard rendering while local-player composition is being evaluated.
+- Current weapon attachment coverage includes axes, pickaxes, scimitars, shortbows, longbows, and air staff.
 
 ---
 
