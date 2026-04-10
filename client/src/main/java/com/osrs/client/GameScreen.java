@@ -1429,19 +1429,31 @@ public class GameScreen extends ApplicationAdapter {
                 continue;
             }
             ActorRenderEntry entry = entries.get(i);
-            if (entry.isPlayer() && entry.entityId() == localPlayerId) {
+            if (entry.isPlayer()) {
                 String basePlayerModelKey = resolveActorModelKey3D(entry);
                 if (basePlayerModelKey != null) {
-                    populateLocalPlayerEquipmentModelIds();
                     float yawDegrees = actorModelYawDegrees(entry);
-                    if (renderer3d.renderPlayerModelComposed(
-                        basePlayerModelKey,
-                        entry.tileX(),
-                        entry.tileY(),
-                        yawDegrees,
-                        localPlayerEquipmentModelIds
-                    )) {
-                        modelRendered[i] = true;
+                    if (entry.entityId() == localPlayerId) {
+                        populateLocalPlayerEquipmentModelIds();
+                        if (renderer3d.renderPlayerModelComposed(
+                            basePlayerModelKey,
+                            entry.tileX(),
+                            entry.tileY(),
+                            yawDegrees,
+                            localPlayerEquipmentModelIds
+                        )) {
+                            modelRendered[i] = true;
+                        }
+                    } else {
+                        if (renderer3d.renderActorModel(
+                            basePlayerModelKey,
+                            entry.tileX(),
+                            entry.tileY(),
+                            yawDegrees,
+                            1f
+                        )) {
+                            modelRendered[i] = true;
+                        }
                     }
                 }
                 continue;
@@ -1595,28 +1607,27 @@ public class GameScreen extends ApplicationAdapter {
 
     private String resolveActorModelKey3D(ActorRenderEntry entry) {
         if (entry.isPlayer()) {
-            if (entry.entityId() != localPlayerId) {
-                return null;
+            if (entry.entityId() == localPlayerId) {
+                if (entry.pickingUp()) {
+                    return "player_pickup";
+                }
+                if ("chop".equals(entry.playerPose())) {
+                    return "player_chop";
+                }
+                if ("mine".equals(entry.playerPose())) {
+                    return "player_mine";
+                }
+                if (entry.playerPose() != null && entry.playerPose().startsWith("fish")) {
+                    return "player_fish";
+                }
+                if ("sword".equals(entry.playerPose())) {
+                    return "player_sword";
+                }
+                if ("spear".equals(entry.playerPose())) {
+                    return "player_spear";
+                }
             }
-            if (entry.pickingUp()) {
-                return "player_pickup";
-            }
-            if ("chop".equals(entry.playerPose())) {
-                return "player_chop";
-            }
-            if ("mine".equals(entry.playerPose())) {
-                return "player_mine";
-            }
-            if (entry.playerPose() != null && entry.playerPose().startsWith("fish")) {
-                return "player_fish";
-            }
-            if ("sword".equals(entry.playerPose())) {
-                return "player_sword";
-            }
-            if ("spear".equals(entry.playerPose())) {
-                return "player_spear";
-            }
-            return playerAnimMoving ? "player_walk" : "player_idle";
+            return playerAnimMovingForEntry(entry) ? "player_walk" : "player_idle";
         }
 
         String name = entry.npcName();
@@ -1646,6 +1657,16 @@ public class GameScreen extends ApplicationAdapter {
             case "w" -> 90f;
             default -> 0f;
         };
+    }
+
+    private boolean playerAnimMovingForEntry(ActorRenderEntry entry) {
+        if (!entry.isPlayer()) {
+            return false;
+        }
+        if (entry.entityId() == localPlayerId) {
+            return playerAnimMoving;
+        }
+        return npcAnimMoving.getOrDefault(entry.entityId(), false);
     }
 
     private void populateLocalPlayerEquipmentModelIds() {
