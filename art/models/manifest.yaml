@@ -1192,3 +1192,131 @@ assets:
     rot_x: 0.0
     rot_y: 0.0
     rot_z: 0.0
+  - key: equip_head_leather_cowl
+    file: equip_head_leather_cowl.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Leather cowl attachment.
+    equip_slot: 0
+    item_id: 1167
+    offset_x: 0.0
+    offset_y: 1.16
+    offset_z: 0.0
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: 0.0
+  - key: equip_body_leather_body
+    file: equip_body_leather_body.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Leather body attachment.
+    equip_slot: 6
+    item_id: 2129
+    offset_x: 0.0
+    offset_y: 0.84
+    offset_z: 0.0
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: 0.0
+  - key: equip_legs_leather_chaps
+    file: equip_legs_leather_chaps.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Leather chaps attachment.
+    equip_slot: 7
+    item_id: 1095
+    offset_x: 0.0
+    offset_y: 0.38
+    offset_z: 0.0
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: 0.0
+  - key: equip_hands_leather_gloves
+    file: equip_hands_leather_gloves.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Leather gloves attachment.
+    equip_slot: 8
+    item_id: 1059
+    offset_x: 0.0
+    offset_y: 0.82
+    offset_z: 0.0
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: 0.0
+  - key: equip_feet_leather_boots
+    file: equip_feet_leather_boots.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Leather boots attachment.
+    equip_slot: 9
+    item_id: 1061
+    offset_x: 0.0
+    offset_y: 0.08
+    offset_z: 0.0
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: 0.0
+  - key: equip_head_blue_wizard_hat
+    file: equip_head_blue_wizard_hat.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Blue wizard hat attachment.
+    equip_slot: 0
+    item_id: 579
+    offset_x: 0.0
+    offset_y: 1.18
+    offset_z: 0.0
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: 0.0
+  - key: equip_body_blue_wizard_robe
+    file: equip_body_blue_wizard_robe.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Blue wizard robe attachment.
+    equip_slot: 6
+    item_id: 577
+    offset_x: 0.0
+    offset_y: 0.84
+    offset_z: 0.0
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: 0.0
+  - key: equip_legs_blue_wizard_skirt
+    file: equip_legs_blue_wizard_skirt.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Blue wizard robe skirt attachment.
+    equip_slot: 7
+    item_id: 1011
+    offset_x: 0.0
+    offset_y: 0.38
+    offset_z: 0.0
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: 0.0

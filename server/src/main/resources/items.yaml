@@ -946,6 +946,123 @@ items:
     ranged_strength: 49
     ranged_req: 40
 
+  # ── Starter ranged armour ─────────────────────────────────────────────────
+
+  - id: 1167
+    name: "Leather cowl"
+    examine: "Soft leather headgear."
+    stackable: false
+    store_value: 12
+    equipable: true
+    consumable: false
+    equip_slot: 0
+    stab_defence: 1
+    slash_defence: 2
+    crush_defence: 1
+    magic_defence: 1
+    ranged_defence: 3
+    ranged_attack: 1
+    ranged_req: 1
+
+  # Note: 1129 is already used by Mithril platebody in this project.
+  - id: 2129
+    name: "Leather body"
+    examine: "Basic ranged protection."
+    stackable: false
+    store_value: 18
+    equipable: true
+    consumable: false
+    equip_slot: 6
+    stab_defence: 3
+    slash_defence: 4
+    crush_defence: 2
+    magic_defence: 2
+    ranged_defence: 6
+    ranged_attack: 4
+    ranged_req: 1
+
+  - id: 1095
+    name: "Leather chaps"
+    examine: "Basic ranged legwear."
+    stackable: false
+    store_value: 15
+    equipable: true
+    consumable: false
+    equip_slot: 7
+    stab_defence: 2
+    slash_defence: 3
+    crush_defence: 2
+    magic_defence: 1
+    ranged_defence: 4
+    ranged_attack: 2
+    ranged_req: 1
+
+  - id: 1059
+    name: "Leather gloves"
+    examine: "Made from soft leather."
+    stackable: false
+    store_value: 6
+    equipable: true
+    consumable: false
+    equip_slot: 8
+    stab_defence: 1
+    slash_defence: 1
+    crush_defence: 1
+    ranged_defence: 1
+    ranged_req: 1
+
+  - id: 1061
+    name: "Leather boots"
+    examine: "Lightweight leather boots."
+    stackable: false
+    store_value: 6
+    equipable: true
+    consumable: false
+    equip_slot: 9
+    stab_defence: 1
+    slash_defence: 1
+    crush_defence: 1
+    ranged_defence: 1
+    ranged_req: 1
+
+  # ── Starter magic armour ──────────────────────────────────────────────────
+
+  - id: 579
+    name: "Blue wizard hat"
+    examine: "A silly pointed hat."
+    stackable: false
+    store_value: 20
+    equipable: true
+    consumable: false
+    equip_slot: 0
+    magic_attack: 2
+    magic_defence: 1
+    defence_req: 1
+
+  - id: 577
+    name: "Blue wizard robe"
+    examine: "A robe worn by beginner wizards."
+    stackable: false
+    store_value: 30
+    equipable: true
+    consumable: false
+    equip_slot: 6
+    magic_attack: 4
+    magic_defence: 2
+    defence_req: 1
+
+  - id: 1011
+    name: "Blue wizard robe skirt"
+    examine: "A robe skirt worn by beginner wizards."
+    stackable: false
+    store_value: 25
+    equipable: true
+    consumable: false
+    equip_slot: 7
+    magic_attack: 3
+    magic_defence: 1
+    defence_req: 1
+
   # ── Shields ───────────────────────────────────────────────────────────────
   # Source: https://oldschool.runescape.wiki/w/Wooden_shield  (tutorial item)
 
