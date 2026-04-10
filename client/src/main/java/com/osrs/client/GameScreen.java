@@ -7,12 +7,15 @@ import com.badlogic.gdx.InputAdapter;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.OrthographicCamera;
+import com.badlogic.gdx.graphics.PerspectiveCamera;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.GlyphLayout;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.Matrix4;
 import com.badlogic.gdx.math.Vector3;
+import com.badlogic.gdx.math.collision.Ray;
 import com.osrs.protocol.NetworkProto;
 import com.osrs.client.auth.AuthApiClient;
 import com.osrs.client.network.ClientPacketHandler;
@@ -20,6 +23,7 @@ import com.osrs.client.network.NettyClient;
 import com.osrs.client.renderer.CoordinateConverter;
 import com.osrs.client.renderer.IsometricRenderer;
 import com.osrs.client.renderer.RenderZone;
+import com.osrs.client.renderer.Renderer3DExperimental;
 import com.osrs.client.audio.AudioManager;
 import com.osrs.client.renderer.SpriteSheet;
 import com.osrs.client.world.MapLoader;
@@ -113,6 +117,15 @@ public class GameScreen extends ApplicationAdapter {
     private SpriteBatch      batch;
     private SpriteBatch      screenBatch;
     private ShapeRenderer    shapeRenderer;
+    // 3D migration model:
+    // keep the current isometric renderer alive while a PerspectiveCamera-based
+    // world renderer is brought up behind a runtime toggle. Gameplay/network/UI
+    // stay unchanged; only world presentation and world picking differ.
+    private OrthographicCamera camera2d;
+    private PerspectiveCamera camera3d;
+    private IsometricRenderer renderer2d;
+    private Renderer3DExperimental renderer3d;
+    private boolean use3DRenderer = true;
     private OrthographicCamera camera;
     private IsometricRenderer renderer;
     /** Null when sprites.atlas has not been packed yet — falls back to ShapeRenderer. */
@@ -129,6 +142,15 @@ public class GameScreen extends ApplicationAdapter {
     private float renderZoneTintAlpha = 0f;
     private float renderZoneVignetteAlpha = 0f;
     private String activeMaterialProfile = "neutral";
+    private float cameraYaw = 0f;
+    private float cameraPitch = 0.9f;
+    private float cameraDistance = 12f;
+    private static final float CAMERA_DISTANCE_MIN = 6f;
+    private static final float CAMERA_DISTANCE_MAX = 24f;
+    private static final float PITCH_MIN = 0.3f;
+    private static final float PITCH_MAX = 1.4f;
+    private static final float YAW_SPEED = 1.8f;
+    private static final float PITCH_SPEED = 1.2f;
 
     // -----------------------------------------------------------------------
     // Game objects
@@ -423,9 +445,14 @@ public class GameScreen extends ApplicationAdapter {
         batch        = new SpriteBatch();
         screenBatch  = new SpriteBatch();
         shapeRenderer = new ShapeRenderer();
-        camera       = new OrthographicCamera(Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
-        camera.position.set(0, 0, 0);
-        camera.update();
+        camera2d = new OrthographicCamera(Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
+        camera2d.position.set(0, 0, 0);
+        camera2d.update();
+        camera = camera2d;
+        renderer2d = new IsometricRenderer(camera2d, batch, shapeRenderer);
+        renderer = renderer2d;
+        renderer3d = new Renderer3DExperimental(Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
+        camera3d = renderer3d.getCamera();
 
         Gdx.input.setInputProcessor(new InputAdapter() {
             @Override
@@ -461,11 +488,12 @@ public class GameScreen extends ApplicationAdapter {
         screenProjection = new Matrix4().setToOrtho2D(
             0, 0, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
 
-        renderer   = new IsometricRenderer(camera, batch, shapeRenderer);
         spriteSheet = SpriteSheet.load();
-        renderer.setSpriteSheet(spriteSheet);
+        renderer2d.setSpriteSheet(spriteSheet);
+        renderer3d.setSpriteSheet(spriteSheet);
         mapLoader  = MapLoader.load();
         tileMap    = mapLoader.getLayout();
+        renderer3d.rebuildTerrain(tileMap);
         contextMenu = new ContextMenu();
         combatUI   = new CombatUI();
         sidePanel  = new SidePanel();
@@ -1061,7 +1089,7 @@ public class GameScreen extends ApplicationAdapter {
         }
 
         Gdx.gl.glClearColor(0.12f, 0.12f, 0.12f, 1f);
-        Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
+        Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT | GL20.GL_DEPTH_BUFFER_BIT);
 
         float delta = Gdx.graphics.getDeltaTime();
 
@@ -1089,49 +1117,55 @@ public class GameScreen extends ApplicationAdapter {
             if (attackAnimTimer == 0f && !isWoodcuttingActive && !isMiningActive) currentAttackPose = "idle";
         }
 
-        // Mouse scroll wheel zoom controls - OSRS-style
-        if (pendingScrollAmount != 0) {
-            targetZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX,
-                targetZoom + pendingScrollAmount * 0.1f));
-            pendingScrollAmount = 0;
-        }
-
-        // Middle mouse button resets zoom to OSRS default
-        if (Gdx.input.isButtonJustPressed(Input.Buttons.MIDDLE)) {
-            targetZoom = ZOOM_DEFAULT;
+        if (Gdx.input.isKeyJustPressed(Input.Keys.F9)) {
+            use3DRenderer = !use3DRenderer;
+            LOG.info("Renderer mode switched: {}", use3DRenderer ? "3D experimental" : "2D isometric");
         }
 
         // F5: hot-reload sprite atlas (run mvn generate-resources -pl client first)
         if (Gdx.input.isKeyJustPressed(Input.Keys.F5)) {
             if (spriteSheet != null) spriteSheet.dispose();
             spriteSheet = SpriteSheet.load();
-            renderer.setSpriteSheet(spriteSheet);
+            renderer2d.setSpriteSheet(spriteSheet);
+            renderer3d.setSpriteSheet(spriteSheet);
+            renderer3d.rebuildTerrain(tileMap);
             LOG.info("Sprite atlas reloaded");
         }
 
-        updateCameraZoom(delta);
-        updateCameraPan(delta);
-        renderer.update(delta);
+        if (use3DRenderer) {
+            renderer3d.update(delta);
+            updateCameraOrbit(delta);
+        } else {
+            if (pendingScrollAmount != 0) {
+                targetZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX,
+                    targetZoom + pendingScrollAmount * 0.1f));
+                pendingScrollAmount = 0;
+            }
+            if (Gdx.input.isButtonJustPressed(Input.Buttons.MIDDLE)) {
+                targetZoom = ZOOM_DEFAULT;
+            }
+            updateCameraZoom(delta);
+            updateCameraPan(delta);
+            renderer2d.update(delta);
+            camera2d.position.set(
+                renderer2d.worldToScreenX(visualX, visualY) + cameraPanOffsetX,
+                renderer2d.worldToScreenY(visualX, visualY) + cameraPanOffsetY,
+                0
+            );
+            camera2d.update();
+        }
+
         if (audioManager != null) {
             audioManager.update(delta);
             audioManager.onPlayerMoved(playerX, playerY);
         }
         if (pickupAnimationTimer > 0) pickupAnimationTimer = Math.max(0f, pickupAnimationTimer - delta);
-
-        // Camera follows player; arrow-key pan offset snaps back to zero on release.
-        camera.position.set(
-            renderer.worldToScreenX(visualX, visualY) + cameraPanOffsetX,
-            renderer.worldToScreenY(visualX, visualY) + cameraPanOffsetY,
-            0
-        );
-        camera.update();
         updateRenderZone();
 
         // --- World ---
         // World rendering contract:
         // layer order stays the same, but each layer now renders in consolidated
         // sprite/shape passes to reduce begin/end churn as visual complexity grows.
-        renderer.renderWorld(tileMap, visualX, visualY, visualX, visualY, activeMaterialProfile);
         ClientPacketHandler handler = handler();
         // World render layers:
         //   1. Ground items (depth-sorted)
@@ -1142,39 +1176,50 @@ public class GameScreen extends ApplicationAdapter {
         List<GroundItemRenderEntry> groundItemEntries = collectGroundItemRenderEntries();
         List<ActorRenderEntry> actorEntries = collectActorRenderEntries(handler);
         List<ShadowRenderEntry> shadowEntries = collectShadowRenderEntries(actorEntries);
-        renderGroundItemsLayer(groundItemEntries);
-        renderShadowsLayer(shadowEntries);
-        renderFireGlows(handler);
-        renderActorsLayer(actorEntries);
-        renderHealthBarsLayer(actorEntries);
-        renderGroundItemLabels();
+        if (use3DRenderer) {
+            renderer3d.renderTerrain(tileMap);
+            renderActorsLayer3D(actorEntries);
+        } else {
+            renderer2d.renderWorld(tileMap, visualX, visualY, visualX, visualY, activeMaterialProfile);
+            renderGroundItemsLayer(groundItemEntries);
+            renderShadowsLayer(shadowEntries);
+            renderFireGlows(handler);
+            renderActorsLayer(actorEntries);
+            renderHealthBarsLayer(actorEntries);
+            renderGroundItemLabels();
 
-        // Firemaking animation — fire on the player's tile
-        if (firemakerAnimTimer > 0) {
-            firemakerAnimTimer -= delta;
-            firemakerFlicker   += delta * 8f;
-            renderer.renderGroundGlow(visualX, visualY, 22f, 10f, 1.0f, 0.55f, 0.15f, 0.12f);
-            renderFireAnimation(visualX, visualY);
+            // Firemaking animation — fire on the player's tile
+            if (firemakerAnimTimer > 0) {
+                firemakerAnimTimer -= delta;
+                firemakerFlicker   += delta * 8f;
+                renderer2d.renderGroundGlow(visualX, visualY, 22f, 10f, 1.0f, 0.55f, 0.15f, 0.12f);
+                renderFireAnimation(visualX, visualY);
+            }
+
+            // Projectiles (ranged) + Hitsplats
+            updateProjectiles(delta);
+            renderProjectiles();
         }
 
-        // Projectiles (ranged) + Hitsplats
-        updateProjectiles(delta);
-        renderProjectiles();
         combatUI.update(delta);
-        combatUI.render(shapeRenderer, batch, font, camera);
+        combatUI.render(shapeRenderer, batch, font, camera2d);
 
         // Overhead chat text (world space — same projection as hitsplats)
         chatBox.update(delta);
         xpDropOverlay.update(delta);
         levelUpOverlay.update(delta);
-        renderOtherPlayerNametags();
-        renderOverheadText(delta);
-        renderClickMarkers();
+        if (!use3DRenderer) {
+            renderOtherPlayerNametags();
+            renderOverheadText(delta);
+            renderClickMarkers();
+        }
 
         int w = Gdx.graphics.getWidth(), h = Gdx.graphics.getHeight();
         // Zone ambience affects the world only. UI remains ungraded for readability.
-        renderWorldAmbientTint(w, h);
-        renderWorldVignette(w, h);
+        if (!use3DRenderer) {
+            renderWorldAmbientTint(w, h);
+            renderWorldVignette(w, h);
+        }
 
         // --- Screen-space UI ---
         Gdx.gl.glEnable(GL20.GL_BLEND);
@@ -1224,8 +1269,8 @@ public class GameScreen extends ApplicationAdapter {
      */
     private void updateCameraZoom(float delta) {
         currentZoom = targetZoom;
-        camera.zoom = currentZoom;
-        camera.update();
+        camera2d.zoom = currentZoom;
+        camera2d.update();
     }
 
     /**
@@ -1244,6 +1289,193 @@ public class GameScreen extends ApplicationAdapter {
         float blend = Math.min(1f, CAMERA_PAN_SMOOTH * delta);
         cameraPanOffsetX += (targetX - cameraPanOffsetX) * blend;
         cameraPanOffsetY += (targetY - cameraPanOffsetY) * blend;
+    }
+
+    private void updateCameraOrbit(float delta) {
+        if (Gdx.input.isKeyPressed(Input.Keys.LEFT)) cameraYaw -= YAW_SPEED * delta;
+        if (Gdx.input.isKeyPressed(Input.Keys.RIGHT)) cameraYaw += YAW_SPEED * delta;
+        if (Gdx.input.isKeyPressed(Input.Keys.UP)) cameraPitch = Math.min(cameraPitch + PITCH_SPEED * delta, PITCH_MAX);
+        if (Gdx.input.isKeyPressed(Input.Keys.DOWN)) cameraPitch = Math.max(cameraPitch - PITCH_SPEED * delta, PITCH_MIN);
+
+        if (pendingScrollAmount != 0) {
+            cameraDistance = Math.max(CAMERA_DISTANCE_MIN, Math.min(CAMERA_DISTANCE_MAX,
+                cameraDistance + pendingScrollAmount * 0.4f));
+            pendingScrollAmount = 0;
+        }
+
+        if (Gdx.input.isButtonJustPressed(Input.Buttons.MIDDLE)) {
+            cameraYaw = 0f;
+            cameraPitch = 0.9f;
+            cameraDistance = 12f;
+        }
+
+        float px = visualX + 0.5f;
+        float pz = visualY + 0.5f;
+        camera3d.position.set(
+            px + (float) (Math.sin(cameraYaw) * Math.cos(cameraPitch)) * cameraDistance,
+            (float) (Math.sin(cameraPitch)) * cameraDistance,
+            pz + (float) (Math.cos(cameraYaw) * Math.cos(cameraPitch)) * cameraDistance
+        );
+        camera3d.up.set(0f, 1f, 0f);
+        camera3d.lookAt(px, 0f, pz);
+        camera3d.update();
+    }
+
+    private void renderActorsLayer3D(List<ActorRenderEntry> entries) {
+        if (renderer3d == null || spriteSheet == null) {
+            return;
+        }
+        for (ActorRenderEntry entry : entries) {
+            TextureRegion region = resolveActorSpriteRegion3D(entry);
+            if (region == null) {
+                continue;
+            }
+            float height = Math.max(0.7f, Math.min(2.0f, region.getRegionHeight() / 16f));
+            float width = Math.max(0.4f, Math.min(1.8f, height * (region.getRegionWidth() / (float) Math.max(1, region.getRegionHeight()))));
+            float alpha = entry.isPlayer() ? 1f : (isObstructingLocalPlayer(entry) ? 0.35f : 1f);
+            renderer3d.renderEntityBillboard(entry.tileX(), entry.tileY(), region, width, height, alpha);
+        }
+        renderer3d.flushEntityBillboards();
+    }
+
+    private TextureRegion resolveActorSpriteRegion3D(ActorRenderEntry entry) {
+        if (spriteSheet == null) {
+            return null;
+        }
+
+        if (entry.isPlayer()) {
+            if (isLocalActorEntry(entry)) {
+                return resolvePlayerSpriteRegion3D(
+                    entry.pickingUp(),
+                    entry.playerPose(),
+                    playerAnimMoving,
+                    playerAnimDir,
+                    playerAnimTime
+                );
+            }
+
+            boolean moving = npcAnimMoving.getOrDefault(entry.entityId(), false);
+            String dir = npcAnimDir.getOrDefault(entry.entityId(), "s");
+            float time = npcAnimTime.getOrDefault(entry.entityId(), 0f);
+            return resolvePlayerSpriteRegion3D(false, null, moving, dir, time);
+        }
+
+        boolean moving = npcAnimMoving.getOrDefault(entry.entityId(), false);
+        String dir = npcAnimDir.getOrDefault(entry.entityId(), "s");
+        float time = npcAnimTime.getOrDefault(entry.entityId(), 0f);
+        boolean actionActive = npcActionAnimTimer.getOrDefault(entry.entityId(), 0f) > 0f;
+        String baseKey = IsometricRenderer.npcSpriteKeyForName(entry.npcName());
+        return resolveNpcSpriteRegion3D(baseKey, moving, dir, time, actionActive);
+    }
+
+    private TextureRegion resolvePlayerSpriteRegion3D(boolean pickingUp,
+                                                      String pendingAction,
+                                                      boolean moving,
+                                                      String animDir,
+                                                      float animTime) {
+        if (spriteSheet == null) {
+            return null;
+        }
+
+        TextureRegion region = null;
+        String actionKey = null;
+        if (pickingUp) {
+            actionKey = "player_pickup";
+        } else if ("chop".equals(pendingAction)) {
+            actionKey = "player_chop";
+        } else if ("mine".equals(pendingAction)) {
+            actionKey = "player_mine";
+        } else if (pendingAction != null && pendingAction.startsWith("fish_")) {
+            actionKey = "player_fish";
+        } else if ("sword".equals(pendingAction)) {
+            actionKey = "player_sword";
+        } else if ("spear".equals(pendingAction)) {
+            actionKey = "player_spear";
+        }
+
+        if (actionKey != null) {
+            com.badlogic.gdx.graphics.g2d.Animation<TextureRegion> actionAnim = spriteSheet.getAnimation(actionKey);
+            if (actionAnim != null) {
+                region = actionAnim.getKeyFrame(animTime, true);
+            } else {
+                region = spriteSheet.getTile(actionKey);
+            }
+        }
+
+        if (region == null && moving) {
+            com.badlogic.gdx.graphics.g2d.Animation<TextureRegion> walkAnim = spriteSheet.getAnimation("player_walk_" + animDir);
+            if (walkAnim != null) {
+                region = walkAnim.getKeyFrame(animTime, true);
+            }
+        }
+
+        if (region == null) {
+            com.badlogic.gdx.graphics.g2d.Animation<TextureRegion> idleAnim = spriteSheet.getAnimation("player_idle");
+            if (idleAnim != null) {
+                region = idleAnim.getKeyFrame(animTime, true);
+            }
+        }
+
+        if (region == null) {
+            region = spriteSheet.getTile("player");
+        }
+        return region;
+    }
+
+    private TextureRegion resolveNpcSpriteRegion3D(String baseKey,
+                                                   boolean moving,
+                                                   String animDir,
+                                                   float animTime,
+                                                   boolean actionActive) {
+        if (spriteSheet == null) {
+            return null;
+        }
+
+        TextureRegion region = null;
+        boolean ambientResource = baseKey.equals("tree")
+            || baseKey.startsWith("tree_")
+            || baseKey.startsWith("rock_")
+            || baseKey.equals("fishing_spot")
+            || baseKey.equals("fire");
+
+        if (ambientResource) {
+            com.badlogic.gdx.graphics.g2d.Animation<TextureRegion> idleAnim = spriteSheet.getAnimation(baseKey + "_idle");
+            if (idleAnim != null) {
+                region = idleAnim.getKeyFrame(animTime, true);
+            }
+            if (region == null) {
+                region = spriteSheet.getTile(baseKey);
+            }
+            return region;
+        }
+
+        if (actionActive) {
+            com.badlogic.gdx.graphics.g2d.Animation<TextureRegion> actionAnim = spriteSheet.getAnimation(baseKey + "_action");
+            if (actionAnim != null) {
+                region = actionAnim.getKeyFrame(animTime, true);
+            } else {
+                region = spriteSheet.getTile(baseKey + "_action");
+            }
+        }
+
+        if (region == null && moving) {
+            com.badlogic.gdx.graphics.g2d.Animation<TextureRegion> walkAnim = spriteSheet.getAnimation(baseKey + "_walk_" + animDir);
+            if (walkAnim != null) {
+                region = walkAnim.getKeyFrame(animTime, true);
+            }
+        }
+
+        if (region == null) {
+            com.badlogic.gdx.graphics.g2d.Animation<TextureRegion> idleAnim = spriteSheet.getAnimation(baseKey + "_idle");
+            if (idleAnim != null) {
+                region = idleAnim.getKeyFrame(animTime, true);
+            }
+        }
+
+        if (region == null) {
+            region = spriteSheet.getTile(baseKey);
+        }
+        return region;
     }
 
     private boolean isInUiArea(int mouseX, int mouseY) {
@@ -1826,8 +2058,15 @@ public class GameScreen extends ApplicationAdapter {
     // -----------------------------------------------------------------------
 
     private int[] screenToTile(int sx, int sy) {
+        if (use3DRenderer) {
+            int[] picked = renderer3d.pickTile(sx, sy);
+            if (picked[0] >= 0 && picked[1] >= 0) {
+                return picked;
+            }
+            return new int[]{-1, -1};
+        }
         Vector3 w = new Vector3(sx, sy, 0);
-        camera.unproject(w);
+        camera2d.unproject(w);
         return new int[]{
             CoordinateConverter.screenToWorldX(w.x, w.y),
             CoordinateConverter.screenToWorldY(w.x, w.y)
@@ -4416,6 +4655,7 @@ public class GameScreen extends ApplicationAdapter {
         if (batch        != null) batch.dispose();
         if (screenBatch  != null) screenBatch.dispose();
         if (shapeRenderer!= null) shapeRenderer.dispose();
+        if (renderer3d   != null) renderer3d.dispose();
         if (spriteSheet  != null) spriteSheet.dispose();
         // AudioManager lifetime is owned by ErynfallGame — do not dispose here.
         // FontManager owns shared font lifecycle.
@@ -4423,9 +4663,12 @@ public class GameScreen extends ApplicationAdapter {
 
     @Override
     public void resize(int width, int height) {
-        camera.viewportWidth  = width;
-        camera.viewportHeight = height;
-        camera.update();
+        camera2d.viewportWidth  = width;
+        camera2d.viewportHeight = height;
+        camera2d.update();
+        if (renderer3d != null) {
+            renderer3d.resize(width, height);
+        }
         screenProjection = new Matrix4().setToOrtho2D(0, 0, width, height);
     }
 
