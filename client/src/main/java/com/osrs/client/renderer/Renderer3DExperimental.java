@@ -40,20 +40,30 @@ public class Renderer3DExperimental {
     private static final float WALL_FADE_ALPHA = 0.40f;
     private static final float WALL_FADE_LINE_DISTANCE = 1.15f;
     private static final float WALL_FADE_PLAYER_RADIUS = 6.5f;
+    private static final float OVERLAY_Y = 0.018f;
+    private static final float WATER_OVERLAY_Y = 0.022f;
+    private static final float WALL_OVERLAY_Y = 0.018f;
+    private static final int MIN_OVERLAY_RADIUS = 34;
+    private static final int MAX_VARIANTS_SCAN = 16;
 
     private final PerspectiveCamera camera;
     private final ModelBatch modelBatch;
     private final DecalBatch decalBatch;
+    private final DecalBatch overlayDecalBatch;
     private final Environment environment;
     private final ModelBuilder modelBuilder = new ModelBuilder();
     private final Plane groundPlane = new Plane(new Vector3(0f, 1f, 0f), 0f);
     private final ArrayList<Decal> decalPool = new ArrayList<>();
     private int decalPoolCursor = 0;
+    private final ArrayList<Decal> overlayDecalPool = new ArrayList<>();
+    private int overlayDecalPoolCursor = 0;
     private final Texture fallbackBillboardTexture;
     private final TextureRegion fallbackBillboardRegion;
+    private final Map<String, Integer> variantCountCache = new HashMap<>();
 
     private SpriteSheet spriteSheet;
     private float stateTime = 0f;
+    private String activeMaterialProfile = "neutral";
 
     private final Map<Long, ModelInstance> terrainChunks = new HashMap<>();
     private final Map<Long, Model> terrainChunkModels = new HashMap<>();
@@ -84,6 +94,7 @@ public class Renderer3DExperimental {
 
         modelBatch = new ModelBatch();
         decalBatch = new DecalBatch(new CameraGroupStrategy(camera));
+        overlayDecalBatch = new DecalBatch(new CameraGroupStrategy(camera));
 
         environment = new Environment();
         environment.set(new ColorAttribute(ColorAttribute.AmbientLight, 1f, 1f, 1f, 1f));
@@ -102,6 +113,7 @@ public class Renderer3DExperimental {
 
     public void setSpriteSheet(SpriteSheet sheet) {
         this.spriteSheet = sheet;
+        this.variantCountCache.clear();
     }
 
     public void update(float delta) {
@@ -109,6 +121,11 @@ public class Renderer3DExperimental {
     }
 
     public void rebuildTerrain(int[][] tileMap) {
+        rebuildTerrain(tileMap, activeMaterialProfile);
+    }
+
+    public void rebuildTerrain(int[][] tileMap, String materialProfile) {
+        activeMaterialProfile = normalizeMaterialProfile(materialProfile);
         for (Model model : terrainChunkModels.values()) {
             model.dispose();
         }
@@ -125,7 +142,7 @@ public class Renderer3DExperimental {
         for (int chunkY = 0; chunkY < chunksY; chunkY++) {
             for (int chunkX = 0; chunkX < chunksX; chunkX++) {
                 ArrayList<WallMaterialBinding> wallBindings = new ArrayList<>();
-                Model model = buildChunkModel(tileMap, chunkX, chunkY, wallBindings);
+                Model model = buildChunkModel(tileMap, chunkX, chunkY, activeMaterialProfile, wallBindings);
                 if (model == null) {
                     continue;
                 }
@@ -138,8 +155,18 @@ public class Renderer3DExperimental {
     }
 
     public void renderTerrain(int[][] tileMap, float localPlayerX, float localPlayerY) {
-        if (terrainChunks.isEmpty() && tileMap != null) {
-            rebuildTerrain(tileMap);
+        renderTerrain(tileMap, localPlayerX, localPlayerY, activeMaterialProfile);
+    }
+
+    public void renderTerrain(int[][] tileMap,
+                              float localPlayerX,
+                              float localPlayerY,
+                              String materialProfile) {
+        String normalizedProfile = normalizeMaterialProfile(materialProfile);
+        if (!normalizedProfile.equals(activeMaterialProfile)) {
+            rebuildTerrain(tileMap, normalizedProfile);
+        } else if (terrainChunks.isEmpty() && tileMap != null) {
+            rebuildTerrain(tileMap, normalizedProfile);
         }
         if (terrainChunks.isEmpty()) {
             return;
@@ -147,15 +174,34 @@ public class Renderer3DExperimental {
 
         updateWallOcclusion(localPlayerX, localPlayerY);
 
+        int centerTileX = clampTile((int) Math.floor(localPlayerX));
+        int centerTileY = clampTile((int) Math.floor(localPlayerY));
+        int overlayRadius = computeOverlayRadius();
+        int minTileX = Math.max(0, centerTileX - overlayRadius);
+        int maxTileX = Math.min(MAP_WIDTH - 1, centerTileX + overlayRadius);
+        int minTileY = Math.max(0, centerTileY - overlayRadius);
+        int maxTileY = Math.min(MAP_HEIGHT - 1, centerTileY + overlayRadius);
+
         Gdx.gl.glEnable(GL20.GL_DEPTH_TEST);
         Gdx.gl.glDepthMask(true);
         Gdx.gl.glEnable(GL20.GL_CULL_FACE);
 
         modelBatch.begin(camera);
-        for (ModelInstance instance : terrainChunks.values()) {
-            modelBatch.render(instance, environment);
+        int minChunkX = minTileX / CHUNK_SIZE;
+        int maxChunkX = maxTileX / CHUNK_SIZE;
+        int minChunkY = minTileY / CHUNK_SIZE;
+        int maxChunkY = maxTileY / CHUNK_SIZE;
+        for (int chunkY = minChunkY; chunkY <= maxChunkY; chunkY++) {
+            for (int chunkX = minChunkX; chunkX <= maxChunkX; chunkX++) {
+                ModelInstance instance = terrainChunks.get(chunkKey(chunkX, chunkY));
+                if (instance != null) {
+                    modelBatch.render(instance, environment);
+                }
+            }
         }
         modelBatch.end();
+
+        renderGroundOverlayPass(tileMap, minTileX, maxTileX, minTileY, maxTileY, localPlayerX, localPlayerY, normalizedProfile);
 
         Gdx.gl.glDisable(GL20.GL_CULL_FACE);
         Gdx.gl.glDisable(GL20.GL_DEPTH_TEST);
@@ -241,12 +287,14 @@ public class Renderer3DExperimental {
         wallMaterialsByChunk.clear();
         fallbackBillboardTexture.dispose();
         decalBatch.dispose();
+        overlayDecalBatch.dispose();
         modelBatch.dispose();
     }
 
     private Model buildChunkModel(int[][] tileMap,
                                   int chunkX,
                                   int chunkY,
+                                  String materialProfile,
                                   ArrayList<WallMaterialBinding> wallBindings) {
         int startX = chunkX * CHUNK_SIZE;
         int startY = chunkY * CHUNK_SIZE;
@@ -259,7 +307,7 @@ public class Renderer3DExperimental {
         for (int y = startY; y < endY; y++) {
             for (int x = startX; x < endX; x++) {
                 int type = tileMap[x][y];
-                TextureRegion region = resolveTileRegion(type, x, y);
+                TextureRegion region = resolveTileRegion(type, x, y, materialProfile);
                 if (region == null) {
                     continue;
                 }
@@ -534,31 +582,377 @@ public class Renderer3DExperimental {
         }
     }
 
-    private TextureRegion resolveTileRegion(int type, int tileX, int tileY) {
-        if (spriteSheet == null) {
+    private void renderGroundOverlayPass(int[][] tileMap,
+                                         int minTileX,
+                                         int maxTileX,
+                                         int minTileY,
+                                         int maxTileY,
+                                         float localPlayerX,
+                                         float localPlayerY,
+                                         String materialProfile) {
+        if (tileMap == null || spriteSheet == null) {
+            return;
+        }
+
+        overlayDecalPoolCursor = 0;
+        float cameraX = camera.position.x;
+        float cameraZ = camera.position.z;
+
+        int playerTileX = clampTile((int) Math.floor(localPlayerX));
+        int playerTileY = clampTile((int) Math.floor(localPlayerY));
+        float playerCenterX = playerTileX + 0.5f;
+        float playerCenterZ = playerTileY + 0.5f;
+        float dirX = playerCenterX - cameraX;
+        float dirZ = playerCenterZ - cameraZ;
+        float dirLen2 = dirX * dirX + dirZ * dirZ;
+        if (dirLen2 < 0.0001f) {
+            dirLen2 = 0.0001f;
+        }
+
+        for (int y = minTileY; y <= maxTileY; y++) {
+            for (int x = minTileX; x <= maxTileX; x++) {
+                int type = tileMap[x][y];
+                boolean waterNorth = isTile(tileMap, x, y - 1, 1);
+                boolean waterSouth = isTile(tileMap, x, y + 1, 1);
+                boolean waterEast = isTile(tileMap, x + 1, y, 1);
+                boolean waterWest = isTile(tileMap, x - 1, y, 1);
+                float baseOverlayY = type == 3 ? WALL_TOP_Y + WALL_OVERLAY_Y : GROUND_Y + OVERLAY_Y;
+
+                if (type == 1) {
+                    TextureRegion shimmer = resolveAnimatedOverlayRegion("water_shimmer", materialProfile);
+                    renderGroundOverlayDecal(x, y, GROUND_Y + WATER_OVERLAY_Y, shimmer, 0.18f);
+
+                    if (waterSeed(x, y) % 7 == 0) {
+                        TextureRegion sparkle = resolveAnimatedOverlayRegion("water_sparkle", materialProfile);
+                        renderGroundOverlayDecal(x, y, GROUND_Y + WATER_OVERLAY_Y + 0.001f, sparkle, 0.10f);
+                    }
+                }
+
+                if (isLandTile(type)) {
+                    if (waterNorth) {
+                        renderGroundOverlayDecal(x, y, baseOverlayY, resolveOverlayRegion("shore_wet_n", materialProfile), 0.15f);
+                        renderGroundOverlayDecal(x, y, baseOverlayY + 0.001f, resolveOverlayRegion("shore_foam_n", materialProfile), 0.18f);
+                        renderGroundOverlayDecal(x, y, baseOverlayY + 0.002f, resolveOverlayRegion("edge_shore_n", materialProfile), 1f);
+                        renderGroundOverlayDecal(x, y, baseOverlayY + 0.003f, resolveOverlayRegion("ao_shore_n", materialProfile), 0.22f);
+                    }
+                    if (waterSouth) {
+                        renderGroundOverlayDecal(x, y, baseOverlayY, resolveOverlayRegion("shore_wet_s", materialProfile), 0.15f);
+                        renderGroundOverlayDecal(x, y, baseOverlayY + 0.001f, resolveOverlayRegion("shore_foam_s", materialProfile), 0.18f);
+                        renderGroundOverlayDecal(x, y, baseOverlayY + 0.002f, resolveOverlayRegion("edge_shore_s", materialProfile), 1f);
+                        renderGroundOverlayDecal(x, y, baseOverlayY + 0.003f, resolveOverlayRegion("ao_shore_s", materialProfile), 0.22f);
+                    }
+                    if (waterEast) {
+                        renderGroundOverlayDecal(x, y, baseOverlayY, resolveOverlayRegion("shore_wet_e", materialProfile), 0.15f);
+                        renderGroundOverlayDecal(x, y, baseOverlayY + 0.001f, resolveOverlayRegion("shore_foam_e", materialProfile), 0.18f);
+                        renderGroundOverlayDecal(x, y, baseOverlayY + 0.002f, resolveOverlayRegion("edge_shore_e", materialProfile), 1f);
+                        renderGroundOverlayDecal(x, y, baseOverlayY + 0.003f, resolveOverlayRegion("ao_shore_e", materialProfile), 0.22f);
+                    }
+                    if (waterWest) {
+                        renderGroundOverlayDecal(x, y, baseOverlayY, resolveOverlayRegion("shore_wet_w", materialProfile), 0.15f);
+                        renderGroundOverlayDecal(x, y, baseOverlayY + 0.001f, resolveOverlayRegion("shore_foam_w", materialProfile), 0.18f);
+                        renderGroundOverlayDecal(x, y, baseOverlayY + 0.002f, resolveOverlayRegion("edge_shore_w", materialProfile), 1f);
+                        renderGroundOverlayDecal(x, y, baseOverlayY + 0.003f, resolveOverlayRegion("ao_shore_w", materialProfile), 0.22f);
+                    }
+                }
+
+                if (type == 2) {
+                    if (isTile(tileMap, x, y - 1, 0)) {
+                        renderGroundOverlayDecal(x, y, baseOverlayY, resolveOverlayRegion("edge_path_grass_n", materialProfile), 1f);
+                        renderGroundOverlayDecal(x, y, baseOverlayY + 0.001f, resolveOverlayRegion("ao_path_grass_n", materialProfile), 0.20f);
+                    }
+                    if (isTile(tileMap, x, y + 1, 0)) {
+                        renderGroundOverlayDecal(x, y, baseOverlayY, resolveOverlayRegion("edge_path_grass_s", materialProfile), 1f);
+                        renderGroundOverlayDecal(x, y, baseOverlayY + 0.001f, resolveOverlayRegion("ao_path_grass_s", materialProfile), 0.20f);
+                    }
+                    if (isTile(tileMap, x + 1, y, 0)) {
+                        renderGroundOverlayDecal(x, y, baseOverlayY, resolveOverlayRegion("edge_path_grass_e", materialProfile), 1f);
+                        renderGroundOverlayDecal(x, y, baseOverlayY + 0.001f, resolveOverlayRegion("ao_path_grass_e", materialProfile), 0.20f);
+                    }
+                    if (isTile(tileMap, x - 1, y, 0)) {
+                        renderGroundOverlayDecal(x, y, baseOverlayY, resolveOverlayRegion("edge_path_grass_w", materialProfile), 1f);
+                        renderGroundOverlayDecal(x, y, baseOverlayY + 0.001f, resolveOverlayRegion("ao_path_grass_w", materialProfile), 0.20f);
+                    }
+                }
+
+                if (type == 3) {
+                    boolean wallFaded = shouldFadeWall(
+                        x + 0.5f,
+                        y + 0.5f,
+                        cameraX,
+                        cameraZ,
+                        playerCenterX,
+                        playerCenterZ,
+                        dirX,
+                        dirZ,
+                        dirLen2
+                    );
+                    float wallAlpha = wallFaded ? WALL_FADE_ALPHA : 1f;
+                    float aoAlpha = 0.24f * wallAlpha;
+                    renderGroundOverlayDecal(x, y, baseOverlayY, resolveOverlayRegion("edge_wall_base", materialProfile), wallAlpha);
+                    renderGroundOverlayDecal(x, y, baseOverlayY + 0.001f, resolveOverlayRegion("ao_wall_base", materialProfile), aoAlpha);
+
+                    boolean wallNorth = isTile(tileMap, x, y - 1, 3);
+                    boolean wallSouth = isTile(tileMap, x, y + 1, 3);
+                    boolean wallEast = isTile(tileMap, x + 1, y, 3);
+                    boolean wallWest = isTile(tileMap, x - 1, y, 3);
+                    boolean wallNE = isTile(tileMap, x + 1, y - 1, 3);
+                    boolean wallNW = isTile(tileMap, x - 1, y - 1, 3);
+                    boolean wallSE = isTile(tileMap, x + 1, y + 1, 3);
+                    boolean wallSW = isTile(tileMap, x - 1, y + 1, 3);
+
+                    if (wallNorth && wallEast && !wallNE) {
+                        renderGroundOverlayDecal(x, y, baseOverlayY + 0.002f, resolveOverlayRegion("ao_wall_inner_ne", materialProfile), aoAlpha);
+                    }
+                    if (wallNorth && wallWest && !wallNW) {
+                        renderGroundOverlayDecal(x, y, baseOverlayY + 0.002f, resolveOverlayRegion("ao_wall_inner_nw", materialProfile), aoAlpha);
+                    }
+                    if (wallSouth && wallEast && !wallSE) {
+                        renderGroundOverlayDecal(x, y, baseOverlayY + 0.002f, resolveOverlayRegion("ao_wall_inner_se", materialProfile), aoAlpha);
+                    }
+                    if (wallSouth && wallWest && !wallSW) {
+                        renderGroundOverlayDecal(x, y, baseOverlayY + 0.002f, resolveOverlayRegion("ao_wall_inner_sw", materialProfile), aoAlpha);
+                    }
+                }
+
+                int clutterSeed = clutterSeed(x, y);
+                boolean nearWater = waterNorth || waterSouth || waterEast || waterWest;
+                boolean nearWall = isTile(tileMap, x, y - 1, 3)
+                    || isTile(tileMap, x, y + 1, 3)
+                    || isTile(tileMap, x + 1, y, 3)
+                    || isTile(tileMap, x - 1, y, 3);
+
+                TextureRegion clutterRegion = null;
+                if (type == 0 && !nearWall && !nearWater && clutterSeed % 8 == 0) {
+                    int variant = (clutterSeed % 3) + 1;
+                    clutterRegion = resolveClutterRegion("clutter_grass_" + variant, materialProfile);
+                } else if (type == 2 && clutterSeed % 14 == 0) {
+                    int variant = (clutterSeed % 2) + 1;
+                    clutterRegion = resolveClutterRegion("clutter_path_" + variant, materialProfile);
+                } else if (type == 4 && clutterSeed % 12 == 0) {
+                    int variant = (clutterSeed % 2) + 1;
+                    clutterRegion = resolveClutterRegion("clutter_sand_" + variant, materialProfile);
+                } else if (type != 1 && type != 3 && nearWater && clutterSeed % 18 == 0) {
+                    clutterRegion = resolveClutterRegion("clutter_reeds_1", materialProfile);
+                }
+                renderGroundOverlayDecal(x, y, baseOverlayY + 0.004f, clutterRegion, 1f);
+            }
+        }
+
+        Gdx.gl.glEnable(GL20.GL_DEPTH_TEST);
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
+        overlayDecalBatch.flush();
+        Gdx.gl.glDisable(GL20.GL_BLEND);
+    }
+
+    private void renderGroundOverlayDecal(int tileX,
+                                          int tileY,
+                                          float y,
+                                          TextureRegion region,
+                                          float alpha) {
+        if (region == null || alpha <= 0f) {
+            return;
+        }
+        Decal decal = obtainOverlayDecal(region, 1f, 1f);
+        decal.setPosition(tileX + 0.5f, y, tileY + 0.5f);
+        decal.setRotationX(-90f);
+        decal.setRotationY(0f);
+        decal.setRotationZ(0f);
+        decal.setColor(1f, 1f, 1f, Math.max(0f, Math.min(1f, alpha)));
+        overlayDecalBatch.add(decal);
+    }
+
+    private TextureRegion resolveOverlayRegion(String key, String materialProfile) {
+        if (spriteSheet == null || key == null || key.isEmpty()) {
             return null;
         }
-        String key = switch (type) {
+        String profileKey = profiledKey(key, materialProfile);
+        if (profileKey != null) {
+            TextureRegion region = spriteSheet.getTile(profileKey);
+            if (region != null) {
+                return region;
+            }
+        }
+        return spriteSheet.getTile(key);
+    }
+
+    private TextureRegion resolveAnimatedOverlayRegion(String key, String materialProfile) {
+        if (spriteSheet == null || key == null || key.isEmpty()) {
+            return null;
+        }
+        String profileKey = profiledKey(key, materialProfile);
+        if (profileKey != null) {
+            com.badlogic.gdx.graphics.g2d.Animation<TextureRegion> profileAnim = spriteSheet.getAnimation(profileKey);
+            if (profileAnim != null) {
+                return profileAnim.getKeyFrame(stateTime, true);
+            }
+            TextureRegion profileTile = spriteSheet.getTile(profileKey);
+            if (profileTile != null) {
+                return profileTile;
+            }
+        }
+
+        com.badlogic.gdx.graphics.g2d.Animation<TextureRegion> anim = spriteSheet.getAnimation(key);
+        if (anim != null) {
+            return anim.getKeyFrame(stateTime, true);
+        }
+        return spriteSheet.getTile(key);
+    }
+
+    private TextureRegion resolveClutterRegion(String key, String materialProfile) {
+        if (spriteSheet == null || key == null || key.isEmpty()) {
+            return null;
+        }
+        String profileKey = profiledKey(key, materialProfile);
+        if (profileKey != null) {
+            com.badlogic.gdx.graphics.g2d.Animation<TextureRegion> profileAnim = spriteSheet.getAnimation(profileKey + "_idle");
+            if (profileAnim != null) {
+                return profileAnim.getKeyFrame(stateTime, true);
+            }
+            TextureRegion profileTile = spriteSheet.getTile(profileKey);
+            if (profileTile != null) {
+                return profileTile;
+            }
+        }
+
+        com.badlogic.gdx.graphics.g2d.Animation<TextureRegion> anim = spriteSheet.getAnimation(key + "_idle");
+        if (anim != null) {
+            return anim.getKeyFrame(stateTime, true);
+        }
+        return spriteSheet.getTile(key);
+    }
+
+    private boolean isLandTile(int type) {
+        return type == 0 || type == 2 || type == 4;
+    }
+
+    private boolean isTile(int[][] tileMap, int x, int y, int expected) {
+        if (tileMap == null) {
+            return expected == 0;
+        }
+        if (x < 0 || y < 0 || x >= MAP_WIDTH || y >= MAP_HEIGHT) {
+            return false;
+        }
+        return tileMap[x][y] == expected;
+    }
+
+    private int clutterSeed(int x, int y) {
+        int h = (x * 73856093) ^ (y * 19349663) ^ 0x9e3779b9;
+        h ^= (h >>> 13);
+        h *= 1274126177;
+        h ^= (h >>> 16);
+        return h & Integer.MAX_VALUE;
+    }
+
+    private int waterSeed(int x, int y) {
+        int h = (x * 83492791) ^ (y * 19351301) ^ 0x51f2e3d7;
+        h ^= (h >>> 13);
+        h *= 1274126177;
+        h ^= (h >>> 16);
+        return h & Integer.MAX_VALUE;
+    }
+
+    private int countAtlasVariants(String baseKey) {
+        Integer cached = variantCountCache.get(baseKey);
+        if (cached != null) {
+            return cached;
+        }
+        int count = 0;
+        while (count < MAX_VARIANTS_SCAN) {
+            if (spriteSheet.getVariantTile(baseKey, count) == null) {
+                break;
+            }
+            count++;
+        }
+        variantCountCache.put(baseKey, count);
+        return count;
+    }
+
+    private String normalizeMaterialProfile(String materialProfile) {
+        if (materialProfile == null) {
+            return "neutral";
+        }
+        String trimmed = materialProfile.trim();
+        if (trimmed.isEmpty()) {
+            return "neutral";
+        }
+        return trimmed.toLowerCase();
+    }
+
+    private String profiledKey(String key, String materialProfile) {
+        String profile = normalizeMaterialProfile(materialProfile);
+        if ("neutral".equals(profile)) {
+            return null;
+        }
+        return key + "_" + profile;
+    }
+
+    private int computeOverlayRadius() {
+        float estimate = camera.position.y * 2.4f + 22f;
+        return Math.max(MIN_OVERLAY_RADIUS, (int) Math.ceil(estimate));
+    }
+
+    private int clampTile(int value) {
+        if (value < 0) {
+            return 0;
+        }
+        if (value >= MAP_WIDTH) {
+            return MAP_WIDTH - 1;
+        }
+        return value;
+    }
+
+    private static String tileKey(int type) {
+        return switch (type) {
             case 1 -> "tile_water";
             case 2 -> "tile_path";
             case 3 -> "tile_wall";
             case 4 -> "tile_sand";
             default -> "tile_grass";
         };
+    }
+
+    private TextureRegion resolveTileRegion(int type, int tileX, int tileY, String materialProfile) {
+        if (spriteSheet == null) {
+            return null;
+        }
+        String key = tileKey(type);
 
         if (type == 1) {
-            com.badlogic.gdx.graphics.g2d.Animation<TextureRegion> anim = spriteSheet.getAnimation(key);
+            com.badlogic.gdx.graphics.g2d.Animation<TextureRegion> anim = spriteSheet.getAnimation("tile_water");
             if (anim != null) {
                 return anim.getKeyFrame(stateTime, true);
             }
-            return spriteSheet.getTile(key);
+            return spriteSheet.getTile("tile_water");
+        }
+
+        String profile = normalizeMaterialProfile(materialProfile);
+        if (profile != null) {
+            TextureRegion profileVariant = resolveVariantAwareTile(key + "_" + profile, tileX, tileY, type);
+            if (profileVariant != null) {
+                return profileVariant;
+            }
+        }
+
+        return resolveVariantAwareTile(key, tileX, tileY, type);
+    }
+
+    private TextureRegion resolveVariantAwareTile(String key, int x, int y, int type) {
+        if (spriteSheet == null || key == null || key.isEmpty()) {
+            return null;
         }
 
         SpriteSheet.SpriteMeta meta = spriteSheet.getMeta(key);
+        int seed = tileVariantSeed(x, y, type);
         if (meta != null && meta.variantCount() > 0) {
-            int seed = tileVariantSeed(tileX, tileY, type);
             return spriteSheet.getDeterministicVariantTile(key, meta.variantCount(), seed);
         }
+
+        int variantCount = countAtlasVariants(key);
+        if (variantCount > 0) {
+            return spriteSheet.getDeterministicVariantTile(key, variantCount, seed);
+        }
+
         return spriteSheet.getTile(key);
     }
 
@@ -586,6 +980,21 @@ public class Renderer3DExperimental {
             decalPool.add(decal);
         }
         decalPoolCursor++;
+        return decal;
+    }
+
+    private Decal obtainOverlayDecal(TextureRegion region, float width, float height) {
+        Decal decal;
+        if (overlayDecalPoolCursor < overlayDecalPool.size()) {
+            decal = overlayDecalPool.get(overlayDecalPoolCursor);
+            decal.setTextureRegion(region);
+            decal.setDimensions(width, height);
+            decal.setColor(1f, 1f, 1f, 1f);
+        } else {
+            decal = Decal.newDecal(width, height, region, true);
+            overlayDecalPool.add(decal);
+        }
+        overlayDecalPoolCursor++;
         return decal;
     }
 }

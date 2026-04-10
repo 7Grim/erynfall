@@ -1233,7 +1233,7 @@ public class GameScreen extends ApplicationAdapter {
         List<ActorRenderEntry> actorEntries = collectActorRenderEntries(handler);
         List<ShadowRenderEntry> shadowEntries = collectShadowRenderEntries(actorEntries);
         if (use3DRenderer) {
-            renderer3d.renderTerrain(tileMap, visualX, visualY);
+            renderer3d.renderTerrain(tileMap, visualX, visualY, activeMaterialProfile);
             renderer3d.beginEntityPass();
             renderGroundItemsLayer3D(groundItemEntries);
             renderActorsLayer3D(actorEntries);
@@ -1274,8 +1274,8 @@ public class GameScreen extends ApplicationAdapter {
 
         int w = Gdx.graphics.getWidth(), h = Gdx.graphics.getHeight();
         // Zone ambience affects the world only. UI remains ungraded for readability.
+        renderWorldAmbientTint(w, h);
         if (!use3DRenderer) {
-            renderWorldAmbientTint(w, h);
             renderWorldVignette(w, h);
         }
 
