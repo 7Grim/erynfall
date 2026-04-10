@@ -72,3 +72,91 @@ assets:
     origin: tile-center
     required: false
     notes: Static iron rock model.
+  - key: tree_willow
+    file: tree_willow.g3dj
+    category: resource
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Static willow tree model used by the experimental 3D renderer.
+  - key: tree_maple
+    file: tree_maple.g3dj
+    category: resource
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Static maple tree model used by the experimental 3D renderer.
+  - key: tree_mahogany
+    file: tree_mahogany.g3dj
+    category: resource
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Static mahogany tree model used by the experimental 3D renderer.
+  - key: tree_yew
+    file: tree_yew.g3dj
+    category: resource
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Static yew tree model used by the experimental 3D renderer.
+  - key: tree_magic
+    file: tree_magic.g3dj
+    category: resource
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Static magic tree model used by the experimental 3D renderer.
+  - key: rock_silver
+    file: rock_silver.g3dj
+    category: resource
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Static silver rock model.
+  - key: rock_coal
+    file: rock_coal.g3dj
+    category: resource
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Static coal rock model.
+  - key: rock_gold
+    file: rock_gold.g3dj
+    category: resource
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Static gold rock model.
+  - key: rock_mithril
+    file: rock_mithril.g3dj
+    category: resource
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Static mithril rock model.
+  - key: rock_adamantite
+    file: rock_adamantite.g3dj
+    category: resource
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Static adamantite rock model.
+  - key: rock_runite
+    file: rock_runite.g3dj
+    category: resource
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Static runite rock model.

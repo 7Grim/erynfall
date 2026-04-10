@@ -1533,7 +1533,9 @@ public class GameScreen extends ApplicationAdapter {
             return null;
         }
         return switch (spriteKey) {
-            case "furnace", "anvil", "cooking_range", "fishing_spot", "tree", "tree_oak", "rock_copper", "rock_tin", "rock_iron" -> spriteKey;
+            case "furnace", "anvil", "cooking_range", "fishing_spot",
+                "tree", "tree_oak", "tree_willow", "tree_maple", "tree_mahogany", "tree_yew", "tree_magic",
+                "rock_copper", "rock_tin", "rock_iron", "rock_silver", "rock_coal", "rock_gold", "rock_mithril", "rock_adamantite", "rock_runite" -> spriteKey;
             default -> null;
         };
     }
