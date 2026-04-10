@@ -18,6 +18,7 @@
     <properties>
         <skipArtValidation>false</skipArtValidation>
         <skipModelValidation>false</skipModelValidation>
+        <skipModelCopy>false</skipModelCopy>
     </properties>
 
     <dependencies>
@@ -132,6 +133,31 @@
                                     <arg value="--write-runtime-meta"/>
                                     <arg value="${project.basedir}/src/main/resources/model-manifest-runtime.json"/>
                                 </exec>
+                            </target>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>copy-model-assets</id>
+                        <phase>generate-resources</phase>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                        <configuration>
+                            <skip>${skipModelCopy}</skip>
+                            <target>
+                                <mkdir dir="${project.basedir}/src/main/resources/models"/>
+                                <delete includeemptydirs="false">
+                                    <fileset dir="${project.basedir}/src/main/resources/models">
+                                        <include name="**/*.g3dj"/>
+                                        <include name="**/*.g3db"/>
+                                    </fileset>
+                                </delete>
+                                <copy todir="${project.basedir}/src/main/resources/models" overwrite="true">
+                                    <fileset dir="${project.basedir}/../art/models">
+                                        <include name="**/*.g3dj"/>
+                                        <include name="**/*.g3db"/>
+                                    </fileset>
+                                </copy>
                             </target>
                         </configuration>
                     </execution>

@@ -375,9 +375,14 @@ or as part of Maven resources generation:
 mvn generate-resources -pl client -am
 ```
 
+During `generate-resources`, model files are automatically copied from
+`art/models/` into `client/src/main/resources/models/`.
+Do not copy models manually into runtime resources.
+
 This generates:
 - `client/src/main/resources/model-manifest-keys.txt`
 - `client/src/main/resources/model-manifest-runtime.json`
+- copied runtime `.g3dj`/`.g3db` files in `client/src/main/resources/models/`
 
 Important migration note:
 - Static prop models are first-pass, optional upgrades.
