@@ -6,6 +6,12 @@ cooking_range
 crate_small
 dock_platform
 dock_stairs
+equip_ammo_quiver_adamant
+equip_ammo_quiver_bronze
+equip_ammo_quiver_iron
+equip_ammo_quiver_mithril
+equip_ammo_quiver_rune
+equip_ammo_quiver_steel
 equip_body_adamant_platebody
 equip_body_blue_wizard_robe
 equip_body_bronze_platebody
@@ -14,6 +20,7 @@ equip_body_leather_body
 equip_body_mithril_platebody
 equip_body_rune_platebody
 equip_body_steel_platebody
+equip_cape_black_cape
 equip_feet_leather_boots
 equip_hands_leather_gloves
 equip_head_adamant_full_helm

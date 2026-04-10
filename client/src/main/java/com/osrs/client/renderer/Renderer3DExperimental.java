@@ -48,11 +48,12 @@ public class Renderer3DExperimental {
     private static final int MAX_VARIANTS_SCAN = 16;
     private static final int[] PLAYER_EQUIPMENT_VISIBLE_SLOTS = {
         EquipmentSlot.HEAD,
-        EquipmentSlot.BODY,
-        EquipmentSlot.LEGS,
+        EquipmentSlot.CAPE,
+        EquipmentSlot.AMMO,
         EquipmentSlot.WEAPON,
         EquipmentSlot.SHIELD,
-        EquipmentSlot.CAPE,
+        EquipmentSlot.BODY,
+        EquipmentSlot.LEGS,
         EquipmentSlot.HANDS,
         EquipmentSlot.FEET,
     };

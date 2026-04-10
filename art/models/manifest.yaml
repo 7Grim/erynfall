@@ -1320,3 +1320,115 @@ assets:
     rot_x: 0.0
     rot_y: 0.0
     rot_z: 0.0
+  - key: equip_cape_black_cape
+    file: equip_cape_black_cape.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Black cape attachment.
+    equip_slot: 1
+    item_id: 1019
+    offset_x: 0.0
+    offset_y: 0.82
+    offset_z: 0.08
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: 0.0
+  - key: equip_ammo_quiver_bronze
+    file: equip_ammo_quiver_bronze.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Bronze-arrow quiver attachment.
+    equip_slot: 3
+    item_id: 882
+    offset_x: -0.12
+    offset_y: 0.92
+    offset_z: 0.1
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: 0.0
+  - key: equip_ammo_quiver_iron
+    file: equip_ammo_quiver_iron.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Iron-arrow quiver attachment.
+    equip_slot: 3
+    item_id: 884
+    offset_x: -0.12
+    offset_y: 0.92
+    offset_z: 0.1
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: 0.0
+  - key: equip_ammo_quiver_steel
+    file: equip_ammo_quiver_steel.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Steel-arrow quiver attachment.
+    equip_slot: 3
+    item_id: 886
+    offset_x: -0.12
+    offset_y: 0.92
+    offset_z: 0.1
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: 0.0
+  - key: equip_ammo_quiver_mithril
+    file: equip_ammo_quiver_mithril.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Mithril-arrow quiver attachment.
+    equip_slot: 3
+    item_id: 888
+    offset_x: -0.12
+    offset_y: 0.92
+    offset_z: 0.1
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: 0.0
+  - key: equip_ammo_quiver_adamant
+    file: equip_ammo_quiver_adamant.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Adamant-arrow quiver attachment.
+    equip_slot: 3
+    item_id: 890
+    offset_x: -0.12
+    offset_y: 0.92
+    offset_z: 0.1
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: 0.0
+  - key: equip_ammo_quiver_rune
+    file: equip_ammo_quiver_rune.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Rune-arrow quiver attachment.
+    equip_slot: 3
+    item_id: 892
+    offset_x: -0.12
+    offset_y: 0.92
+    offset_z: 0.1
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: 0.0

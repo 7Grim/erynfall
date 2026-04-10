@@ -1063,6 +1063,22 @@ items:
     magic_defence: 1
     defence_req: 1
 
+  # ── Starter cape accessory ────────────────────────────────────────────────
+
+  - id: 1019
+    name: "Black cape"
+    examine: "A plain black cape."
+    stackable: false
+    store_value: 500
+    equipable: true
+    consumable: false
+    equip_slot: 1
+    stab_defence: 1
+    slash_defence: 1
+    crush_defence: 1
+    magic_defence: 1
+    ranged_defence: 1
+
   # ── Shields ───────────────────────────────────────────────────────────────
   # Source: https://oldschool.runescape.wiki/w/Wooden_shield  (tutorial item)
 
