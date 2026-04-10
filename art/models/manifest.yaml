@@ -1,0 +1,74 @@
+version: 1
+assets:
+  - key: furnace
+    file: furnace.g3dj
+    category: prop
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Static furnace prop for the 3D renderer.
+  - key: anvil
+    file: anvil.g3dj
+    category: prop
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Static anvil prop for smithing services.
+  - key: cooking_range
+    file: cooking_range.g3dj
+    category: prop
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Static cooking range prop.
+  - key: fishing_spot
+    file: fishing_spot.g3dj
+    category: resource
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Static fishing spot marker in 3D mode.
+  - key: tree
+    file: tree.g3dj
+    category: resource
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Static tree model used by the experimental 3D renderer.
+  - key: tree_oak
+    file: tree_oak.g3dj
+    category: resource
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Static oak tree model used by the experimental 3D renderer.
+  - key: rock_copper
+    file: rock_copper.g3dj
+    category: resource
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Static copper rock model.
+  - key: rock_tin
+    file: rock_tin.g3dj
+    category: resource
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Static tin rock model.
+  - key: rock_iron
+    file: rock_iron.g3dj
+    category: resource
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Static iron rock model.

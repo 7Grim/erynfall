@@ -22,6 +22,7 @@ import com.osrs.client.network.ClientPacketHandler;
 import com.osrs.client.network.NettyClient;
 import com.osrs.client.renderer.CoordinateConverter;
 import com.osrs.client.renderer.IsometricRenderer;
+import com.osrs.client.renderer.ModelLibrary;
 import com.osrs.client.renderer.RenderZone;
 import com.osrs.client.renderer.Renderer3DExperimental;
 import com.osrs.client.audio.AudioManager;
@@ -149,6 +150,7 @@ public class GameScreen extends ApplicationAdapter {
     private IsometricRenderer renderer;
     /** Null when sprites.atlas has not been packed yet — falls back to ShapeRenderer. */
     private SpriteSheet      spriteSheet;
+    private ModelLibrary     modelLibrary;
     private AudioManager     audioManager;
     private BitmapFont       font;
     private Matrix4          screenProjection;
@@ -510,8 +512,10 @@ public class GameScreen extends ApplicationAdapter {
             0, 0, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
 
         spriteSheet = SpriteSheet.load();
+        modelLibrary = ModelLibrary.load();
         renderer2d.setSpriteSheet(spriteSheet);
         renderer3d.setSpriteSheet(spriteSheet);
+        renderer3d.setModelLibrary(modelLibrary);
         mapLoader  = MapLoader.load();
         tileMap    = mapLoader.getLayout();
         renderer3d.rebuildTerrain(tileMap);
@@ -1189,9 +1193,12 @@ public class GameScreen extends ApplicationAdapter {
         // F5: hot-reload sprite atlas (run mvn generate-resources -pl client first)
         if (Gdx.input.isKeyJustPressed(Input.Keys.F5)) {
             if (spriteSheet != null) spriteSheet.dispose();
+            if (modelLibrary != null) modelLibrary.dispose();
             spriteSheet = SpriteSheet.load();
+            modelLibrary = ModelLibrary.load();
             renderer2d.setSpriteSheet(spriteSheet);
             renderer3d.setSpriteSheet(spriteSheet);
+            renderer3d.setModelLibrary(modelLibrary);
             renderer3d.rebuildTerrain(tileMap);
             LOG.info("Sprite atlas reloaded");
         }
@@ -1242,10 +1249,12 @@ public class GameScreen extends ApplicationAdapter {
         List<ShadowRenderEntry> shadowEntries = collectShadowRenderEntries(actorEntries);
         if (use3DRenderer) {
             renderer3d.renderTerrain(tileMap, visualX, visualY, activeMaterialProfile);
+            renderer3d.beginStaticPropPass();
             renderer3d.beginEntityPass();
             renderGroundItemsLayer3D(groundItemEntries);
             renderActorsLayer3D(actorEntries);
             renderer3d.endEntityPass();
+            renderer3d.endStaticPropPass();
             renderHealthBarsLayer3D(actorEntries);
             renderGroundItemLabels();
         } else {
@@ -1400,6 +1409,12 @@ public class GameScreen extends ApplicationAdapter {
             float height = actorBillboardHeight3D(entry, region);
             float width = actorBillboardWidth3D(entry, region, height);
             float alpha = entry.isPlayer() ? 1f : (isObstructingLocalPlayer(entry) ? 0.35f : 1f);
+
+            String staticModelKey = resolveStaticPropModelKey3D(entry);
+            if (staticModelKey != null && renderer3d.renderStaticPropModel(staticModelKey, entry.tileX(), entry.tileY(), alpha)) {
+                continue;
+            }
+
             if (region != null) {
                 renderer3d.renderEntityBillboard(entry.tileX(), entry.tileY(), region, width, height, alpha);
             } else {
@@ -1506,6 +1521,20 @@ public class GameScreen extends ApplicationAdapter {
             case "Copper Rock", "Tin Rock", "Iron Rock", "Silver Rock", "Coal Rock", "Gold Rock", "Mithril Rock", "Adamantite Rock", "Runite Rock" -> 1.06f;
             case "Fishing Spot", "Cooking Fire", "Cooking Range", "Furnace", "Anvil" -> 0.96f;
             default -> 1f;
+        };
+    }
+
+    private String resolveStaticPropModelKey3D(ActorRenderEntry entry) {
+        if (entry.isPlayer()) {
+            return null;
+        }
+        String spriteKey = actorSpriteKey(entry);
+        if (spriteKey == null) {
+            return null;
+        }
+        return switch (spriteKey) {
+            case "furnace", "anvil", "cooking_range", "fishing_spot", "tree", "tree_oak", "rock_copper", "rock_tin", "rock_iron" -> spriteKey;
+            default -> null;
         };
     }
 
@@ -5246,6 +5275,7 @@ public class GameScreen extends ApplicationAdapter {
         if (shapeRenderer!= null) shapeRenderer.dispose();
         if (renderer3d   != null) renderer3d.dispose();
         if (spriteSheet  != null) spriteSheet.dispose();
+        if (modelLibrary != null) modelLibrary.dispose();
         // AudioManager lifetime is owned by ErynfallGame — do not dispose here.
         // FontManager owns shared font lifecycle.
     }

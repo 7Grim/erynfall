@@ -351,6 +351,41 @@ The atlas reloads immediately. You'll see your changes in the running game.
 
 ---
 
+## 3D Models (Experimental 3D renderer branch)
+
+The experimental 3D renderer now has an optional static-prop model pipeline.
+
+- Manifest location: `art/models/manifest.yaml`
+- Model files directory: `art/models/`
+- Runtime model resource directory: `client/src/main/resources/models/`
+
+Current supported model formats for this pipeline:
+- `.g3dj`
+- `.g3db`
+
+Validation and runtime metadata generation:
+
+```bash
+python3 scripts/validate-models.py
+```
+
+or as part of Maven resources generation:
+
+```bash
+mvn generate-resources -pl client -am
+```
+
+This generates:
+- `client/src/main/resources/model-manifest-keys.txt`
+- `client/src/main/resources/model-manifest-runtime.json`
+
+Important migration note:
+- Static prop models are first-pass, optional upgrades.
+- If a model file is missing, the renderer falls back to the existing sprite billboard path.
+- Sprite impostors remain the default safety net until full 3D migration is complete.
+
+---
+
 ## Replacing a placeholder
 
 Each `.png.placeholder` file in `art/sprites/` is a labelled slot for a sprite that still needs to be made. To fill a slot:

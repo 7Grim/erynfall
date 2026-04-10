@@ -17,6 +17,7 @@
 
     <properties>
         <skipArtValidation>false</skipArtValidation>
+        <skipModelValidation>false</skipModelValidation>
     </properties>
 
     <dependencies>
@@ -113,6 +114,28 @@
                         </configuration>
                     </execution>
                     <execution>
+                        <id>validate-model-manifest</id>
+                        <phase>generate-resources</phase>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                        <configuration>
+                            <skip>${skipModelValidation}</skip>
+                            <target>
+                                <condition property="python.exe" value="python" else="python3">
+                                    <os family="windows"/>
+                                </condition>
+                                <exec executable="${python.exe}" failonerror="true">
+                                    <arg value="${project.basedir}/../scripts/validate-models.py"/>
+                                    <arg value="--write-key-list"/>
+                                    <arg value="${project.basedir}/src/main/resources/model-manifest-keys.txt"/>
+                                    <arg value="--write-runtime-meta"/>
+                                    <arg value="${project.basedir}/src/main/resources/model-manifest-runtime.json"/>
+                                </exec>
+                            </target>
+                        </configuration>
+                    </execution>
+                    <execution>
                         <id>pack-textures</id>
                         <phase>generate-resources</phase>
                         <goals>
@@ -188,6 +211,7 @@
             </activation>
             <properties>
                 <skipArtValidation>true</skipArtValidation>
+                <skipModelValidation>true</skipModelValidation>
             </properties>
         </profile>
         <!-- macOS requires -XstartOnFirstThread for LWJGL3 OpenGL window -->

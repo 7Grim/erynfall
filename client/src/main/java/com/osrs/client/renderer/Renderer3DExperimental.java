@@ -68,6 +68,11 @@ public class Renderer3DExperimental {
     private final Map<Long, ModelInstance> terrainChunks = new HashMap<>();
     private final Map<Long, Model> terrainChunkModels = new HashMap<>();
     private final Map<Long, ArrayList<WallMaterialBinding>> wallMaterialsByChunk = new HashMap<>();
+    private final Map<String, ArrayList<ModelInstance>> staticPropInstancePool = new HashMap<>();
+    private final Map<String, Integer> staticPropInstanceCursor = new HashMap<>();
+    private boolean staticPropPassActive = false;
+
+    private ModelLibrary modelLibrary;
 
     private static final class WallMaterialBinding {
         private final Material material;
@@ -114,6 +119,16 @@ public class Renderer3DExperimental {
     public void setSpriteSheet(SpriteSheet sheet) {
         this.spriteSheet = sheet;
         this.variantCountCache.clear();
+    }
+
+    public void setModelLibrary(ModelLibrary library) {
+        this.modelLibrary = library;
+        staticPropInstancePool.clear();
+        staticPropInstanceCursor.clear();
+    }
+
+    public boolean hasStaticPropModel(String key) {
+        return modelLibrary != null && modelLibrary.hasModel(key);
     }
 
     public void update(float delta) {
@@ -281,6 +296,65 @@ public class Renderer3DExperimental {
         endEntityPass();
     }
 
+    public void beginStaticPropPass() {
+        if (staticPropPassActive) {
+            return;
+        }
+        staticPropPassActive = true;
+        for (String key : staticPropInstanceCursor.keySet()) {
+            staticPropInstanceCursor.put(key, 0);
+        }
+
+        Gdx.gl.glEnable(GL20.GL_DEPTH_TEST);
+        Gdx.gl.glDepthMask(true);
+        Gdx.gl.glEnable(GL20.GL_CULL_FACE);
+        modelBatch.begin(camera);
+    }
+
+    public void endStaticPropPass() {
+        if (!staticPropPassActive) {
+            return;
+        }
+        modelBatch.end();
+        Gdx.gl.glDisable(GL20.GL_CULL_FACE);
+        Gdx.gl.glDisable(GL20.GL_DEPTH_TEST);
+        staticPropPassActive = false;
+    }
+
+    public boolean renderStaticPropModel(String key, float tileX, float tileY, float alpha) {
+        if (key == null || key.isBlank() || modelLibrary == null || !modelLibrary.hasModel(key)) {
+            return false;
+        }
+
+        Model model = modelLibrary.getModel(key);
+        ModelLibrary.ModelMeta meta = modelLibrary.getMeta(key);
+        if (model == null || meta == null) {
+            return false;
+        }
+
+        boolean ownsPass = !staticPropPassActive;
+        if (ownsPass) {
+            beginStaticPropPass();
+        }
+
+        ModelInstance instance = obtainStaticPropInstance(key, model);
+        instance.transform.idt();
+        instance.transform.translate(tileX + 0.5f, 0f, tileY + 0.5f);
+        if (meta.scale() > 0f && Math.abs(meta.scale() - 1f) > 0.0001f) {
+            instance.transform.scale(meta.scale(), meta.scale(), meta.scale());
+        }
+        if (!"tile-center".equals(meta.origin())) {
+            instance.transform.translate(0f, 0f, 0f);
+        }
+
+        modelBatch.render(instance, environment);
+
+        if (ownsPass) {
+            endStaticPropPass();
+        }
+        return true;
+    }
+
     public int[] pickTile(int screenX, int screenY) {
         Ray ray = camera.getPickRay(screenX, screenY);
         Vector3 intersection = new Vector3();
@@ -302,6 +376,7 @@ public class Renderer3DExperimental {
     }
 
     public void dispose() {
+        endStaticPropPass();
         for (Model model : terrainChunkModels.values()) {
             model.dispose();
         }
@@ -1019,5 +1094,19 @@ public class Renderer3DExperimental {
         }
         overlayDecalPoolCursor++;
         return decal;
+    }
+
+    private ModelInstance obtainStaticPropInstance(String key, Model model) {
+        ArrayList<ModelInstance> pool = staticPropInstancePool.computeIfAbsent(key, k -> new ArrayList<>());
+        int cursor = staticPropInstanceCursor.getOrDefault(key, 0);
+        ModelInstance instance;
+        if (cursor < pool.size()) {
+            instance = pool.get(cursor);
+        } else {
+            instance = new ModelInstance(model);
+            pool.add(instance);
+        }
+        staticPropInstanceCursor.put(key, cursor + 1);
+        return instance;
     }
 }
