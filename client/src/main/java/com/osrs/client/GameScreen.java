@@ -162,6 +162,7 @@ public class GameScreen extends ApplicationAdapter {
     private final GlyphLayout npcTagLayout = new GlyphLayout();
     private final Vector3 projectedWorldPoint = new Vector3();
     private final int[] localPlayerEquipmentModelIds = new int[EquipmentSlot.COUNT];
+    private final int[] remotePlayerEquipmentModelIds = new int[EquipmentSlot.COUNT];
     private RenderZone activeRenderZone;
     private float renderZoneTintR = 1f;
     private float renderZoneTintG = 1f;
@@ -845,10 +846,7 @@ public class GameScreen extends ApplicationAdapter {
             || "Giant Rat".equals(npcName)
             || "Goblin".equals(npcName)
             || "Chicken".equals(npcName)
-            || "Cow".equals(npcName)
-            || "Banker".equals(npcName)
-            || "Tutorial Guide".equals(npcName)
-            || "Combat Instructor".equals(npcName);
+            || "Cow".equals(npcName);
     }
 
     private void triggerNpcActionFromCombatHit(ClientPacketHandler h, ClientPacketHandler.CombatHitEvent evt) {
@@ -1429,19 +1427,44 @@ public class GameScreen extends ApplicationAdapter {
                 continue;
             }
             ActorRenderEntry entry = entries.get(i);
-            if (entry.isPlayer() && entry.entityId() == localPlayerId) {
+            if (entry.isPlayer()) {
                 String basePlayerModelKey = resolveActorModelKey3D(entry);
                 if (basePlayerModelKey != null) {
-                    populateLocalPlayerEquipmentModelIds();
                     float yawDegrees = actorModelYawDegrees(entry);
-                    if (renderer3d.renderPlayerModelComposed(
-                        basePlayerModelKey,
-                        entry.tileX(),
-                        entry.tileY(),
-                        yawDegrees,
-                        localPlayerEquipmentModelIds
-                    )) {
-                        modelRendered[i] = true;
+                    if (entry.entityId() == localPlayerId) {
+                        populateLocalPlayerEquipmentModelIds();
+                        if (renderer3d.renderPlayerModelComposed(
+                            basePlayerModelKey,
+                            entry.tileX(),
+                            entry.tileY(),
+                            yawDegrees,
+                            localPlayerEquipmentModelIds
+                        )) {
+                            modelRendered[i] = true;
+                        }
+                    } else {
+                        ClientPacketHandler packetHandler = handler();
+                        int[] remoteVisibleEquipment = packetHandler == null
+                            ? null
+                            : packetHandler.getRemotePlayerEquipment(entry.entityId());
+                        if (populateRemotePlayerEquipmentModelIds(remoteVisibleEquipment)
+                            && renderer3d.renderPlayerModelComposed(
+                                basePlayerModelKey,
+                                entry.tileX(),
+                                entry.tileY(),
+                                yawDegrees,
+                                remotePlayerEquipmentModelIds
+                            )) {
+                            modelRendered[i] = true;
+                        } else if (renderer3d.renderActorModel(
+                            basePlayerModelKey,
+                            entry.tileX(),
+                            entry.tileY(),
+                            yawDegrees,
+                            1f
+                        )) {
+                            modelRendered[i] = true;
+                        }
                     }
                 }
                 continue;
@@ -1595,33 +1618,38 @@ public class GameScreen extends ApplicationAdapter {
 
     private String resolveActorModelKey3D(ActorRenderEntry entry) {
         if (entry.isPlayer()) {
-            if (entry.entityId() != localPlayerId) {
-                return null;
+            if (entry.entityId() == localPlayerId) {
+                if (entry.pickingUp()) {
+                    return "player_pickup";
+                }
+                if ("chop".equals(entry.playerPose())) {
+                    return "player_chop";
+                }
+                if ("mine".equals(entry.playerPose())) {
+                    return "player_mine";
+                }
+                if (entry.playerPose() != null && entry.playerPose().startsWith("fish")) {
+                    return "player_fish";
+                }
+                if ("sword".equals(entry.playerPose())) {
+                    return "player_sword";
+                }
+                if ("spear".equals(entry.playerPose())) {
+                    return "player_spear";
+                }
             }
-            if (entry.pickingUp()) {
-                return "player_pickup";
-            }
-            if ("chop".equals(entry.playerPose())) {
-                return "player_chop";
-            }
-            if ("mine".equals(entry.playerPose())) {
-                return "player_mine";
-            }
-            if (entry.playerPose() != null && entry.playerPose().startsWith("fish")) {
-                return "player_fish";
-            }
-            if ("sword".equals(entry.playerPose())) {
-                return "player_sword";
-            }
-            if ("spear".equals(entry.playerPose())) {
-                return "player_spear";
-            }
-            return playerAnimMoving ? "player_walk" : "player_idle";
+            return playerAnimMovingForEntry(entry) ? "player_walk" : "player_idle";
         }
 
         String name = entry.npcName();
         if ("Banker".equals(name)) {
             return npcAnimMoving.getOrDefault(entry.entityId(), false) ? "npc_banker_walk" : "npc_banker_idle";
+        }
+        if ("Tutorial Guide".equals(name)) {
+            return npcAnimMoving.getOrDefault(entry.entityId(), false) ? "npc_guide_walk" : "npc_guide_idle";
+        }
+        if ("Combat Instructor".equals(name)) {
+            return npcAnimMoving.getOrDefault(entry.entityId(), false) ? "npc_instructor_walk" : "npc_instructor_idle";
         }
         if ("Goblin".equals(name)) {
             boolean actionActive = npcActionAnimTimer.getOrDefault(entry.entityId(), 0f) > 0f;
@@ -1629,6 +1657,34 @@ public class GameScreen extends ApplicationAdapter {
                 return "npc_goblin_action";
             }
             return npcAnimMoving.getOrDefault(entry.entityId(), false) ? "npc_goblin_walk" : "npc_goblin_idle";
+        }
+        if ("Rat".equals(name)) {
+            boolean actionActive = npcActionAnimTimer.getOrDefault(entry.entityId(), 0f) > 0f;
+            if (actionActive) {
+                return "npc_rat_action";
+            }
+            return npcAnimMoving.getOrDefault(entry.entityId(), false) ? "npc_rat_walk" : "npc_rat_idle";
+        }
+        if ("Giant Rat".equals(name)) {
+            boolean actionActive = npcActionAnimTimer.getOrDefault(entry.entityId(), 0f) > 0f;
+            if (actionActive) {
+                return "npc_giant_rat_action";
+            }
+            return npcAnimMoving.getOrDefault(entry.entityId(), false) ? "npc_giant_rat_walk" : "npc_giant_rat_idle";
+        }
+        if ("Chicken".equals(name)) {
+            boolean actionActive = npcActionAnimTimer.getOrDefault(entry.entityId(), 0f) > 0f;
+            if (actionActive) {
+                return "npc_chicken_action";
+            }
+            return npcAnimMoving.getOrDefault(entry.entityId(), false) ? "npc_chicken_walk" : "npc_chicken_idle";
+        }
+        if ("Cow".equals(name)) {
+            boolean actionActive = npcActionAnimTimer.getOrDefault(entry.entityId(), 0f) > 0f;
+            if (actionActive) {
+                return "npc_cow_action";
+            }
+            return npcAnimMoving.getOrDefault(entry.entityId(), false) ? "npc_cow_walk" : "npc_cow_idle";
         }
         return null;
     }
@@ -1648,6 +1704,16 @@ public class GameScreen extends ApplicationAdapter {
         };
     }
 
+    private boolean playerAnimMovingForEntry(ActorRenderEntry entry) {
+        if (!entry.isPlayer()) {
+            return false;
+        }
+        if (entry.entityId() == localPlayerId) {
+            return playerAnimMoving;
+        }
+        return npcAnimMoving.getOrDefault(entry.entityId(), false);
+    }
+
     private void populateLocalPlayerEquipmentModelIds() {
         Arrays.fill(localPlayerEquipmentModelIds, 0);
         ClientPacketHandler h = handler();
@@ -1657,6 +1723,23 @@ public class GameScreen extends ApplicationAdapter {
         for (int slot = 0; slot < EquipmentSlot.COUNT; slot++) {
             localPlayerEquipmentModelIds[slot] = h.getEquipmentItemId(slot);
         }
+    }
+
+    private boolean populateRemotePlayerEquipmentModelIds(int[] visibleSlots) {
+        Arrays.fill(remotePlayerEquipmentModelIds, 0);
+        if (visibleSlots == null || visibleSlots.length < 9) {
+            return false;
+        }
+        remotePlayerEquipmentModelIds[EquipmentSlot.HEAD] = visibleSlots[0];
+        remotePlayerEquipmentModelIds[EquipmentSlot.CAPE] = visibleSlots[1];
+        remotePlayerEquipmentModelIds[EquipmentSlot.AMMO] = visibleSlots[2];
+        remotePlayerEquipmentModelIds[EquipmentSlot.WEAPON] = visibleSlots[3];
+        remotePlayerEquipmentModelIds[EquipmentSlot.SHIELD] = visibleSlots[4];
+        remotePlayerEquipmentModelIds[EquipmentSlot.BODY] = visibleSlots[5];
+        remotePlayerEquipmentModelIds[EquipmentSlot.LEGS] = visibleSlots[6];
+        remotePlayerEquipmentModelIds[EquipmentSlot.HANDS] = visibleSlots[7];
+        remotePlayerEquipmentModelIds[EquipmentSlot.FEET] = visibleSlots[8];
+        return true;
     }
 
     private void renderStaticProps3D() {

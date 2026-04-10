@@ -1432,3 +1432,131 @@ assets:
     rot_x: 0.0
     rot_y: 0.0
     rot_z: 0.0
+  - key: npc_guide_idle
+    file: npc_guide_idle.g3dj
+    category: actor
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Low-poly tutorial guide idle pose.
+  - key: npc_guide_walk
+    file: npc_guide_walk.g3dj
+    category: actor
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Low-poly tutorial guide walk pose.
+  - key: npc_instructor_idle
+    file: npc_instructor_idle.g3dj
+    category: actor
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Low-poly combat instructor idle pose.
+  - key: npc_instructor_walk
+    file: npc_instructor_walk.g3dj
+    category: actor
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Low-poly combat instructor walk pose.
+  - key: npc_rat_idle
+    file: npc_rat_idle.g3dj
+    category: actor
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Low-poly rat idle pose.
+  - key: npc_rat_walk
+    file: npc_rat_walk.g3dj
+    category: actor
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Low-poly rat walk pose.
+  - key: npc_rat_action
+    file: npc_rat_action.g3dj
+    category: actor
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Low-poly rat action pose.
+  - key: npc_giant_rat_idle
+    file: npc_giant_rat_idle.g3dj
+    category: actor
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Low-poly giant rat idle pose.
+  - key: npc_giant_rat_walk
+    file: npc_giant_rat_walk.g3dj
+    category: actor
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Low-poly giant rat walk pose.
+  - key: npc_giant_rat_action
+    file: npc_giant_rat_action.g3dj
+    category: actor
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Low-poly giant rat action pose.
+  - key: npc_chicken_idle
+    file: npc_chicken_idle.g3dj
+    category: actor
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Low-poly chicken idle pose.
+  - key: npc_chicken_walk
+    file: npc_chicken_walk.g3dj
+    category: actor
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Low-poly chicken walk pose.
+  - key: npc_chicken_action
+    file: npc_chicken_action.g3dj
+    category: actor
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Low-poly chicken action pose.
+  - key: npc_cow_idle
+    file: npc_cow_idle.g3dj
+    category: actor
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Low-poly cow idle pose.
+  - key: npc_cow_walk
+    file: npc_cow_walk.g3dj
+    category: actor
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Low-poly cow walk pose.
+  - key: npc_cow_action
+    file: npc_cow_action.g3dj
+    category: actor
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Low-poly cow action pose.

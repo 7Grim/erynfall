@@ -7,6 +7,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -275,6 +276,7 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
     // -----------------------------------------------------------------------
     private final int[]    equipmentItemIds = new int[11];
     private final String[] equipmentNames   = new String[11];
+    private final Map<Integer, int[]> remotePlayerEquipment = new ConcurrentHashMap<>();
     private final int[] equipBonuses = new int[14]; // indices 0-13: stab_attack...prayer
     /** Current weapon attack range; 1 = melee, 7 = shortbow/magic staff, etc. */
     private volatile int playerAttackRange = 1;
@@ -459,6 +461,7 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
             case SMELTING_MENU_OPEN -> handleSmeltingMenuOpen(packet.getSmeltingMenuOpen());
             case SMITHING_MENU_OPEN -> handleSmithingMenuOpen(packet.getSmithingMenuOpen());
             case SHOP_OPEN -> handleShopOpen(packet.getShopOpen());
+            case REMOTE_PLAYER_EQUIPMENT_UPDATE -> handleRemotePlayerEquipmentUpdate(packet.getRemotePlayerEquipmentUpdate());
             default -> LOG.debug("Unhandled server message: {}", packet.getPayloadCase());
         }
     }
@@ -985,6 +988,28 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
         equipBonuses[13] = msg.getPrayer();
     }
 
+    private void handleRemotePlayerEquipmentUpdate(NetworkProto.RemotePlayerEquipmentUpdate update) {
+        if (!update.hasEquipment()) {
+            return;
+        }
+        NetworkProto.RemotePlayerEquipment equipment = update.getEquipment();
+        int playerId = equipment.getPlayerId();
+        if (playerId <= 0) {
+            return;
+        }
+        remotePlayerEquipment.put(playerId, new int[] {
+            equipment.getHeadItemId(),
+            equipment.getCapeItemId(),
+            equipment.getAmmoItemId(),
+            equipment.getWeaponItemId(),
+            equipment.getShieldItemId(),
+            equipment.getBodyItemId(),
+            equipment.getLegsItemId(),
+            equipment.getHandsItemId(),
+            equipment.getFeetItemId()
+        });
+    }
+
     private void handleGroundItemSpawn(NetworkProto.GroundItemSpawn spawn) {
         groundItems.put(spawn.getGroundItemId(),
             new int[]{spawn.getItemId(), spawn.getQuantity(), spawn.getX(), spawn.getY()});
@@ -1008,6 +1033,7 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
         entityCombatLevels.remove(id);
         entityDefinitionIds.remove(id);
         entityHealth.remove(id);
+        remotePlayerEquipment.remove(id);
         despawnedNpcQueue.add(id);
         LOG.info("NpcDespawn: id={}", id);
     }
@@ -1392,6 +1418,14 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
 
     public int    getEquipmentItemId(int slot)   { return (slot >= 0 && slot < 11) ? equipmentItemIds[slot] : 0; }
     public String getEquipmentName(int slot)     { return (slot >= 0 && slot < 11) ? equipmentNames[slot]   : ""; }
+    public int[] getRemotePlayerEquipment(int playerId) {
+        int[] snapshot = remotePlayerEquipment.get(playerId);
+        if (snapshot == null || snapshot.length == 0) {
+            return null;
+        }
+        return Arrays.copyOf(snapshot, snapshot.length);
+    }
+
     public int[] getEquipBonuses() { return equipBonuses; }
     public int   getPlayerAttackRange()          { return playerAttackRange; }
     public int   getSelectedSpellId()            { return selectedSpellId; }

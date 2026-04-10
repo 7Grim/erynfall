@@ -355,6 +355,23 @@ message EquipmentUpdate {
     int32 attack_range = 6; // Weapon attack range; only meaningful for WEAPON slot (slot 4), 0 otherwise
 }
 
+message RemotePlayerEquipment {
+    int32 player_id = 1;
+    int32 head_item_id = 2;
+    int32 cape_item_id = 3;
+    int32 ammo_item_id = 4;
+    int32 weapon_item_id = 5;
+    int32 shield_item_id = 6;
+    int32 body_item_id = 7;
+    int32 legs_item_id = 8;
+    int32 hands_item_id = 9;
+    int32 feet_item_id = 10;
+}
+
+message RemotePlayerEquipmentUpdate {
+    RemotePlayerEquipment equipment = 1;
+}
+
 // GroundItemSpawn: Server → Client
 message GroundItemSpawn {
     int32 ground_item_id = 1;
@@ -737,5 +754,6 @@ message ServerMessage {
         SmeltingMenuOpen smelting_menu_open = 32;
         SmithingMenuOpen smithing_menu_open = 33;
         ShopOpen shop_open = 34;
+        RemotePlayerEquipmentUpdate remote_player_equipment_update = 35;
     }
 }
