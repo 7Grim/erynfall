@@ -95,6 +95,23 @@ Naming convention:
 These are optional. If only the base file exists (for example `tile_grass.png`), rendering still works.
 When variants are present, the game picks one deterministically per tile location.
 
+### Optional zone material profile overrides
+
+Zones can optionally override terrain/overlay/clutter art by suffixing a material profile name:
+- `tile_grass_fishing.png`
+- `tile_grass_fishing_0.png`, `tile_grass_fishing_1.png`, ...
+- `tile_path_town.png`
+- `edge_wall_base_mining.png`
+- `clutter_grass_1_woodcutting.png`
+
+Lookup order is deterministic and always falls back safely:
+1. profile-specific variant (for example `tile_grass_fishing_0`)
+2. profile-specific base (for example `tile_grass_fishing`)
+3. global variant (for example `tile_grass_0`)
+4. global base (`tile_grass`)
+
+These profile-specific assets are optional. If absent, the renderer uses current global assets automatically.
+
 ### Optional transition and clutter sprites
 
 The renderer supports optional environment richness keys (shore/path/wall overlays and sparse clutter).

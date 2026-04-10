@@ -9,6 +9,7 @@ public final class RenderZone {
     public final int minY;
     public final int maxX;
     public final int maxY;
+    public final String materialProfile;
     public final float tintR;
     public final float tintG;
     public final float tintB;
@@ -20,6 +21,7 @@ public final class RenderZone {
                       int minY,
                       int maxX,
                       int maxY,
+                      String materialProfile,
                       float tintR,
                       float tintG,
                       float tintB,
@@ -30,6 +32,7 @@ public final class RenderZone {
         this.minY = minY;
         this.maxX = maxX;
         this.maxY = maxY;
+        this.materialProfile = materialProfile;
         this.tintR = tintR;
         this.tintG = tintG;
         this.tintB = tintB;
@@ -49,16 +52,16 @@ public final class RenderZone {
     }
 
     public static final List<RenderZone> TUTORIAL_ISLAND = Arrays.asList(
-        new RenderZone("skill_north", 0, 8, 104, 23, 0.94f, 0.95f, 0.90f, 0.04f, 0.00f),
-        new RenderZone("cooking", 0, 24, 104, 27, 1.00f, 0.90f, 0.82f, 0.05f, 0.00f),
-        new RenderZone("fishing", 0, 28, 104, 31, 0.86f, 0.92f, 1.00f, 0.06f, 0.00f),
-        new RenderZone("mining", 0, 32, 104, 35, 0.82f, 0.84f, 0.88f, 0.06f, 0.00f),
-        new RenderZone("woodcutting", 0, 36, 104, 39, 0.90f, 0.98f, 0.88f, 0.05f, 0.00f),
-        new RenderZone("town", 0, 40, 104, 60, 1.00f, 1.00f, 1.00f, 0.00f, 0.00f),
-        new RenderZone("combat_low", 0, 61, 104, 66, 0.95f, 0.90f, 0.90f, 0.04f, 0.00f),
-        new RenderZone("combat_mid", 0, 67, 104, 72, 0.92f, 0.86f, 0.86f, 0.05f, 0.00f),
-        new RenderZone("combat_high", 0, 73, 104, 78, 0.90f, 0.84f, 0.84f, 0.06f, 0.00f),
-        new RenderZone("combat_a", 0, 79, 104, 84, 0.88f, 0.82f, 0.82f, 0.07f, 0.00f),
-        new RenderZone("combat_b", 0, 85, 104, 96, 0.86f, 0.80f, 0.80f, 0.08f, 0.00f)
+        new RenderZone("skill_north", 0, 8, 104, 23, "neutral", 0.94f, 0.95f, 0.90f, 0.04f, 0.00f),
+        new RenderZone("cooking", 0, 24, 104, 27, "cooking", 1.00f, 0.90f, 0.82f, 0.05f, 0.00f),
+        new RenderZone("fishing", 0, 28, 104, 31, "fishing", 0.86f, 0.92f, 1.00f, 0.06f, 0.00f),
+        new RenderZone("mining", 0, 32, 104, 35, "mining", 0.82f, 0.84f, 0.88f, 0.06f, 0.00f),
+        new RenderZone("woodcutting", 0, 36, 104, 39, "woodcutting", 0.90f, 0.98f, 0.88f, 0.05f, 0.00f),
+        new RenderZone("town", 0, 40, 104, 60, "town", 1.00f, 1.00f, 1.00f, 0.00f, 0.00f),
+        new RenderZone("combat_low", 0, 61, 104, 66, "combat", 0.95f, 0.90f, 0.90f, 0.04f, 0.00f),
+        new RenderZone("combat_mid", 0, 67, 104, 72, "combat", 0.92f, 0.86f, 0.86f, 0.05f, 0.00f),
+        new RenderZone("combat_high", 0, 73, 104, 78, "combat", 0.90f, 0.84f, 0.84f, 0.06f, 0.00f),
+        new RenderZone("combat_a", 0, 79, 104, 84, "combat", 0.88f, 0.82f, 0.82f, 0.07f, 0.00f),
+        new RenderZone("combat_b", 0, 85, 104, 96, "combat", 0.86f, 0.80f, 0.80f, 0.08f, 0.00f)
     );
 }

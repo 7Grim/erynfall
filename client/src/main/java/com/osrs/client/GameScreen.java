@@ -128,6 +128,7 @@ public class GameScreen extends ApplicationAdapter {
     private float renderZoneTintB = 1f;
     private float renderZoneTintAlpha = 0f;
     private float renderZoneVignetteAlpha = 0f;
+    private String activeMaterialProfile = "neutral";
 
     // -----------------------------------------------------------------------
     // Game objects
@@ -982,6 +983,7 @@ public class GameScreen extends ApplicationAdapter {
         RenderZone zone = RenderZone.findZone(RenderZone.TUTORIAL_ISLAND, playerX, playerY);
         activeRenderZone = zone;
         if (zone == null) {
+            activeMaterialProfile = "neutral";
             renderZoneTintR = 1f;
             renderZoneTintG = 1f;
             renderZoneTintB = 1f;
@@ -989,6 +991,7 @@ public class GameScreen extends ApplicationAdapter {
             renderZoneVignetteAlpha = 0f;
             return;
         }
+        activeMaterialProfile = zone.materialProfile == null ? "neutral" : zone.materialProfile;
         renderZoneTintR = zone.tintR;
         renderZoneTintG = zone.tintG;
         renderZoneTintB = zone.tintB;
@@ -1128,7 +1131,7 @@ public class GameScreen extends ApplicationAdapter {
         // World rendering contract:
         // layer order stays the same, but each layer now renders in consolidated
         // sprite/shape passes to reduce begin/end churn as visual complexity grows.
-        renderer.renderWorld(tileMap, visualX, visualY, visualX, visualY);
+        renderer.renderWorld(tileMap, visualX, visualY, visualX, visualY, activeMaterialProfile);
         ClientPacketHandler handler = handler();
         // World render layers:
         //   1. Ground items (depth-sorted)

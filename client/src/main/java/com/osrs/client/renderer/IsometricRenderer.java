@@ -84,6 +84,7 @@ public class IsometricRenderer {
 
     /** Reusable colour to avoid per-frame allocation for animated water. */
     private final Color animWaterColor = new Color();
+    private final java.util.Map<String, Integer> variantCountCache = new java.util.HashMap<>();
 
     public IsometricRenderer(OrthographicCamera camera, SpriteBatch batch, ShapeRenderer shapeRenderer) {
         this.camera = camera;
@@ -97,6 +98,7 @@ public class IsometricRenderer {
      */
     public void setSpriteSheet(SpriteSheet sheet) {
         this.spriteSheet = sheet;
+        this.variantCountCache.clear();
     }
 
     /**
@@ -164,7 +166,12 @@ public class IsometricRenderer {
      * @param centerX  visual player X (used for viewport culling)
      * @param centerY  visual player Y
      */
-    public void renderWorld(int[][] tileMap, float centerX, float centerY, float playerX, float playerY) {
+    public void renderWorld(int[][] tileMap,
+                            float centerX,
+                            float centerY,
+                            float playerX,
+                            float playerY,
+                            String materialProfile) {
         float zoom = camera.zoom;
         float scaledViewportWidth = camera.viewportWidth * zoom;
         float scaledViewportHeight = camera.viewportHeight * zoom;
@@ -236,7 +243,7 @@ public class IsometricRenderer {
                     float sy = worldToScreenY(x, y);
                     float wallAlpha = (type == 3 && wallOccludesPlayer(x, y, playerX, playerY)) ? 0.35f : 1f;
 
-                    TextureRegion region = resolveBaseTileRegion(type, x, y);
+                    TextureRegion region = resolveBaseTileRegion(type, x, y, materialProfile);
                     if (region != null) {
                         drawTileSpriteWithPivot(tileKey(type), region, sx, sy, wallAlpha);
                     }
@@ -273,36 +280,36 @@ public class IsometricRenderer {
                     // Shoreline accents: land tiles adjacent to water.
                     if (isLandTile(type)) {
                         // 1) wet edge
-                        if (waterNorth) drawOverlayIfPresent("shore_wet_n", sx, sy, 0.15f);
-                        if (waterSouth) drawOverlayIfPresent("shore_wet_s", sx, sy, 0.15f);
-                        if (waterEast) drawOverlayIfPresent("shore_wet_e", sx, sy, 0.15f);
-                        if (waterWest) drawOverlayIfPresent("shore_wet_w", sx, sy, 0.15f);
+                        if (waterNorth) drawOverlayIfPresent("shore_wet_n", sx, sy, 0.15f, materialProfile);
+                        if (waterSouth) drawOverlayIfPresent("shore_wet_s", sx, sy, 0.15f, materialProfile);
+                        if (waterEast) drawOverlayIfPresent("shore_wet_e", sx, sy, 0.15f, materialProfile);
+                        if (waterWest) drawOverlayIfPresent("shore_wet_w", sx, sy, 0.15f, materialProfile);
 
                         // 2) foam
-                        if (waterNorth) drawOverlayIfPresent("shore_foam_n", sx, sy, 0.18f);
-                        if (waterSouth) drawOverlayIfPresent("shore_foam_s", sx, sy, 0.18f);
-                        if (waterEast) drawOverlayIfPresent("shore_foam_e", sx, sy, 0.18f);
-                        if (waterWest) drawOverlayIfPresent("shore_foam_w", sx, sy, 0.18f);
+                        if (waterNorth) drawOverlayIfPresent("shore_foam_n", sx, sy, 0.18f, materialProfile);
+                        if (waterSouth) drawOverlayIfPresent("shore_foam_s", sx, sy, 0.18f, materialProfile);
+                        if (waterEast) drawOverlayIfPresent("shore_foam_e", sx, sy, 0.18f, materialProfile);
+                        if (waterWest) drawOverlayIfPresent("shore_foam_w", sx, sy, 0.18f, materialProfile);
 
                         // 3) existing generic shoreline overlay
-                        if (waterNorth) drawOverlayIfPresent("edge_shore_n", sx, sy);
-                        if (waterSouth) drawOverlayIfPresent("edge_shore_s", sx, sy);
-                        if (waterEast) drawOverlayIfPresent("edge_shore_e", sx, sy);
-                        if (waterWest) drawOverlayIfPresent("edge_shore_w", sx, sy);
+                        if (waterNorth) drawOverlayIfPresent("edge_shore_n", sx, sy, 1f, materialProfile);
+                        if (waterSouth) drawOverlayIfPresent("edge_shore_s", sx, sy, 1f, materialProfile);
+                        if (waterEast) drawOverlayIfPresent("edge_shore_e", sx, sy, 1f, materialProfile);
+                        if (waterWest) drawOverlayIfPresent("edge_shore_w", sx, sy, 1f, materialProfile);
                     }
 
                     // Path-to-grass edge breakup.
                     if (type == 2) {
-                        if (isTile(tileMap, x, y - 1, 0)) drawOverlayIfPresent("edge_path_grass_n", sx, sy);
-                        if (isTile(tileMap, x, y + 1, 0)) drawOverlayIfPresent("edge_path_grass_s", sx, sy);
-                        if (isTile(tileMap, x + 1, y, 0)) drawOverlayIfPresent("edge_path_grass_e", sx, sy);
-                        if (isTile(tileMap, x - 1, y, 0)) drawOverlayIfPresent("edge_path_grass_w", sx, sy);
+                        if (isTile(tileMap, x, y - 1, 0)) drawOverlayIfPresent("edge_path_grass_n", sx, sy, 1f, materialProfile);
+                        if (isTile(tileMap, x, y + 1, 0)) drawOverlayIfPresent("edge_path_grass_s", sx, sy, 1f, materialProfile);
+                        if (isTile(tileMap, x + 1, y, 0)) drawOverlayIfPresent("edge_path_grass_e", sx, sy, 1f, materialProfile);
+                        if (isTile(tileMap, x - 1, y, 0)) drawOverlayIfPresent("edge_path_grass_w", sx, sy, 1f, materialProfile);
                     }
 
                     // Wall base accent.
                     if (type == 3) {
                         float wallAlpha = wallOccludesPlayer(x, y, playerX, playerY) ? 0.35f : 1f;
-                        drawOverlayIfPresent("edge_wall_base", sx, sy, wallAlpha);
+                        drawOverlayIfPresent("edge_wall_base", sx, sy, wallAlpha, materialProfile);
                     }
                 }
             }
@@ -321,25 +328,25 @@ public class IsometricRenderer {
 
                     // Shoreline creases on land next to water.
                     if (isLandTile(type)) {
-                        if (waterNorth) drawOverlayIfPresent("ao_shore_n", sx, sy, AO_SHORE_ALPHA);
-                        if (waterSouth) drawOverlayIfPresent("ao_shore_s", sx, sy, AO_SHORE_ALPHA);
-                        if (waterEast) drawOverlayIfPresent("ao_shore_e", sx, sy, AO_SHORE_ALPHA);
-                        if (waterWest) drawOverlayIfPresent("ao_shore_w", sx, sy, AO_SHORE_ALPHA);
+                        if (waterNorth) drawOverlayIfPresent("ao_shore_n", sx, sy, AO_SHORE_ALPHA, materialProfile);
+                        if (waterSouth) drawOverlayIfPresent("ao_shore_s", sx, sy, AO_SHORE_ALPHA, materialProfile);
+                        if (waterEast) drawOverlayIfPresent("ao_shore_e", sx, sy, AO_SHORE_ALPHA, materialProfile);
+                        if (waterWest) drawOverlayIfPresent("ao_shore_w", sx, sy, AO_SHORE_ALPHA, materialProfile);
                     }
 
                     // Path-to-grass seam depth.
                     if (type == 2) {
-                        if (isTile(tileMap, x, y - 1, 0)) drawOverlayIfPresent("ao_path_grass_n", sx, sy, AO_PATH_ALPHA);
-                        if (isTile(tileMap, x, y + 1, 0)) drawOverlayIfPresent("ao_path_grass_s", sx, sy, AO_PATH_ALPHA);
-                        if (isTile(tileMap, x + 1, y, 0)) drawOverlayIfPresent("ao_path_grass_e", sx, sy, AO_PATH_ALPHA);
-                        if (isTile(tileMap, x - 1, y, 0)) drawOverlayIfPresent("ao_path_grass_w", sx, sy, AO_PATH_ALPHA);
+                        if (isTile(tileMap, x, y - 1, 0)) drawOverlayIfPresent("ao_path_grass_n", sx, sy, AO_PATH_ALPHA, materialProfile);
+                        if (isTile(tileMap, x, y + 1, 0)) drawOverlayIfPresent("ao_path_grass_s", sx, sy, AO_PATH_ALPHA, materialProfile);
+                        if (isTile(tileMap, x + 1, y, 0)) drawOverlayIfPresent("ao_path_grass_e", sx, sy, AO_PATH_ALPHA, materialProfile);
+                        if (isTile(tileMap, x - 1, y, 0)) drawOverlayIfPresent("ao_path_grass_w", sx, sy, AO_PATH_ALPHA, materialProfile);
                     }
 
                     // Wall base + inside-corner creases.
                     if (type == 3) {
                         float wallAlpha = wallOccludesPlayer(x, y, playerX, playerY) ? 0.35f : 1f;
                         float aoAlpha = AO_WALL_ALPHA * wallAlpha;
-                        drawOverlayIfPresent("ao_wall_base", sx, sy, aoAlpha);
+                        drawOverlayIfPresent("ao_wall_base", sx, sy, aoAlpha, materialProfile);
 
                         boolean wallNorth = isTile(tileMap, x, y - 1, 3);
                         boolean wallSouth = isTile(tileMap, x, y + 1, 3);
@@ -351,16 +358,16 @@ public class IsometricRenderer {
                         boolean wallSW = isTile(tileMap, x - 1, y + 1, 3);
 
                         if (wallNorth && wallEast && !wallNE) {
-                            drawOverlayIfPresent("ao_wall_inner_ne", sx, sy, aoAlpha);
+                            drawOverlayIfPresent("ao_wall_inner_ne", sx, sy, aoAlpha, materialProfile);
                         }
                         if (wallNorth && wallWest && !wallNW) {
-                            drawOverlayIfPresent("ao_wall_inner_nw", sx, sy, aoAlpha);
+                            drawOverlayIfPresent("ao_wall_inner_nw", sx, sy, aoAlpha, materialProfile);
                         }
                         if (wallSouth && wallEast && !wallSE) {
-                            drawOverlayIfPresent("ao_wall_inner_se", sx, sy, aoAlpha);
+                            drawOverlayIfPresent("ao_wall_inner_se", sx, sy, aoAlpha, materialProfile);
                         }
                         if (wallSouth && wallWest && !wallSW) {
-                            drawOverlayIfPresent("ao_wall_inner_sw", sx, sy, aoAlpha);
+                            drawOverlayIfPresent("ao_wall_inner_sw", sx, sy, aoAlpha, materialProfile);
                         }
                     }
                 }
@@ -386,20 +393,20 @@ public class IsometricRenderer {
                     boolean drewBaseClutter = false;
                     if (type == 0 && !nearWall && !nearWater && seed % 8 == 0) {
                         int variant = (seed % 3) + 1;
-                        drawClutterIfPresent("clutter_grass_" + variant, sx, sy);
+                        drawClutterIfPresent("clutter_grass_" + variant, sx, sy, materialProfile);
                         drewBaseClutter = true;
                     } else if (type == 2 && seed % 14 == 0) {
                         int variant = (seed % 2) + 1;
-                        drawClutterIfPresent("clutter_path_" + variant, sx, sy);
+                        drawClutterIfPresent("clutter_path_" + variant, sx, sy, materialProfile);
                         drewBaseClutter = true;
                     } else if (type == 4 && seed % 12 == 0) {
                         int variant = (seed % 2) + 1;
-                        drawClutterIfPresent("clutter_sand_" + variant, sx, sy);
+                        drawClutterIfPresent("clutter_sand_" + variant, sx, sy, materialProfile);
                         drewBaseClutter = true;
                     }
 
                     if (!drewBaseClutter && type != 1 && type != 3 && nearWater && seed % 18 == 0) {
-                        drawClutterIfPresent("clutter_reeds_1", sx, sy);
+                        drawClutterIfPresent("clutter_reeds_1", sx, sy, materialProfile);
                     }
                 }
             }
@@ -454,7 +461,7 @@ public class IsometricRenderer {
         return dx <= 18f && dy <= 22f;
     }
 
-    private TextureRegion resolveBaseTileRegion(int type, int x, int y) {
+    private TextureRegion resolveBaseTileRegion(int type, int x, int y, String materialProfile) {
         if (spriteSheet == null) return null;
         String key = tileKey(type);
         // Water remains special because it prefers animation.
@@ -466,11 +473,63 @@ public class IsometricRenderer {
             return spriteSheet.getTile("tile_water");
         }
 
+        String profile = normalizedMaterialProfile(materialProfile);
+        if (profile != null) {
+            TextureRegion profiled = resolveVariantAwareTile(key + "_" + profile, x, y, type);
+            if (profiled != null) {
+                return profiled;
+            }
+        }
+
+        return resolveVariantAwareTile(key, x, y, type);
+    }
+
+    private TextureRegion resolveVariantAwareTile(String key, int x, int y, int type) {
+        if (spriteSheet == null || key == null || key.isEmpty()) {
+            return null;
+        }
+
         SpriteSheet.SpriteMeta meta = spriteSheet.getMeta(key);
         if (meta != null && meta.variantCount() > 0) {
             return spriteSheet.getDeterministicVariantTile(key, meta.variantCount(), tileVariantSeed(x, y, type));
         }
+
+        int variantCount = countAtlasVariants(key);
+        if (variantCount > 0) {
+            return spriteSheet.getDeterministicVariantTile(key, variantCount, tileVariantSeed(x, y, type));
+        }
+
         return spriteSheet.getTile(key);
+    }
+
+    private int countAtlasVariants(String baseKey) {
+        if (spriteSheet == null || baseKey == null || baseKey.isEmpty()) {
+            return 0;
+        }
+        Integer cached = variantCountCache.get(baseKey);
+        if (cached != null) {
+            return cached;
+        }
+        int count = 0;
+        while (count < 16) {
+            if (spriteSheet.getVariantTile(baseKey, count) == null) {
+                break;
+            }
+            count++;
+        }
+        variantCountCache.put(baseKey, count);
+        return count;
+    }
+
+    private String normalizedMaterialProfile(String materialProfile) {
+        if (materialProfile == null) {
+            return null;
+        }
+        String trimmed = materialProfile.trim();
+        if (trimmed.isEmpty() || "neutral".equalsIgnoreCase(trimmed)) {
+            return null;
+        }
+        return trimmed;
     }
 
     private TextureRegion resolveAmbientResourceRegion(String baseKey) {
@@ -487,7 +546,11 @@ public class IsometricRenderer {
     }
 
     private void drawOverlayIfPresent(String key, float sx, float sy, float alpha) {
-        TextureRegion region = spriteSheet.getTile(key);
+        drawOverlayIfPresent(key, sx, sy, alpha, null);
+    }
+
+    private void drawOverlayIfPresent(String key, float sx, float sy, float alpha, String materialProfile) {
+        TextureRegion region = resolveProfiledTile(key, materialProfile);
         if (region == null) return;
         drawTileSpriteWithPivot(key, region, sx, sy, alpha);
     }
@@ -507,8 +570,22 @@ public class IsometricRenderer {
     }
 
     private void drawClutterIfPresent(String key, float sx, float sy) {
+        drawClutterIfPresent(key, sx, sy, null);
+    }
+
+    private void drawClutterIfPresent(String key, float sx, float sy, String materialProfile) {
         TextureRegion region = null;
-        if (spriteSheet != null) {
+        String profiledKey = profiledKey(key, materialProfile);
+        if (spriteSheet != null && profiledKey != null) {
+            Animation<TextureRegion> idleAnim = spriteSheet.getAnimation(profiledKey + "_idle");
+            if (idleAnim != null) {
+                region = idleAnim.getKeyFrame(stateTime, true);
+            }
+            if (region == null) {
+                region = spriteSheet.getTile(profiledKey);
+            }
+        }
+        if (spriteSheet != null && region == null) {
             Animation<TextureRegion> idleAnim = spriteSheet.getAnimation(key + "_idle");
             if (idleAnim != null) {
                 region = idleAnim.getKeyFrame(stateTime, true);
@@ -519,6 +596,28 @@ public class IsometricRenderer {
         }
         if (region == null) return;
         drawTileSpriteWithPivot(key, region, sx, sy);
+    }
+
+    private TextureRegion resolveProfiledTile(String key, String materialProfile) {
+        if (spriteSheet == null) {
+            return null;
+        }
+        String profiledKey = profiledKey(key, materialProfile);
+        if (profiledKey != null) {
+            TextureRegion profiled = spriteSheet.getTile(profiledKey);
+            if (profiled != null) {
+                return profiled;
+            }
+        }
+        return spriteSheet.getTile(key);
+    }
+
+    private String profiledKey(String key, String materialProfile) {
+        String profile = normalizedMaterialProfile(materialProfile);
+        if (profile == null) {
+            return null;
+        }
+        return key + "_" + profile;
     }
 
     private void drawTileSpriteWithPivot(String spriteKey, TextureRegion region, float sx, float sy) {
