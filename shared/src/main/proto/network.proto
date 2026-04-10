@@ -513,12 +513,12 @@ message ClaimNpcSupplies {
 }
 
 message OpenSmeltingMenu {
-    int32 furnace_npc_id = 1;
+    int32 npc_id = 1;
     int64 sequence = 2;
 }
 
 message StartSmelting {
-    int32 furnace_npc_id = 1;
+    int32 npc_id = 1;
     int32 bar_item_id = 2;
     int64 sequence = 3;
 }
@@ -530,14 +530,48 @@ message CloseSmeltingMenu {
 message SmeltingBarOption {
     int32 bar_item_id = 1;
     string bar_name = 2;
-    int32 level_required = 3;
-    int32 xp_tenths = 4;
+    int32 level_requirement = 3;
+    int32 smithing_xp_tenths = 4;
     int32 success_percent = 5;
+    int32 ore_item_id_a = 6;
+    int32 ore_qty_a = 7;
+    int32 ore_item_id_b = 8;
+    int32 ore_qty_b = 9;
+    int32 coal_required = 10;
 }
 
 message SmeltingMenuOpen {
-    int32 furnace_npc_id = 1;
+    int32 npc_id = 1;
     repeated SmeltingBarOption options = 2;
+}
+
+message OpenSmithingMenu {
+    int32 npc_id = 1;
+    int64 sequence = 2;
+}
+
+message StartSmithingProduct {
+    int32 npc_id = 1;
+    int32 product_item_id = 2;
+    int64 sequence = 3;
+}
+
+message CloseSmithingMenu {
+    int64 sequence = 1;
+}
+
+message SmithingProductOption {
+    int32 product_item_id = 1;
+    string product_name = 2;
+    int32 level_requirement = 3;
+    int32 bar_item_id = 4;
+    int32 bars_required = 5;
+    int32 smithing_xp_tenths = 6;
+}
+
+message SmithingMenuOpen {
+    int32 npc_id = 1;
+    repeated SmithingProductOption options = 2;
 }
 
 // ChatBroadcast: Server → Client (public chat from a nearby player, broadcast to all in range)
@@ -627,6 +661,9 @@ message ClientMessage {
         OpenSmeltingMenu open_smelting_menu = 35;
         StartSmelting start_smelting = 36;
         CloseSmeltingMenu close_smelting_menu = 37;
+        OpenSmithingMenu open_smithing_menu = 38;
+        StartSmithingProduct start_smithing_product = 39;
+        CloseSmithingMenu close_smithing_menu = 40;
     }
 }
 
@@ -665,5 +702,6 @@ message ServerMessage {
         AdminItemSearchResults admin_item_search_results = 30;
         AdminTeleportApplied admin_teleport_applied = 31;
         SmeltingMenuOpen smelting_menu_open = 32;
+        SmithingMenuOpen smithing_menu_open = 33;
     }
 }

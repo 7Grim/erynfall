@@ -316,35 +316,71 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
     public static class SmeltingBarOptionSnapshot {
         public final int barItemId;
         public final String barName;
-        public final int levelRequired;
-        public final int xpTenths;
+        public final int levelRequirement;
+        public final int smithingXpTenths;
         public final int successPercent;
+        public final int oreItemIdA;
+        public final int oreQtyA;
+        public final int oreItemIdB;
+        public final int oreQtyB;
+        public final int coalRequired;
 
         public SmeltingBarOptionSnapshot(int barItemId,
                                          String barName,
-                                         int levelRequired,
-                                         int xpTenths,
-                                         int successPercent) {
+                                         int levelRequirement,
+                                         int smithingXpTenths,
+                                         int successPercent,
+                                         int oreItemIdA,
+                                         int oreQtyA,
+                                         int oreItemIdB,
+                                         int oreQtyB,
+                                         int coalRequired) {
             this.barItemId = barItemId;
             this.barName = barName == null ? "" : barName;
-            this.levelRequired = levelRequired;
-            this.xpTenths = xpTenths;
+            this.levelRequirement = levelRequirement;
+            this.smithingXpTenths = smithingXpTenths;
             this.successPercent = successPercent;
+            this.oreItemIdA = oreItemIdA;
+            this.oreQtyA = oreQtyA;
+            this.oreItemIdB = oreItemIdB;
+            this.oreQtyB = oreQtyB;
+            this.coalRequired = coalRequired;
+        }
+    }
+    private final Object smeltingMenuLock = new Object();
+    private final List<SmeltingBarOptionSnapshot> smeltingOptions = new ArrayList<>();
+    private volatile boolean smeltingMenuOpen = false;
+    private volatile boolean smeltingMenuUpdatePending = false;
+    private volatile int smeltingMenuNpcId = -1;
+
+    public static class SmithingProductOptionSnapshot {
+        public final int productItemId;
+        public final String productName;
+        public final int levelRequirement;
+        public final int barItemId;
+        public final int barsRequired;
+        public final int smithingXpTenths;
+
+        public SmithingProductOptionSnapshot(int productItemId,
+                                             String productName,
+                                             int levelRequirement,
+                                             int barItemId,
+                                             int barsRequired,
+                                             int smithingXpTenths) {
+            this.productItemId = productItemId;
+            this.productName = productName == null ? "" : productName;
+            this.levelRequirement = levelRequirement;
+            this.barItemId = barItemId;
+            this.barsRequired = barsRequired;
+            this.smithingXpTenths = smithingXpTenths;
         }
     }
 
-    public static class SmeltingMenuOpenEvent {
-        public final int furnaceNpcId;
-        public final List<SmeltingBarOptionSnapshot> options;
-
-        public SmeltingMenuOpenEvent(int furnaceNpcId, List<SmeltingBarOptionSnapshot> options) {
-            this.furnaceNpcId = furnaceNpcId;
-            this.options = options;
-        }
-    }
-
-    private final ConcurrentLinkedQueue<SmeltingMenuOpenEvent> pendingSmeltingMenus =
-        new ConcurrentLinkedQueue<>();
+    private final Object smithingMenuLock = new Object();
+    private final List<SmithingProductOptionSnapshot> smithingOptions = new ArrayList<>();
+    private volatile boolean smithingMenuOpen = false;
+    private volatile boolean smithingMenuUpdatePending = false;
+    private volatile int smithingMenuNpcId = -1;
 
     public ClientPacketHandler(NettyClient client) {
         this.client = client;
@@ -394,6 +430,7 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
             case ADMIN_ITEM_SEARCH_RESULTS -> handleAdminItemSearchResults(packet.getAdminItemSearchResults());
             case ADMIN_TELEPORT_APPLIED -> handleAdminTeleportApplied(packet.getAdminTeleportApplied());
             case SMELTING_MENU_OPEN -> handleSmeltingMenuOpen(packet.getSmeltingMenuOpen());
+            case SMITHING_MENU_OPEN -> handleSmithingMenuOpen(packet.getSmithingMenuOpen());
             default -> LOG.debug("Unhandled server message: {}", packet.getPayloadCase());
         }
     }
@@ -741,6 +778,7 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
         if ("Cooking Fire".equalsIgnoreCase(name)) return "cook_at";
         if ("Cooking Range".equalsIgnoreCase(name)) return "cook_at";
         if ("Furnace".equalsIgnoreCase(name)) return "smelt_at";
+        if ("Anvil".equalsIgnoreCase(name)) return "smith_at";
         return null;
     }
 
@@ -1036,12 +1074,44 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
             options.add(new SmeltingBarOptionSnapshot(
                 option.getBarItemId(),
                 option.getBarName(),
-                option.getLevelRequired(),
-                option.getXpTenths(),
-                option.getSuccessPercent()
+                option.getLevelRequirement(),
+                option.getSmithingXpTenths(),
+                option.getSuccessPercent(),
+                option.getOreItemIdA(),
+                option.getOreQtyA(),
+                option.getOreItemIdB(),
+                option.getOreQtyB(),
+                option.getCoalRequired()
             ));
         }
-        pendingSmeltingMenus.add(new SmeltingMenuOpenEvent(msg.getFurnaceNpcId(), options));
+        synchronized (smeltingMenuLock) {
+            smeltingOptions.clear();
+            smeltingOptions.addAll(options);
+        }
+        smeltingMenuNpcId = msg.getNpcId();
+        smeltingMenuOpen = true;
+        smeltingMenuUpdatePending = true;
+    }
+
+    private void handleSmithingMenuOpen(NetworkProto.SmithingMenuOpen msg) {
+        List<SmithingProductOptionSnapshot> options = new ArrayList<>();
+        for (NetworkProto.SmithingProductOption option : msg.getOptionsList()) {
+            options.add(new SmithingProductOptionSnapshot(
+                option.getProductItemId(),
+                option.getProductName(),
+                option.getLevelRequirement(),
+                option.getBarItemId(),
+                option.getBarsRequired(),
+                option.getSmithingXpTenths()
+            ));
+        }
+        synchronized (smithingMenuLock) {
+            smithingOptions.clear();
+            smithingOptions.addAll(options);
+        }
+        smithingMenuNpcId = msg.getNpcId();
+        smithingMenuOpen = true;
+        smithingMenuUpdatePending = true;
     }
 
     /** Drain server chat messages queued this frame. */
@@ -1127,12 +1197,62 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
         return out;
     }
 
-    public List<SmeltingMenuOpenEvent> drainSmeltingMenuEvents() {
-        if (pendingSmeltingMenus.isEmpty()) return List.of();
-        List<SmeltingMenuOpenEvent> out = new ArrayList<>();
-        SmeltingMenuOpenEvent e;
-        while ((e = pendingSmeltingMenus.poll()) != null) out.add(e);
-        return out;
+    public boolean consumeSmeltingMenuUpdate() {
+        boolean updated = smeltingMenuUpdatePending;
+        smeltingMenuUpdatePending = false;
+        return updated;
+    }
+
+    public boolean isSmeltingMenuOpen() {
+        return smeltingMenuOpen;
+    }
+
+    public int getSmeltingMenuNpcId() {
+        return smeltingMenuNpcId;
+    }
+
+    public List<SmeltingBarOptionSnapshot> getSmeltingOptions() {
+        synchronized (smeltingMenuLock) {
+            return Collections.unmodifiableList(new ArrayList<>(smeltingOptions));
+        }
+    }
+
+    public void clearSmeltingMenu() {
+        synchronized (smeltingMenuLock) {
+            smeltingOptions.clear();
+        }
+        smeltingMenuOpen = false;
+        smeltingMenuNpcId = -1;
+        smeltingMenuUpdatePending = false;
+    }
+
+    public boolean consumeSmithingMenuUpdate() {
+        boolean updated = smithingMenuUpdatePending;
+        smithingMenuUpdatePending = false;
+        return updated;
+    }
+
+    public boolean isSmithingMenuOpen() {
+        return smithingMenuOpen;
+    }
+
+    public int getSmithingMenuNpcId() {
+        return smithingMenuNpcId;
+    }
+
+    public List<SmithingProductOptionSnapshot> getSmithingOptions() {
+        synchronized (smithingMenuLock) {
+            return Collections.unmodifiableList(new ArrayList<>(smithingOptions));
+        }
+    }
+
+    public void clearSmithingMenu() {
+        synchronized (smithingMenuLock) {
+            smithingOptions.clear();
+        }
+        smithingMenuOpen = false;
+        smithingMenuNpcId = -1;
+        smithingMenuUpdatePending = false;
     }
 
     /** A public chat message from a nearby player. */

@@ -150,6 +150,9 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             case OPEN_SMELTING_MENU      -> handleOpenSmeltingMenu(ctx, packet.getOpenSmeltingMenu());
             case START_SMELTING          -> handleStartSmelting(ctx, packet.getStartSmelting());
             case CLOSE_SMELTING_MENU     -> handleCloseSmeltingMenu(ctx, packet.getCloseSmeltingMenu());
+            case OPEN_SMITHING_MENU      -> handleOpenSmithingMenu(ctx, packet.getOpenSmithingMenu());
+            case START_SMITHING_PRODUCT  -> handleStartSmithingProduct(ctx, packet.getStartSmithingProduct());
+            case CLOSE_SMITHING_MENU     -> handleCloseSmithingMenu(ctx, packet.getCloseSmithingMenu());
             case CLOSE_BANK_REQUEST      -> handleCloseBankRequest(ctx, packet.getCloseBankRequest());
             case DEPOSIT_BANK_ITEM       -> handleDepositBankItem(ctx, packet.getDepositBankItem());
             case WITHDRAW_BANK_ITEM      -> handleWithdrawBankItem(ctx, packet.getWithdrawBankItem());
@@ -969,7 +972,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
         }
 
         Player player = session.getPlayer();
-        NPC furnace = server.getWorld().getNPC(request.getFurnaceNpcId());
+        NPC furnace = server.getWorld().getNPC(request.getNpcId());
         if (!isFurnace(furnace)) {
             sendChatMessage(ctx, "You can't smelt anything here.", 1);
             return;
@@ -992,14 +995,19 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
         }
 
         NetworkProto.SmeltingMenuOpen.Builder open = NetworkProto.SmeltingMenuOpen.newBuilder()
-            .setFurnaceNpcId(furnace.getId());
+            .setNpcId(furnace.getId());
         for (SmithingRegistry.BarTier bar : options) {
             open.addOptions(NetworkProto.SmeltingBarOption.newBuilder()
                 .setBarItemId(bar.itemId())
                 .setBarName(bar.name())
-                .setLevelRequired(bar.levelRequirement())
-                .setXpTenths(bar.xpTenths())
-                .setSuccessPercent(bar.successPercent()));
+                .setLevelRequirement(bar.levelRequirement())
+                .setSmithingXpTenths(bar.xpTenths())
+                .setSuccessPercent(bar.successPercent())
+                .setOreItemIdA(bar.oreItemIdA())
+                .setOreQtyA(bar.oreQtyA())
+                .setOreItemIdB(bar.oreItemIdB())
+                .setOreQtyB(bar.oreQtyB())
+                .setCoalRequired(bar.coalRequired()));
         }
 
         ctx.writeAndFlush(NetworkProto.ServerMessage.newBuilder()
@@ -1013,7 +1021,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
         }
 
         Player player = session.getPlayer();
-        NPC furnace = server.getWorld().getNPC(request.getFurnaceNpcId());
+        NPC furnace = server.getWorld().getNPC(request.getNpcId());
         if (!isFurnace(furnace)) {
             sendChatMessage(ctx, "You can't smelt anything here.", 1);
             return;
@@ -1047,12 +1055,12 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
 
         if (player.isSkilling() && (player.getSkillingAction() != SkillingAction.SMITHING
             || player.getSkillingTargetNpcId() != furnace.getId()
-            || !Integer.toString(bar.itemId()).equals(player.getSkillingMetadata()))) {
+            || !("bar:" + bar.itemId()).equals(player.getSkillingMetadata()))) {
             interruptSkilling("interrupted");
         }
 
         player.startSkillingAction(SkillingAction.SMITHING, furnace.getId(), server.getCurrentTick() + 1);
-        player.setSkillingMetadata(Integer.toString(bar.itemId()));
+        player.setSkillingMetadata("bar:" + bar.itemId());
         sendSkillingStateUpdate(ctx, NetworkProto.SkillingType.SKILLING_SMITHING,
             NetworkProto.SkillingState.SKILLING_STATE_QUEUED, furnace.getId(), "queued");
     }
@@ -1061,10 +1069,142 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
         // No server-side modal state to clear yet.
     }
 
+    private void handleOpenSmithingMenu(ChannelHandlerContext ctx, NetworkProto.OpenSmithingMenu request) {
+        if (session == null || !session.isAuthenticated() || session.getPlayer() == null) {
+            return;
+        }
+
+        Player player = session.getPlayer();
+        NPC anvil = server.getWorld().getNPC(request.getNpcId());
+        if (!isAnvil(anvil)) {
+            sendChatMessage(ctx, "You can't smith anything here.", 1);
+            return;
+        }
+        if (player.isInCombat()) {
+            sendChatMessage(ctx, "You are too busy fighting.", 1);
+            return;
+        }
+
+        int chebyshev = Math.max(Math.abs(player.getX() - anvil.getX()), Math.abs(player.getY() - anvil.getY()));
+        if (chebyshev > 2 || !canReachAnyAdjacentTile(player, anvil)) {
+            sendChatMessage(ctx, "I can't reach that!", 1);
+            return;
+        }
+
+        if (!hasHammerForSmithing(player)) {
+            sendChatMessage(ctx, "You need a hammer to smith items.", 1);
+            return;
+        }
+
+        java.util.List<SmithingRegistry.ProductTier> options = collectSmithableProducts(player);
+        if (options.isEmpty()) {
+            sendChatMessage(ctx, "You do not have bars for anything you can smith.", 1);
+            return;
+        }
+
+        NetworkProto.SmithingMenuOpen.Builder open = NetworkProto.SmithingMenuOpen.newBuilder()
+            .setNpcId(anvil.getId());
+        for (SmithingRegistry.ProductTier product : options) {
+            open.addOptions(NetworkProto.SmithingProductOption.newBuilder()
+                .setProductItemId(product.itemId())
+                .setProductName(product.name())
+                .setLevelRequirement(product.levelRequirement())
+                .setBarItemId(product.barItemId())
+                .setBarsRequired(product.barsRequired())
+                .setSmithingXpTenths(SmithingRegistry.smithingXpTenths(product)));
+        }
+
+        ctx.writeAndFlush(NetworkProto.ServerMessage.newBuilder()
+            .setSmithingMenuOpen(open)
+            .build());
+    }
+
+    private void handleStartSmithingProduct(ChannelHandlerContext ctx, NetworkProto.StartSmithingProduct request) {
+        if (session == null || !session.isAuthenticated() || session.getPlayer() == null) {
+            return;
+        }
+
+        Player player = session.getPlayer();
+        NPC anvil = server.getWorld().getNPC(request.getNpcId());
+        if (!isAnvil(anvil)) {
+            sendChatMessage(ctx, "You can't smith anything here.", 1);
+            return;
+        }
+        if (player.isInCombat()) {
+            sendChatMessage(ctx, "You are too busy fighting.", 1);
+            return;
+        }
+
+        int chebyshev = Math.max(Math.abs(player.getX() - anvil.getX()), Math.abs(player.getY() - anvil.getY()));
+        if (chebyshev > 1 || !canReachAnyAdjacentTile(player, anvil)) {
+            sendChatMessage(ctx, "I can't reach that!", 1);
+            return;
+        }
+
+        if (!hasHammerForSmithing(player)) {
+            sendChatMessage(ctx, "You need a hammer to smith items.", 1);
+            return;
+        }
+
+        SmithingRegistry.ProductTier product = SmithingRegistry.getProductByItemId(request.getProductItemId());
+        if (product == null) {
+            sendChatMessage(ctx, "You can't smith that.", 1);
+            return;
+        }
+
+        int smithingLevel = Math.max(1, player.getSkillLevel(Player.SKILL_SMITHING));
+        if (smithingLevel < product.levelRequirement()) {
+            sendChatMessage(ctx,
+                "You need a Smithing level of " + product.levelRequirement() + " to smith " + product.name().toLowerCase() + ".",
+                1);
+            return;
+        }
+
+        if (!hasBarsForProduct(player, product)) {
+            sendChatMessage(ctx, "You do not have enough bars to smith that.", 1);
+            return;
+        }
+
+        if (player.isSkilling() && (player.getSkillingAction() != SkillingAction.SMITHING
+            || player.getSkillingTargetNpcId() != anvil.getId()
+            || !("product:" + product.itemId()).equals(player.getSkillingMetadata()))) {
+            interruptSkilling("interrupted");
+        }
+
+        player.startSkillingAction(SkillingAction.SMITHING, anvil.getId(), server.getCurrentTick() + 1);
+        player.setSkillingMetadata("product:" + product.itemId());
+        sendSkillingStateUpdate(ctx, NetworkProto.SkillingType.SKILLING_SMITHING,
+            NetworkProto.SkillingState.SKILLING_STATE_QUEUED, anvil.getId(), "queued");
+    }
+
+    private void handleCloseSmithingMenu(ChannelHandlerContext ctx, NetworkProto.CloseSmithingMenu request) {
+        // No server-side modal state to clear yet.
+    }
+
     private boolean isFurnace(NPC npc) {
         return npc != null
             && (npc.getDefinitionId() == SmithingRegistry.FURNACE_DEFINITION_ID
             || "Furnace".equalsIgnoreCase(npc.getName()));
+    }
+
+    private boolean isAnvil(NPC npc) {
+        return npc != null
+            && (npc.getDefinitionId() == SmithingRegistry.ANVIL_DEFINITION_ID
+            || "Anvil".equalsIgnoreCase(npc.getName()));
+    }
+
+    private boolean hasHammerForSmithing(Player player) {
+        for (int i = 0; i < 28; i++) {
+            if (player.getInventoryItemId(i) == SmithingRegistry.HAMMER_ITEM_ID) {
+                return true;
+            }
+        }
+        for (int i = 0; i < EquipmentSlot.COUNT; i++) {
+            if (player.getEquipment(i) == SmithingRegistry.HAMMER_ITEM_ID) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private java.util.List<SmithingRegistry.BarTier> collectSmeltableBars(Player player) {
@@ -1081,6 +1221,24 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
         return bars;
     }
 
+    private java.util.List<SmithingRegistry.ProductTier> collectSmithableProducts(Player player) {
+        java.util.List<SmithingRegistry.ProductTier> products = new java.util.ArrayList<>();
+        if (!hasHammerForSmithing(player)) {
+            return products;
+        }
+
+        int smithingLevel = Math.max(1, player.getSkillLevel(Player.SKILL_SMITHING));
+        for (SmithingRegistry.ProductTier product : SmithingRegistry.products()) {
+            if (smithingLevel < product.levelRequirement()) {
+                continue;
+            }
+            if (hasBarsForProduct(player, product)) {
+                products.add(product);
+            }
+        }
+        return products;
+    }
+
     private boolean hasSmeltingIngredients(Player player, SmithingRegistry.BarTier bar) {
         if (bar == null) {
             return false;
@@ -1095,6 +1253,13 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             return false;
         }
         return true;
+    }
+
+    private boolean hasBarsForProduct(Player player, SmithingRegistry.ProductTier product) {
+        if (product == null) {
+            return false;
+        }
+        return countInventoryItem(player, product.barItemId()) >= product.barsRequired();
     }
 
     private void flushDirtyBankContainers() {

@@ -34,6 +34,7 @@ import com.osrs.client.ui.LevelUpOverlay;
 import com.osrs.client.ui.SkillGuidePopup;
 import com.osrs.client.ui.MiniMap;
 import com.osrs.client.ui.SidePanel;
+import com.osrs.client.ui.SmithingUI;
 import com.osrs.client.ui.SmeltingUI;
 import com.osrs.client.ui.XpDropOverlay;
 import org.slf4j.Logger;
@@ -138,6 +139,7 @@ public class GameScreen extends ApplicationAdapter {
     private DialogueUI   dialogueUI;
     private BankUI       bankUI;
     private SmeltingUI   smeltingUI;
+    private SmithingUI   smithingUI;
     private ChatBox      chatBox;
     private MiniMap      miniMap;
     private XpDropOverlay xpDropOverlay;
@@ -475,6 +477,7 @@ public class GameScreen extends ApplicationAdapter {
         dialogueUI = new DialogueUI();
         bankUI = new BankUI();
         smeltingUI = new SmeltingUI();
+        smithingUI = new SmithingUI();
         miniMap = new MiniMap();
         chatBox        = new ChatBox();
         xpDropOverlay  = new XpDropOverlay();
@@ -1193,6 +1196,8 @@ public class GameScreen extends ApplicationAdapter {
             renderDialogueOverlay(mouseScreenX, mouseScreenY);
         } else if (smeltingUI.isVisible()) {
             smeltingUI.render(shapeRenderer, screenBatch, font, w, h, screenProjection, mouseScreenX, mouseScreenY);
+        } else if (smithingUI.isVisible()) {
+            smithingUI.render(shapeRenderer, screenBatch, font, w, h, screenProjection, mouseScreenX, mouseScreenY);
         } else {
             chatBox.render(shapeRenderer, screenBatch, font, w, h, screenProjection);
         }
@@ -1263,6 +1268,7 @@ public class GameScreen extends ApplicationAdapter {
         if (sidePanel != null && sidePanel.isOverPanel(mouseX, mouseY)) return true;
         if (dialogueUI != null && dialogueUI.isVisible() && dialogueUI.isOverDialogue(mouseX, mouseY)) return true;
         if (smeltingUI != null && smeltingUI.isVisible() && smeltingUI.isOver(mouseX, mouseY)) return true;
+        if (smithingUI != null && smithingUI.isVisible() && smithingUI.isOver(mouseX, mouseY)) return true;
         if (adminToolsPopup != null && adminToolsPopup.isVisible()) return true;
         if (skillGuidePopup != null && skillGuidePopup.isVisible()) return true;
         if (contextMenu != null && contextMenu.isVisible()) return true;
@@ -1361,7 +1367,10 @@ public class GameScreen extends ApplicationAdapter {
             lastStepSentY = Integer.MIN_VALUE;
             clearPendingAction();
             combatTargetId = -1;
-            smeltingUI.close();
+            smeltingUI.dismiss();
+            h.clearSmeltingMenu();
+            smithingUI.dismiss();
+            h.clearSmithingMenu();
         }
 
         playerHealth    = h.getPlayerHealth();
@@ -1517,6 +1526,7 @@ public class GameScreen extends ApplicationAdapter {
                 case "cook_at" -> NetworkProto.SkillingType.SKILLING_COOKING;
                 case "mine" -> NetworkProto.SkillingType.SKILLING_MINING;
                 case "smelt_at" -> NetworkProto.SkillingType.SKILLING_SMITHING;
+                case "smith_at" -> NetworkProto.SkillingType.SKILLING_SMITHING;
                 default -> NetworkProto.SkillingType.SKILLING_NONE;
             };
             if (pendingType == skillingEvent.type && pendingNpcId == skillingEvent.targetNpcId
@@ -1526,19 +1536,41 @@ public class GameScreen extends ApplicationAdapter {
             }
         }
 
-        for (ClientPacketHandler.SmeltingMenuOpenEvent event : h.drainSmeltingMenuEvents()) {
+        if (h.consumeSmeltingMenuUpdate() && h.isSmeltingMenuOpen()) {
             List<SmeltingUI.Option> options = new ArrayList<>();
-            for (ClientPacketHandler.SmeltingBarOptionSnapshot option : event.options) {
+            for (ClientPacketHandler.SmeltingBarOptionSnapshot option : h.getSmeltingOptions()) {
                 options.add(new SmeltingUI.Option(
                     option.barItemId,
                     option.barName,
-                    option.levelRequired,
-                    option.xpTenths,
-                    option.successPercent
+                    option.levelRequirement,
+                    option.smithingXpTenths,
+                    option.successPercent,
+                    option.oreItemIdA,
+                    option.oreQtyA,
+                    option.oreItemIdB,
+                    option.oreQtyB,
+                    option.coalRequired
                 ));
             }
-            smeltingUI.open(event.furnaceNpcId, options);
-            if (pendingNpcId == event.furnaceNpcId && "smelt_at".equals(pendingAction)) {
+            smeltingUI.show(h.getSmeltingMenuNpcId(), options);
+            if (pendingNpcId == h.getSmeltingMenuNpcId() && "smelt_at".equals(pendingAction)) {
+                clearPendingAction();
+            }
+        }
+
+        if (h.consumeSmithingMenuUpdate() && h.isSmithingMenuOpen()) {
+            List<SmithingUI.Option> options = new ArrayList<>();
+            for (ClientPacketHandler.SmithingProductOptionSnapshot option : h.getSmithingOptions()) {
+                options.add(new SmithingUI.Option(
+                    option.productItemId,
+                    option.productName,
+                    option.levelRequirement,
+                    option.barsRequired,
+                    option.smithingXpTenths
+                ));
+            }
+            smithingUI.show(h.getSmithingMenuNpcId(), options);
+            if (pendingNpcId == h.getSmithingMenuNpcId() && "smith_at".equals(pendingAction)) {
                 clearPendingAction();
             }
         }
@@ -1568,6 +1600,9 @@ public class GameScreen extends ApplicationAdapter {
                 || "This rock is depleted.".equals(msg)
                 || "You have no ores to smelt.".equals(msg)
                 || msg.contains("smelt")
+                || "You need a hammer to smith items.".equals(msg)
+                || "You do not have bars for anything you can smith.".equals(msg)
+                || msg.contains("smith")
                 || "You are too busy fighting.".equals(msg)
                 || "Your inventory is too full to hold any more logs.".equals(msg)
                 || "Your inventory is too full to hold any more ore.".equals(msg)) {
@@ -1601,7 +1636,10 @@ public class GameScreen extends ApplicationAdapter {
             visualY   = playerY;
             combatTargetId = -1;
             clearPendingAction();
-            smeltingUI.close();
+            smeltingUI.dismiss();
+            h.clearSmeltingMenu();
+            smithingUI.dismiss();
+            h.clearSmithingMenu();
             chatBox.addSystemMessage("Oh dear, you are dead!");
             LOG.info("Death screen shown — respawning at ({}, {})", playerX, playerY);
         }
@@ -1823,6 +1861,11 @@ public class GameScreen extends ApplicationAdapter {
 
         if (smeltingUI.isVisible()) {
             handleSmeltingInput();
+            return;
+        }
+
+        if (smithingUI.isVisible()) {
+            handleSmithingInput();
             return;
         }
 
@@ -2631,10 +2674,14 @@ public class GameScreen extends ApplicationAdapter {
         int screenMy = Gdx.graphics.getHeight() - Gdx.input.getY();
 
         if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
-            int furnaceNpcId = smeltingUI.getFurnaceNpcId();
-            smeltingUI.close();
+            int furnaceNpcId = smeltingUI.getNpcId();
+            smeltingUI.dismiss();
             if (nettyClient != null && furnaceNpcId >= 0) {
                 nettyClient.sendCloseSmeltingMenu();
+            }
+            ClientPacketHandler h = handler();
+            if (h != null) {
+                h.clearSmeltingMenu();
             }
             return;
         }
@@ -2643,25 +2690,103 @@ public class GameScreen extends ApplicationAdapter {
             return;
         }
 
-        if (!smeltingUI.isOver(mx, screenMy) || smeltingUI.isCloseButtonHit(mx, screenMy)) {
-            smeltingUI.close();
+        if (!smeltingUI.isOver(mx, screenMy)) {
+            smeltingUI.dismiss();
             if (nettyClient != null) {
                 nettyClient.sendCloseSmeltingMenu();
+            }
+            ClientPacketHandler h = handler();
+            if (h != null) {
+                h.clearSmeltingMenu();
             }
             return;
         }
 
-        int selectedBarItemId = smeltingUI.getClickedBarItemId(mx, screenMy);
+        smeltingUI.handleClick(mx, screenMy);
+        int selectedBarItemId = smeltingUI.consumeSelectedBarItemId();
         if (selectedBarItemId < 0) {
+            if (!smeltingUI.isVisible()) {
+                if (nettyClient != null) {
+                    nettyClient.sendCloseSmeltingMenu();
+                }
+                ClientPacketHandler h = handler();
+                if (h != null) {
+                    h.clearSmeltingMenu();
+                }
+            }
             return;
         }
 
-        int furnaceNpcId = smeltingUI.getFurnaceNpcId();
+        int furnaceNpcId = smeltingUI.getNpcId();
         if (nettyClient != null && furnaceNpcId >= 0) {
             nettyClient.sendStartSmelting(furnaceNpcId, selectedBarItemId);
             nettyClient.sendCloseSmeltingMenu();
         }
-        smeltingUI.close();
+        smeltingUI.dismiss();
+        ClientPacketHandler h = handler();
+        if (h != null) {
+            h.clearSmeltingMenu();
+        }
+    }
+
+    private void handleSmithingInput() {
+        int mx = Gdx.input.getX();
+        int screenMy = Gdx.graphics.getHeight() - Gdx.input.getY();
+
+        if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
+            int anvilNpcId = smithingUI.getNpcId();
+            smithingUI.dismiss();
+            if (nettyClient != null && anvilNpcId >= 0) {
+                nettyClient.sendCloseSmithingMenu();
+            }
+            ClientPacketHandler h = handler();
+            if (h != null) {
+                h.clearSmithingMenu();
+            }
+            return;
+        }
+
+        if (!Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)) {
+            return;
+        }
+
+        if (!smithingUI.isOver(mx, screenMy)) {
+            smithingUI.dismiss();
+            if (nettyClient != null) {
+                nettyClient.sendCloseSmithingMenu();
+            }
+            ClientPacketHandler h = handler();
+            if (h != null) {
+                h.clearSmithingMenu();
+            }
+            return;
+        }
+
+        smithingUI.handleClick(mx, screenMy);
+        int selectedProductItemId = smithingUI.consumeSelectedProductItemId();
+        if (selectedProductItemId < 0) {
+            if (!smithingUI.isVisible()) {
+                if (nettyClient != null) {
+                    nettyClient.sendCloseSmithingMenu();
+                }
+                ClientPacketHandler h = handler();
+                if (h != null) {
+                    h.clearSmithingMenu();
+                }
+            }
+            return;
+        }
+
+        int anvilNpcId = smithingUI.getNpcId();
+        if (nettyClient != null && anvilNpcId >= 0) {
+            nettyClient.sendStartSmithingProduct(anvilNpcId, selectedProductItemId);
+            nettyClient.sendCloseSmithingMenu();
+        }
+        smithingUI.dismiss();
+        ClientPacketHandler h = handler();
+        if (h != null) {
+            h.clearSmithingMenu();
+        }
     }
 
     private void submitDialogueOptionByIndex(int index) {
@@ -2681,7 +2806,13 @@ public class GameScreen extends ApplicationAdapter {
         logoutRequested = true;
         clearPendingAction();
         pendingGroundItemId = -1;
-        smeltingUI.close();
+        smeltingUI.dismiss();
+        smithingUI.dismiss();
+        ClientPacketHandler h = handler();
+        if (h != null) {
+            h.clearSmeltingMenu();
+            h.clearSmithingMenu();
+        }
         chatBox.addSystemMessage("Logging out...");
 
         if (nettyClient != null && nettyClient.isConnected()) {
@@ -3115,6 +3246,9 @@ public class GameScreen extends ApplicationAdapter {
             } else if ("smelt_at".equals(pendingAction)) {
                 nettyClient.sendOpenSmeltingMenu(pendingNpcId);
                 pendingActionRetryTimer = 0.25f;
+            } else if ("smith_at".equals(pendingAction)) {
+                nettyClient.sendOpenSmithingMenu(pendingNpcId);
+                pendingActionRetryTimer = 0.25f;
             } else if ("supplies".equals(pendingAction)) {
                 nettyClient.sendClaimNpcSupplies(pendingNpcId);
                 pendingActionRetryTimer = 0.25f;
@@ -3510,7 +3644,9 @@ public class GameScreen extends ApplicationAdapter {
                     } else if (isCookingStation) {
                         opts.add(new ContextMenu.MenuItem(ContextMenu.Action.COOK_AT, yellowName, id));
                     } else if (isFurnace) {
-                        opts.add(new ContextMenu.MenuItem(ContextMenu.Action.SMELT_AT, yellowName, id));
+                        opts.add(new ContextMenu.MenuItem(ContextMenu.Action.SMELT, yellowName, id));
+                    } else if ("Anvil".equalsIgnoreCase(rawName)) {
+                        opts.add(new ContextMenu.MenuItem(ContextMenu.Action.SMITH, yellowName, id));
                     } else if (isBanker) {
                         opts.add(new ContextMenu.MenuItem(ContextMenu.Action.BANK, yellowName, id));
                         opts.add(new ContextMenu.MenuItem(ContextMenu.Action.TALK_TO, yellowName, id));
@@ -3544,6 +3680,7 @@ public class GameScreen extends ApplicationAdapter {
             case "fish_harpoon" -> startApproach((Integer) item.target, "fish_harpoon");
             case "cook_at" -> startApproach((Integer) item.target, "cook_at");
             case "smelt_at" -> startApproach((Integer) item.target, "smelt_at");
+            case "smith_at" -> startApproach((Integer) item.target, "smith_at");
             case "trade_player"  -> LOG.info("Trade not yet implemented for player {}", item.target);
             case "follow_player" -> LOG.info("Follow not yet implemented for player {}", item.target);
             case "challenge_player" -> LOG.info("Challenge not yet implemented for player {}", item.target);

@@ -92,6 +92,7 @@ public class GameLoop {
     private static final int CHOP_ATTEMPT_INTERVAL = WoodcuttingRegistry.CHOP_ATTEMPT_OSRS_TICKS * OSRS_TICKS_TO_SERVER;
     // Fixed mine attempt interval: 3 OSRS ticks per roll (OSRS standard)
     private static final int MINE_ATTEMPT_INTERVAL = MiningRegistry.MINE_ATTEMPT_OSRS_TICKS * OSRS_TICKS_TO_SERVER;
+    private static final int SMITH_ITEM_ATTEMPT_INTERVAL = 5 * OSRS_TICKS_TO_SERVER;
     private static final int COAL_ITEM_ID = 453;
 
     
@@ -1406,9 +1407,29 @@ public class GameLoop {
     }
 
     private void processSmithing(Player player, PlayerSession session) {
-        NPC furnace = world.getNPC(player.getSkillingTargetNpcId());
-        if (furnace == null || furnace.isDead() || !isFurnace(furnace)) {
+        NPC station = world.getNPC(player.getSkillingTargetNpcId());
+        if (station == null || station.isDead()) {
             stopSkilling(player, session, "target-invalid");
+            return;
+        }
+
+        if (isFurnace(station)) {
+            processFurnaceSmelting(player, session, station);
+            return;
+        }
+
+        if (isAnvil(station)) {
+            processAnvilSmithing(player, session, station);
+            return;
+        }
+
+        stopSkilling(player, session, "target-invalid");
+    }
+
+    private void processFurnaceSmelting(Player player, PlayerSession session, NPC furnace) {
+        SmithingRegistry.BarTier bar = smithingBarFromMetadata(player);
+        if (bar == null) {
+            stopSkilling(player, session, "invalid-selection");
             return;
         }
 
@@ -1428,20 +1449,6 @@ public class GameLoop {
         if (chebyshev > 1) {
             sendChatMessageToPlayer(session.getChannel(), "I can't reach that!", 1);
             stopSkilling(player, session, "out-of-range");
-            return;
-        }
-
-        int barItemId;
-        try {
-            barItemId = Integer.parseInt(player.getSkillingMetadata());
-        } catch (NumberFormatException e) {
-            stopSkilling(player, session, "invalid-selection");
-            return;
-        }
-
-        SmithingRegistry.BarTier bar = SmithingRegistry.getBarByItemId(barItemId);
-        if (bar == null) {
-            stopSkilling(player, session, "invalid-selection");
             return;
         }
 
@@ -1466,6 +1473,13 @@ public class GameLoop {
             return;
         }
 
+        int outputSlot = resolveSmeltingOutputSlot(player, bar);
+        if (outputSlot < 0) {
+            sendChatMessageToPlayer(session.getChannel(), "Your inventory is too full to hold any more bars.", 1);
+            stopSkilling(player, session, "inventory-full");
+            return;
+        }
+
         removeInventoryItem(player, bar.oreItemIdA(), bar.oreQtyA());
         if (bar.oreItemIdB() > 0 && bar.oreQtyB() > 0) {
             removeInventoryItem(player, bar.oreItemIdB(), bar.oreQtyB());
@@ -1482,23 +1496,191 @@ public class GameLoop {
             return;
         }
 
-        int slot = player.getFirstEmptySlot();
-        if (slot < 0) {
-            sendChatMessageToPlayer(session.getChannel(), "Your inventory is too full to hold any more bars.", 1);
+        player.setInventoryItem(outputSlot, bar.itemId(), 1);
+        sendInventorySlot(session.getChannel(), player, outputSlot);
+        sendSkillUpdate(player, Player.SKILL_SMITHING, bar.xpTenths());
+        sendChatMessageToPlayer(session.getChannel(), "You smelt " + article(bar.name()) + bar.name().toLowerCase() + ".", 0);
+    }
+
+    private void processAnvilSmithing(Player player, PlayerSession session, NPC anvil) {
+        SmithingRegistry.ProductTier product = smithingProductFromMetadata(player);
+        if (product == null) {
+            stopSkilling(player, session, "invalid-selection");
+            return;
+        }
+
+        if (player.isInCombat()) {
+            sendChatMessageToPlayer(session.getChannel(), "You are too busy fighting.", 1);
+            stopSkilling(player, session, "combat");
+            return;
+        }
+
+        if (player.isInDialogue()) {
+            sendChatMessageToPlayer(session.getChannel(), "Finish your conversation first.", 1);
+            stopSkilling(player, session, "dialogue");
+            return;
+        }
+
+        int chebyshev = Math.max(Math.abs(player.getX() - anvil.getX()), Math.abs(player.getY() - anvil.getY()));
+        if (chebyshev > 1) {
+            sendChatMessageToPlayer(session.getChannel(), "I can't reach that!", 1);
+            stopSkilling(player, session, "out-of-range");
+            return;
+        }
+
+        int smithingLevel = Math.max(1, player.getSkillLevel(Player.SKILL_SMITHING));
+        if (smithingLevel < product.levelRequirement()) {
+            sendChatMessageToPlayer(session.getChannel(),
+                "You need a Smithing level of " + product.levelRequirement() + " to smith " + product.name().toLowerCase() + ".",
+                1);
+            stopSkilling(player, session, "level-requirement");
+            return;
+        }
+
+        if (!hasHammerForSmithing(player)) {
+            sendChatMessageToPlayer(session.getChannel(), "You need a hammer to smith items.", 1);
+            stopSkilling(player, session, "missing-tool");
+            return;
+        }
+
+        if (!hasBarsForProduct(player, product)) {
+            sendChatMessageToPlayer(session.getChannel(), "You do not have enough bars to smith that.", 1);
+            stopSkilling(player, session, "missing-bars");
+            return;
+        }
+
+        announceSkillingActive(player, session,
+            "You begin smithing " + article(product.name()) + product.name().toLowerCase() + ".");
+
+        if (tickCount < player.getSkillingNextAttemptTick()) {
+            return;
+        }
+
+        int outputSlot = player.getFirstEmptySlot();
+        if (outputSlot < 0) {
+            sendChatMessageToPlayer(session.getChannel(), "Your inventory is too full to hold any more items.", 1);
             stopSkilling(player, session, "inventory-full");
             return;
         }
 
-        player.setInventoryItem(slot, bar.itemId(), 1);
-        sendInventorySlot(session.getChannel(), player, slot);
-        sendSkillUpdate(player, Player.SKILL_SMITHING, bar.xpTenths());
-        sendChatMessageToPlayer(session.getChannel(), "You smelt " + article(bar.name()) + bar.name().toLowerCase() + ".", 0);
+        removeInventoryItem(player, product.barItemId(), product.barsRequired());
+        player.setInventoryItem(outputSlot, product.itemId(), 1);
+        sendInventorySlot(session.getChannel(), player, outputSlot);
+
+        sendSkillUpdate(player, Player.SKILL_SMITHING, SmithingRegistry.smithingXpTenths(product));
+        sendChatMessageToPlayer(session.getChannel(),
+            "You smith " + article(product.name()) + product.name().toLowerCase() + ".", 0);
+
+        player.setSkillingNextAttemptTick(tickCount + SMITH_ITEM_ATTEMPT_INTERVAL);
+
+        if (!hasBarsForProduct(player, product)) {
+            sendChatMessageToPlayer(session.getChannel(), "You have run out of bars.", 1);
+            stopSkilling(player, session, "missing-bars");
+        }
+    }
+
+    private SmithingRegistry.BarTier smithingBarFromMetadata(Player player) {
+        String metadata = player.getSkillingMetadata();
+        if (metadata == null || !metadata.startsWith("bar:")) {
+            return null;
+        }
+        try {
+            return SmithingRegistry.getBarByItemId(Integer.parseInt(metadata.substring(4)));
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    private SmithingRegistry.ProductTier smithingProductFromMetadata(Player player) {
+        String metadata = player.getSkillingMetadata();
+        if (metadata == null || !metadata.startsWith("product:")) {
+            return null;
+        }
+        try {
+            return SmithingRegistry.getProductByItemId(Integer.parseInt(metadata.substring(8)));
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    private boolean hasBarsForProduct(Player player, SmithingRegistry.ProductTier product) {
+        if (product == null) {
+            return false;
+        }
+        return countInventoryItem(player, product.barItemId()) >= product.barsRequired();
+    }
+
+    private boolean hasHammerForSmithing(Player player) {
+        for (int i = 0; i < 28; i++) {
+            if (player.getInventoryItemId(i) == SmithingRegistry.HAMMER_ITEM_ID) {
+                return true;
+            }
+        }
+        for (int i = 0; i < EquipmentSlot.COUNT; i++) {
+            if (player.getEquipment(i) == SmithingRegistry.HAMMER_ITEM_ID) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private int resolveSmeltingOutputSlot(Player player, SmithingRegistry.BarTier bar) {
+        int emptySlot = player.getFirstEmptySlot();
+        if (emptySlot >= 0) {
+            return emptySlot;
+        }
+
+        int oreANeeded = Math.max(0, bar.oreQtyA());
+        int oreBNeeded = Math.max(0, bar.oreQtyB());
+        int coalNeeded = Math.max(0, bar.coalRequired());
+
+        for (int slot = 0; slot < 28; slot++) {
+            int itemId = player.getInventoryItemId(slot);
+            int quantity = player.getInventoryQuantity(slot);
+            if (quantity <= 0) {
+                continue;
+            }
+
+            if (itemId == bar.oreItemIdA() && oreANeeded > 0) {
+                int consumed = Math.min(quantity, oreANeeded);
+                oreANeeded -= consumed;
+                if (consumed == quantity) {
+                    return slot;
+                }
+                continue;
+            }
+
+            if (bar.oreItemIdB() > 0 && itemId == bar.oreItemIdB() && oreBNeeded > 0) {
+                int consumed = Math.min(quantity, oreBNeeded);
+                oreBNeeded -= consumed;
+                if (consumed == quantity) {
+                    return slot;
+                }
+                continue;
+            }
+
+            if (coalNeeded > 0 && itemId == COAL_ITEM_ID) {
+                int consumed = Math.min(quantity, coalNeeded);
+                coalNeeded -= consumed;
+                if (consumed == quantity) {
+                    return slot;
+                }
+            }
+        }
+
+        return -1;
     }
 
     private boolean isFurnace(NPC npc) {
         return npc != null
             && (npc.getDefinitionId() == SmithingRegistry.FURNACE_DEFINITION_ID
             || "Furnace".equalsIgnoreCase(npc.getName()));
+    }
+
+    private boolean isAnvil(NPC npc) {
+        return npc != null
+            && (npc.getDefinitionId() == SmithingRegistry.ANVIL_DEFINITION_ID
+            || "Anvil".equalsIgnoreCase(npc.getName()));
     }
 
     private boolean hasSmeltingIngredients(Player player, SmithingRegistry.BarTier bar) {

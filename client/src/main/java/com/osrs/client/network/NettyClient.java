@@ -173,7 +173,7 @@ public class NettyClient {
         if (channel == null || !channel.isActive()) return;
         channel.writeAndFlush(NetworkProto.ClientMessage.newBuilder()
             .setOpenSmeltingMenu(NetworkProto.OpenSmeltingMenu.newBuilder()
-                .setFurnaceNpcId(furnaceNpcId)
+                .setNpcId(furnaceNpcId)
                 .setSequence(System.currentTimeMillis()))
             .build());
         LOG.debug("Sent OpenSmeltingMenu: furnaceNpcId={}", furnaceNpcId);
@@ -183,7 +183,7 @@ public class NettyClient {
         if (channel == null || !channel.isActive()) return;
         channel.writeAndFlush(NetworkProto.ClientMessage.newBuilder()
             .setStartSmelting(NetworkProto.StartSmelting.newBuilder()
-                .setFurnaceNpcId(furnaceNpcId)
+                .setNpcId(furnaceNpcId)
                 .setBarItemId(barItemId)
                 .setSequence(System.currentTimeMillis()))
             .build());
@@ -197,6 +197,36 @@ public class NettyClient {
                 .setSequence(System.currentTimeMillis()))
             .build());
         LOG.debug("Sent CloseSmeltingMenu");
+    }
+
+    public void sendOpenSmithingMenu(int anvilNpcId) {
+        if (channel == null || !channel.isActive()) return;
+        channel.writeAndFlush(NetworkProto.ClientMessage.newBuilder()
+            .setOpenSmithingMenu(NetworkProto.OpenSmithingMenu.newBuilder()
+                .setNpcId(anvilNpcId)
+                .setSequence(System.currentTimeMillis()))
+            .build());
+        LOG.debug("Sent OpenSmithingMenu: anvilNpcId={}", anvilNpcId);
+    }
+
+    public void sendStartSmithingProduct(int anvilNpcId, int productItemId) {
+        if (channel == null || !channel.isActive()) return;
+        channel.writeAndFlush(NetworkProto.ClientMessage.newBuilder()
+            .setStartSmithingProduct(NetworkProto.StartSmithingProduct.newBuilder()
+                .setNpcId(anvilNpcId)
+                .setProductItemId(productItemId)
+                .setSequence(System.currentTimeMillis()))
+            .build());
+        LOG.debug("Sent StartSmithingProduct: anvilNpcId={} productItemId={}", anvilNpcId, productItemId);
+    }
+
+    public void sendCloseSmithingMenu() {
+        if (channel == null || !channel.isActive()) return;
+        channel.writeAndFlush(NetworkProto.ClientMessage.newBuilder()
+            .setCloseSmithingMenu(NetworkProto.CloseSmithingMenu.newBuilder()
+                .setSequence(System.currentTimeMillis()))
+            .build());
+        LOG.debug("Sent CloseSmithingMenu");
     }
 
     public void sendOpenBankRequest(int npcId) {
