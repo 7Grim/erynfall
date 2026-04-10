@@ -162,6 +162,7 @@ public class GameScreen extends ApplicationAdapter {
     private final GlyphLayout npcTagLayout = new GlyphLayout();
     private final Vector3 projectedWorldPoint = new Vector3();
     private final int[] localPlayerEquipmentModelIds = new int[EquipmentSlot.COUNT];
+    private final int[] remotePlayerEquipmentModelIds = new int[EquipmentSlot.COUNT];
     private RenderZone activeRenderZone;
     private float renderZoneTintR = 1f;
     private float renderZoneTintG = 1f;
@@ -1442,7 +1443,20 @@ public class GameScreen extends ApplicationAdapter {
                             modelRendered[i] = true;
                         }
                     } else {
-                        if (renderer3d.renderActorModel(
+                        ClientPacketHandler packetHandler = handler();
+                        int[] remoteVisibleEquipment = packetHandler == null
+                            ? null
+                            : packetHandler.getRemotePlayerEquipment(entry.entityId());
+                        if (populateRemotePlayerEquipmentModelIds(remoteVisibleEquipment)
+                            && renderer3d.renderPlayerModelComposed(
+                                basePlayerModelKey,
+                                entry.tileX(),
+                                entry.tileY(),
+                                yawDegrees,
+                                remotePlayerEquipmentModelIds
+                            )) {
+                            modelRendered[i] = true;
+                        } else if (renderer3d.renderActorModel(
                             basePlayerModelKey,
                             entry.tileX(),
                             entry.tileY(),
@@ -1709,6 +1723,23 @@ public class GameScreen extends ApplicationAdapter {
         for (int slot = 0; slot < EquipmentSlot.COUNT; slot++) {
             localPlayerEquipmentModelIds[slot] = h.getEquipmentItemId(slot);
         }
+    }
+
+    private boolean populateRemotePlayerEquipmentModelIds(int[] visibleSlots) {
+        Arrays.fill(remotePlayerEquipmentModelIds, 0);
+        if (visibleSlots == null || visibleSlots.length < 9) {
+            return false;
+        }
+        remotePlayerEquipmentModelIds[EquipmentSlot.HEAD] = visibleSlots[0];
+        remotePlayerEquipmentModelIds[EquipmentSlot.CAPE] = visibleSlots[1];
+        remotePlayerEquipmentModelIds[EquipmentSlot.AMMO] = visibleSlots[2];
+        remotePlayerEquipmentModelIds[EquipmentSlot.WEAPON] = visibleSlots[3];
+        remotePlayerEquipmentModelIds[EquipmentSlot.SHIELD] = visibleSlots[4];
+        remotePlayerEquipmentModelIds[EquipmentSlot.BODY] = visibleSlots[5];
+        remotePlayerEquipmentModelIds[EquipmentSlot.LEGS] = visibleSlots[6];
+        remotePlayerEquipmentModelIds[EquipmentSlot.HANDS] = visibleSlots[7];
+        remotePlayerEquipmentModelIds[EquipmentSlot.FEET] = visibleSlots[8];
+        return true;
     }
 
     private void renderStaticProps3D() {

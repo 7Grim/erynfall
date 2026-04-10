@@ -46,6 +46,17 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
     private static final int HAMMER_ITEM_ID = 2347;
     private static final int FISHING_SUPPLIER_BAIT_TARGET = 100;
     private static final int[] FISHING_SUPPLIER_TOOL_ITEM_IDS = {303, 307, 309, 301, 311};
+    private static final int[] REMOTE_VISIBLE_EQUIPMENT_SLOTS = {
+        EquipmentSlot.HEAD,
+        EquipmentSlot.CAPE,
+        EquipmentSlot.AMMO,
+        EquipmentSlot.WEAPON,
+        EquipmentSlot.SHIELD,
+        EquipmentSlot.BODY,
+        EquipmentSlot.LEGS,
+        EquipmentSlot.HANDS,
+        EquipmentSlot.FEET
+    };
     private static final int COAL_ITEM_ID = 453;
     private static final int BONES_ITEM_ID = 526;
     private static final int COINS_ITEM_ID = 995;
@@ -251,6 +262,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
         sendInitialQuestState(ctx);
 
         sendWorldState(ctx);
+        sendRemoteEquipmentSnapshotForWorldState(ctx);
 
         // Notify already-connected clients of the new player
         Player newPlayer = session.getPlayer();
@@ -267,6 +279,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
                 if (ps.getSessionId() == session.getSessionId()) continue;
                 if (!ps.isAuthenticated() || ps.getPlayer() == null) continue;
                 ps.getChannel().writeAndFlush(joinMsg);
+                ps.getChannel().writeAndFlush(buildRemotePlayerEquipmentUpdateMessage(newPlayer));
             }
         }
     }
@@ -343,6 +356,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
         sendFriendsListUpdate(ctx, player);
         sendInitialQuestState(ctx);
         sendWorldState(ctx);
+        sendRemoteEquipmentSnapshotForWorldState(ctx);
 
         // Notify already-connected clients of the new player
         Player newPlayer = session.getPlayer();
@@ -359,6 +373,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
                 if (ps.getSessionId() == session.getSessionId()) continue;
                 if (!ps.isAuthenticated() || ps.getPlayer() == null) continue;
                 ps.getChannel().writeAndFlush(joinMsg);
+                ps.getChannel().writeAndFlush(buildRemotePlayerEquipmentUpdateMessage(newPlayer));
             }
         }
     }
@@ -378,6 +393,55 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             sendEquipmentUpdate(ctx, slot, eqId, eqDef.name, eqDef.getFlags(), qty, range);
         }
         sendEquipmentBonuses(ctx, player);
+    }
+
+    private void sendRemoteEquipmentSnapshotForWorldState(ChannelHandlerContext ctx) {
+        if (ctx == null || !ctx.channel().isActive()) {
+            return;
+        }
+        for (PlayerSession ps : server.getSessions().values()) {
+            if (!ps.isAuthenticated() || ps.getPlayer() == null) {
+                continue;
+            }
+            ctx.writeAndFlush(buildRemotePlayerEquipmentUpdateMessage(ps.getPlayer()));
+        }
+    }
+
+    private void broadcastRemotePlayerEquipment(Player player) {
+        if (player == null) {
+            return;
+        }
+        server.broadcastToAll(buildRemotePlayerEquipmentUpdateMessage(player));
+    }
+
+    private NetworkProto.ServerMessage buildRemotePlayerEquipmentUpdateMessage(Player player) {
+        return NetworkProto.ServerMessage.newBuilder()
+            .setRemotePlayerEquipmentUpdate(NetworkProto.RemotePlayerEquipmentUpdate.newBuilder()
+                .setEquipment(buildRemotePlayerEquipment(player)))
+            .build();
+    }
+
+    private NetworkProto.RemotePlayerEquipment buildRemotePlayerEquipment(Player player) {
+        NetworkProto.RemotePlayerEquipment.Builder builder = NetworkProto.RemotePlayerEquipment.newBuilder()
+            .setPlayerId(player.getId());
+        for (int slot : REMOTE_VISIBLE_EQUIPMENT_SLOTS) {
+            int itemId = player.getEquipment(slot);
+            switch (slot) {
+                case EquipmentSlot.HEAD -> builder.setHeadItemId(itemId);
+                case EquipmentSlot.CAPE -> builder.setCapeItemId(itemId);
+                case EquipmentSlot.AMMO -> builder.setAmmoItemId(itemId);
+                case EquipmentSlot.WEAPON -> builder.setWeaponItemId(itemId);
+                case EquipmentSlot.SHIELD -> builder.setShieldItemId(itemId);
+                case EquipmentSlot.BODY -> builder.setBodyItemId(itemId);
+                case EquipmentSlot.LEGS -> builder.setLegsItemId(itemId);
+                case EquipmentSlot.HANDS -> builder.setHandsItemId(itemId);
+                case EquipmentSlot.FEET -> builder.setFeetItemId(itemId);
+                default -> {
+                    // No-op: only explicitly visible slots are serialized.
+                }
+            }
+        }
+        return builder.build();
     }
 
     /**
@@ -2982,6 +3046,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
                 sendInventorySlot(ctx, player, slot);
                 sendEquipmentUpdate(ctx, EquipmentSlot.AMMO, itemId, def.name, def.getFlags(), incomingQty, 0);
                 sendEquipmentBonuses(ctx, player);
+                broadcastRemotePlayerEquipment(player);
                 LOG.info("Player {} equipped {}×{} into ammo slot", player.getId(), incomingQty, def.name);
                 return;
             }
@@ -3003,6 +3068,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             LOG.info("Player {} equipped {} into slot {}", player.getId(), def.name, equipSlot);
             updateGenericQuestObjectives(session, Quest.TaskType.EQUIP, def.id);
             sendEquipmentBonuses(ctx, player);
+            broadcastRemotePlayerEquipment(player);
         }
     }
 
@@ -3040,6 +3106,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
         sendInventorySlot(ctx, player, invSlot);
         sendEquipmentUpdate(ctx, equipSlot, 0, "", 0, 0, 0);
         sendEquipmentBonuses(ctx, player);
+        broadcastRemotePlayerEquipment(player);
         LOG.info("Player {} unequipped slot {} (itemId={})", player.getId(), equipSlot, itemId);
     }
 
