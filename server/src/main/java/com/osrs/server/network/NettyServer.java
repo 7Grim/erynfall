@@ -14,6 +14,7 @@ import com.osrs.server.GameContent;
 import com.osrs.server.quest.DialogueEngine;
 import com.osrs.server.quest.Quest;
 import com.osrs.server.world.World;
+import com.osrs.shared.ShopDefinition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -60,6 +61,7 @@ public class NettyServer {
     public DialogueEngine getDialogueEngine() { return gameContent.getDialogueEngine(); }
     public String getInitialDialogueIdForNpc(int npcId) { return gameContent.getInitialDialogueIdForNpc(npcId); }
     public Map<Integer, Quest> getQuestDefinitions() { return gameContent.getQuestDefinitions(); }
+    public ShopDefinition getShopByNpcName(String npcName) { return gameContent.getShopByNpcName(npcName); }
 
     public void start() throws Exception {
         bossGroup = new NioEventLoopGroup(bossThreads);

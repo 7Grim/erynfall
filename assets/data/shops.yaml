@@ -1,0 +1,23 @@
+shops:
+  - id: "fishing_supplier"
+    name: "Fishing Supplier"
+    npc_name: "Fishing Supplier"
+    stock:
+      - item_id: 303
+        quantity: 100
+      - item_id: 307
+        quantity: 100
+      - item_id: 309
+        quantity: 100
+      - item_id: 301
+        quantity: 100
+      - item_id: 311
+        quantity: 100
+      - item_id: 313
+        quantity: 1000
+  - id: "smithing_supplier"
+    name: "Smithing Supplier"
+    npc_name: "Smithing Supplier"
+    stock:
+      - item_id: 2347
+        quantity: 100

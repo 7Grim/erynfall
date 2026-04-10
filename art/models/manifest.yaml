@@ -1,0 +1,1434 @@
+version: 1
+assets:
+  - key: furnace
+    file: furnace.g3dj
+    category: prop
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Static furnace prop for the 3D renderer.
+  - key: anvil
+    file: anvil.g3dj
+    category: prop
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Static anvil prop for smithing services.
+  - key: cooking_range
+    file: cooking_range.g3dj
+    category: prop
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Static cooking range prop.
+  - key: fishing_spot
+    file: fishing_spot.g3dj
+    category: resource
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Static fishing spot marker in 3D mode.
+  - key: tree
+    file: tree.g3dj
+    category: resource
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Static tree model used by the experimental 3D renderer.
+  - key: tree_oak
+    file: tree_oak.g3dj
+    category: resource
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Static oak tree model used by the experimental 3D renderer.
+  - key: rock_copper
+    file: rock_copper.g3dj
+    category: resource
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Static copper rock model.
+  - key: rock_tin
+    file: rock_tin.g3dj
+    category: resource
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Static tin rock model.
+  - key: rock_iron
+    file: rock_iron.g3dj
+    category: resource
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Static iron rock model.
+  - key: tree_willow
+    file: tree_willow.g3dj
+    category: resource
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Static willow tree model used by the experimental 3D renderer.
+  - key: tree_maple
+    file: tree_maple.g3dj
+    category: resource
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Static maple tree model used by the experimental 3D renderer.
+  - key: tree_mahogany
+    file: tree_mahogany.g3dj
+    category: resource
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Static mahogany tree model used by the experimental 3D renderer.
+  - key: tree_yew
+    file: tree_yew.g3dj
+    category: resource
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Static yew tree model used by the experimental 3D renderer.
+  - key: tree_magic
+    file: tree_magic.g3dj
+    category: resource
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Static magic tree model used by the experimental 3D renderer.
+  - key: rock_silver
+    file: rock_silver.g3dj
+    category: resource
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Static silver rock model.
+  - key: rock_coal
+    file: rock_coal.g3dj
+    category: resource
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Static coal rock model.
+  - key: rock_gold
+    file: rock_gold.g3dj
+    category: resource
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Static gold rock model.
+  - key: rock_mithril
+    file: rock_mithril.g3dj
+    category: resource
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Static mithril rock model.
+  - key: rock_adamantite
+    file: rock_adamantite.g3dj
+    category: resource
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Static adamantite rock model.
+  - key: rock_runite
+    file: rock_runite.g3dj
+    category: resource
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Static runite rock model.
+  - key: building_shell_small
+    file: building_shell_small.g3dj
+    category: shell
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Small static building shell for the 3D renderer.
+  - key: dock_platform
+    file: dock_platform.g3dj
+    category: prop
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Small dock platform section for shoreline/town dressing.
+  - key: dock_stairs
+    file: dock_stairs.g3dj
+    category: prop
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Small dock stair/ramp section.
+  - key: table_small
+    file: table_small.g3dj
+    category: prop
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Small static table prop.
+  - key: crate_small
+    file: crate_small.g3dj
+    category: prop
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Small crate prop.
+  - key: barrel_small
+    file: barrel_small.g3dj
+    category: prop
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Small barrel prop.
+  - key: player_idle
+    file: player_idle.g3dj
+    category: actor
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Low-poly player idle pose for 3D prototype evaluation.
+  - key: player_walk
+    file: player_walk.g3dj
+    category: actor
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Low-poly player walk pose for 3D prototype evaluation.
+  - key: player_pickup
+    file: player_pickup.g3dj
+    category: actor
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Low-poly player pickup pose.
+  - key: player_chop
+    file: player_chop.g3dj
+    category: actor
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Low-poly player woodcutting pose.
+  - key: player_mine
+    file: player_mine.g3dj
+    category: actor
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Low-poly player mining pose.
+  - key: player_fish
+    file: player_fish.g3dj
+    category: actor
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Low-poly player fishing pose.
+  - key: player_sword
+    file: player_sword.g3dj
+    category: actor
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Low-poly player sword combat pose.
+  - key: player_spear
+    file: player_spear.g3dj
+    category: actor
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Low-poly player spear/staff combat pose.
+  - key: npc_banker_idle
+    file: npc_banker_idle.g3dj
+    category: actor
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Low-poly banker idle pose.
+  - key: npc_banker_walk
+    file: npc_banker_walk.g3dj
+    category: actor
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Low-poly banker walk pose.
+  - key: npc_goblin_idle
+    file: npc_goblin_idle.g3dj
+    category: actor
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Low-poly goblin idle pose.
+  - key: npc_goblin_walk
+    file: npc_goblin_walk.g3dj
+    category: actor
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Low-poly goblin walk pose.
+  - key: npc_goblin_action
+    file: npc_goblin_action.g3dj
+    category: actor
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Low-poly goblin combat/action pose.
+  - key: equip_head_bronze_full_helm
+    file: equip_head_bronze_full_helm.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Bronze full helm attachment.
+    equip_slot: 0
+    item_id: 1115
+    offset_x: 0.0
+    offset_y: 1.18
+    offset_z: 0.0
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: 0.0
+  - key: equip_head_iron_full_helm
+    file: equip_head_iron_full_helm.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Iron full helm attachment.
+    equip_slot: 0
+    item_id: 1153
+    offset_x: 0.0
+    offset_y: 1.18
+    offset_z: 0.0
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: 0.0
+  - key: equip_head_steel_full_helm
+    file: equip_head_steel_full_helm.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Steel full helm attachment.
+    equip_slot: 0
+    item_id: 1157
+    offset_x: 0.0
+    offset_y: 1.18
+    offset_z: 0.0
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: 0.0
+  - key: equip_head_mithril_full_helm
+    file: equip_head_mithril_full_helm.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Mithril full helm attachment.
+    equip_slot: 0
+    item_id: 1163
+    offset_x: 0.0
+    offset_y: 1.18
+    offset_z: 0.0
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: 0.0
+  - key: equip_head_adamant_full_helm
+    file: equip_head_adamant_full_helm.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Adamant full helm attachment.
+    equip_slot: 0
+    item_id: 1161
+    offset_x: 0.0
+    offset_y: 1.18
+    offset_z: 0.0
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: 0.0
+  - key: equip_head_rune_full_helm
+    file: equip_head_rune_full_helm.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Rune full helm attachment.
+    equip_slot: 0
+    item_id: 1165
+    offset_x: 0.0
+    offset_y: 1.18
+    offset_z: 0.0
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: 0.0
+  - key: equip_body_bronze_platebody
+    file: equip_body_bronze_platebody.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Bronze platebody attachment.
+    equip_slot: 6
+    item_id: 1119
+    offset_x: 0.0
+    offset_y: 0.84
+    offset_z: 0.0
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: 0.0
+  - key: equip_body_iron_platebody
+    file: equip_body_iron_platebody.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Iron platebody attachment.
+    equip_slot: 6
+    item_id: 2000
+    offset_x: 0.0
+    offset_y: 0.84
+    offset_z: 0.0
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: 0.0
+  - key: equip_body_steel_platebody
+    file: equip_body_steel_platebody.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Steel platebody attachment.
+    equip_slot: 6
+    item_id: 1085
+    offset_x: 0.0
+    offset_y: 0.84
+    offset_z: 0.0
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: 0.0
+  - key: equip_body_mithril_platebody
+    file: equip_body_mithril_platebody.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Mithril platebody attachment.
+    equip_slot: 6
+    item_id: 1129
+    offset_x: 0.0
+    offset_y: 0.84
+    offset_z: 0.0
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: 0.0
+  - key: equip_body_adamant_platebody
+    file: equip_body_adamant_platebody.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Adamant platebody attachment.
+    equip_slot: 6
+    item_id: 1133
+    offset_x: 0.0
+    offset_y: 0.84
+    offset_z: 0.0
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: 0.0
+  - key: equip_body_rune_platebody
+    file: equip_body_rune_platebody.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Rune platebody attachment.
+    equip_slot: 6
+    item_id: 1127
+    offset_x: 0.0
+    offset_y: 0.84
+    offset_z: 0.0
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: 0.0
+  - key: equip_legs_bronze_platelegs
+    file: equip_legs_bronze_platelegs.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Bronze platelegs attachment.
+    equip_slot: 7
+    item_id: 1075
+    offset_x: 0.0
+    offset_y: 0.38
+    offset_z: 0.0
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: 0.0
+  - key: equip_legs_iron_platelegs
+    file: equip_legs_iron_platelegs.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Iron platelegs attachment.
+    equip_slot: 7
+    item_id: 1067
+    offset_x: 0.0
+    offset_y: 0.38
+    offset_z: 0.0
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: 0.0
+  - key: equip_legs_steel_platelegs
+    file: equip_legs_steel_platelegs.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Steel platelegs attachment.
+    equip_slot: 7
+    item_id: 1069
+    offset_x: 0.0
+    offset_y: 0.38
+    offset_z: 0.0
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: 0.0
+  - key: equip_legs_mithril_platelegs
+    file: equip_legs_mithril_platelegs.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Mithril platelegs attachment.
+    equip_slot: 7
+    item_id: 1071
+    offset_x: 0.0
+    offset_y: 0.38
+    offset_z: 0.0
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: 0.0
+  - key: equip_legs_adamant_platelegs
+    file: equip_legs_adamant_platelegs.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Adamant platelegs attachment.
+    equip_slot: 7
+    item_id: 1073
+    offset_x: 0.0
+    offset_y: 0.38
+    offset_z: 0.0
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: 0.0
+  - key: equip_legs_rune_platelegs
+    file: equip_legs_rune_platelegs.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Rune platelegs attachment.
+    equip_slot: 7
+    item_id: 1079
+    offset_x: 0.0
+    offset_y: 0.38
+    offset_z: 0.0
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: 0.0
+  - key: equip_shield_bronze_sq
+    file: equip_shield_bronze_sq.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Bronze sq shield attachment.
+    equip_slot: 5
+    item_id: 1175
+    offset_x: -0.24
+    offset_y: 0.84
+    offset_z: 0.02
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: 0.0
+  - key: equip_shield_iron_sq
+    file: equip_shield_iron_sq.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Iron sq shield attachment.
+    equip_slot: 5
+    item_id: 1177
+    offset_x: -0.24
+    offset_y: 0.84
+    offset_z: 0.02
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: 0.0
+  - key: equip_shield_steel_sq
+    file: equip_shield_steel_sq.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Steel sq shield attachment.
+    equip_slot: 5
+    item_id: 1193
+    offset_x: -0.24
+    offset_y: 0.84
+    offset_z: 0.02
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: 0.0
+  - key: equip_shield_mithril_sq
+    file: equip_shield_mithril_sq.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Mithril sq shield attachment.
+    equip_slot: 5
+    item_id: 1197
+    offset_x: -0.24
+    offset_y: 0.84
+    offset_z: 0.02
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: 0.0
+  - key: equip_shield_adamant_sq
+    file: equip_shield_adamant_sq.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Adamant sq shield attachment.
+    equip_slot: 5
+    item_id: 1199
+    offset_x: -0.24
+    offset_y: 0.84
+    offset_z: 0.02
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: 0.0
+  - key: equip_shield_rune_sq
+    file: equip_shield_rune_sq.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Rune sq shield attachment.
+    equip_slot: 5
+    item_id: 1185
+    offset_x: -0.24
+    offset_y: 0.84
+    offset_z: 0.02
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: 0.0
+  - key: equip_weapon_bronze_scimitar
+    file: equip_weapon_bronze_scimitar.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Bronze scimitar attachment.
+    equip_slot: 4
+    item_id: 1321
+    offset_x: 0.24
+    offset_y: 0.84
+    offset_z: -0.02
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: -22.0
+  - key: equip_weapon_iron_scimitar
+    file: equip_weapon_iron_scimitar.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Iron scimitar attachment.
+    equip_slot: 4
+    item_id: 1323
+    offset_x: 0.24
+    offset_y: 0.84
+    offset_z: -0.02
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: -22.0
+  - key: equip_weapon_steel_scimitar
+    file: equip_weapon_steel_scimitar.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Steel scimitar attachment.
+    equip_slot: 4
+    item_id: 1325
+    offset_x: 0.24
+    offset_y: 0.84
+    offset_z: -0.02
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: -22.0
+  - key: equip_weapon_mithril_scimitar
+    file: equip_weapon_mithril_scimitar.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Mithril scimitar attachment.
+    equip_slot: 4
+    item_id: 1329
+    offset_x: 0.24
+    offset_y: 0.84
+    offset_z: -0.02
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: -22.0
+  - key: equip_weapon_adamant_scimitar
+    file: equip_weapon_adamant_scimitar.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Adamant scimitar attachment.
+    equip_slot: 4
+    item_id: 1331
+    offset_x: 0.24
+    offset_y: 0.84
+    offset_z: -0.02
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: -22.0
+  - key: equip_weapon_rune_scimitar
+    file: equip_weapon_rune_scimitar.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Rune scimitar attachment.
+    equip_slot: 4
+    item_id: 1333
+    offset_x: 0.24
+    offset_y: 0.84
+    offset_z: -0.02
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: -22.0
+  - key: equip_weapon_bronze_axe
+    file: equip_weapon_bronze_axe.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Bronze axe attachment.
+    equip_slot: 4
+    item_id: 1351
+    offset_x: 0.24
+    offset_y: 0.84
+    offset_z: -0.02
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: -18.0
+  - key: equip_weapon_iron_axe
+    file: equip_weapon_iron_axe.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Iron axe attachment.
+    equip_slot: 4
+    item_id: 1349
+    offset_x: 0.24
+    offset_y: 0.84
+    offset_z: -0.02
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: -18.0
+  - key: equip_weapon_steel_axe
+    file: equip_weapon_steel_axe.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Steel axe attachment.
+    equip_slot: 4
+    item_id: 1353
+    offset_x: 0.24
+    offset_y: 0.84
+    offset_z: -0.02
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: -18.0
+  - key: equip_weapon_mithril_axe
+    file: equip_weapon_mithril_axe.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Mithril axe attachment.
+    equip_slot: 4
+    item_id: 1355
+    offset_x: 0.24
+    offset_y: 0.84
+    offset_z: -0.02
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: -18.0
+  - key: equip_weapon_adamant_axe
+    file: equip_weapon_adamant_axe.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Adamant axe attachment.
+    equip_slot: 4
+    item_id: 1357
+    offset_x: 0.24
+    offset_y: 0.84
+    offset_z: -0.02
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: -18.0
+  - key: equip_weapon_rune_axe
+    file: equip_weapon_rune_axe.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Rune axe attachment.
+    equip_slot: 4
+    item_id: 1359
+    offset_x: 0.24
+    offset_y: 0.84
+    offset_z: -0.02
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: -18.0
+  - key: equip_weapon_bronze_pickaxe
+    file: equip_weapon_bronze_pickaxe.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Bronze pickaxe attachment.
+    equip_slot: 4
+    item_id: 1265
+    offset_x: 0.24
+    offset_y: 0.84
+    offset_z: -0.02
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: -18.0
+  - key: equip_weapon_iron_pickaxe
+    file: equip_weapon_iron_pickaxe.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Iron pickaxe attachment.
+    equip_slot: 4
+    item_id: 1267
+    offset_x: 0.24
+    offset_y: 0.84
+    offset_z: -0.02
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: -18.0
+  - key: equip_weapon_steel_pickaxe
+    file: equip_weapon_steel_pickaxe.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Steel pickaxe attachment.
+    equip_slot: 4
+    item_id: 1269
+    offset_x: 0.24
+    offset_y: 0.84
+    offset_z: -0.02
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: -18.0
+  - key: equip_weapon_mithril_pickaxe
+    file: equip_weapon_mithril_pickaxe.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Mithril pickaxe attachment.
+    equip_slot: 4
+    item_id: 1273
+    offset_x: 0.24
+    offset_y: 0.84
+    offset_z: -0.02
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: -18.0
+  - key: equip_weapon_adamant_pickaxe
+    file: equip_weapon_adamant_pickaxe.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Adamant pickaxe attachment.
+    equip_slot: 4
+    item_id: 1271
+    offset_x: 0.24
+    offset_y: 0.84
+    offset_z: -0.02
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: -18.0
+  - key: equip_weapon_rune_pickaxe
+    file: equip_weapon_rune_pickaxe.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Rune pickaxe attachment.
+    equip_slot: 4
+    item_id: 1275
+    offset_x: 0.24
+    offset_y: 0.84
+    offset_z: -0.02
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: -18.0
+  - key: equip_weapon_shortbow
+    file: equip_weapon_shortbow.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Weapon attachment for Shortbow.
+    equip_slot: 4
+    item_id: 841
+    offset_x: 0.0
+    offset_y: 0.0
+    offset_z: 0.0
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: 0.0
+  - key: equip_weapon_oak_shortbow
+    file: equip_weapon_oak_shortbow.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Weapon attachment for Oak shortbow.
+    equip_slot: 4
+    item_id: 843
+    offset_x: 0.0
+    offset_y: 0.0
+    offset_z: 0.0
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: 0.0
+  - key: equip_weapon_willow_shortbow
+    file: equip_weapon_willow_shortbow.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Weapon attachment for Willow shortbow.
+    equip_slot: 4
+    item_id: 849
+    offset_x: 0.0
+    offset_y: 0.0
+    offset_z: 0.0
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: 0.0
+  - key: equip_weapon_maple_shortbow
+    file: equip_weapon_maple_shortbow.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Weapon attachment for Maple shortbow.
+    equip_slot: 4
+    item_id: 853
+    offset_x: 0.0
+    offset_y: 0.0
+    offset_z: 0.0
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: 0.0
+  - key: equip_weapon_yew_shortbow
+    file: equip_weapon_yew_shortbow.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Weapon attachment for Yew shortbow.
+    equip_slot: 4
+    item_id: 857
+    offset_x: 0.0
+    offset_y: 0.0
+    offset_z: 0.0
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: 0.0
+  - key: equip_weapon_magic_shortbow
+    file: equip_weapon_magic_shortbow.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Weapon attachment for Magic shortbow.
+    equip_slot: 4
+    item_id: 861
+    offset_x: 0.0
+    offset_y: 0.0
+    offset_z: 0.0
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: 0.0
+  - key: equip_weapon_longbow
+    file: equip_weapon_longbow.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Weapon attachment for Longbow.
+    equip_slot: 4
+    item_id: 839
+    offset_x: 0.0
+    offset_y: 0.0
+    offset_z: 0.0
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: 0.0
+  - key: equip_weapon_oak_longbow
+    file: equip_weapon_oak_longbow.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Weapon attachment for Oak longbow.
+    equip_slot: 4
+    item_id: 845
+    offset_x: 0.0
+    offset_y: 0.0
+    offset_z: 0.0
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: 0.0
+  - key: equip_weapon_willow_longbow
+    file: equip_weapon_willow_longbow.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Weapon attachment for Willow longbow.
+    equip_slot: 4
+    item_id: 847
+    offset_x: 0.0
+    offset_y: 0.0
+    offset_z: 0.0
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: 0.0
+  - key: equip_weapon_maple_longbow
+    file: equip_weapon_maple_longbow.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Weapon attachment for Maple longbow.
+    equip_slot: 4
+    item_id: 851
+    offset_x: 0.0
+    offset_y: 0.0
+    offset_z: 0.0
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: 0.0
+  - key: equip_weapon_yew_longbow
+    file: equip_weapon_yew_longbow.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Weapon attachment for Yew longbow.
+    equip_slot: 4
+    item_id: 855
+    offset_x: 0.0
+    offset_y: 0.0
+    offset_z: 0.0
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: 0.0
+  - key: equip_weapon_magic_longbow
+    file: equip_weapon_magic_longbow.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Weapon attachment for Magic longbow.
+    equip_slot: 4
+    item_id: 859
+    offset_x: 0.0
+    offset_y: 0.0
+    offset_z: 0.0
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: 0.0
+  - key: equip_weapon_air_staff
+    file: equip_weapon_air_staff.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Weapon attachment for Air staff.
+    equip_slot: 4
+    item_id: 1381
+    offset_x: 0.0
+    offset_y: 0.0
+    offset_z: 0.0
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: 0.0
+  - key: equip_head_leather_cowl
+    file: equip_head_leather_cowl.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Leather cowl attachment.
+    equip_slot: 0
+    item_id: 1167
+    offset_x: 0.0
+    offset_y: 1.16
+    offset_z: 0.0
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: 0.0
+  - key: equip_body_leather_body
+    file: equip_body_leather_body.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Leather body attachment.
+    equip_slot: 6
+    item_id: 2129
+    offset_x: 0.0
+    offset_y: 0.84
+    offset_z: 0.0
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: 0.0
+  - key: equip_legs_leather_chaps
+    file: equip_legs_leather_chaps.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Leather chaps attachment.
+    equip_slot: 7
+    item_id: 1095
+    offset_x: 0.0
+    offset_y: 0.38
+    offset_z: 0.0
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: 0.0
+  - key: equip_hands_leather_gloves
+    file: equip_hands_leather_gloves.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Leather gloves attachment.
+    equip_slot: 8
+    item_id: 1059
+    offset_x: 0.0
+    offset_y: 0.82
+    offset_z: 0.0
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: 0.0
+  - key: equip_feet_leather_boots
+    file: equip_feet_leather_boots.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Leather boots attachment.
+    equip_slot: 9
+    item_id: 1061
+    offset_x: 0.0
+    offset_y: 0.08
+    offset_z: 0.0
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: 0.0
+  - key: equip_head_blue_wizard_hat
+    file: equip_head_blue_wizard_hat.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Blue wizard hat attachment.
+    equip_slot: 0
+    item_id: 579
+    offset_x: 0.0
+    offset_y: 1.18
+    offset_z: 0.0
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: 0.0
+  - key: equip_body_blue_wizard_robe
+    file: equip_body_blue_wizard_robe.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Blue wizard robe attachment.
+    equip_slot: 6
+    item_id: 577
+    offset_x: 0.0
+    offset_y: 0.84
+    offset_z: 0.0
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: 0.0
+  - key: equip_legs_blue_wizard_skirt
+    file: equip_legs_blue_wizard_skirt.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Blue wizard robe skirt attachment.
+    equip_slot: 7
+    item_id: 1011
+    offset_x: 0.0
+    offset_y: 0.38
+    offset_z: 0.0
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: 0.0
+  - key: equip_cape_black_cape
+    file: equip_cape_black_cape.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Black cape attachment.
+    equip_slot: 1
+    item_id: 1019
+    offset_x: 0.0
+    offset_y: 0.82
+    offset_z: 0.08
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: 0.0
+  - key: equip_ammo_quiver_bronze
+    file: equip_ammo_quiver_bronze.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Bronze-arrow quiver attachment.
+    equip_slot: 3
+    item_id: 882
+    offset_x: -0.12
+    offset_y: 0.92
+    offset_z: 0.1
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: 0.0
+  - key: equip_ammo_quiver_iron
+    file: equip_ammo_quiver_iron.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Iron-arrow quiver attachment.
+    equip_slot: 3
+    item_id: 884
+    offset_x: -0.12
+    offset_y: 0.92
+    offset_z: 0.1
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: 0.0
+  - key: equip_ammo_quiver_steel
+    file: equip_ammo_quiver_steel.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Steel-arrow quiver attachment.
+    equip_slot: 3
+    item_id: 886
+    offset_x: -0.12
+    offset_y: 0.92
+    offset_z: 0.1
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: 0.0
+  - key: equip_ammo_quiver_mithril
+    file: equip_ammo_quiver_mithril.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Mithril-arrow quiver attachment.
+    equip_slot: 3
+    item_id: 888
+    offset_x: -0.12
+    offset_y: 0.92
+    offset_z: 0.1
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: 0.0
+  - key: equip_ammo_quiver_adamant
+    file: equip_ammo_quiver_adamant.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Adamant-arrow quiver attachment.
+    equip_slot: 3
+    item_id: 890
+    offset_x: -0.12
+    offset_y: 0.92
+    offset_z: 0.1
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: 0.0
+  - key: equip_ammo_quiver_rune
+    file: equip_ammo_quiver_rune.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Rune-arrow quiver attachment.
+    equip_slot: 3
+    item_id: 892
+    offset_x: -0.12
+    offset_y: 0.92
+    offset_z: 0.1
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: 0.0

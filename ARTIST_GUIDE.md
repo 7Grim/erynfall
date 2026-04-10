@@ -351,6 +351,67 @@ The atlas reloads immediately. You'll see your changes in the running game.
 
 ---
 
+## 3D Models (Experimental 3D renderer branch)
+
+The experimental 3D renderer now has an optional static-prop model pipeline.
+
+- Manifest location: `art/models/manifest.yaml`
+- Model files directory: `art/models/`
+- Runtime model resource directory: `client/src/main/resources/models/`
+
+Current supported model formats for this pipeline:
+- `.g3dj`
+- `.g3db`
+
+Validation and runtime metadata generation:
+
+```bash
+python3 scripts/validate-models.py
+```
+
+or as part of Maven resources generation:
+
+```bash
+mvn generate-resources -pl client -am
+```
+
+During `generate-resources`, model files are automatically copied from
+`art/models/` into `client/src/main/resources/models/`.
+Do not copy models manually into runtime resources.
+
+This generates:
+- `client/src/main/resources/model-manifest-keys.txt`
+- `client/src/main/resources/model-manifest-runtime.json`
+- copied runtime `.g3dj`/`.g3db` files in `client/src/main/resources/models/`
+
+Important migration note:
+- Static prop models are first-pass, optional upgrades.
+- If a model file is missing, the renderer falls back to the existing sprite billboard path.
+- Sprite impostors remain the default safety net until full 3D migration is complete.
+- Some shell/decorative 3D props are placed through `client/src/main/resources/static_props.yaml`.
+- Those placements are visual-only for the experimental 3D renderer and currently do not add gameplay collision or interaction.
+
+Actor model prototype notes:
+- The experimental renderer now supports a first actor-model prototype path using state-swapped static meshes (not animated rigs).
+- Example keys: `player_idle.g3dj`, `player_walk.g3dj`, `player_chop.g3dj`, `npc_banker_idle.g3dj`, `npc_goblin_action.g3dj`.
+- Actor models are rotated in-engine for facing direction.
+- Do not create directional actor model files in this pass (`player_walk_n.g3dj`, etc.).
+
+Equipment attachment prototype notes:
+- Equipment attachments are also supported experimentally as separate models in the `equipment` manifest category.
+- Attachments are matched by `equip_slot` + `item_id` metadata and composed onto the local player model.
+- Attachment transform metadata (`offset_*`, `rot_*`) is read from `art/models/manifest.yaml` and passed through to runtime metadata.
+- Missing attachment models are expected and safe; the base player model still renders.
+- This is first-pass coverage only. Not every equipable item needs an attachment model yet.
+- Remote players may continue using billboard rendering while local-player composition is being evaluated.
+- Current weapon attachment coverage includes axes, pickaxes, scimitars, shortbows, longbows, and air staff.
+- Current starter armour attachment coverage includes the ranged leather set and blue wizard set.
+- CAPE and AMMO visual support now exist experimentally.
+- Ammo currently uses a quiver-style representation for arrow tiers.
+- NECK and RING visuals remain intentionally deferred in this phase.
+
+---
+
 ## Replacing a placeholder
 
 Each `.png.placeholder` file in `art/sprites/` is a labelled slot for a sprite that still needs to be made. To fill a slot:

@@ -945,6 +945,8 @@ public class IsometricRenderer {
             case "Tutorial Guide"    -> "npc_guide";
             case "Combat Instructor" -> "npc_instructor";
             case "Banker"            -> "npc_banker";
+            case "Fishing Supplier"  -> "npc_supplier";
+            case "Smithing Supplier" -> "npc_supplier";
             // --- Combat creatures ---
             case "Rat"               -> "npc_rat";
             case "Giant Rat"         -> "npc_giant_rat";

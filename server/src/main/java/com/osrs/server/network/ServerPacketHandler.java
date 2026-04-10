@@ -17,6 +17,7 @@ import com.osrs.shared.EquipmentSlot;
 import com.osrs.shared.ItemDefinition;
 import com.osrs.shared.NPC;
 import com.osrs.shared.Player;
+import com.osrs.shared.ShopDefinition;
 import com.osrs.shared.SmithingRegistry;
 import com.osrs.shared.SkillingAction;
 import com.osrs.shared.FishingRegistry;
@@ -47,6 +48,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
     private static final int[] FISHING_SUPPLIER_TOOL_ITEM_IDS = {303, 307, 309, 301, 311};
     private static final int COAL_ITEM_ID = 453;
     private static final int BONES_ITEM_ID = 526;
+    private static final int COINS_ITEM_ID = 995;
     private static final int  TINDERBOX_ITEM_ID   = 590;
     private static final int[] FIREMAKING_LOG_ITEM_IDS = {1511, 1521, 1522, 1523, 1524, 1525};
     private static final long BONES_PRAYER_XP = 45L;  // 4.5 XP stored as tenths
@@ -153,6 +155,9 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             case OPEN_SMITHING_MENU      -> handleOpenSmithingMenu(ctx, packet.getOpenSmithingMenu());
             case START_SMITHING_PRODUCT  -> handleStartSmithingProduct(ctx, packet.getStartSmithingProduct());
             case CLOSE_SMITHING_MENU     -> handleCloseSmithingMenu(ctx, packet.getCloseSmithingMenu());
+            case OPEN_SHOP               -> handleOpenShop(ctx, packet.getOpenShop());
+            case BUY_SHOP_ITEM           -> handleBuyShopItem(ctx, packet.getBuyShopItem());
+            case CLOSE_SHOP              -> handleCloseShop(ctx, packet.getCloseShop());
             case CLOSE_BANK_REQUEST      -> handleCloseBankRequest(ctx, packet.getCloseBankRequest());
             case DEPOSIT_BANK_ITEM       -> handleDepositBankItem(ctx, packet.getDepositBankItem());
             case WITHDRAW_BANK_ITEM      -> handleWithdrawBankItem(ctx, packet.getWithdrawBankItem());
@@ -1181,6 +1186,145 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
         // No server-side modal state to clear yet.
     }
 
+    private void handleOpenShop(ChannelHandlerContext ctx, NetworkProto.OpenShop request) {
+        if (session == null || !session.isAuthenticated() || session.getPlayer() == null) {
+            return;
+        }
+
+        Player player = session.getPlayer();
+        NPC npc = server.getWorld().getNPC(request.getNpcId());
+        if (npc == null) {
+            sendChatMessage(ctx, "They are not here.", 1);
+            return;
+        }
+
+        ShopDefinition shop = server.getShopByNpcName(npc.getName());
+        if (shop == null) {
+            sendChatMessage(ctx, "They are not trading right now.", 1);
+            return;
+        }
+
+        if (player.isInCombat()) {
+            sendChatMessage(ctx, "You are too busy fighting.", 1);
+            return;
+        }
+
+        int chebyshev = Math.max(Math.abs(player.getX() - npc.getX()), Math.abs(player.getY() - npc.getY()));
+        if (chebyshev > 2 || !canReachAnyAdjacentTile(player, npc)) {
+            sendChatMessage(ctx, "I can't reach that!", 1);
+            return;
+        }
+
+        sendShopOpen(ctx, npc.getId(), shop);
+    }
+
+    private void handleBuyShopItem(ChannelHandlerContext ctx, NetworkProto.BuyShopItem request) {
+        if (session == null || !session.isAuthenticated() || session.getPlayer() == null) {
+            return;
+        }
+
+        Player player = session.getPlayer();
+        NPC npc = server.getWorld().getNPC(request.getNpcId());
+        if (npc == null) {
+            sendChatMessage(ctx, "They are not here.", 1);
+            return;
+        }
+
+        ShopDefinition shop = server.getShopByNpcName(npc.getName());
+        if (shop == null) {
+            sendChatMessage(ctx, "They are not trading right now.", 1);
+            return;
+        }
+
+        if (player.isInCombat()) {
+            sendChatMessage(ctx, "You are too busy fighting.", 1);
+            return;
+        }
+
+        int chebyshev = Math.max(Math.abs(player.getX() - npc.getX()), Math.abs(player.getY() - npc.getY()));
+        if (chebyshev > 2 || !canReachAnyAdjacentTile(player, npc)) {
+            sendChatMessage(ctx, "I can't reach that!", 1);
+            return;
+        }
+
+        int requestedQuantity = request.getQuantity();
+        if (requestedQuantity <= 0) {
+            sendChatMessage(ctx, "You can't buy that quantity.", 1);
+            return;
+        }
+
+        ShopDefinition.StockEntry stockEntry = findStockEntry(shop, request.getItemId());
+        if (stockEntry == null) {
+            sendChatMessage(ctx, "This shop doesn't sell that item.", 1);
+            return;
+        }
+
+        ItemDefinition itemDef = server.getWorld().getItemDef(stockEntry.itemId);
+        if (itemDef == null || itemDef.id <= 0) {
+            sendChatMessage(ctx, "That item is unavailable.", 1);
+            return;
+        }
+
+        int quantity = Math.min(requestedQuantity, 10000);
+        int unitPrice = resolveShopPrice(stockEntry, itemDef);
+        long totalPriceLong = (long) unitPrice * (long) quantity;
+        if (totalPriceLong > Integer.MAX_VALUE) {
+            sendChatMessage(ctx, "That purchase is too large.", 1);
+            return;
+        }
+        int totalPrice = (int) totalPriceLong;
+
+        int coins = countInventoryItem(player, COINS_ITEM_ID);
+        if (coins < totalPrice) {
+            sendChatMessage(ctx, "You don't have enough coins.", 1);
+            return;
+        }
+
+        if (!removeInventoryItem(player, COINS_ITEM_ID, totalPrice)) {
+            sendChatMessage(ctx, "You don't have enough coins.", 1);
+            return;
+        }
+
+        if (!canFitInventoryItem(player, itemDef, quantity)) {
+            ItemDefinition coinDef = server.getWorld().getItemDef(COINS_ITEM_ID);
+            if (coinDef != null) {
+                giveItemToInventory(player, coinDef, totalPrice);
+            }
+            sendChatMessage(ctx, "Your inventory is too full to buy that.", 1);
+            sendFullInventory(ctx, player);
+            return;
+        }
+
+        int itemCountBefore = countInventoryItem(player, itemDef.id);
+        int added = giveItemToInventory(player, itemDef, quantity);
+        if (added < quantity) {
+            int itemCountAfter = countInventoryItem(player, itemDef.id);
+            int delta = Math.max(0, itemCountAfter - itemCountBefore);
+            if (delta > 0) {
+                removeInventoryItem(player, itemDef.id, delta);
+            }
+            ItemDefinition coinDef = server.getWorld().getItemDef(COINS_ITEM_ID);
+            if (coinDef != null) {
+                giveItemToInventory(player, coinDef, totalPrice);
+            }
+            sendChatMessage(ctx, "Your inventory is too full to buy that.", 1);
+            sendFullInventory(ctx, player);
+            return;
+        }
+
+        sendFullInventory(ctx, player);
+        if (DatabaseManager.isHealthy()) {
+            PlayerRepository.saveInventory(player);
+        }
+
+        sendChatMessage(ctx, "You buy " + quantity + " x " + itemDef.name + ".", 0);
+        sendShopOpen(ctx, npc.getId(), shop);
+    }
+
+    private void handleCloseShop(ChannelHandlerContext ctx, NetworkProto.CloseShop request) {
+        // No server-side modal state to clear yet.
+    }
+
     private boolean isFurnace(NPC npc) {
         return npc != null
             && (npc.getDefinitionId() == SmithingRegistry.FURNACE_DEFINITION_ID
@@ -1191,6 +1335,53 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
         return npc != null
             && (npc.getDefinitionId() == SmithingRegistry.ANVIL_DEFINITION_ID
             || "Anvil".equalsIgnoreCase(npc.getName()));
+    }
+
+    private ShopDefinition.StockEntry findStockEntry(ShopDefinition shop, int itemId) {
+        if (shop == null || shop.stock == null) {
+            return null;
+        }
+        for (ShopDefinition.StockEntry entry : shop.stock) {
+            if (entry.itemId == itemId) {
+                return entry;
+            }
+        }
+        return null;
+    }
+
+    private int resolveShopPrice(ShopDefinition.StockEntry entry, ItemDefinition itemDef) {
+        if (entry != null && entry.price != null && entry.price > 0) {
+            return entry.price;
+        }
+        return Math.max(1, itemDef != null ? itemDef.storeValue : 1);
+    }
+
+    private void sendShopOpen(ChannelHandlerContext ctx, int npcId, ShopDefinition shop) {
+        if (shop == null) {
+            return;
+        }
+        NetworkProto.ShopOpen.Builder out = NetworkProto.ShopOpen.newBuilder()
+            .setNpcId(npcId)
+            .setShopName(shop.name == null ? "Shop" : shop.name);
+
+        if (shop.stock != null) {
+            for (ShopDefinition.StockEntry entry : shop.stock) {
+                ItemDefinition itemDef = server.getWorld().getItemDef(entry.itemId);
+                if (itemDef == null || itemDef.id <= 0) {
+                    continue;
+                }
+                out.addStock(NetworkProto.ShopStockEntry.newBuilder()
+                    .setItemId(entry.itemId)
+                    .setItemName(itemDef.name)
+                    .setQuantity(Math.max(0, entry.quantity))
+                    .setPrice(resolveShopPrice(entry, itemDef))
+                    .setFlags(itemDef.getFlags()));
+            }
+        }
+
+        ctx.writeAndFlush(NetworkProto.ServerMessage.newBuilder()
+            .setShopOpen(out)
+            .build());
     }
 
     private boolean hasHammerForSmithing(Player player) {
@@ -2431,6 +2622,57 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             }
         }
         return total;
+    }
+
+    private boolean canFitInventoryItem(Player player, ItemDefinition def, int quantity) {
+        if (def == null || quantity <= 0) {
+            return false;
+        }
+        if (def.stackable) {
+            return findInventoryStackSlot(player, def.id) >= 0 || player.getFirstEmptySlot() >= 0;
+        }
+        int freeSlots = 0;
+        for (int slot = 0; slot < 28; slot++) {
+            if (player.getInventoryItemId(slot) <= 0 || player.getInventoryQuantity(slot) <= 0) {
+                freeSlots++;
+                if (freeSlots >= quantity) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private boolean removeInventoryItem(Player player, int itemId, int quantity) {
+        if (quantity <= 0) {
+            return true;
+        }
+
+        int available = countInventoryItem(player, itemId);
+        if (available < quantity) {
+            return false;
+        }
+
+        int remaining = quantity;
+        for (int slot = 0; slot < 28 && remaining > 0; slot++) {
+            if (player.getInventoryItemId(slot) != itemId) {
+                continue;
+            }
+            int inSlot = Math.max(0, player.getInventoryQuantity(slot));
+            if (inSlot <= 0) {
+                continue;
+            }
+            int remove = Math.min(remaining, inSlot);
+            int next = inSlot - remove;
+            if (next <= 0) {
+                player.setInventoryItem(slot, -1, 0);
+            } else {
+                player.setInventoryItem(slot, itemId, next);
+            }
+            remaining -= remove;
+        }
+
+        return remaining == 0;
     }
 
     private boolean hasCookableFood(Player player) {
