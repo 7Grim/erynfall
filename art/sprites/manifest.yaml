@@ -608,6 +608,136 @@ assets:
     animated: false
     notes: Optional base accent for wall tiles.
 
+  - key: ao_wall_base
+    file: ao_wall_base.png
+    category: overlay
+    canvas_width: 32
+    canvas_height: 16
+    pivot: tile-diamond
+    required: false
+    animated: false
+    notes: Optional subtle crevice darkening at wall bases.
+
+  - key: ao_wall_inner_ne
+    file: ao_wall_inner_ne.png
+    category: overlay
+    canvas_width: 32
+    canvas_height: 16
+    pivot: tile-diamond
+    required: false
+    animated: false
+    notes: Optional subtle inner-corner AO for north-east wall joins.
+
+  - key: ao_wall_inner_nw
+    file: ao_wall_inner_nw.png
+    category: overlay
+    canvas_width: 32
+    canvas_height: 16
+    pivot: tile-diamond
+    required: false
+    animated: false
+    notes: Optional subtle inner-corner AO for north-west wall joins.
+
+  - key: ao_wall_inner_se
+    file: ao_wall_inner_se.png
+    category: overlay
+    canvas_width: 32
+    canvas_height: 16
+    pivot: tile-diamond
+    required: false
+    animated: false
+    notes: Optional subtle inner-corner AO for south-east wall joins.
+
+  - key: ao_wall_inner_sw
+    file: ao_wall_inner_sw.png
+    category: overlay
+    canvas_width: 32
+    canvas_height: 16
+    pivot: tile-diamond
+    required: false
+    animated: false
+    notes: Optional subtle inner-corner AO for south-west wall joins.
+
+  - key: ao_shore_n
+    file: ao_shore_n.png
+    category: overlay
+    canvas_width: 32
+    canvas_height: 16
+    pivot: tile-diamond
+    required: false
+    animated: false
+    notes: Optional shoreline crease AO for adjacent water to the north.
+
+  - key: ao_shore_s
+    file: ao_shore_s.png
+    category: overlay
+    canvas_width: 32
+    canvas_height: 16
+    pivot: tile-diamond
+    required: false
+    animated: false
+    notes: Optional shoreline crease AO for adjacent water to the south.
+
+  - key: ao_shore_e
+    file: ao_shore_e.png
+    category: overlay
+    canvas_width: 32
+    canvas_height: 16
+    pivot: tile-diamond
+    required: false
+    animated: false
+    notes: Optional shoreline crease AO for adjacent water to the east.
+
+  - key: ao_shore_w
+    file: ao_shore_w.png
+    category: overlay
+    canvas_width: 32
+    canvas_height: 16
+    pivot: tile-diamond
+    required: false
+    animated: false
+    notes: Optional shoreline crease AO for adjacent water to the west.
+
+  - key: ao_path_grass_n
+    file: ao_path_grass_n.png
+    category: overlay
+    canvas_width: 32
+    canvas_height: 16
+    pivot: tile-diamond
+    required: false
+    animated: false
+    notes: Optional path-to-grass seam AO for grass to the north.
+
+  - key: ao_path_grass_s
+    file: ao_path_grass_s.png
+    category: overlay
+    canvas_width: 32
+    canvas_height: 16
+    pivot: tile-diamond
+    required: false
+    animated: false
+    notes: Optional path-to-grass seam AO for grass to the south.
+
+  - key: ao_path_grass_e
+    file: ao_path_grass_e.png
+    category: overlay
+    canvas_width: 32
+    canvas_height: 16
+    pivot: tile-diamond
+    required: false
+    animated: false
+    notes: Optional path-to-grass seam AO for grass to the east.
+
+  - key: ao_path_grass_w
+    file: ao_path_grass_w.png
+    category: overlay
+    canvas_width: 32
+    canvas_height: 16
+    pivot: tile-diamond
+    required: false
+    animated: false
+    notes: Optional path-to-grass seam AO for grass to the west.
+
   - key: clutter_grass_1
     file: clutter_grass_1.png
     category: clutter

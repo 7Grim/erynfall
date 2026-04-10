@@ -48,6 +48,9 @@ public class IsometricRenderer {
      */
     private static final float WALL_FACE_H = 10f;
     private static final float ROCK_FACE_H =  5f;
+    private static final float AO_WALL_ALPHA = 0.24f;
+    private static final float AO_SHORE_ALPHA = 0.22f;
+    private static final float AO_PATH_ALPHA = 0.20f;
 
     /** Minimum tile culling radius so we never under-draw at tight zoom. */
     private static final int MIN_RENDER_RADIUS = 36;
@@ -300,6 +303,65 @@ public class IsometricRenderer {
                     if (type == 3) {
                         float wallAlpha = wallOccludesPlayer(x, y, playerX, playerY) ? 0.35f : 1f;
                         drawOverlayIfPresent("edge_wall_base", sx, sy, wallAlpha);
+                    }
+                }
+            }
+
+            // Pass 3b: fake AO / crevice overlays (optional authored keys).
+            for (int y = minY; y <= maxY; y++) {
+                for (int x = minX; x <= maxX; x++) {
+                    int type = (tileMap != null) ? tileMap[x][y] : 0;
+                    float sx = worldToScreenX(x, y);
+                    float sy = worldToScreenY(x, y);
+
+                    boolean waterNorth = isTile(tileMap, x, y - 1, 1);
+                    boolean waterSouth = isTile(tileMap, x, y + 1, 1);
+                    boolean waterEast = isTile(tileMap, x + 1, y, 1);
+                    boolean waterWest = isTile(tileMap, x - 1, y, 1);
+
+                    // Shoreline creases on land next to water.
+                    if (isLandTile(type)) {
+                        if (waterNorth) drawOverlayIfPresent("ao_shore_n", sx, sy, AO_SHORE_ALPHA);
+                        if (waterSouth) drawOverlayIfPresent("ao_shore_s", sx, sy, AO_SHORE_ALPHA);
+                        if (waterEast) drawOverlayIfPresent("ao_shore_e", sx, sy, AO_SHORE_ALPHA);
+                        if (waterWest) drawOverlayIfPresent("ao_shore_w", sx, sy, AO_SHORE_ALPHA);
+                    }
+
+                    // Path-to-grass seam depth.
+                    if (type == 2) {
+                        if (isTile(tileMap, x, y - 1, 0)) drawOverlayIfPresent("ao_path_grass_n", sx, sy, AO_PATH_ALPHA);
+                        if (isTile(tileMap, x, y + 1, 0)) drawOverlayIfPresent("ao_path_grass_s", sx, sy, AO_PATH_ALPHA);
+                        if (isTile(tileMap, x + 1, y, 0)) drawOverlayIfPresent("ao_path_grass_e", sx, sy, AO_PATH_ALPHA);
+                        if (isTile(tileMap, x - 1, y, 0)) drawOverlayIfPresent("ao_path_grass_w", sx, sy, AO_PATH_ALPHA);
+                    }
+
+                    // Wall base + inside-corner creases.
+                    if (type == 3) {
+                        float wallAlpha = wallOccludesPlayer(x, y, playerX, playerY) ? 0.35f : 1f;
+                        float aoAlpha = AO_WALL_ALPHA * wallAlpha;
+                        drawOverlayIfPresent("ao_wall_base", sx, sy, aoAlpha);
+
+                        boolean wallNorth = isTile(tileMap, x, y - 1, 3);
+                        boolean wallSouth = isTile(tileMap, x, y + 1, 3);
+                        boolean wallEast = isTile(tileMap, x + 1, y, 3);
+                        boolean wallWest = isTile(tileMap, x - 1, y, 3);
+                        boolean wallNE = isTile(tileMap, x + 1, y - 1, 3);
+                        boolean wallNW = isTile(tileMap, x - 1, y - 1, 3);
+                        boolean wallSE = isTile(tileMap, x + 1, y + 1, 3);
+                        boolean wallSW = isTile(tileMap, x - 1, y + 1, 3);
+
+                        if (wallNorth && wallEast && !wallNE) {
+                            drawOverlayIfPresent("ao_wall_inner_ne", sx, sy, aoAlpha);
+                        }
+                        if (wallNorth && wallWest && !wallNW) {
+                            drawOverlayIfPresent("ao_wall_inner_nw", sx, sy, aoAlpha);
+                        }
+                        if (wallSouth && wallEast && !wallSE) {
+                            drawOverlayIfPresent("ao_wall_inner_se", sx, sy, aoAlpha);
+                        }
+                        if (wallSouth && wallWest && !wallSW) {
+                            drawOverlayIfPresent("ao_wall_inner_sw", sx, sy, aoAlpha);
+                        }
                     }
                 }
             }

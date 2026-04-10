@@ -122,6 +122,20 @@ Intent:
 
 All of these slots are optional. If they are absent, current water rendering still works.
 
+### Optional fake AO / crevice overlays
+
+The renderer also supports an optional authored fake ambient-occlusion layer for local depth:
+- Wall/base creases: `ao_wall_base`, `ao_wall_inner_ne`, `ao_wall_inner_nw`, `ao_wall_inner_se`, `ao_wall_inner_sw`
+- Shoreline creases: `ao_shore_n`, `ao_shore_s`, `ao_shore_e`, `ao_shore_w`
+- Path/grass seams: `ao_path_grass_n`, `ao_path_grass_s`, `ao_path_grass_e`, `ao_path_grass_w`
+
+Important intent:
+- These are **not** dynamic shadows and **not** screen-space AO.
+- Treat them as baked-looking material depth and contact darkening only.
+- Keep values subtle; avoid heavy black outlines.
+- Use the same `32 x 16` tile-diamond alignment rules as other overlays.
+- All AO keys are optional; missing keys are skipped gracefully.
+
 ### Humanoid NPCs and player
 
 | File | Canvas | Anchor |
