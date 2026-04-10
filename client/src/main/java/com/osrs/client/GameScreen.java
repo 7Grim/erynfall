@@ -192,6 +192,13 @@ public class GameScreen extends ApplicationAdapter {
     private static final float ZOOM_MAX = 2.0f;   // Zoomed in (2x closer view)
     private int pendingScrollAmount = 0;
 
+    // Camera pan state (snap-back: arrow keys pan temporarily; offset lerps back to 0 on release)
+    private float cameraPanOffsetX = 0f;
+    private float cameraPanOffsetY = 0f;
+    private static final float CAMERA_PAN_SMOOTH = 12f;
+    private static final float CAMERA_PAN_MAX_X = 180f;
+    private static final float CAMERA_PAN_MAX_Y = 120f;
+
 
     // -----------------------------------------------------------------------
     // NPC smooth movement
@@ -1100,6 +1107,7 @@ public class GameScreen extends ApplicationAdapter {
         }
 
         updateCameraZoom(delta);
+        updateCameraPan(delta);
         renderer.update(delta);
         if (audioManager != null) {
             audioManager.update(delta);
@@ -1107,10 +1115,10 @@ public class GameScreen extends ApplicationAdapter {
         }
         if (pickupAnimationTimer > 0) pickupAnimationTimer = Math.max(0f, pickupAnimationTimer - delta);
 
-        // Camera always follows the player's interpolated visual position.
+        // Camera follows player; arrow-key pan offset snaps back to zero on release.
         camera.position.set(
-            renderer.worldToScreenX(visualX, visualY),
-            renderer.worldToScreenY(visualX, visualY),
+            renderer.worldToScreenX(visualX, visualY) + cameraPanOffsetX,
+            renderer.worldToScreenY(visualX, visualY) + cameraPanOffsetY,
             0
         );
         camera.update();
@@ -1215,6 +1223,24 @@ public class GameScreen extends ApplicationAdapter {
         currentZoom = targetZoom;
         camera.zoom = currentZoom;
         camera.update();
+    }
+
+    /**
+     * Snap-back camera pan: arrow keys shift the view while held;
+     * offset returns to zero (player-centered) as soon as keys are released.
+     */
+    private void updateCameraPan(float delta) {
+        float targetX = 0f;
+        float targetY = 0f;
+
+        if (Gdx.input.isKeyPressed(Input.Keys.LEFT))  targetX -= CAMERA_PAN_MAX_X;
+        if (Gdx.input.isKeyPressed(Input.Keys.RIGHT)) targetX += CAMERA_PAN_MAX_X;
+        if (Gdx.input.isKeyPressed(Input.Keys.UP))    targetY += CAMERA_PAN_MAX_Y;
+        if (Gdx.input.isKeyPressed(Input.Keys.DOWN))  targetY -= CAMERA_PAN_MAX_Y;
+
+        float blend = Math.min(1f, CAMERA_PAN_SMOOTH * delta);
+        cameraPanOffsetX += (targetX - cameraPanOffsetX) * blend;
+        cameraPanOffsetY += (targetY - cameraPanOffsetY) * blend;
     }
 
     private boolean isInUiArea(int mouseX, int mouseY) {
