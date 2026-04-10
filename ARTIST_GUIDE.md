@@ -397,6 +397,14 @@ Actor model prototype notes:
 - Actor models are rotated in-engine for facing direction.
 - Do not create directional actor model files in this pass (`player_walk_n.g3dj`, etc.).
 
+Equipment attachment prototype notes:
+- Equipment attachments are also supported experimentally as separate models in the `equipment` manifest category.
+- Attachments are matched by `equip_slot` + `item_id` metadata and composed onto the local player model.
+- Attachment transform metadata (`offset_*`, `rot_*`) is read from `art/models/manifest.yaml` and passed through to runtime metadata.
+- Missing attachment models are expected and safe; the base player model still renders.
+- This is first-pass coverage only. Not every equipable item needs an attachment model yet.
+- Remote players may continue using billboard rendering while local-player composition is being evaluated.
+
 ---
 
 ## Replacing a placeholder

@@ -25,6 +25,7 @@ import com.badlogic.gdx.math.Intersector;
 import com.badlogic.gdx.math.Plane;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.math.collision.Ray;
+import com.osrs.shared.EquipmentSlot;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -45,6 +46,16 @@ public class Renderer3DExperimental {
     private static final float WALL_OVERLAY_Y = 0.018f;
     private static final int MIN_OVERLAY_RADIUS = 34;
     private static final int MAX_VARIANTS_SCAN = 16;
+    private static final int[] PLAYER_EQUIPMENT_VISIBLE_SLOTS = {
+        EquipmentSlot.HEAD,
+        EquipmentSlot.BODY,
+        EquipmentSlot.LEGS,
+        EquipmentSlot.WEAPON,
+        EquipmentSlot.SHIELD,
+        EquipmentSlot.CAPE,
+        EquipmentSlot.HANDS,
+        EquipmentSlot.FEET,
+    };
 
     private final PerspectiveCamera camera;
     private final ModelBatch modelBatch;
@@ -428,6 +439,87 @@ public class Renderer3DExperimental {
         }
 
         modelBatch.render(instance, environment);
+
+        if (ownsPass) {
+            endActorModelPass();
+        }
+        return true;
+    }
+
+    public boolean renderPlayerModelComposed(String baseKey,
+                                             float tileX,
+                                             float tileY,
+                                             float rotationYDegrees,
+                                             int[] equippedItemIds) {
+        if (baseKey == null || baseKey.isBlank() || modelLibrary == null || !modelLibrary.hasModel(baseKey)) {
+            return false;
+        }
+
+        Model baseModel = modelLibrary.getModel(baseKey);
+        ModelLibrary.ModelMeta baseMeta = modelLibrary.getMeta(baseKey);
+        if (baseModel == null || baseMeta == null) {
+            return false;
+        }
+
+        boolean ownsPass = !actorModelPassActive;
+        if (ownsPass) {
+            beginActorModelPass();
+        }
+
+        float baseScale = baseMeta.scale() > 0f ? baseMeta.scale() : 1f;
+
+        ModelInstance baseInstance = obtainActorModelInstance(baseKey, baseModel);
+        baseInstance.transform.idt();
+        baseInstance.transform.translate(tileX + 0.5f, 0f, tileY + 0.5f);
+        if (Math.abs(rotationYDegrees) > 0.0001f) {
+            baseInstance.transform.rotate(Vector3.Y, rotationYDegrees);
+        }
+        if (Math.abs(baseScale - 1f) > 0.0001f) {
+            baseInstance.transform.scale(baseScale, baseScale, baseScale);
+        }
+        modelBatch.render(baseInstance, environment);
+
+        if (equippedItemIds != null) {
+            for (int slot : PLAYER_EQUIPMENT_VISIBLE_SLOTS) {
+                if (slot < 0 || slot >= equippedItemIds.length) {
+                    continue;
+                }
+                int itemId = equippedItemIds[slot];
+                if (itemId <= 0) {
+                    continue;
+                }
+
+                ModelLibrary.ModelMeta equipMeta = modelLibrary.getEquipmentMeta(slot, itemId);
+                Model equipModel = modelLibrary.getEquipmentModel(slot, itemId);
+                if (equipMeta == null || equipModel == null) {
+                    continue;
+                }
+
+                ModelInstance equipInstance = obtainActorModelInstance(equipMeta.key(), equipModel);
+                equipInstance.transform.idt();
+                equipInstance.transform.translate(tileX + 0.5f, 0f, tileY + 0.5f);
+                if (Math.abs(rotationYDegrees) > 0.0001f) {
+                    equipInstance.transform.rotate(Vector3.Y, rotationYDegrees);
+                }
+                if (Math.abs(baseScale - 1f) > 0.0001f) {
+                    equipInstance.transform.scale(baseScale, baseScale, baseScale);
+                }
+                equipInstance.transform.translate(equipMeta.offsetX(), equipMeta.offsetY(), equipMeta.offsetZ());
+                if (Math.abs(equipMeta.rotX()) > 0.0001f) {
+                    equipInstance.transform.rotate(Vector3.X, equipMeta.rotX());
+                }
+                if (Math.abs(equipMeta.rotY()) > 0.0001f) {
+                    equipInstance.transform.rotate(Vector3.Y, equipMeta.rotY());
+                }
+                if (Math.abs(equipMeta.rotZ()) > 0.0001f) {
+                    equipInstance.transform.rotate(Vector3.Z, equipMeta.rotZ());
+                }
+                if (equipMeta.scale() > 0f && Math.abs(equipMeta.scale() - 1f) > 0.0001f) {
+                    equipInstance.transform.scale(equipMeta.scale(), equipMeta.scale(), equipMeta.scale());
+                }
+                modelBatch.render(equipInstance, environment);
+            }
+        }
 
         if (ownsPass) {
             endActorModelPass();

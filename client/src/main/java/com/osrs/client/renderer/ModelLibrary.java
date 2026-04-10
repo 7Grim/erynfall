@@ -22,10 +22,20 @@ public class ModelLibrary {
                             String format,
                             float scale,
                             String origin,
-                            boolean required) {}
+                            boolean required,
+                            int equipSlot,
+                            int itemId,
+                            String attachToState,
+                            float offsetX,
+                            float offsetY,
+                            float offsetZ,
+                            float rotX,
+                            float rotY,
+                            float rotZ) {}
 
     private final Map<String, ModelMeta> metaByKey = new HashMap<>();
     private final Map<String, Model> modelByKey = new HashMap<>();
+    private final Map<Long, ModelMeta> equipmentMetaBySlotItem = new HashMap<>();
 
     public static ModelLibrary load() {
         ModelLibrary library = new ModelLibrary();
@@ -52,6 +62,27 @@ public class ModelLibrary {
         }
         modelByKey.clear();
         metaByKey.clear();
+        equipmentMetaBySlotItem.clear();
+    }
+
+    public boolean hasEquipmentModel(int equipSlot, int itemId) {
+        ModelMeta meta = getEquipmentMeta(equipSlot, itemId);
+        return meta != null && modelByKey.containsKey(meta.key());
+    }
+
+    public Model getEquipmentModel(int equipSlot, int itemId) {
+        ModelMeta meta = getEquipmentMeta(equipSlot, itemId);
+        if (meta == null) {
+            return null;
+        }
+        return modelByKey.get(meta.key());
+    }
+
+    public ModelMeta getEquipmentMeta(int equipSlot, int itemId) {
+        if (equipSlot < 0 || itemId <= 0) {
+            return null;
+        }
+        return equipmentMetaBySlotItem.get(slotItemKey(equipSlot, itemId));
     }
 
     private void loadRuntimeMetadata() {
@@ -80,13 +111,26 @@ public class ModelLibrary {
                     asset.getString("format", "g3dj"),
                     asset.getFloat("scale", 1f),
                     asset.getString("origin", "tile-center"),
-                    asset.getBoolean("required", false)
+                    asset.getBoolean("required", false),
+                    asset.getInt("equip_slot", -1),
+                    asset.getInt("item_id", -1),
+                    asset.getString("attach_to_state", ""),
+                    asset.getFloat("offset_x", 0f),
+                    asset.getFloat("offset_y", 0f),
+                    asset.getFloat("offset_z", 0f),
+                    asset.getFloat("rot_x", 0f),
+                    asset.getFloat("rot_y", 0f),
+                    asset.getFloat("rot_z", 0f)
                 );
                 metaByKey.put(key, meta);
+                if ("equipment".equals(meta.category()) && meta.equipSlot() >= 0 && meta.itemId() > 0) {
+                    equipmentMetaBySlotItem.put(slotItemKey(meta.equipSlot(), meta.itemId()), meta);
+                }
             }
         } catch (Exception e) {
             Gdx.app.log("ModelLibrary", "WARN: failed parsing model metadata: " + e.getMessage());
             metaByKey.clear();
+            equipmentMetaBySlotItem.clear();
         }
     }
 
@@ -116,5 +160,9 @@ public class ModelLibrary {
                 Gdx.app.log("ModelLibrary", level + ": failed to load model for key '" + meta.key() + "': " + e.getMessage());
             }
         }
+    }
+
+    private long slotItemKey(int slot, int itemId) {
+        return ((long) slot << 32) | (itemId & 0xffffffffL);
     }
 }

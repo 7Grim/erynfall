@@ -44,11 +44,13 @@ import com.osrs.client.ui.SmithingUI;
 import com.osrs.client.ui.SmeltingUI;
 import com.osrs.client.ui.ShopUI;
 import com.osrs.client.ui.XpDropOverlay;
+import com.osrs.shared.EquipmentSlot;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -159,6 +161,7 @@ public class GameScreen extends ApplicationAdapter {
     private final GlyphLayout gl = new GlyphLayout();
     private final GlyphLayout npcTagLayout = new GlyphLayout();
     private final Vector3 projectedWorldPoint = new Vector3();
+    private final int[] localPlayerEquipmentModelIds = new int[EquipmentSlot.COUNT];
     private RenderZone activeRenderZone;
     private float renderZoneTintR = 1f;
     private float renderZoneTintG = 1f;
@@ -1426,10 +1429,28 @@ public class GameScreen extends ApplicationAdapter {
                 continue;
             }
             ActorRenderEntry entry = entries.get(i);
+            if (entry.isPlayer() && entry.entityId() == localPlayerId) {
+                String basePlayerModelKey = resolveActorModelKey3D(entry);
+                if (basePlayerModelKey != null) {
+                    populateLocalPlayerEquipmentModelIds();
+                    float yawDegrees = actorModelYawDegrees(entry);
+                    if (renderer3d.renderPlayerModelComposed(
+                        basePlayerModelKey,
+                        entry.tileX(),
+                        entry.tileY(),
+                        yawDegrees,
+                        localPlayerEquipmentModelIds
+                    )) {
+                        modelRendered[i] = true;
+                    }
+                }
+                continue;
+            }
+
             String actorModelKey = resolveActorModelKey3D(entry);
             if (actorModelKey != null) {
                 float yawDegrees = actorModelYawDegrees(entry);
-                float alpha = entry.isPlayer() ? 1f : (isObstructingLocalPlayer(entry) ? 0.35f : 1f);
+                float alpha = isObstructingLocalPlayer(entry) ? 0.35f : 1f;
                 if (renderer3d.renderActorModel(actorModelKey, entry.tileX(), entry.tileY(), yawDegrees, alpha)) {
                     modelRendered[i] = true;
                 }
@@ -1574,6 +1595,9 @@ public class GameScreen extends ApplicationAdapter {
 
     private String resolveActorModelKey3D(ActorRenderEntry entry) {
         if (entry.isPlayer()) {
+            if (entry.entityId() != localPlayerId) {
+                return null;
+            }
             if (entry.pickingUp()) {
                 return "player_pickup";
             }
@@ -1592,8 +1616,7 @@ public class GameScreen extends ApplicationAdapter {
             if ("spear".equals(entry.playerPose())) {
                 return "player_spear";
             }
-            boolean moving = entry.entityId() == localPlayerId && playerAnimMoving;
-            return moving ? "player_walk" : "player_idle";
+            return playerAnimMoving ? "player_walk" : "player_idle";
         }
 
         String name = entry.npcName();
@@ -1623,6 +1646,17 @@ public class GameScreen extends ApplicationAdapter {
             case "w" -> 90f;
             default -> 0f;
         };
+    }
+
+    private void populateLocalPlayerEquipmentModelIds() {
+        Arrays.fill(localPlayerEquipmentModelIds, 0);
+        ClientPacketHandler h = handler();
+        if (h == null) {
+            return;
+        }
+        for (int slot = 0; slot < EquipmentSlot.COUNT; slot++) {
+            localPlayerEquipmentModelIds[slot] = h.getEquipmentItemId(slot);
+        }
     }
 
     private void renderStaticProps3D() {
