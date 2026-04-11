@@ -193,7 +193,18 @@ public class GameScreen extends ApplicationAdapter {
     private static final float PICK_MAX_Y_TREE = 2.4f;
     private static final float PICK_MAX_Y_ROCK = 1.0f;
     private static final float PICK_MAX_Y_STATION = 1.0f;
+    private static final float CULL_DISTANCE_STATIC_PROPS_3D = 26f;
+    private static final float CULL_DISTANCE_ACTORS_3D = 24f;
+    private static final float CULL_DISTANCE_HEALTH_BARS_3D = 22f;
+    private static final float CULL_DISTANCE_NAMETAGS_3D = 24f;
+    private static final float CULL_DISTANCE_OVERHEAD_TEXT_3D = 24f;
+    private static final float CULL_DISTANCE_GROUND_ITEM_BILLBOARDS_3D = 22f;
+    private static final float CULL_DISTANCE_GROUND_LABELS_3D = 18f;
+    private static final float CULL_DISTANCE_CLICK_MARKERS_3D = 20f;
     private boolean debugPickVolumes3D = false;
+    private boolean debug3DRenderBudget = false;
+    private float debug3DRenderBudgetTimer = 0f;
+    private int overlaysRenderedLastFrame3D = 0;
 
     // -----------------------------------------------------------------------
     // Game objects
@@ -1128,6 +1139,9 @@ public class GameScreen extends ApplicationAdapter {
             if (entry.maxHealth() <= 0 || entry.health() >= entry.maxHealth()) {
                 continue;
             }
+            if (!isTileNearAndVisible3D(entry.tileX(), entry.tileY(), CULL_DISTANCE_HEALTH_BARS_3D)) {
+                continue;
+            }
             float billboardHeight = actorBillboardHeight3D(entry, resolveActorSpriteRegion3D(entry));
             if (!projectWorldToScreen3D(entry.tileX(), entry.tileY(), billboardHeight + 0.30f, projectedWorldPoint)) {
                 continue;
@@ -1148,6 +1162,7 @@ public class GameScreen extends ApplicationAdapter {
                 shapeRenderer.setColor(0.9f, 0.1f, 0.1f, 0.95f);
             }
             shapeRenderer.rect(x, y, w * ratio, h);
+            overlaysRenderedLastFrame3D++;
         }
         shapeRenderer.end();
     }
@@ -1158,6 +1173,22 @@ public class GameScreen extends ApplicationAdapter {
         }
         out.set(tileX + 0.5f, worldHeight, tileY + 0.5f).prj(camera3d.combined);
         return out.z >= 0f && out.z <= 1f;
+    }
+
+    private boolean isTileNearAndVisible3D(float tileX, float tileY, float maxDistance) {
+        if (!use3DRenderer || renderer3d == null) {
+            return true;
+        }
+        return renderer3d.isTileCenterNearCamera(tileX, tileY, maxDistance)
+            && renderer3d.isTileCenterVisible(tileX, tileY);
+    }
+
+    private boolean shouldCullByDistanceAndFrustum3D(float tileX, float tileY, float maxDistance) {
+        if (!use3DRenderer || renderer3d == null) {
+            return false;
+        }
+        return !renderer3d.isTileCenterNearCamera(tileX, tileY, maxDistance)
+            && !renderer3d.isTileCenterVisible(tileX, tileY);
     }
 
     @Override
@@ -1188,6 +1219,7 @@ public class GameScreen extends ApplicationAdapter {
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT | GL20.GL_DEPTH_BUFFER_BIT);
 
         float delta = Gdx.graphics.getDeltaTime();
+        overlaysRenderedLastFrame3D = 0;
 
         processServerEvents();
         handleInput();
@@ -1220,6 +1252,11 @@ public class GameScreen extends ApplicationAdapter {
         if (Gdx.input.isKeyJustPressed(Input.Keys.F10)) {
             debugPickVolumes3D = !debugPickVolumes3D;
             LOG.info("3D pick volume debug: {}", debugPickVolumes3D ? "enabled" : "disabled");
+        }
+        if (Gdx.input.isKeyJustPressed(Input.Keys.F11)) {
+            debug3DRenderBudget = !debug3DRenderBudget;
+            debug3DRenderBudgetTimer = 0f;
+            LOG.info("3D render budget debug: {}", debug3DRenderBudget ? "enabled" : "disabled");
         }
 
         // F5: hot-reload sprite atlas (run mvn generate-resources -pl client first)
@@ -1322,6 +1359,22 @@ public class GameScreen extends ApplicationAdapter {
         renderOtherPlayerNametags();
         renderOverheadText(delta);
         renderClickMarkers();
+
+        if (use3DRenderer && debug3DRenderBudget && renderer3d != null) {
+            debug3DRenderBudgetTimer += delta;
+            if (debug3DRenderBudgetTimer >= 1f) {
+                debug3DRenderBudgetTimer = 0f;
+                LOG.debug(
+                    "3D budget chunks={} overlayTiles={} staticProps={} actorModels={} billboards={} overlays={}",
+                    renderer3d.getTerrainChunksRenderedLastFrame(),
+                    renderer3d.getOverlayTilesProcessedLastFrame(),
+                    renderer3d.getStaticPropsRenderedLastFrame(),
+                    renderer3d.getActorModelsRenderedLastFrame(),
+                    renderer3d.getEntityBillboardsRenderedLastFrame(),
+                    overlaysRenderedLastFrame3D
+                );
+            }
+        }
 
         int w = Gdx.graphics.getWidth(), h = Gdx.graphics.getHeight();
         // Zone ambience affects the world only. UI remains ungraded for readability.
@@ -1439,6 +1492,7 @@ public class GameScreen extends ApplicationAdapter {
         }
 
         boolean[] modelRendered = new boolean[entries.size()];
+        boolean[] culled = new boolean[entries.size()];
         Set<Integer> activeNpcEntities = new HashSet<>();
         for (ActorRenderEntry entry : entries) {
             if (entry.isPlayer()) {
@@ -1454,6 +1508,11 @@ public class GameScreen extends ApplicationAdapter {
         renderer3d.beginStaticPropPass();
         for (int i = 0; i < entries.size(); i++) {
             ActorRenderEntry entry = entries.get(i);
+            if (entry.entityId() != localPlayerId
+                && shouldCullByDistanceAndFrustum3D(entry.tileX(), entry.tileY(), CULL_DISTANCE_ACTORS_3D)) {
+                culled[i] = true;
+                continue;
+            }
             String staticModelKey = resolveStaticPropModelKey3D(entry);
             if (staticModelKey != null && renderer3d.renderStaticPropModel(staticModelKey, entry.tileX(), entry.tileY(), 1f)) {
                 modelRendered[i] = true;
@@ -1463,7 +1522,7 @@ public class GameScreen extends ApplicationAdapter {
 
         renderer3d.beginActorModelPass();
         for (int i = 0; i < entries.size(); i++) {
-            if (modelRendered[i]) {
+            if (culled[i] || modelRendered[i]) {
                 continue;
             }
             ActorRenderEntry entry = entries.get(i);
@@ -1540,7 +1599,7 @@ public class GameScreen extends ApplicationAdapter {
         renderer3d.endActorModelPass();
 
         for (int i = 0; i < entries.size(); i++) {
-            if (modelRendered[i]) {
+            if (culled[i] || modelRendered[i]) {
                 continue;
             }
             ActorRenderEntry entry = entries.get(i);
@@ -1573,6 +1632,9 @@ public class GameScreen extends ApplicationAdapter {
             return;
         }
         for (GroundItemRenderEntry entry : entries) {
+            if (shouldCullByDistanceAndFrustum3D(entry.tileX(), entry.tileY(), CULL_DISTANCE_GROUND_ITEM_BILLBOARDS_3D)) {
+                continue;
+            }
             TextureRegion region = resolveGroundItemSpriteRegion3D(entry.itemId());
             float height = 0.60f;
             float width = 0.60f;
@@ -1838,12 +1900,18 @@ public class GameScreen extends ApplicationAdapter {
 
         renderer3d.beginStaticPropPass();
         for (StaticPropLoader.StaticPropPlacement prop : staticPropPlacements) {
+            if (shouldCullByDistanceAndFrustum3D(prop.x, prop.y, CULL_DISTANCE_STATIC_PROPS_3D)) {
+                continue;
+            }
             if ("roof".equals(prop.visibilityGroup)) {
                 continue;
             }
             renderer3d.renderPlacedStaticPropModel(prop.key, prop.x, prop.y, prop.rotationYDegrees, prop.scale, 1f);
         }
         for (StaticPropLoader.StaticPropPlacement prop : staticPropPlacements) {
+            if (shouldCullByDistanceAndFrustum3D(prop.x, prop.y, CULL_DISTANCE_STATIC_PROPS_3D)) {
+                continue;
+            }
             if (!"roof".equals(prop.visibilityGroup)) {
                 continue;
             }
@@ -5012,6 +5080,10 @@ public class GameScreen extends ApplicationAdapter {
                     }
                 }
 
+                if (!isTileNearAndVisible3D(tx, ty, CULL_DISTANCE_OVERHEAD_TEXT_3D)) {
+                    continue;
+                }
+
                 if (!projectWorldToScreen3D(tx, ty, 2.35f, projectedWorldPoint)) {
                     continue;
                 }
@@ -5025,6 +5097,7 @@ public class GameScreen extends ApplicationAdapter {
                 font.draw(screenBatch, ot.text, textX + 1f, textY - 1f);
                 font.setColor(COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b, alpha);
                 font.draw(screenBatch, ot.text, textX, textY);
+                overlaysRenderedLastFrame3D++;
             }
 
             if (!overheadTexts.isEmpty()) {
@@ -5040,7 +5113,9 @@ public class GameScreen extends ApplicationAdapter {
                 overheadPrayerId = PRAYER_ID_PROTECT_FROM_MAGIC;
             }
 
-            if (overheadPrayerId >= 0 && projectWorldToScreen3D(visualX, visualY, 2.7f, projectedWorldPoint)) {
+            if (overheadPrayerId >= 0
+                && isTileNearAndVisible3D(visualX, visualY, CULL_DISTANCE_OVERHEAD_TEXT_3D)
+                && projectWorldToScreen3D(visualX, visualY, 2.7f, projectedWorldPoint)) {
                 shapeRenderer.setProjectionMatrix(screenProjection);
                 shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
                 if (overheadPrayerId == PRAYER_ID_PROTECT_FROM_MELEE) {
@@ -5052,6 +5127,7 @@ public class GameScreen extends ApplicationAdapter {
                 }
                 shapeRenderer.circle(projectedWorldPoint.x, projectedWorldPoint.y, 4f);
                 shapeRenderer.end();
+                overlaysRenderedLastFrame3D++;
             }
 
             font.setColor(COLOR_WHITE);
@@ -5180,6 +5256,10 @@ public class GameScreen extends ApplicationAdapter {
                     continue;
                 }
 
+                if (!isTileNearAndVisible3D(data[2], data[3], CULL_DISTANCE_GROUND_LABELS_3D)) {
+                    continue;
+                }
+
                 if (!projectWorldToScreen3D(data[2], data[3], GROUND_ITEM_LABEL_HEIGHT_3D, projectedWorldPoint)) {
                     continue;
                 }
@@ -5201,6 +5281,7 @@ public class GameScreen extends ApplicationAdapter {
 
                 occupiedLabelCells.add(cellKey);
                 labelsDrawn++;
+                overlaysRenderedLastFrame3D++;
             }
 
             screenBatch.end();
@@ -5316,6 +5397,9 @@ public class GameScreen extends ApplicationAdapter {
 
             boolean isPlayerEntity = h.isPlayer(id);
             float height = isPlayerEntity ? 1.85f : 2.05f;
+            if (!isTileNearAndVisible3D(tx, ty, CULL_DISTANCE_NAMETAGS_3D)) {
+                continue;
+            }
             if (!projectWorldToScreen3D(tx, ty, height, projectedWorldPoint)) {
                 continue;
             }
@@ -5338,6 +5422,7 @@ public class GameScreen extends ApplicationAdapter {
                 font.setColor(0.92f, 0.92f, 0.86f, 1f);
             }
             font.draw(screenBatch, name, textX, textY);
+            overlaysRenderedLastFrame3D++;
         }
 
         font.getData().setScale(FontManager.getScale(FontManager.FontContext.BASE_UI));
@@ -5355,6 +5440,9 @@ public class GameScreen extends ApplicationAdapter {
             shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
             for (ClickMarker m : clickMarkers) {
                 if (m.expired()) {
+                    continue;
+                }
+                if (!isTileNearAndVisible3D(m.tileX, m.tileY, CULL_DISTANCE_CLICK_MARKERS_3D)) {
                     continue;
                 }
                 if (!projectWorldToScreen3D(m.tileX, m.tileY, 0.05f, projectedWorldPoint)) {
@@ -5391,6 +5479,7 @@ public class GameScreen extends ApplicationAdapter {
                     float b2y = sy + sinArm * innerR - sinPerp * wingW;
                     shapeRenderer.triangle(tipX, tipY, b1x, b1y, b2x, b2y);
                 }
+                overlaysRenderedLastFrame3D++;
             }
             shapeRenderer.end();
             return;

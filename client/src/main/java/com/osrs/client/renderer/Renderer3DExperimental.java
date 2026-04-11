@@ -51,7 +51,8 @@ public class Renderer3DExperimental {
     private static final float OVERLAY_Y = 0.018f;
     private static final float WATER_OVERLAY_Y = 0.022f;
     private static final float WALL_OVERLAY_Y = 0.018f;
-    private static final int MIN_OVERLAY_RADIUS = 34;
+    private static final int MIN_OVERLAY_RADIUS = 20;
+    private static final int MAX_OVERLAY_RADIUS = 30;
     private static final int MAX_VARIANTS_SCAN = 16;
     private static final int[] PLAYER_EQUIPMENT_VISIBLE_SLOTS = {
         EquipmentSlot.HEAD,
@@ -130,6 +131,12 @@ public class Renderer3DExperimental {
     private final Map<Integer, String> npcBaseKeyByEntityId = new HashMap<>();
     private final Map<Integer, String> currentNpcClipByEntityId = new HashMap<>();
     private final Set<Long> missingEquipmentWarnings = new HashSet<>();
+    private final Vector3 frustumQueryPoint = new Vector3();
+    private int terrainChunksRenderedLastFrame = 0;
+    private int overlayTilesProcessedLastFrame = 0;
+    private int staticPropsRenderedLastFrame = 0;
+    private int actorModelsRenderedLastFrame = 0;
+    private int entityBillboardsRenderedLastFrame = 0;
 
     private static final class WallMaterialBinding {
         private final Material material;
@@ -244,6 +251,12 @@ public class Renderer3DExperimental {
                               float localPlayerX,
                               float localPlayerY,
                               String materialProfile) {
+        terrainChunksRenderedLastFrame = 0;
+        overlayTilesProcessedLastFrame = 0;
+        staticPropsRenderedLastFrame = 0;
+        actorModelsRenderedLastFrame = 0;
+        entityBillboardsRenderedLastFrame = 0;
+
         String normalizedProfile = normalizeMaterialProfile(materialProfile);
         if (!normalizedProfile.equals(activeMaterialProfile)) {
             rebuildTerrain(tileMap, normalizedProfile);
@@ -278,6 +291,7 @@ public class Renderer3DExperimental {
                 ModelInstance instance = terrainChunks.get(chunkKey(chunkX, chunkY));
                 if (instance != null) {
                     modelBatch.render(instance, environment);
+                    terrainChunksRenderedLastFrame++;
                 }
             }
         }
@@ -344,6 +358,7 @@ public class Renderer3DExperimental {
             Math.max(0f, Math.min(1f, alpha))
         );
         decalBatch.add(decal);
+        entityBillboardsRenderedLastFrame++;
     }
 
     public void beginEntityPass() {
@@ -497,6 +512,7 @@ public class Renderer3DExperimental {
             Gdx.gl.glDepthMask(false);
         }
         modelBatch.render(instance, environment);
+        staticPropsRenderedLastFrame++;
         if (clampedAlpha < 0.999f) {
             Gdx.gl.glDepthMask(true);
         }
@@ -554,6 +570,7 @@ public class Renderer3DExperimental {
         }
 
         modelBatch.render(instance, environment);
+        actorModelsRenderedLastFrame++;
 
         if (ownsPass) {
             endActorModelPass();
@@ -593,7 +610,8 @@ public class Renderer3DExperimental {
             baseInstance.transform.scale(baseScale, baseScale, baseScale);
         }
         baseInstance.calculateTransforms();
-        modelBatch.render(baseInstance, environment);
+            modelBatch.render(baseInstance, environment);
+            actorModelsRenderedLastFrame++;
 
         renderPlayerEquipmentAttachments(baseInstance, tileX, tileY, rotationYDegrees, baseScale, equippedItemIds);
 
@@ -706,6 +724,7 @@ public class Renderer3DExperimental {
             instance.calculateTransforms();
 
             renderInstanceWithOptionalAlpha(instance, alpha);
+            actorModelsRenderedLastFrame++;
         } catch (Exception e) {
             if (ownsPass) {
                 endActorModelPass();
@@ -1095,6 +1114,46 @@ public class Renderer3DExperimental {
         return bestT == Float.POSITIVE_INFINITY ? null : bestT;
     }
 
+    public boolean isPointNearCamera(float worldX, float worldY, float worldZ, float maxDistance) {
+        if (maxDistance <= 0f) {
+            return false;
+        }
+        return camera.position.dst2(worldX, worldY, worldZ) <= maxDistance * maxDistance;
+    }
+
+    public boolean isTileCenterNearCamera(float tileX, float tileY, float maxDistance) {
+        return isPointNearCamera(tileX + 0.5f, 0f, tileY + 0.5f, maxDistance);
+    }
+
+    public boolean isPointInCameraFrustum(float worldX, float worldY, float worldZ) {
+        frustumQueryPoint.set(worldX, worldY, worldZ);
+        return camera.frustum.pointInFrustum(frustumQueryPoint);
+    }
+
+    public boolean isTileCenterVisible(float tileX, float tileY) {
+        return isPointInCameraFrustum(tileX + 0.5f, 0f, tileY + 0.5f);
+    }
+
+    public int getTerrainChunksRenderedLastFrame() {
+        return terrainChunksRenderedLastFrame;
+    }
+
+    public int getOverlayTilesProcessedLastFrame() {
+        return overlayTilesProcessedLastFrame;
+    }
+
+    public int getStaticPropsRenderedLastFrame() {
+        return staticPropsRenderedLastFrame;
+    }
+
+    public int getActorModelsRenderedLastFrame() {
+        return actorModelsRenderedLastFrame;
+    }
+
+    public int getEntityBillboardsRenderedLastFrame() {
+        return entityBillboardsRenderedLastFrame;
+    }
+
     public void resize(int width, int height) {
         camera.viewportWidth = Math.max(1, width);
         camera.viewportHeight = Math.max(1, height);
@@ -1444,6 +1503,7 @@ public class Renderer3DExperimental {
 
         for (int y = minTileY; y <= maxTileY; y++) {
             for (int x = minTileX; x <= maxTileX; x++) {
+                overlayTilesProcessedLastFrame++;
                 int type = tileMap[x][y];
                 boolean waterNorth = isTile(tileMap, x, y - 1, 1);
                 boolean waterSouth = isTile(tileMap, x, y + 1, 1);
@@ -1721,8 +1781,10 @@ public class Renderer3DExperimental {
     }
 
     private int computeOverlayRadius() {
-        float estimate = camera.position.y * 2.4f + 22f;
-        return Math.max(MIN_OVERLAY_RADIUS, (int) Math.ceil(estimate));
+        float estimate = camera.position.y * 1.8f + 14f;
+        int radius = (int) Math.ceil(estimate);
+        radius = Math.max(MIN_OVERLAY_RADIUS, radius);
+        return Math.min(MAX_OVERLAY_RADIUS, radius);
     }
 
     private int clampTile(int value) {
