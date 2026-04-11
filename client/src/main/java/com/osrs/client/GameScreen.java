@@ -454,7 +454,7 @@ public class GameScreen extends ApplicationAdapter {
         final int tileY;
         final boolean isAction;
         private float age = 0f;
-        private static final float LIFETIME = 0.45f;
+        static final float LIFETIME = 0.50f;
 
         ClickMarker(int tileX, int tileY, boolean isAction) {
             this.tileX = tileX;
@@ -464,11 +464,16 @@ public class GameScreen extends ApplicationAdapter {
 
         void update(float delta) { age += delta; }
         boolean expired() { return age >= LIFETIME; }
+        /** Linear fade 1 → 0 over lifetime. */
         float alpha() {
-            float a = 1f - (age / LIFETIME);
-            return Math.max(0f, Math.min(1f, a));
+            return Math.max(0f, 1f - (age / LIFETIME));
         }
-        float rotationRad() { return age * 7f; }
+        /** Progress 0 → 1 over lifetime (drives convergence). */
+        float progress() {
+            return Math.min(1f, age / LIFETIME);
+        }
+        /** Slow clockwise spin — ~100° total, matching OSRS cadence. */
+        float rotationRad() { return age * 4f; }
     }
     /** entityId → active overhead text (null / absent = no text shown). */
     private final Map<Integer, OverheadText> overheadTexts = new HashMap<>();
@@ -5451,52 +5456,61 @@ public class GameScreen extends ApplicationAdapter {
         if (clickMarkers.isEmpty()) return;
 
         if (use3DRenderer) {
+            Gdx.gl.glEnable(GL20.GL_BLEND);
+            Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
             shapeRenderer.setProjectionMatrix(screenProjection);
             shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
             for (ClickMarker m : clickMarkers) {
-                if (m.expired()) {
-                    continue;
-                }
-                if (!isTileNearAndVisible3D(m.tileX, m.tileY, CULL_DISTANCE_CLICK_MARKERS_3D)) {
-                    continue;
-                }
-                if (!projectWorldToScreen3D(m.tileX, m.tileY, 0.05f, projectedWorldPoint)) {
-                    continue;
-                }
+                if (m.expired()) continue;
+                if (!isTileNearAndVisible3D(m.tileX, m.tileY, CULL_DISTANCE_CLICK_MARKERS_3D)) continue;
+                if (!projectWorldToScreen3D(m.tileX, m.tileY, 0.05f, projectedWorldPoint)) continue;
 
-                float alpha = m.alpha();
-                float sx = projectedWorldPoint.x;
-                float sy = projectedWorldPoint.y;
-                float rot = m.rotationRad();
+                float alpha    = m.alpha();
+                float progress = m.progress();
+                float sx       = projectedWorldPoint.x;
+                float sy       = projectedWorldPoint.y;
+                float rot      = m.rotationRad();
 
                 if (m.isAction) {
-                    shapeRenderer.setColor(1f, 0.18f, 0.18f, alpha);
+                    shapeRenderer.setColor(1f, 0.10f, 0.10f, alpha);
                 } else {
                     shapeRenderer.setColor(1f, 1f, 0f, alpha);
                 }
 
-                float outerR = 9f;
-                float innerR = 3.5f;
-                float wingW = 2.5f;
+                // 4 arrowheads pointing INWARD, converging toward center as progress → 1
+                // startRadius → endRadius over lifetime (convergence)
+                float startR  = 14f;
+                float endR    = 1.5f;
+                float radius  = startR + (endR - startR) * progress; // outer edge of arrowhead
+                float headLen = 6.5f;   // arrowhead depth (base to tip)
+                float wingW   = 4.0f;   // half-width of arrowhead base
+
                 for (int i = 0; i < 4; i++) {
-                    float arm = rot + i * com.badlogic.gdx.math.MathUtils.PI / 2f;
-                    float perp = arm + com.badlogic.gdx.math.MathUtils.PI / 2f;
-                    float cosArm = com.badlogic.gdx.math.MathUtils.cos(arm);
-                    float sinArm = com.badlogic.gdx.math.MathUtils.sin(arm);
+                    float arm     = rot + i * com.badlogic.gdx.math.MathUtils.HALF_PI;
+                    float perp    = arm + com.badlogic.gdx.math.MathUtils.HALF_PI;
+                    float cosArm  = com.badlogic.gdx.math.MathUtils.cos(arm);
+                    float sinArm  = com.badlogic.gdx.math.MathUtils.sin(arm);
                     float cosPerp = com.badlogic.gdx.math.MathUtils.cos(perp);
                     float sinPerp = com.badlogic.gdx.math.MathUtils.sin(perp);
 
-                    float tipX = sx + cosArm * outerR;
-                    float tipY = sy + sinArm * outerR;
-                    float b1x = sx + cosArm * innerR + cosPerp * wingW;
-                    float b1y = sy + sinArm * innerR + sinPerp * wingW;
-                    float b2x = sx + cosArm * innerR - cosPerp * wingW;
-                    float b2y = sy + sinArm * innerR - sinPerp * wingW;
+                    // Base (wide end) is at radius — outer, further from center
+                    float baseX = sx + cosArm * radius;
+                    float baseY = sy + sinArm * radius;
+                    // Tip points TOWARD center — inner
+                    float tipDist = Math.max(0f, radius - headLen);
+                    float tipX  = sx + cosArm * tipDist;
+                    float tipY  = sy + sinArm * tipDist;
+                    // Two base wing vertices
+                    float b1x = baseX + cosPerp * wingW;
+                    float b1y = baseY + sinPerp * wingW;
+                    float b2x = baseX - cosPerp * wingW;
+                    float b2y = baseY - sinPerp * wingW;
                     shapeRenderer.triangle(tipX, tipY, b1x, b1y, b2x, b2y);
                 }
                 overlaysRenderedLastFrame3D++;
             }
             shapeRenderer.end();
+            Gdx.gl.glDisable(GL20.GL_BLEND);
             return;
         }
 
@@ -5509,41 +5523,42 @@ public class GameScreen extends ApplicationAdapter {
         for (ClickMarker m : clickMarkers) {
             if (m.expired()) continue;
 
-            float alpha = m.alpha();
-            float sx    = renderer.worldToScreenX(m.tileX, m.tileY);
-            float sy    = renderer.worldToScreenY(m.tileX, m.tileY);
-            float rot   = m.rotationRad();
+            float alpha    = m.alpha();
+            float progress = m.progress();
+            float sx       = renderer.worldToScreenX(m.tileX, m.tileY);
+            float sy       = renderer.worldToScreenY(m.tileX, m.tileY);
+            float rot      = m.rotationRad();
 
             if (m.isAction) {
-                shapeRenderer.setColor(1f, 0.18f, 0.18f, alpha); // OSRS red
+                shapeRenderer.setColor(1f, 0.10f, 0.10f, alpha);
             } else {
-                shapeRenderer.setColor(1f, 1f, 0f, alpha);        // OSRS yellow
+                shapeRenderer.setColor(1f, 1f, 0f, alpha);
             }
 
-            // 4-pointed star: 4 diamond arms, each a filled triangle
-            float outerR = 9f;
-            float innerR = 3.5f;
-            float wingW  = 2.5f;
+            // 4 arrowheads pointing INWARD, converging toward center as progress → 1
+            float startR  = 14f;
+            float endR    = 1.5f;
+            float radius  = startR + (endR - startR) * progress;
+            float headLen = 6.5f;
+            float wingW   = 4.0f;
 
             for (int i = 0; i < 4; i++) {
-                float arm  = rot + i * com.badlogic.gdx.math.MathUtils.PI / 2f;
-                float perp = arm + com.badlogic.gdx.math.MathUtils.PI / 2f;
-
+                float arm     = rot + i * com.badlogic.gdx.math.MathUtils.HALF_PI;
+                float perp    = arm + com.badlogic.gdx.math.MathUtils.HALF_PI;
                 float cosArm  = com.badlogic.gdx.math.MathUtils.cos(arm);
                 float sinArm  = com.badlogic.gdx.math.MathUtils.sin(arm);
                 float cosPerp = com.badlogic.gdx.math.MathUtils.cos(perp);
                 float sinPerp = com.badlogic.gdx.math.MathUtils.sin(perp);
 
-                // Tip of this arm
-                float tipX = sx + cosArm * outerR;
-                float tipY = sy + sinArm * outerR;
-
-                // Two base vertices (at innerR, spread perpendicular by wingW)
-                float b1x = sx + cosArm * innerR + cosPerp * wingW;
-                float b1y = sy + sinArm * innerR + sinPerp * wingW;
-                float b2x = sx + cosArm * innerR - cosPerp * wingW;
-                float b2y = sy + sinArm * innerR - sinPerp * wingW;
-
+                float baseX   = sx + cosArm * radius;
+                float baseY   = sy + sinArm * radius;
+                float tipDist = Math.max(0f, radius - headLen);
+                float tipX    = sx + cosArm * tipDist;
+                float tipY    = sy + sinArm * tipDist;
+                float b1x     = baseX + cosPerp * wingW;
+                float b1y     = baseY + sinPerp * wingW;
+                float b2x     = baseX - cosPerp * wingW;
+                float b2y     = baseY - sinPerp * wingW;
                 shapeRenderer.triangle(tipX, tipY, b1x, b1y, b2x, b2y);
             }
         }

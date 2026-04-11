@@ -24,8 +24,10 @@ import com.badlogic.gdx.graphics.g3d.utils.AnimationController;
 import com.badlogic.gdx.graphics.g3d.utils.MeshPartBuilder;
 import com.badlogic.gdx.graphics.g3d.utils.ModelBuilder;
 import com.badlogic.gdx.math.Intersector;
+import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Matrix4;
 import com.badlogic.gdx.math.Plane;
+import com.badlogic.gdx.math.Quaternion;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.math.collision.Ray;
 import com.osrs.shared.EquipmentSlot;
@@ -127,10 +129,12 @@ public class Renderer3DExperimental {
     private ModelInstance localPlayerAnimatedInstance;
     private AnimationController localPlayerAnimationController;
     private String currentLocalPlayerClip = "";
+    private float localPlayerAnimTime = 0f;
     private final Map<Integer, ModelInstance> npcAnimatedInstances = new HashMap<>();
     private final Map<Integer, AnimationController> npcAnimationControllers = new HashMap<>();
     private final Map<Integer, String> npcBaseKeyByEntityId = new HashMap<>();
     private final Map<Integer, String> currentNpcClipByEntityId = new HashMap<>();
+    private final Map<Integer, Float> npcAnimTimes = new HashMap<>();
     private final Set<Long> missingEquipmentWarnings = new HashSet<>();
     private final Vector3 frustumQueryPoint = new Vector3();
     private int terrainChunksRenderedLastFrame = 0;
@@ -198,10 +202,12 @@ public class Renderer3DExperimental {
         localPlayerAnimatedInstance = null;
         localPlayerAnimationController = null;
         currentLocalPlayerClip = "";
+        localPlayerAnimTime = 0f;
         npcAnimatedInstances.clear();
         npcAnimationControllers.clear();
         npcBaseKeyByEntityId.clear();
         currentNpcClipByEntityId.clear();
+        npcAnimTimes.clear();
         missingEquipmentWarnings.clear();
     }
 
@@ -650,7 +656,9 @@ public class Renderer3DExperimental {
         }
 
         String clipName = normalizePlayerClipName(stateKey);
-        if (localPlayerAnimatedInstance.getAnimation(clipName) == null) {
+        boolean hasClips = localPlayerAnimatedInstance.animations != null
+                           && !localPlayerAnimatedInstance.animations.isEmpty();
+        if (hasClips && localPlayerAnimatedInstance.getAnimation(clipName) == null) {
             return false;
         }
 
@@ -662,11 +670,16 @@ public class Renderer3DExperimental {
         ModelLibrary.ModelMeta baseMeta = modelLibrary.getMeta("player_base");
         float baseScale = baseMeta != null && baseMeta.scale() > 0f ? baseMeta.scale() : 1f;
         try {
-            if (!clipName.equals(currentLocalPlayerClip)) {
-                localPlayerAnimationController.setAnimation(clipName, -1);
-                currentLocalPlayerClip = clipName;
+            if (hasClips) {
+                if (!clipName.equals(currentLocalPlayerClip)) {
+                    localPlayerAnimationController.setAnimation(clipName, -1);
+                    currentLocalPlayerClip = clipName;
+                }
+                localPlayerAnimationController.update(Math.max(0f, delta));
+            } else {
+                localPlayerAnimTime += Math.max(0f, delta);
+                applyCharacterAnimation(localPlayerAnimatedInstance, clipName, localPlayerAnimTime);
             }
-            localPlayerAnimationController.update(Math.max(0f, delta));
 
             localPlayerAnimatedInstance.transform.idt();
             float tileBaseY = getTileTopY(tileX, tileY);
@@ -713,7 +726,8 @@ public class Renderer3DExperimental {
         }
 
         String clipName = normalizeNpcClipName(stateKey);
-        if (instance.getAnimation(clipName) == null) {
+        boolean hasClips = instance.animations != null && !instance.animations.isEmpty();
+        if (hasClips && instance.getAnimation(clipName) == null) {
             return false;
         }
 
@@ -725,12 +739,18 @@ public class Renderer3DExperimental {
         ModelLibrary.ModelMeta baseMeta = modelLibrary.getMeta(baseKey);
         float baseScale = baseMeta != null && baseMeta.scale() > 0f ? baseMeta.scale() : 1f;
         try {
-            String currentClip = currentNpcClipByEntityId.getOrDefault(entityId, "");
-            if (!clipName.equals(currentClip)) {
-                controller.setAnimation(clipName, -1);
-                currentNpcClipByEntityId.put(entityId, clipName);
+            if (hasClips) {
+                String currentClip = currentNpcClipByEntityId.getOrDefault(entityId, "");
+                if (!clipName.equals(currentClip)) {
+                    controller.setAnimation(clipName, -1);
+                    currentNpcClipByEntityId.put(entityId, clipName);
+                }
+                controller.update(Math.max(0f, delta));
+            } else {
+                float npcTime = npcAnimTimes.getOrDefault(entityId, 0f) + Math.max(0f, delta);
+                npcAnimTimes.put(entityId, npcTime);
+                applyCharacterAnimation(instance, clipName, npcTime);
             }
-            controller.update(Math.max(0f, delta));
 
             instance.transform.idt();
             float tileBaseY = getTileTopY(tileX, tileY);
@@ -764,12 +784,14 @@ public class Renderer3DExperimental {
             npcAnimationControllers.clear();
             npcBaseKeyByEntityId.clear();
             currentNpcClipByEntityId.clear();
+            npcAnimTimes.clear();
             return;
         }
         npcAnimatedInstances.keySet().retainAll(activeEntityIds);
         npcAnimationControllers.keySet().retainAll(activeEntityIds);
         npcBaseKeyByEntityId.keySet().retainAll(activeEntityIds);
         currentNpcClipByEntityId.keySet().retainAll(activeEntityIds);
+        npcAnimTimes.keySet().retainAll(activeEntityIds);
     }
 
     private void renderPlayerEquipmentAttachments(ModelInstance baseInstance,
@@ -933,6 +955,63 @@ public class Renderer3DExperimental {
         }
         return "idle";
     }
+
+    // ── Programmatic skeletal animation ─────────────────────────────────────
+
+    private static final float WALK_PERIOD    = 0.7f;
+    private static final float WALK_LEG_ANG   = 28f;
+    private static final float WALK_ARM_ANG   = 20f;
+    private static final float WALK_KNEE_F    = 0.45f;
+    private static final float WALK_ELBOW_F   = 0.30f;
+
+    /** Dispatch to walk or idle based on clip name. No-op if model lacks multi-bone structure. */
+    private void applyCharacterAnimation(ModelInstance instance, String clipName, float animTime) {
+        if (instance.getNode("upper_arm_l", true) == null) return;
+        if ("walk".equals(clipName)) {
+            applyWalkAnimation(instance, animTime);
+        } else {
+            applyIdleAnimation(instance, animTime);
+        }
+    }
+
+    private void applyWalkAnimation(ModelInstance instance, float animTime) {
+        float phase   = (animTime % WALK_PERIOD) / WALK_PERIOD * MathUtils.PI2;
+        float legAng  =  MathUtils.sin(phase) * WALK_LEG_ANG;
+        float armAng  = -MathUtils.sin(phase) * WALK_ARM_ANG;
+        float kneeL   = Math.max(0f,  legAng) * WALK_KNEE_F;
+        float kneeR   = Math.max(0f, -legAng) * WALK_KNEE_F;
+        float elbowL  = Math.max(0f, -armAng) * WALK_ELBOW_F;
+        float elbowR  = Math.max(0f,  armAng) * WALK_ELBOW_F;
+
+        setNodeRotX(instance, "upper_leg_l",  legAng);
+        setNodeRotX(instance, "upper_leg_r", -legAng);
+        setNodeRotX(instance, "lower_leg_l",  kneeL);
+        setNodeRotX(instance, "lower_leg_r",  kneeR);
+        setNodeRotX(instance, "upper_arm_l",  armAng);
+        setNodeRotX(instance, "upper_arm_r", -armAng);
+        setNodeRotX(instance, "lower_arm_l",  elbowL);
+        setNodeRotX(instance, "lower_arm_r",  elbowR);
+    }
+
+    private void applyIdleAnimation(ModelInstance instance, float animTime) {
+        setNodeRotX(instance, "upper_leg_l", 0f);
+        setNodeRotX(instance, "upper_leg_r", 0f);
+        setNodeRotX(instance, "lower_leg_l", 0f);
+        setNodeRotX(instance, "lower_leg_r", 0f);
+        setNodeRotX(instance, "upper_arm_l", -5f);
+        setNodeRotX(instance, "upper_arm_r", -5f);
+        setNodeRotX(instance, "lower_arm_l", 0f);
+        setNodeRotX(instance, "lower_arm_r", 0f);
+    }
+
+    /** Set a bone's rotation about world X axis (does not modify translation/scale). */
+    private void setNodeRotX(ModelInstance inst, String nodeId, float degrees) {
+        Node node = inst.getNode(nodeId, true);
+        if (node == null) return;
+        node.rotation.setFromAxis(Vector3.X, degrees);
+    }
+
+    // ────────────────────────────────────────────────────────────────────────
 
     private void renderInstanceWithOptionalAlpha(ModelInstance instance, float alpha) {
         float clampedAlpha = Math.max(0f, Math.min(1f, alpha));
@@ -1234,10 +1313,12 @@ public class Renderer3DExperimental {
         localPlayerAnimatedInstance = null;
         localPlayerAnimationController = null;
         currentLocalPlayerClip = "";
+        localPlayerAnimTime = 0f;
         npcAnimatedInstances.clear();
         npcAnimationControllers.clear();
         npcBaseKeyByEntityId.clear();
         currentNpcClipByEntityId.clear();
+        npcAnimTimes.clear();
         missingEquipmentWarnings.clear();
         fallbackBillboardTexture.dispose();
         decalBatch.dispose();

@@ -84,7 +84,7 @@ public class MiniMap {
                 if (tx < 0 || tx >= TutorialIslandMap.WIDTH) continue;
                 if (ty < 0 || ty >= TutorialIslandMap.HEIGHT) continue;
 
-                float[] rotated = rotateMinimapOffset(dtx, dty, cameraYaw);
+                float[] rotated = rotateMinimapOffset(dtx, -dty, cameraYaw);
                 float mx = cx + rotated[0] * TILE_PX;
                 float my = cy + rotated[1] * TILE_PX;
 
@@ -109,7 +109,7 @@ public class MiniMap {
             sr.setColor(1f, 0.92f, 0.20f, 1f);
             for (int[] item : h.getGroundItemPositions()) {
                 // item = {x, y}
-                float[] rotated = rotateMinimapOffset(item[0] - playerTileX, item[1] - playerTileY, cameraYaw);
+                float[] rotated = rotateMinimapOffset(item[0] - playerTileX, -(item[1] - playerTileY), cameraYaw);
                 float mx = cx + rotated[0] * TILE_PX;
                 float my = cy + rotated[1] * TILE_PX;
                 float dd = (mx - cx) * (mx - cx) + (my - cy) * (my - cy);
@@ -122,7 +122,7 @@ public class MiniMap {
                 int id = entry.getKey();
                 if (h.isPlayer(id)) continue;
                 int[] pos = entry.getValue();
-                float[] rotated = rotateMinimapOffset(pos[0] - playerTileX, pos[1] - playerTileY, cameraYaw);
+                float[] rotated = rotateMinimapOffset(pos[0] - playerTileX, -(pos[1] - playerTileY), cameraYaw);
                 float mx = cx + rotated[0] * TILE_PX;
                 float my = cy + rotated[1] * TILE_PX;
                 float dd = (mx - cx) * (mx - cx) + (my - cy) * (my - cy);
@@ -136,7 +136,7 @@ public class MiniMap {
             }
 
             if (walkDestX >= 0 && walkDestY >= 0) {
-                float[] rotated = rotateMinimapOffset(walkDestX - playerTileX, walkDestY - playerTileY, cameraYaw);
+                float[] rotated = rotateMinimapOffset(walkDestX - playerTileX, -(walkDestY - playerTileY), cameraYaw);
                 float fx = rotated[0] * TILE_PX;
                 float fy = rotated[1] * TILE_PX;
                 float len2 = fx * fx + fy * fy;
