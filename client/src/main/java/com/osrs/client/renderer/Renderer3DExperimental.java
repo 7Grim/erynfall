@@ -20,6 +20,7 @@ import com.badlogic.gdx.graphics.g3d.attributes.TextureAttribute;
 import com.badlogic.gdx.graphics.g3d.decals.CameraGroupStrategy;
 import com.badlogic.gdx.graphics.g3d.decals.Decal;
 import com.badlogic.gdx.graphics.g3d.decals.DecalBatch;
+import com.badlogic.gdx.graphics.g3d.utils.AnimationController;
 import com.badlogic.gdx.graphics.g3d.utils.MeshPartBuilder;
 import com.badlogic.gdx.graphics.g3d.utils.ModelBuilder;
 import com.badlogic.gdx.math.Intersector;
@@ -117,6 +118,9 @@ public class Renderer3DExperimental {
     private boolean actorModelPassActive = false;
 
     private ModelLibrary modelLibrary;
+    private ModelInstance localPlayerAnimatedInstance;
+    private AnimationController localPlayerAnimationController;
+    private String currentLocalPlayerClip = "";
 
     private static final class WallMaterialBinding {
         private final Material material;
@@ -171,6 +175,9 @@ public class Renderer3DExperimental {
         staticPropInstanceCursor.clear();
         actorModelInstancePool.clear();
         actorModelInstanceCursor.clear();
+        localPlayerAnimatedInstance = null;
+        localPlayerAnimationController = null;
+        currentLocalPlayerClip = "";
     }
 
     public boolean hasStaticPropModel(String key) {
@@ -574,62 +581,171 @@ public class Renderer3DExperimental {
         baseInstance.calculateTransforms();
         modelBatch.render(baseInstance, environment);
 
-        if (equippedItemIds != null) {
-            for (int slot : PLAYER_EQUIPMENT_VISIBLE_SLOTS) {
-                if (slot < 0 || slot >= equippedItemIds.length) {
-                    continue;
-                }
-                int itemId = equippedItemIds[slot];
-                if (itemId <= 0) {
-                    continue;
-                }
+        renderPlayerEquipmentAttachments(baseInstance, tileX, tileY, rotationYDegrees, baseScale, equippedItemIds);
 
-                ModelLibrary.ModelMeta equipMeta = modelLibrary.getEquipmentMeta(slot, itemId);
-                Model equipModel = modelLibrary.getEquipmentModel(slot, itemId);
-                if (equipMeta == null || equipModel == null) {
-                    continue;
-                }
+        if (ownsPass) {
+            endActorModelPass();
+        }
+        return true;
+    }
 
-                ModelInstance equipInstance = obtainActorModelInstance(equipMeta.key(), equipModel);
-                equipInstance.transform.idt();
-                Matrix4 anchorTransform = findActorAnchorTransform(baseInstance, equipMeta.anchorName());
-                if (anchorTransform != null) {
-                    equipInstance.transform.set(anchorTransform);
-                    equipInstance.transform.translate(
-                        equipMeta.offsetX() - defaultAnchorOffsetXForSlot(slot),
-                        equipMeta.offsetY() - defaultAnchorOffsetYForSlot(slot),
-                        equipMeta.offsetZ() - defaultAnchorOffsetZForSlot(slot)
-                    );
-                } else {
-                    equipInstance.transform.translate(tileX + 0.5f, 0f, tileY + 0.5f);
-                    if (Math.abs(rotationYDegrees) > 0.0001f) {
-                        equipInstance.transform.rotate(Vector3.Y, rotationYDegrees);
-                    }
-                    if (Math.abs(baseScale - 1f) > 0.0001f) {
-                        equipInstance.transform.scale(baseScale, baseScale, baseScale);
-                    }
-                    equipInstance.transform.translate(equipMeta.offsetX(), equipMeta.offsetY(), equipMeta.offsetZ());
-                }
-                if (Math.abs(equipMeta.rotX()) > 0.0001f) {
-                    equipInstance.transform.rotate(Vector3.X, equipMeta.rotX());
-                }
-                if (Math.abs(equipMeta.rotY()) > 0.0001f) {
-                    equipInstance.transform.rotate(Vector3.Y, equipMeta.rotY());
-                }
-                if (Math.abs(equipMeta.rotZ()) > 0.0001f) {
-                    equipInstance.transform.rotate(Vector3.Z, equipMeta.rotZ());
-                }
-                if (equipMeta.scale() > 0f && Math.abs(equipMeta.scale() - 1f) > 0.0001f) {
-                    equipInstance.transform.scale(equipMeta.scale(), equipMeta.scale(), equipMeta.scale());
-                }
-                modelBatch.render(equipInstance, environment);
+    public boolean renderAnimatedLocalPlayer(String stateKey,
+                                             float tileX,
+                                             float tileY,
+                                             float rotationYDegrees,
+                                             int[] equippedItemIds,
+                                             float delta) {
+        if (!ensureLocalPlayerAnimatedModelLoaded()) {
+            return false;
+        }
+
+        String clipName = normalizePlayerClipName(stateKey);
+        if (localPlayerAnimatedInstance.getAnimation(clipName) == null) {
+            return false;
+        }
+
+        boolean ownsPass = !actorModelPassActive;
+        if (ownsPass) {
+            beginActorModelPass();
+        }
+
+        ModelLibrary.ModelMeta baseMeta = modelLibrary.getMeta("player_base");
+        float baseScale = baseMeta != null && baseMeta.scale() > 0f ? baseMeta.scale() : 1f;
+        try {
+            if (!clipName.equals(currentLocalPlayerClip)) {
+                localPlayerAnimationController.setAnimation(clipName, -1);
+                currentLocalPlayerClip = clipName;
             }
+            localPlayerAnimationController.update(Math.max(0f, delta));
+
+            localPlayerAnimatedInstance.transform.idt();
+            localPlayerAnimatedInstance.transform.translate(tileX + 0.5f, 0f, tileY + 0.5f);
+            if (Math.abs(rotationYDegrees) > 0.0001f) {
+                localPlayerAnimatedInstance.transform.rotate(Vector3.Y, rotationYDegrees);
+            }
+            if (Math.abs(baseScale - 1f) > 0.0001f) {
+                localPlayerAnimatedInstance.transform.scale(baseScale, baseScale, baseScale);
+            }
+            localPlayerAnimatedInstance.calculateTransforms();
+            modelBatch.render(localPlayerAnimatedInstance, environment);
+
+            renderPlayerEquipmentAttachments(localPlayerAnimatedInstance, tileX, tileY, rotationYDegrees, baseScale, equippedItemIds);
+        } catch (Exception e) {
+            if (ownsPass) {
+                endActorModelPass();
+            }
+            return false;
         }
 
         if (ownsPass) {
             endActorModelPass();
         }
         return true;
+    }
+
+    private void renderPlayerEquipmentAttachments(ModelInstance baseInstance,
+                                                  float tileX,
+                                                  float tileY,
+                                                  float rotationYDegrees,
+                                                  float baseScale,
+                                                  int[] equippedItemIds) {
+        if (equippedItemIds == null) {
+            return;
+        }
+        for (int slot : PLAYER_EQUIPMENT_VISIBLE_SLOTS) {
+            if (slot < 0 || slot >= equippedItemIds.length) {
+                continue;
+            }
+            int itemId = equippedItemIds[slot];
+            if (itemId <= 0) {
+                continue;
+            }
+
+            ModelLibrary.ModelMeta equipMeta = modelLibrary.getEquipmentMeta(slot, itemId);
+            Model equipModel = modelLibrary.getEquipmentModel(slot, itemId);
+            if (equipMeta == null || equipModel == null) {
+                continue;
+            }
+
+            ModelInstance equipInstance = obtainActorModelInstance(equipMeta.key(), equipModel);
+            equipInstance.transform.idt();
+            Matrix4 anchorTransform = findActorAnchorTransform(baseInstance, equipMeta.anchorName());
+            if (anchorTransform != null) {
+                equipInstance.transform.set(anchorTransform);
+                equipInstance.transform.translate(
+                    equipMeta.offsetX() - defaultAnchorOffsetXForSlot(slot),
+                    equipMeta.offsetY() - defaultAnchorOffsetYForSlot(slot),
+                    equipMeta.offsetZ() - defaultAnchorOffsetZForSlot(slot)
+                );
+            } else {
+                equipInstance.transform.translate(tileX + 0.5f, 0f, tileY + 0.5f);
+                if (Math.abs(rotationYDegrees) > 0.0001f) {
+                    equipInstance.transform.rotate(Vector3.Y, rotationYDegrees);
+                }
+                if (Math.abs(baseScale - 1f) > 0.0001f) {
+                    equipInstance.transform.scale(baseScale, baseScale, baseScale);
+                }
+                equipInstance.transform.translate(equipMeta.offsetX(), equipMeta.offsetY(), equipMeta.offsetZ());
+            }
+            if (Math.abs(equipMeta.rotX()) > 0.0001f) {
+                equipInstance.transform.rotate(Vector3.X, equipMeta.rotX());
+            }
+            if (Math.abs(equipMeta.rotY()) > 0.0001f) {
+                equipInstance.transform.rotate(Vector3.Y, equipMeta.rotY());
+            }
+            if (Math.abs(equipMeta.rotZ()) > 0.0001f) {
+                equipInstance.transform.rotate(Vector3.Z, equipMeta.rotZ());
+            }
+            if (equipMeta.scale() > 0f && Math.abs(equipMeta.scale() - 1f) > 0.0001f) {
+                equipInstance.transform.scale(equipMeta.scale(), equipMeta.scale(), equipMeta.scale());
+            }
+            modelBatch.render(equipInstance, environment);
+        }
+    }
+
+    private boolean ensureLocalPlayerAnimatedModelLoaded() {
+        if (modelLibrary == null || !modelLibrary.hasModel("player_base")) {
+            localPlayerAnimatedInstance = null;
+            localPlayerAnimationController = null;
+            currentLocalPlayerClip = "";
+            return false;
+        }
+        if (localPlayerAnimatedInstance != null && localPlayerAnimationController != null) {
+            return true;
+        }
+
+        Model model = modelLibrary.getModel("player_base");
+        if (model == null) {
+            return false;
+        }
+        try {
+            localPlayerAnimatedInstance = new ModelInstance(model);
+            localPlayerAnimationController = new AnimationController(localPlayerAnimatedInstance);
+            currentLocalPlayerClip = "";
+            return true;
+        } catch (Exception e) {
+            localPlayerAnimatedInstance = null;
+            localPlayerAnimationController = null;
+            currentLocalPlayerClip = "";
+            return false;
+        }
+    }
+
+    private String normalizePlayerClipName(String stateKey) {
+        if (stateKey == null || stateKey.isBlank()) {
+            return "idle";
+        }
+        return switch (stateKey) {
+            case "player_idle" -> "idle";
+            case "player_walk" -> "walk";
+            case "player_pickup" -> "pickup";
+            case "player_chop" -> "chop";
+            case "player_mine" -> "mine";
+            case "player_fish" -> "fish";
+            case "player_sword" -> "sword";
+            case "player_spear" -> "spear";
+            default -> "idle";
+        };
     }
 
     private Matrix4 findActorAnchorTransform(ModelInstance baseInstance, String anchorName) {
@@ -706,6 +822,9 @@ public class Renderer3DExperimental {
         terrainChunkModels.clear();
         terrainChunks.clear();
         wallMaterialsByChunk.clear();
+        localPlayerAnimatedInstance = null;
+        localPlayerAnimationController = null;
+        currentLocalPlayerClip = "";
         fallbackBillboardTexture.dispose();
         decalBatch.dispose();
         overlayDecalBatch.dispose();

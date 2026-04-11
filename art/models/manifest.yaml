@@ -224,6 +224,14 @@ assets:
     origin: tile-center
     required: false
     notes: Low-poly player walk pose for 3D prototype evaluation.
+  - key: player_base
+    file: player_base.g3dj
+    category: actor
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Animated low-poly player base model with clips idle, walk, pickup, chop, mine, fish, sword, spear.
   - key: player_pickup
     file: player_pickup.g3dj
     category: actor

@@ -426,6 +426,20 @@ Attachment anchor convention (animation-ready foundation):
 - If the anchor node is absent on a base actor model, rendering safely falls back to the existing offset-based placement.
 - Future animated actor models should include these anchors so equipped meshes follow pose changes cleanly.
 
+Animated local-player base model:
+- `player_base.g3dj` is now the preferred local-player actor model for 3D mode.
+- Expected clip names are:
+  - `idle`
+  - `walk`
+  - `pickup`
+  - `chop`
+  - `mine`
+  - `fish`
+  - `sword`
+  - `spear`
+- The older state-specific static player models (`player_idle`, `player_walk`, etc.) remain active as fallback.
+- Keep attachment anchor nodes on `player_base` so equipped gear can bind correctly during animation playback.
+
 ---
 
 ## Replacing a placeholder

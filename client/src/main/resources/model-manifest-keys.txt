@@ -99,6 +99,7 @@ npc_instructor_walk
 npc_rat_action
 npc_rat_idle
 npc_rat_walk
+player_base
 player_chop
 player_fish
 player_idle

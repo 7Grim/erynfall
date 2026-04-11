@@ -1258,7 +1258,7 @@ public class GameScreen extends ApplicationAdapter {
             renderStaticProps3D();
             renderer3d.beginEntityPass();
             renderGroundItemsLayer3D(groundItemEntries);
-            renderActorsLayer3D(actorEntries);
+            renderActorsLayer3D(actorEntries, delta);
             renderer3d.endEntityPass();
             renderHealthBarsLayer3D(actorEntries);
             renderGroundItemLabels();
@@ -1405,7 +1405,7 @@ public class GameScreen extends ApplicationAdapter {
         camera3d.update();
     }
 
-    private void renderActorsLayer3D(List<ActorRenderEntry> entries) {
+    private void renderActorsLayer3D(List<ActorRenderEntry> entries, float delta) {
         if (renderer3d == null) {
             return;
         }
@@ -1434,7 +1434,14 @@ public class GameScreen extends ApplicationAdapter {
                     float yawDegrees = actorModelYawDegrees(entry);
                     if (entry.entityId() == localPlayerId) {
                         populateLocalPlayerEquipmentModelIds();
-                        if (renderer3d.renderPlayerModelComposed(
+                        if (renderer3d.renderAnimatedLocalPlayer(
+                            basePlayerModelKey,
+                            entry.tileX(),
+                            entry.tileY(),
+                            yawDegrees,
+                            localPlayerEquipmentModelIds,
+                            delta
+                        ) || renderer3d.renderPlayerModelComposed(
                             basePlayerModelKey,
                             entry.tileX(),
                             entry.tileY(),
