@@ -1387,9 +1387,14 @@ public class Renderer3DExperimental {
                 float southTop = getTileTopY(tileMap, x, y + 1);
                 float eastTop = getTileTopY(tileMap, x + 1, y);
                 float westTop = getTileTopY(tileMap, x - 1, y);
+                String cliffFaceKey = cliffFaceKeyForTileType(type, materialProfile);
+                TextureRegion cliffFaceRegion = cliffFaceKey == null ? null : spriteSheet.getTile(cliffFaceKey);
+                if (cliffFaceRegion == null) {
+                    cliffFaceRegion = region;
+                }
 
                 if (northTop + 0.0001f < tileTopY) {
-                    addTerrainStepFace(region, "step_n_" + x + "_" + y,
+                    addTerrainStepFace(cliffFaceRegion, "step_n_" + x + "_" + y,
                         x0, northTop, z0,
                         x1, northTop, z0,
                         x1, tileTopY, z0,
@@ -1397,7 +1402,7 @@ public class Renderer3DExperimental {
                         0f, 0f, -1f);
                 }
                 if (southTop + 0.0001f < tileTopY) {
-                    addTerrainStepFace(region, "step_s_" + x + "_" + y,
+                    addTerrainStepFace(cliffFaceRegion, "step_s_" + x + "_" + y,
                         x1, southTop, z1,
                         x0, southTop, z1,
                         x0, tileTopY, z1,
@@ -1405,7 +1410,7 @@ public class Renderer3DExperimental {
                         0f, 0f, 1f);
                 }
                 if (westTop + 0.0001f < tileTopY) {
-                    addTerrainStepFace(region, "step_w_" + x + "_" + y,
+                    addTerrainStepFace(cliffFaceRegion, "step_w_" + x + "_" + y,
                         x0, westTop, z1,
                         x0, westTop, z0,
                         x0, tileTopY, z0,
@@ -1413,7 +1418,7 @@ public class Renderer3DExperimental {
                         -1f, 0f, 0f);
                 }
                 if (eastTop + 0.0001f < tileTopY) {
-                    addTerrainStepFace(region, "step_e_" + x + "_" + y,
+                    addTerrainStepFace(cliffFaceRegion, "step_e_" + x + "_" + y,
                         x1, eastTop, z0,
                         x1, eastTop, z1,
                         x1, tileTopY, z1,
@@ -1890,6 +1895,36 @@ public class Renderer3DExperimental {
             return null;
         }
         return key + "_" + profile;
+    }
+
+    private String cliffFaceKeyForTileType(int type, String materialProfile) {
+        if (spriteSheet == null) {
+            return null;
+        }
+
+        String preferredBase = switch (type) {
+            case 0 -> "cliff_face_grass";
+            case 2 -> "cliff_face_path";
+            case 4 -> "cliff_face_sand";
+            default -> "cliff_face_neutral";
+        };
+
+        String preferredProfiled = profiledKey(preferredBase, materialProfile);
+        if (preferredProfiled != null && spriteSheet.getTile(preferredProfiled) != null) {
+            return preferredProfiled;
+        }
+        if (spriteSheet.getTile(preferredBase) != null) {
+            return preferredBase;
+        }
+
+        String neutralProfiled = profiledKey("cliff_face_neutral", materialProfile);
+        if (neutralProfiled != null && spriteSheet.getTile(neutralProfiled) != null) {
+            return neutralProfiled;
+        }
+        if (spriteSheet.getTile("cliff_face_neutral") != null) {
+            return "cliff_face_neutral";
+        }
+        return null;
     }
 
     private int computeOverlayRadius() {

@@ -451,6 +451,8 @@ Stepped terrain note:
 - 3D terrain height is client-authored in `client/src/main/resources/terrain_height.yaml`.
 - Terrain is stepped by integer levels (`level * height_step`), not smooth slopes.
 - In 3D mode, actors/resources/props are placed on each tile's terrain-top height.
+- `cliff_face_*` sprite assets are optional overlays for stepped terrain faces (separate from `tile_wall_*`).
+- Keep cliff-face art low-contrast, earthy, and OSRS-like so it supports terrain readability without overpowering tile tops.
 
 3D equipment coverage audit:
 - Visible equipment coverage policy is defined in `art/models/equipment_coverage_policy.yaml`.

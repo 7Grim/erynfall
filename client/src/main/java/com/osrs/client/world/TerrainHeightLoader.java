@@ -72,6 +72,24 @@ public final class TerrainHeightLoader {
                 }
             }
 
+            Object overridesObj = data.get("tile_overrides");
+            if (overridesObj instanceof List<?> overrides) {
+                for (Object row : overrides) {
+                    if (!(row instanceof Map<?, ?> overrideRow)) {
+                        continue;
+                    }
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> override = (Map<String, Object>) overrideRow;
+                    int x = override.get("x") instanceof Number n ? n.intValue() : -1;
+                    int y = override.get("y") instanceof Number n ? n.intValue() : -1;
+                    int level = override.get("level") instanceof Number n ? n.intValue() : 0;
+                    if (x < 0 || y < 0 || x >= MapLoader.WIDTH || y >= MapLoader.HEIGHT || level < 0) {
+                        continue;
+                    }
+                    levels[x][y] = level;
+                }
+            }
+
             Gdx.app.log("TerrainHeightLoader", "Loaded terrain heights with step=" + heightStep);
             return new TerrainHeightData(levels, heightStep);
         } catch (Exception e) {

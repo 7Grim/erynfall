@@ -818,6 +818,46 @@ assets:
     animated: true
     notes: Optional shoreline reeds for non-water tiles near water.
 
+  - key: cliff_face_grass
+    file: cliff_face_grass.png
+    category: overlay
+    canvas_width: 32
+    canvas_height: 32
+    pivot: tile-diamond
+    required: false
+    animated: false
+    notes: Optional stepped terrain cliff face for grass-backed elevations.
+
+  - key: cliff_face_path
+    file: cliff_face_path.png
+    category: overlay
+    canvas_width: 32
+    canvas_height: 32
+    pivot: tile-diamond
+    required: false
+    animated: false
+    notes: Optional stepped terrain cliff face for path-backed elevations.
+
+  - key: cliff_face_sand
+    file: cliff_face_sand.png
+    category: overlay
+    canvas_width: 32
+    canvas_height: 32
+    pivot: tile-diamond
+    required: false
+    animated: false
+    notes: Optional stepped terrain cliff face for sand-backed elevations.
+
+  - key: cliff_face_neutral
+    file: cliff_face_neutral.png
+    category: overlay
+    canvas_width: 32
+    canvas_height: 32
+    pivot: tile-diamond
+    required: false
+    animated: false
+    notes: Optional fallback stepped terrain cliff face when type-specific variants are unavailable.
+
   - key: rock
     file: rock.png
     category: legacy
