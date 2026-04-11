@@ -20,6 +20,7 @@ import com.badlogic.gdx.graphics.g3d.attributes.TextureAttribute;
 import com.badlogic.gdx.graphics.g3d.decals.CameraGroupStrategy;
 import com.badlogic.gdx.graphics.g3d.decals.Decal;
 import com.badlogic.gdx.graphics.g3d.decals.DecalBatch;
+import com.badlogic.gdx.graphics.g3d.environment.DirectionalLight;
 import com.badlogic.gdx.graphics.g3d.utils.AnimationController;
 import com.badlogic.gdx.graphics.g3d.utils.MeshPartBuilder;
 import com.badlogic.gdx.graphics.g3d.utils.ModelBuilder;
@@ -174,7 +175,8 @@ public class Renderer3DExperimental {
         overlayDecalBatch = new DecalBatch(new CameraGroupStrategy(camera));
 
         environment = new Environment();
-        environment.set(new ColorAttribute(ColorAttribute.AmbientLight, 1f, 1f, 1f, 1f));
+        environment.set(new ColorAttribute(ColorAttribute.AmbientLight, 0.38f, 0.40f, 0.45f, 1f));
+        environment.add(new DirectionalLight().set(0.85f, 0.82f, 0.78f, -0.5f, -0.8f, -0.3f));
 
         Pixmap pixmap = new Pixmap(1, 1, Pixmap.Format.RGBA8888);
         pixmap.setColor(Color.WHITE);
