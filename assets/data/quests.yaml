@@ -32,7 +32,7 @@ quests:
         
       - id: "collect_logs"
         type: "collect"
-        description: "Collect 10 oak logs"
+        description: "Collect 10 logs"
         item_id: 1521
         count: 10
         reward_xp: 100
