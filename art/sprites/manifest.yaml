@@ -4,8 +4,8 @@ assets:
     file: tile_grass.png
     category: tile
     canvas_width: 32
-    canvas_height: 16
-    pivot: tile-diamond
+    canvas_height: 32
+    pivot: top-left
     required: true
     animated: false
     variant_count: 3
@@ -15,8 +15,8 @@ assets:
     file: tile_water.png
     category: tile
     canvas_width: 32
-    canvas_height: 16
-    pivot: tile-diamond
+    canvas_height: 32
+    pivot: top-left
     required: true
     animated: true
     notes: Supports tile_water_<frame> animation frames.
@@ -25,8 +25,8 @@ assets:
     file: tile_path.png
     category: tile
     canvas_width: 32
-    canvas_height: 16
-    pivot: tile-diamond
+    canvas_height: 32
+    pivot: top-left
     required: true
     animated: false
     variant_count: 2
@@ -36,8 +36,8 @@ assets:
     file: tile_wall.png
     category: tile
     canvas_width: 32
-    canvas_height: 16
-    pivot: tile-diamond
+    canvas_height: 32
+    pivot: top-left
     required: true
     animated: false
     variant_count: 2
@@ -47,8 +47,8 @@ assets:
     file: tile_sand.png
     category: tile
     canvas_width: 32
-    canvas_height: 16
-    pivot: tile-diamond
+    canvas_height: 32
+    pivot: top-left
     required: true
     animated: false
     variant_count: 2

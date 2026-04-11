@@ -1262,9 +1262,7 @@ public class Renderer3DExperimental {
             for (int x = startX; x < endX; x++) {
                 int type = tileMap[x][y];
                 TextureRegion region = resolveTileRegion(type, x, y, materialProfile);
-                if (region == null) {
-                    continue;
-                }
+                boolean useFallback = (region == null);
 
                 float x0 = x;
                 float z0 = y;
@@ -1272,7 +1270,7 @@ public class Renderer3DExperimental {
                 float z1 = y + 1f;
                 float tileTopY = getTileTopY(tileMap, x, y);
 
-                if (type == 3) {
+                if (type == 3 && !useFallback) {
                     Material baseTileMaterial = new Material(TextureAttribute.createDiffuse(region.getTexture()));
                     MeshPartBuilder baseTilePart = modelBuilder.part(
                         "wall_tile_base_" + x + "_" + y,
@@ -1373,14 +1371,22 @@ public class Renderer3DExperimental {
                         wallBindings.add(new WallMaterialBinding(eastFaceMaterial, x, y, WALL_FACE_SHADE));
                     }
                 } else {
-                    Material material = new Material(TextureAttribute.createDiffuse(region.getTexture()));
+                    Material material = useFallback
+                        ? new Material(ColorAttribute.createDiffuse(tileTypeFallbackColor(type)))
+                        : new Material(TextureAttribute.createDiffuse(region.getTexture()));
+                    int attrs = VertexAttributes.Usage.Position | VertexAttributes.Usage.Normal
+                        | (useFallback ? 0 : VertexAttributes.Usage.TextureCoordinates);
                     MeshPartBuilder part = modelBuilder.part(
                         "tile_" + x + "_" + y,
                         GL20.GL_TRIANGLES,
-                        VertexAttributes.Usage.Position | VertexAttributes.Usage.Normal | VertexAttributes.Usage.TextureCoordinates,
+                        attrs,
                         material
                     );
-                    addTopQuad(part, x0, z0, x1, z1, tileTopY, region);
+                    if (useFallback) {
+                        addTopQuadNoUV(part, x0, z0, x1, z1, tileTopY);
+                    } else {
+                        addTopQuad(part, x0, z0, x1, z1, tileTopY, region);
+                    }
                 }
 
                 float northTop = getTileTopY(tileMap, x, y - 1);
@@ -1458,10 +1464,25 @@ public class Renderer3DExperimental {
                             float z1,
                             float y,
                             TextureRegion region) {
-        MeshPartBuilder.VertexInfo v00 = vertex(x0, y, z0, 0f, 1f, 0f, region.getU(), region.getV2());
-        MeshPartBuilder.VertexInfo v10 = vertex(x1, y, z0, 0f, 1f, 0f, region.getU2(), region.getV2());
-        MeshPartBuilder.VertexInfo v11 = vertex(x1, y, z1, 0f, 1f, 0f, region.getU2(), region.getV());
-        MeshPartBuilder.VertexInfo v01 = vertex(x0, y, z1, 0f, 1f, 0f, region.getU(), region.getV());
+        float ui = 0.5f / region.getTexture().getWidth();
+        float vi = 0.5f / region.getTexture().getHeight();
+        MeshPartBuilder.VertexInfo v00 = vertex(x0, y, z0, 0f, 1f, 0f, region.getU() + ui,  region.getV2() - vi);
+        MeshPartBuilder.VertexInfo v10 = vertex(x1, y, z0, 0f, 1f, 0f, region.getU2() - ui, region.getV2() - vi);
+        MeshPartBuilder.VertexInfo v11 = vertex(x1, y, z1, 0f, 1f, 0f, region.getU2() - ui, region.getV() + vi);
+        MeshPartBuilder.VertexInfo v01 = vertex(x0, y, z1, 0f, 1f, 0f, region.getU() + ui,  region.getV() + vi);
+        part.rect(v01, v11, v10, v00);
+    }
+
+    private void addTopQuadNoUV(MeshPartBuilder part,
+                                float x0,
+                                float z0,
+                                float x1,
+                                float z1,
+                                float y) {
+        MeshPartBuilder.VertexInfo v00 = new MeshPartBuilder.VertexInfo().setPos(x0, y, z0).setNor(0f, 1f, 0f);
+        MeshPartBuilder.VertexInfo v10 = new MeshPartBuilder.VertexInfo().setPos(x1, y, z0).setNor(0f, 1f, 0f);
+        MeshPartBuilder.VertexInfo v11 = new MeshPartBuilder.VertexInfo().setPos(x1, y, z1).setNor(0f, 1f, 0f);
+        MeshPartBuilder.VertexInfo v01 = new MeshPartBuilder.VertexInfo().setPos(x0, y, z1).setNor(0f, 1f, 0f);
         part.rect(v01, v11, v10, v00);
     }
 
@@ -1482,10 +1503,12 @@ public class Renderer3DExperimental {
                                  float nx,
                                  float ny,
                                  float nz) {
-        MeshPartBuilder.VertexInfo v0 = vertex(x0, y0, z0, nx, ny, nz, region.getU(), region.getV2());
-        MeshPartBuilder.VertexInfo v1 = vertex(x1, y1, z1, nx, ny, nz, region.getU2(), region.getV2());
-        MeshPartBuilder.VertexInfo v2 = vertex(x2, y2, z2, nx, ny, nz, region.getU2(), region.getV());
-        MeshPartBuilder.VertexInfo v3 = vertex(x3, y3, z3, nx, ny, nz, region.getU(), region.getV());
+        float ui = 0.5f / region.getTexture().getWidth();
+        float vi = 0.5f / region.getTexture().getHeight();
+        MeshPartBuilder.VertexInfo v0 = vertex(x0, y0, z0, nx, ny, nz, region.getU() + ui,  region.getV2() - vi);
+        MeshPartBuilder.VertexInfo v1 = vertex(x1, y1, z1, nx, ny, nz, region.getU2() - ui, region.getV2() - vi);
+        MeshPartBuilder.VertexInfo v2 = vertex(x2, y2, z2, nx, ny, nz, region.getU2() - ui, region.getV() + vi);
+        MeshPartBuilder.VertexInfo v3 = vertex(x3, y3, z3, nx, ny, nz, region.getU() + ui,  region.getV() + vi);
         part.rect(v0, v1, v2, v3);
     }
 
@@ -1990,6 +2013,16 @@ public class Renderer3DExperimental {
             return MAP_WIDTH - 1;
         }
         return value;
+    }
+
+    private Color tileTypeFallbackColor(int type) {
+        return switch (type) {
+            case 1 -> new Color(0.20f, 0.40f, 0.66f, 1f); // water
+            case 2 -> new Color(0.68f, 0.58f, 0.42f, 1f); // path
+            case 3 -> new Color(0.56f, 0.52f, 0.48f, 1f); // wall
+            case 4 -> new Color(0.90f, 0.79f, 0.52f, 1f); // sand
+            default -> new Color(0.27f, 0.60f, 0.13f, 1f); // grass
+        };
     }
 
     private static String tileKey(int type) {
