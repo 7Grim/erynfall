@@ -776,30 +776,30 @@ public class SidePanel {
         int startIdx      = Math.max(0, Math.min(musicTabScroll, Math.max(0, tracks.length - visibleRows)));
 
         MusicTrack active = audioManager != null ? audioManager.getActiveTrack() : null;
+        if (active != null) {
+            for (int i = startIdx; i < tracks.length; i++) {
+                int rowY = trackListTop - (i - startIdx) * rowH;
+                if (rowY < cY + 2) break;
+                if (tracks[i] == active) {
+                    sr.setProjectionMatrix(proj);
+                    sr.begin(ShapeRenderer.ShapeType.Filled);
+                    sr.setColor(0.20f, 0.32f, 0.20f, 1f);
+                    sr.rect(cx + pad - 2, rowY - 4, CONTENT_W - pad * 2 + 4, rowH - 1);
+                    sr.end();
+                    break;
+                }
+            }
+        }
 
         batch.setProjectionMatrix(proj);
         batch.begin();
         font.getData().setScale(0.72f);
-
         for (int i = startIdx; i < tracks.length; i++) {
             int rowY = trackListTop - (i - startIdx) * rowH;
             if (rowY < cY + 2) break;
-
             MusicTrack t = tracks[i];
             boolean unlocked = audioManager == null || audioManager.isUnlocked(t);
-            boolean playing  = t == active;
-
-            if (playing) {
-                sr.setProjectionMatrix(proj);
-                sr.begin(ShapeRenderer.ShapeType.Filled);
-                sr.setColor(0.20f, 0.32f, 0.20f, 1f);
-                sr.rect(cx + pad - 2, rowY - 4, CONTENT_W - pad * 2 + 4, rowH - 1);
-                sr.end();
-                batch.setProjectionMatrix(proj);
-                batch.begin();
-                font.getData().setScale(0.72f);
-            }
-
+            boolean playing = t == active;
             if (unlocked) {
                 font.setColor(playing ? 0.55f : 0.78f, playing ? 0.95f : 0.85f, playing ? 0.55f : 0.62f, 1f);
                 font.draw(batch, "\u266b " + t.displayName, cx + pad, rowY + 12);
