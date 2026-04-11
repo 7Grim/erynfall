@@ -14,6 +14,7 @@ import java.util.Map;
 public class ModelLibrary {
 
     private static final String RUNTIME_META_RESOURCE = "model-manifest-runtime.json";
+    private static final String COVERAGE_REPORT_RESOURCE = "equipment-coverage-report.json";
     private static final String MODELS_RESOURCE_DIR = "models";
 
     public record ModelMeta(String key,
@@ -37,11 +38,13 @@ public class ModelLibrary {
     private final Map<String, ModelMeta> metaByKey = new HashMap<>();
     private final Map<String, Model> modelByKey = new HashMap<>();
     private final Map<Long, ModelMeta> equipmentMetaBySlotItem = new HashMap<>();
+    private final Map<Integer, String> knownItemNamesById = new HashMap<>();
 
     public static ModelLibrary load() {
         ModelLibrary library = new ModelLibrary();
         library.loadRuntimeMetadata();
         library.loadModels();
+        library.loadCoverageReport();
         return library;
     }
 
@@ -64,6 +67,7 @@ public class ModelLibrary {
         modelByKey.clear();
         metaByKey.clear();
         equipmentMetaBySlotItem.clear();
+        knownItemNamesById.clear();
     }
 
     public boolean hasEquipmentModel(int equipSlot, int itemId) {
@@ -88,6 +92,13 @@ public class ModelLibrary {
 
     public boolean hasEquipmentCoverage(int equipSlot, int itemId) {
         return getEquipmentMeta(equipSlot, itemId) != null && getEquipmentModel(equipSlot, itemId) != null;
+    }
+
+    public String getKnownItemName(int itemId) {
+        if (itemId <= 0) {
+            return "";
+        }
+        return knownItemNamesById.getOrDefault(itemId, "");
     }
 
     private void loadRuntimeMetadata() {
@@ -165,6 +176,35 @@ public class ModelLibrary {
                 String level = meta.required() ? "ERROR" : "WARN";
                 Gdx.app.log("ModelLibrary", level + ": failed to load model for key '" + meta.key() + "': " + e.getMessage());
             }
+        }
+    }
+
+    private void loadCoverageReport() {
+        if (!Gdx.files.internal(COVERAGE_REPORT_RESOURCE).exists()) {
+            return;
+        }
+        try {
+            String content = Gdx.files.internal(COVERAGE_REPORT_RESOURCE).readString();
+            JsonValue root = new JsonReader().parse(content);
+            JsonValue itemNames = root.get("item_names");
+            if (itemNames == null || !itemNames.isObject()) {
+                return;
+            }
+            for (JsonValue entry = itemNames.child; entry != null; entry = entry.next) {
+                int itemId;
+                try {
+                    itemId = Integer.parseInt(entry.name);
+                } catch (NumberFormatException ignored) {
+                    continue;
+                }
+                String name = entry.asString();
+                if (itemId > 0 && name != null && !name.isBlank()) {
+                    knownItemNamesById.put(itemId, name);
+                }
+            }
+        } catch (Exception e) {
+            Gdx.app.log("ModelLibrary", "WARN: failed parsing coverage report: " + e.getMessage());
+            knownItemNamesById.clear();
         }
     }
 

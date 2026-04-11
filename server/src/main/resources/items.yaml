@@ -1751,7 +1751,7 @@ items:
     store_value: 1
     equipable: true
     consumable: false
-    equip_slot: 0
+    equip_slot: 4
     crush_attack: 5
     melee_strength: 5
     stab_defence: 0
@@ -1764,7 +1764,7 @@ items:
     store_value: 140
     equipable: true
     consumable: false
-    equip_slot: 0
+    equip_slot: 4
     crush_attack: 9
     melee_strength: 8
     stab_defence: 0
@@ -1777,7 +1777,7 @@ items:
     store_value: 500
     equipable: true
     consumable: false
-    equip_slot: 0
+    equip_slot: 4
     crush_attack: 16
     melee_strength: 15
     stab_defence: 0
@@ -1790,7 +1790,7 @@ items:
     store_value: 1344
     equipable: true
     consumable: false
-    equip_slot: 0
+    equip_slot: 4
     crush_attack: 19
     melee_strength: 19
     stab_defence: 0
@@ -1803,7 +1803,7 @@ items:
     store_value: 520
     equipable: true
     consumable: false
-    equip_slot: 0
+    equip_slot: 4
     crush_attack: 26
     melee_strength: 24
     stab_defence: 0
@@ -1816,7 +1816,7 @@ items:
     store_value: 3200
     equipable: true
     consumable: false
-    equip_slot: 0
+    equip_slot: 4
     crush_attack: 33
     melee_strength: 32
     stab_defence: 0
@@ -1829,7 +1829,7 @@ items:
     store_value: 18000
     equipable: true
     consumable: false
-    equip_slot: 0
+    equip_slot: 4
     crush_attack: 46
     melee_strength: 44
     stab_defence: 0
@@ -1842,7 +1842,7 @@ items:
     store_value: 300000
     equipable: true
     consumable: false
-    equip_slot: 0
+    equip_slot: 4
     crush_attack: 61
     melee_strength: 60
     stab_defence: 0

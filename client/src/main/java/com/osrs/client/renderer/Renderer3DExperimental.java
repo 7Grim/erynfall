@@ -774,9 +774,13 @@ public class Renderer3DExperimental {
             case EquipmentSlot.FEET -> "FEET";
             default -> "SLOT_" + equipSlot;
         };
+        String itemName = modelLibrary == null ? "" : modelLibrary.getKnownItemName(itemId);
+        String nameSuffix = itemName == null || itemName.isBlank()
+            ? ""
+            : " name='" + itemName + "'";
         Gdx.app.log(
             "Renderer3DExperimental",
-            "WARN: Missing 3D equipment attachment coverage for slot=" + slotName + ", itemId=" + itemId
+            "WARN: missing 3D equipment coverage for slot=" + slotName + " itemId=" + itemId + nameSuffix
         );
     }
 

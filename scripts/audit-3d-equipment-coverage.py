@@ -267,6 +267,14 @@ def write_json_report(path: Path,
                       deferred: list[EquipableItem],
                       missing: list[EquipableItem],
                       summary: dict[str, int]) -> None:
+    item_names = {}
+    for item in covered:
+        item_names[str(item.item_id)] = item.name
+    for item in deferred:
+        item_names[str(item.item_id)] = item.name
+    for item in missing:
+        item_names[str(item.item_id)] = item.name
+
     report = {
         "covered": [
             {"item_id": item.item_id, "name": item.name, "slot": item.slot_name}
@@ -280,19 +288,28 @@ def write_json_report(path: Path,
             {"item_id": item.item_id, "name": item.name, "slot": item.slot_name}
             for item in missing
         ],
+        "item_names": item_names,
         "summary": summary,
     }
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
 
 
-def print_report(missing: list[EquipableItem], summary: dict[str, int]) -> None:
+def print_report(missing: list[EquipableItem],
+                 summary: dict[str, int],
+                 visible_slots: set[int],
+                 deferred_slots: set[int]) -> None:
     print("3D EQUIPMENT COVERAGE AUDIT")
     print(f"- Equipable items total: {summary['equipable_total']}")
     print(f"- Visible-slot items total: {summary['visible_total']}")
     print(f"- Covered: {summary['covered']}")
     print(f"- Deferred: {summary['deferred']}")
     print(f"- Missing: {summary['missing']}")
+
+    visible_names = [SLOT_ID_TO_NAME.get(slot, f"SLOT_{slot}") for slot in sorted(visible_slots)]
+    deferred_names = [SLOT_ID_TO_NAME.get(slot, f"SLOT_{slot}") for slot in sorted(deferred_slots)]
+    print(f"- Visible policy slots: {', '.join(visible_names)}")
+    print(f"- Deferred policy slots: {', '.join(deferred_names) if deferred_names else 'none'}")
 
     if not missing:
         print("\nMissing visible-slot coverage: none")
@@ -304,8 +321,9 @@ def print_report(missing: list[EquipableItem], summary: dict[str, int]) -> None:
 
     print("\nMissing visible-slot coverage by slot:")
     for slot_id in sorted(grouped):
-        print(f"- {SLOT_ID_TO_NAME.get(slot_id, f'SLOT_{slot_id}')}")
-        for item in grouped[slot_id]:
+        slot_items = sorted(grouped[slot_id], key=lambda item: item.name.lower())
+        print(f"- {SLOT_ID_TO_NAME.get(slot_id, f'SLOT_{slot_id}')} ({len(slot_items)} missing)")
+        for item in slot_items:
             print(f"  - {item.item_id}: {item.name}")
 
 
@@ -334,7 +352,7 @@ def main() -> int:
         print(f"ERROR: {exc}")
         return 2
 
-    print_report(missing, summary)
+    print_report(missing, summary, visible_slots, deferred_slots)
     if args.write_report:
         write_json_report(Path(args.write_report).resolve(), covered, deferred, missing, summary)
 

@@ -136,6 +136,36 @@
       "slot": "WEAPON"
     },
     {
+      "item_id": 1265,
+      "name": "Bronze pickaxe",
+      "slot": "WEAPON"
+    },
+    {
+      "item_id": 1267,
+      "name": "Iron pickaxe",
+      "slot": "WEAPON"
+    },
+    {
+      "item_id": 1269,
+      "name": "Steel pickaxe",
+      "slot": "WEAPON"
+    },
+    {
+      "item_id": 1271,
+      "name": "Adamant pickaxe",
+      "slot": "WEAPON"
+    },
+    {
+      "item_id": 1273,
+      "name": "Mithril pickaxe",
+      "slot": "WEAPON"
+    },
+    {
+      "item_id": 1275,
+      "name": "Rune pickaxe",
+      "slot": "WEAPON"
+    },
+    {
       "item_id": 1321,
       "name": "Bronze scimitar",
       "slot": "WEAPON"
@@ -329,48 +359,8 @@
       "slot": "HEAD"
     },
     {
-      "item_id": 1265,
-      "name": "Bronze pickaxe",
-      "slot": "HEAD"
-    },
-    {
-      "item_id": 1267,
-      "name": "Iron pickaxe",
-      "slot": "HEAD"
-    },
-    {
-      "item_id": 1269,
-      "name": "Steel pickaxe",
-      "slot": "HEAD"
-    },
-    {
-      "item_id": 1271,
-      "name": "Adamant pickaxe",
-      "slot": "HEAD"
-    },
-    {
-      "item_id": 1273,
-      "name": "Mithril pickaxe",
-      "slot": "HEAD"
-    },
-    {
-      "item_id": 1275,
-      "name": "Rune pickaxe",
-      "slot": "HEAD"
-    },
-    {
       "item_id": 11335,
       "name": "Dragon full helm",
-      "slot": "HEAD"
-    },
-    {
-      "item_id": 11920,
-      "name": "Dragon pickaxe",
-      "slot": "HEAD"
-    },
-    {
-      "item_id": 12297,
-      "name": "Black pickaxe",
       "slot": "HEAD"
     },
     {
@@ -454,6 +444,16 @@
       "slot": "WEAPON"
     },
     {
+      "item_id": 11920,
+      "name": "Dragon pickaxe",
+      "slot": "WEAPON"
+    },
+    {
+      "item_id": 12297,
+      "name": "Black pickaxe",
+      "slot": "WEAPON"
+    },
+    {
       "item_id": 1173,
       "name": "Wooden shield",
       "slot": "SHIELD"
@@ -489,11 +489,110 @@
       "slot": "LEGS"
     }
   ],
+  "item_names": {
+    "579": "Blue wizard hat",
+    "1115": "Bronze full helm",
+    "1153": "Iron full helm",
+    "1157": "Steel full helm",
+    "1161": "Adamant full helm",
+    "1163": "Mithril full helm",
+    "1165": "Rune full helm",
+    "1167": "Leather cowl",
+    "1019": "Black cape",
+    "882": "Bronze arrow",
+    "884": "Iron arrow",
+    "886": "Steel arrow",
+    "888": "Mithril arrow",
+    "890": "Adamant arrow",
+    "892": "Rune arrow",
+    "839": "Longbow",
+    "841": "Shortbow",
+    "843": "Oak shortbow",
+    "845": "Oak longbow",
+    "847": "Willow longbow",
+    "849": "Willow shortbow",
+    "851": "Maple longbow",
+    "853": "Maple shortbow",
+    "855": "Yew longbow",
+    "857": "Yew shortbow",
+    "859": "Magic longbow",
+    "861": "Magic shortbow",
+    "1265": "Bronze pickaxe",
+    "1267": "Iron pickaxe",
+    "1269": "Steel pickaxe",
+    "1271": "Adamant pickaxe",
+    "1273": "Mithril pickaxe",
+    "1275": "Rune pickaxe",
+    "1321": "Bronze scimitar",
+    "1323": "Iron scimitar",
+    "1325": "Steel scimitar",
+    "1329": "Mithril scimitar",
+    "1331": "Adamant scimitar",
+    "1333": "Rune scimitar",
+    "1349": "Iron axe",
+    "1351": "Bronze axe",
+    "1353": "Steel axe",
+    "1355": "Mithril axe",
+    "1357": "Adamant axe",
+    "1359": "Rune axe",
+    "1381": "Air staff",
+    "1175": "Bronze sq shield",
+    "1177": "Iron sq shield",
+    "1185": "Rune sq shield",
+    "1193": "Steel sq shield",
+    "1197": "Mithril sq shield",
+    "1199": "Adamant sq shield",
+    "577": "Blue wizard robe",
+    "1085": "Steel platebody",
+    "1119": "Bronze platebody",
+    "1127": "Rune platebody",
+    "1129": "Mithril platebody",
+    "1133": "Adamant platebody",
+    "2000": "Iron platebody",
+    "2129": "Leather body",
+    "1011": "Blue wizard robe skirt",
+    "1067": "Bronze platelegs",
+    "1069": "Iron platelegs",
+    "1071": "Steel platelegs",
+    "1073": "Black platelegs",
+    "1075": "Mithril platelegs",
+    "1079": "Rune platelegs",
+    "1095": "Leather chaps",
+    "1059": "Leather gloves",
+    "1061": "Leather boots",
+    "1159": "Black full helm",
+    "11335": "Dragon full helm",
+    "1277": "Bronze sword",
+    "1291": "Bronze longsword",
+    "1293": "Iron longsword",
+    "1295": "Steel longsword",
+    "1297": "Black longsword",
+    "1299": "Mithril longsword",
+    "1301": "Adamant longsword",
+    "1303": "Rune longsword",
+    "1305": "Dragon longsword",
+    "1327": "Black scimitar",
+    "1361": "Black axe",
+    "1383": "Water staff",
+    "1385": "Earth staff",
+    "1387": "Fire staff",
+    "4587": "Dragon scimitar",
+    "6739": "Dragon axe",
+    "11920": "Dragon pickaxe",
+    "12297": "Black pickaxe",
+    "1173": "Wooden shield",
+    "1195": "Black sq shield",
+    "11286": "Dragon sq shield",
+    "1125": "Black platebody",
+    "3140": "Dragon chainbody",
+    "1077": "Adamant platelegs",
+    "4087": "Dragon platelegs"
+  },
   "summary": {
     "equipable_total": 97,
     "visible_total": 97,
-    "covered": 64,
+    "covered": 70,
     "deferred": 0,
-    "missing": 33
+    "missing": 27
   }
 }
