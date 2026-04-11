@@ -1413,7 +1413,11 @@ public class GameScreen extends ApplicationAdapter {
         boolean[] modelRendered = new boolean[entries.size()];
         Set<Integer> activeNpcEntities = new HashSet<>();
         for (ActorRenderEntry entry : entries) {
-            if (!entry.isPlayer()) {
+            if (entry.isPlayer()) {
+                continue;
+            }
+            String actorModelKey = resolveActorModelKey3D(entry);
+            if (resolveAnimatedNpcBaseKey3D(actorModelKey) != null) {
                 activeNpcEntities.add(entry.entityId());
             }
         }

@@ -663,7 +663,7 @@ public class Renderer3DExperimental {
                                      float rotationYDegrees,
                                      float alpha,
                                      float delta) {
-        if (!ensureAnimatedNpcModelLoaded(baseKey, entityId)) {
+        if (!ensureAnimatedNpcModelLoaded(entityId, baseKey)) {
             return false;
         }
 
@@ -824,7 +824,7 @@ public class Renderer3DExperimental {
         }
     }
 
-    private boolean ensureAnimatedNpcModelLoaded(String baseKey, int entityId) {
+    private boolean ensureAnimatedNpcModelLoaded(int entityId, String baseKey) {
         if (entityId <= 0 || baseKey == null || baseKey.isBlank() || modelLibrary == null || !modelLibrary.hasModel(baseKey)) {
             npcAnimatedInstances.remove(entityId);
             npcAnimationControllers.remove(entityId);
