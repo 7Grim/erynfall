@@ -31,7 +31,8 @@ public class ModelLibrary {
                             float offsetZ,
                             float rotX,
                             float rotY,
-                            float rotZ) {}
+                            float rotZ,
+                            String anchorName) {}
 
     private final Map<String, ModelMeta> metaByKey = new HashMap<>();
     private final Map<String, Model> modelByKey = new HashMap<>();
@@ -120,7 +121,8 @@ public class ModelLibrary {
                     asset.getFloat("offset_z", 0f),
                     asset.getFloat("rot_x", 0f),
                     asset.getFloat("rot_y", 0f),
-                    asset.getFloat("rot_z", 0f)
+                    asset.getFloat("rot_z", 0f),
+                    asset.getString("anchor_name", "")
                 );
                 metaByKey.put(key, meta);
                 if ("equipment".equals(meta.category()) && meta.equipSlot() >= 0 && meta.itemId() > 0) {

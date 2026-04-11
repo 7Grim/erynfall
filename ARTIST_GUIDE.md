@@ -410,6 +410,22 @@ Equipment attachment prototype notes:
 - Ammo currently uses a quiver-style representation for arrow tiers.
 - NECK and RING visuals remain intentionally deferred in this phase.
 
+Attachment anchor convention (animation-ready foundation):
+- Actor models can now expose optional named attachment nodes for semantic binding.
+- Supported anchor node IDs are:
+  - `head_anchor`
+  - `cape_anchor`
+  - `weapon_anchor`
+  - `shield_anchor`
+  - `ammo_anchor`
+  - `body_anchor`
+  - `legs_anchor`
+  - `hands_anchor`
+  - `feet_anchor`
+- Equipment entries in `art/models/manifest.yaml` may set `anchor_name` to bind to one of these nodes.
+- If the anchor node is absent on a base actor model, rendering safely falls back to the existing offset-based placement.
+- Future animated actor models should include these anchors so equipped meshes follow pose changes cleanly.
+
 ---
 
 ## Replacing a placeholder

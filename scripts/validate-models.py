@@ -30,6 +30,7 @@ class ModelEntry:
     equip_slot: int | None
     item_id: int | None
     attach_to_state: str | None
+    anchor_name: str | None
     offset_x: float | None
     offset_y: float | None
     offset_z: float | None
@@ -218,6 +219,7 @@ def parse_manifest(manifest_path: Path) -> list[ModelEntry]:
             equip_slot=parse_equip_slot(item.get("equip_slot"), key),
             item_id=as_optional_int(item.get("item_id"), "item_id", key),
             attach_to_state=str(item["attach_to_state"]).strip() if item.get("attach_to_state") not in (None, "") else None,
+            anchor_name=str(item["anchor_name"]).strip() if item.get("anchor_name") not in (None, "") else None,
             offset_x=as_optional_float(item.get("offset_x"), "offset_x", key),
             offset_y=as_optional_float(item.get("offset_y"), "offset_y", key),
             offset_z=as_optional_float(item.get("offset_z"), "offset_z", key),
@@ -294,6 +296,8 @@ def write_runtime_metadata(entries: Iterable[ModelEntry], output_path: Path) -> 
             asset["item_id"] = entry.item_id
         if entry.attach_to_state:
             asset["attach_to_state"] = entry.attach_to_state
+        if entry.anchor_name:
+            asset["anchor_name"] = entry.anchor_name
         if entry.offset_x is not None:
             asset["offset_x"] = entry.offset_x
         if entry.offset_y is not None:

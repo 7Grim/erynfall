@@ -13,6 +13,7 @@ import com.badlogic.gdx.graphics.g3d.Material;
 import com.badlogic.gdx.graphics.g3d.Model;
 import com.badlogic.gdx.graphics.g3d.ModelBatch;
 import com.badlogic.gdx.graphics.g3d.ModelInstance;
+import com.badlogic.gdx.graphics.g3d.model.Node;
 import com.badlogic.gdx.graphics.g3d.attributes.BlendingAttribute;
 import com.badlogic.gdx.graphics.g3d.attributes.ColorAttribute;
 import com.badlogic.gdx.graphics.g3d.attributes.TextureAttribute;
@@ -22,6 +23,7 @@ import com.badlogic.gdx.graphics.g3d.decals.DecalBatch;
 import com.badlogic.gdx.graphics.g3d.utils.MeshPartBuilder;
 import com.badlogic.gdx.graphics.g3d.utils.ModelBuilder;
 import com.badlogic.gdx.math.Intersector;
+import com.badlogic.gdx.math.Matrix4;
 import com.badlogic.gdx.math.Plane;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.math.collision.Ray;
@@ -57,6 +59,33 @@ public class Renderer3DExperimental {
         EquipmentSlot.HANDS,
         EquipmentSlot.FEET,
     };
+    private static final float DEFAULT_HEAD_ANCHOR_X = 0f;
+    private static final float DEFAULT_HEAD_ANCHOR_Y = 1.18f;
+    private static final float DEFAULT_HEAD_ANCHOR_Z = 0f;
+    private static final float DEFAULT_CAPE_ANCHOR_X = 0f;
+    private static final float DEFAULT_CAPE_ANCHOR_Y = 0.82f;
+    private static final float DEFAULT_CAPE_ANCHOR_Z = 0.08f;
+    private static final float DEFAULT_AMMO_ANCHOR_X = -0.12f;
+    private static final float DEFAULT_AMMO_ANCHOR_Y = 0.92f;
+    private static final float DEFAULT_AMMO_ANCHOR_Z = 0.10f;
+    private static final float DEFAULT_WEAPON_ANCHOR_X = 0.24f;
+    private static final float DEFAULT_WEAPON_ANCHOR_Y = 0.84f;
+    private static final float DEFAULT_WEAPON_ANCHOR_Z = -0.02f;
+    private static final float DEFAULT_SHIELD_ANCHOR_X = -0.24f;
+    private static final float DEFAULT_SHIELD_ANCHOR_Y = 0.84f;
+    private static final float DEFAULT_SHIELD_ANCHOR_Z = 0.02f;
+    private static final float DEFAULT_BODY_ANCHOR_X = 0f;
+    private static final float DEFAULT_BODY_ANCHOR_Y = 0.84f;
+    private static final float DEFAULT_BODY_ANCHOR_Z = 0f;
+    private static final float DEFAULT_LEGS_ANCHOR_X = 0f;
+    private static final float DEFAULT_LEGS_ANCHOR_Y = 0.38f;
+    private static final float DEFAULT_LEGS_ANCHOR_Z = 0f;
+    private static final float DEFAULT_HANDS_ANCHOR_X = 0f;
+    private static final float DEFAULT_HANDS_ANCHOR_Y = 0.82f;
+    private static final float DEFAULT_HANDS_ANCHOR_Z = 0f;
+    private static final float DEFAULT_FEET_ANCHOR_X = 0f;
+    private static final float DEFAULT_FEET_ANCHOR_Y = 0.08f;
+    private static final float DEFAULT_FEET_ANCHOR_Z = 0f;
 
     private final PerspectiveCamera camera;
     private final ModelBatch modelBatch;
@@ -542,6 +571,7 @@ public class Renderer3DExperimental {
         if (Math.abs(baseScale - 1f) > 0.0001f) {
             baseInstance.transform.scale(baseScale, baseScale, baseScale);
         }
+        baseInstance.calculateTransforms();
         modelBatch.render(baseInstance, environment);
 
         if (equippedItemIds != null) {
@@ -562,14 +592,24 @@ public class Renderer3DExperimental {
 
                 ModelInstance equipInstance = obtainActorModelInstance(equipMeta.key(), equipModel);
                 equipInstance.transform.idt();
-                equipInstance.transform.translate(tileX + 0.5f, 0f, tileY + 0.5f);
-                if (Math.abs(rotationYDegrees) > 0.0001f) {
-                    equipInstance.transform.rotate(Vector3.Y, rotationYDegrees);
+                Matrix4 anchorTransform = findActorAnchorTransform(baseInstance, equipMeta.anchorName());
+                if (anchorTransform != null) {
+                    equipInstance.transform.set(anchorTransform);
+                    equipInstance.transform.translate(
+                        equipMeta.offsetX() - defaultAnchorOffsetXForSlot(slot),
+                        equipMeta.offsetY() - defaultAnchorOffsetYForSlot(slot),
+                        equipMeta.offsetZ() - defaultAnchorOffsetZForSlot(slot)
+                    );
+                } else {
+                    equipInstance.transform.translate(tileX + 0.5f, 0f, tileY + 0.5f);
+                    if (Math.abs(rotationYDegrees) > 0.0001f) {
+                        equipInstance.transform.rotate(Vector3.Y, rotationYDegrees);
+                    }
+                    if (Math.abs(baseScale - 1f) > 0.0001f) {
+                        equipInstance.transform.scale(baseScale, baseScale, baseScale);
+                    }
+                    equipInstance.transform.translate(equipMeta.offsetX(), equipMeta.offsetY(), equipMeta.offsetZ());
                 }
-                if (Math.abs(baseScale - 1f) > 0.0001f) {
-                    equipInstance.transform.scale(baseScale, baseScale, baseScale);
-                }
-                equipInstance.transform.translate(equipMeta.offsetX(), equipMeta.offsetY(), equipMeta.offsetZ());
                 if (Math.abs(equipMeta.rotX()) > 0.0001f) {
                     equipInstance.transform.rotate(Vector3.X, equipMeta.rotX());
                 }
@@ -590,6 +630,51 @@ public class Renderer3DExperimental {
             endActorModelPass();
         }
         return true;
+    }
+
+    private Matrix4 findActorAnchorTransform(ModelInstance baseInstance, String anchorName) {
+        if (baseInstance == null || anchorName == null || anchorName.isBlank()) {
+            return null;
+        }
+        Node anchorNode = baseInstance.getNode(anchorName, true);
+        if (anchorNode == null) {
+            return null;
+        }
+        return new Matrix4(baseInstance.transform).mul(anchorNode.globalTransform);
+    }
+
+    private float defaultAnchorOffsetXForSlot(int slot) {
+        return switch (slot) {
+            case EquipmentSlot.AMMO -> DEFAULT_AMMO_ANCHOR_X;
+            case EquipmentSlot.WEAPON -> DEFAULT_WEAPON_ANCHOR_X;
+            case EquipmentSlot.SHIELD -> DEFAULT_SHIELD_ANCHOR_X;
+            default -> 0f;
+        };
+    }
+
+    private float defaultAnchorOffsetYForSlot(int slot) {
+        return switch (slot) {
+            case EquipmentSlot.HEAD -> DEFAULT_HEAD_ANCHOR_Y;
+            case EquipmentSlot.CAPE -> DEFAULT_CAPE_ANCHOR_Y;
+            case EquipmentSlot.AMMO -> DEFAULT_AMMO_ANCHOR_Y;
+            case EquipmentSlot.WEAPON -> DEFAULT_WEAPON_ANCHOR_Y;
+            case EquipmentSlot.SHIELD -> DEFAULT_SHIELD_ANCHOR_Y;
+            case EquipmentSlot.BODY -> DEFAULT_BODY_ANCHOR_Y;
+            case EquipmentSlot.LEGS -> DEFAULT_LEGS_ANCHOR_Y;
+            case EquipmentSlot.HANDS -> DEFAULT_HANDS_ANCHOR_Y;
+            case EquipmentSlot.FEET -> DEFAULT_FEET_ANCHOR_Y;
+            default -> 0f;
+        };
+    }
+
+    private float defaultAnchorOffsetZForSlot(int slot) {
+        return switch (slot) {
+            case EquipmentSlot.CAPE -> DEFAULT_CAPE_ANCHOR_Z;
+            case EquipmentSlot.AMMO -> DEFAULT_AMMO_ANCHOR_Z;
+            case EquipmentSlot.WEAPON -> DEFAULT_WEAPON_ANCHOR_Z;
+            case EquipmentSlot.SHIELD -> DEFAULT_SHIELD_ANCHOR_Z;
+            default -> 0f;
+        };
     }
 
     public int[] pickTile(int screenX, int screenY) {

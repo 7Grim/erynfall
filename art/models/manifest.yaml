@@ -322,6 +322,7 @@ assets:
     notes: Bronze full helm attachment.
     equip_slot: 0
     item_id: 1115
+    anchor_name: head_anchor
     offset_x: 0.0
     offset_y: 1.18
     offset_z: 0.0
@@ -338,6 +339,7 @@ assets:
     notes: Iron full helm attachment.
     equip_slot: 0
     item_id: 1153
+    anchor_name: head_anchor
     offset_x: 0.0
     offset_y: 1.18
     offset_z: 0.0
@@ -354,6 +356,7 @@ assets:
     notes: Steel full helm attachment.
     equip_slot: 0
     item_id: 1157
+    anchor_name: head_anchor
     offset_x: 0.0
     offset_y: 1.18
     offset_z: 0.0
@@ -370,6 +373,7 @@ assets:
     notes: Mithril full helm attachment.
     equip_slot: 0
     item_id: 1163
+    anchor_name: head_anchor
     offset_x: 0.0
     offset_y: 1.18
     offset_z: 0.0
@@ -386,6 +390,7 @@ assets:
     notes: Adamant full helm attachment.
     equip_slot: 0
     item_id: 1161
+    anchor_name: head_anchor
     offset_x: 0.0
     offset_y: 1.18
     offset_z: 0.0
@@ -402,6 +407,7 @@ assets:
     notes: Rune full helm attachment.
     equip_slot: 0
     item_id: 1165
+    anchor_name: head_anchor
     offset_x: 0.0
     offset_y: 1.18
     offset_z: 0.0
@@ -418,6 +424,7 @@ assets:
     notes: Bronze platebody attachment.
     equip_slot: 6
     item_id: 1119
+    anchor_name: body_anchor
     offset_x: 0.0
     offset_y: 0.84
     offset_z: 0.0
@@ -434,6 +441,7 @@ assets:
     notes: Iron platebody attachment.
     equip_slot: 6
     item_id: 2000
+    anchor_name: body_anchor
     offset_x: 0.0
     offset_y: 0.84
     offset_z: 0.0
@@ -450,6 +458,7 @@ assets:
     notes: Steel platebody attachment.
     equip_slot: 6
     item_id: 1085
+    anchor_name: body_anchor
     offset_x: 0.0
     offset_y: 0.84
     offset_z: 0.0
@@ -466,6 +475,7 @@ assets:
     notes: Mithril platebody attachment.
     equip_slot: 6
     item_id: 1129
+    anchor_name: body_anchor
     offset_x: 0.0
     offset_y: 0.84
     offset_z: 0.0
@@ -482,6 +492,7 @@ assets:
     notes: Adamant platebody attachment.
     equip_slot: 6
     item_id: 1133
+    anchor_name: body_anchor
     offset_x: 0.0
     offset_y: 0.84
     offset_z: 0.0
@@ -498,6 +509,7 @@ assets:
     notes: Rune platebody attachment.
     equip_slot: 6
     item_id: 1127
+    anchor_name: body_anchor
     offset_x: 0.0
     offset_y: 0.84
     offset_z: 0.0
@@ -514,6 +526,7 @@ assets:
     notes: Bronze platelegs attachment.
     equip_slot: 7
     item_id: 1075
+    anchor_name: legs_anchor
     offset_x: 0.0
     offset_y: 0.38
     offset_z: 0.0
@@ -530,6 +543,7 @@ assets:
     notes: Iron platelegs attachment.
     equip_slot: 7
     item_id: 1067
+    anchor_name: legs_anchor
     offset_x: 0.0
     offset_y: 0.38
     offset_z: 0.0
@@ -546,6 +560,7 @@ assets:
     notes: Steel platelegs attachment.
     equip_slot: 7
     item_id: 1069
+    anchor_name: legs_anchor
     offset_x: 0.0
     offset_y: 0.38
     offset_z: 0.0
@@ -562,6 +577,7 @@ assets:
     notes: Mithril platelegs attachment.
     equip_slot: 7
     item_id: 1071
+    anchor_name: legs_anchor
     offset_x: 0.0
     offset_y: 0.38
     offset_z: 0.0
@@ -578,6 +594,7 @@ assets:
     notes: Adamant platelegs attachment.
     equip_slot: 7
     item_id: 1073
+    anchor_name: legs_anchor
     offset_x: 0.0
     offset_y: 0.38
     offset_z: 0.0
@@ -594,6 +611,7 @@ assets:
     notes: Rune platelegs attachment.
     equip_slot: 7
     item_id: 1079
+    anchor_name: legs_anchor
     offset_x: 0.0
     offset_y: 0.38
     offset_z: 0.0
@@ -610,6 +628,7 @@ assets:
     notes: Bronze sq shield attachment.
     equip_slot: 5
     item_id: 1175
+    anchor_name: shield_anchor
     offset_x: -0.24
     offset_y: 0.84
     offset_z: 0.02
@@ -626,6 +645,7 @@ assets:
     notes: Iron sq shield attachment.
     equip_slot: 5
     item_id: 1177
+    anchor_name: shield_anchor
     offset_x: -0.24
     offset_y: 0.84
     offset_z: 0.02
@@ -642,6 +662,7 @@ assets:
     notes: Steel sq shield attachment.
     equip_slot: 5
     item_id: 1193
+    anchor_name: shield_anchor
     offset_x: -0.24
     offset_y: 0.84
     offset_z: 0.02
@@ -658,6 +679,7 @@ assets:
     notes: Mithril sq shield attachment.
     equip_slot: 5
     item_id: 1197
+    anchor_name: shield_anchor
     offset_x: -0.24
     offset_y: 0.84
     offset_z: 0.02
@@ -674,6 +696,7 @@ assets:
     notes: Adamant sq shield attachment.
     equip_slot: 5
     item_id: 1199
+    anchor_name: shield_anchor
     offset_x: -0.24
     offset_y: 0.84
     offset_z: 0.02
@@ -690,6 +713,7 @@ assets:
     notes: Rune sq shield attachment.
     equip_slot: 5
     item_id: 1185
+    anchor_name: shield_anchor
     offset_x: -0.24
     offset_y: 0.84
     offset_z: 0.02
@@ -706,6 +730,7 @@ assets:
     notes: Bronze scimitar attachment.
     equip_slot: 4
     item_id: 1321
+    anchor_name: weapon_anchor
     offset_x: 0.24
     offset_y: 0.84
     offset_z: -0.02
@@ -722,6 +747,7 @@ assets:
     notes: Iron scimitar attachment.
     equip_slot: 4
     item_id: 1323
+    anchor_name: weapon_anchor
     offset_x: 0.24
     offset_y: 0.84
     offset_z: -0.02
@@ -738,6 +764,7 @@ assets:
     notes: Steel scimitar attachment.
     equip_slot: 4
     item_id: 1325
+    anchor_name: weapon_anchor
     offset_x: 0.24
     offset_y: 0.84
     offset_z: -0.02
@@ -754,6 +781,7 @@ assets:
     notes: Mithril scimitar attachment.
     equip_slot: 4
     item_id: 1329
+    anchor_name: weapon_anchor
     offset_x: 0.24
     offset_y: 0.84
     offset_z: -0.02
@@ -770,6 +798,7 @@ assets:
     notes: Adamant scimitar attachment.
     equip_slot: 4
     item_id: 1331
+    anchor_name: weapon_anchor
     offset_x: 0.24
     offset_y: 0.84
     offset_z: -0.02
@@ -786,6 +815,7 @@ assets:
     notes: Rune scimitar attachment.
     equip_slot: 4
     item_id: 1333
+    anchor_name: weapon_anchor
     offset_x: 0.24
     offset_y: 0.84
     offset_z: -0.02
@@ -802,6 +832,7 @@ assets:
     notes: Bronze axe attachment.
     equip_slot: 4
     item_id: 1351
+    anchor_name: weapon_anchor
     offset_x: 0.24
     offset_y: 0.84
     offset_z: -0.02
@@ -818,6 +849,7 @@ assets:
     notes: Iron axe attachment.
     equip_slot: 4
     item_id: 1349
+    anchor_name: weapon_anchor
     offset_x: 0.24
     offset_y: 0.84
     offset_z: -0.02
@@ -834,6 +866,7 @@ assets:
     notes: Steel axe attachment.
     equip_slot: 4
     item_id: 1353
+    anchor_name: weapon_anchor
     offset_x: 0.24
     offset_y: 0.84
     offset_z: -0.02
@@ -850,6 +883,7 @@ assets:
     notes: Mithril axe attachment.
     equip_slot: 4
     item_id: 1355
+    anchor_name: weapon_anchor
     offset_x: 0.24
     offset_y: 0.84
     offset_z: -0.02
@@ -866,6 +900,7 @@ assets:
     notes: Adamant axe attachment.
     equip_slot: 4
     item_id: 1357
+    anchor_name: weapon_anchor
     offset_x: 0.24
     offset_y: 0.84
     offset_z: -0.02
@@ -882,6 +917,7 @@ assets:
     notes: Rune axe attachment.
     equip_slot: 4
     item_id: 1359
+    anchor_name: weapon_anchor
     offset_x: 0.24
     offset_y: 0.84
     offset_z: -0.02
@@ -898,6 +934,7 @@ assets:
     notes: Bronze pickaxe attachment.
     equip_slot: 4
     item_id: 1265
+    anchor_name: weapon_anchor
     offset_x: 0.24
     offset_y: 0.84
     offset_z: -0.02
@@ -914,6 +951,7 @@ assets:
     notes: Iron pickaxe attachment.
     equip_slot: 4
     item_id: 1267
+    anchor_name: weapon_anchor
     offset_x: 0.24
     offset_y: 0.84
     offset_z: -0.02
@@ -930,6 +968,7 @@ assets:
     notes: Steel pickaxe attachment.
     equip_slot: 4
     item_id: 1269
+    anchor_name: weapon_anchor
     offset_x: 0.24
     offset_y: 0.84
     offset_z: -0.02
@@ -946,6 +985,7 @@ assets:
     notes: Mithril pickaxe attachment.
     equip_slot: 4
     item_id: 1273
+    anchor_name: weapon_anchor
     offset_x: 0.24
     offset_y: 0.84
     offset_z: -0.02
@@ -962,6 +1002,7 @@ assets:
     notes: Adamant pickaxe attachment.
     equip_slot: 4
     item_id: 1271
+    anchor_name: weapon_anchor
     offset_x: 0.24
     offset_y: 0.84
     offset_z: -0.02
@@ -978,6 +1019,7 @@ assets:
     notes: Rune pickaxe attachment.
     equip_slot: 4
     item_id: 1275
+    anchor_name: weapon_anchor
     offset_x: 0.24
     offset_y: 0.84
     offset_z: -0.02
@@ -994,6 +1036,7 @@ assets:
     notes: Weapon attachment for Shortbow.
     equip_slot: 4
     item_id: 841
+    anchor_name: weapon_anchor
     offset_x: 0.0
     offset_y: 0.0
     offset_z: 0.0
@@ -1010,6 +1053,7 @@ assets:
     notes: Weapon attachment for Oak shortbow.
     equip_slot: 4
     item_id: 843
+    anchor_name: weapon_anchor
     offset_x: 0.0
     offset_y: 0.0
     offset_z: 0.0
@@ -1026,6 +1070,7 @@ assets:
     notes: Weapon attachment for Willow shortbow.
     equip_slot: 4
     item_id: 849
+    anchor_name: weapon_anchor
     offset_x: 0.0
     offset_y: 0.0
     offset_z: 0.0
@@ -1042,6 +1087,7 @@ assets:
     notes: Weapon attachment for Maple shortbow.
     equip_slot: 4
     item_id: 853
+    anchor_name: weapon_anchor
     offset_x: 0.0
     offset_y: 0.0
     offset_z: 0.0
@@ -1058,6 +1104,7 @@ assets:
     notes: Weapon attachment for Yew shortbow.
     equip_slot: 4
     item_id: 857
+    anchor_name: weapon_anchor
     offset_x: 0.0
     offset_y: 0.0
     offset_z: 0.0
@@ -1074,6 +1121,7 @@ assets:
     notes: Weapon attachment for Magic shortbow.
     equip_slot: 4
     item_id: 861
+    anchor_name: weapon_anchor
     offset_x: 0.0
     offset_y: 0.0
     offset_z: 0.0
@@ -1090,6 +1138,7 @@ assets:
     notes: Weapon attachment for Longbow.
     equip_slot: 4
     item_id: 839
+    anchor_name: weapon_anchor
     offset_x: 0.0
     offset_y: 0.0
     offset_z: 0.0
@@ -1106,6 +1155,7 @@ assets:
     notes: Weapon attachment for Oak longbow.
     equip_slot: 4
     item_id: 845
+    anchor_name: weapon_anchor
     offset_x: 0.0
     offset_y: 0.0
     offset_z: 0.0
@@ -1122,6 +1172,7 @@ assets:
     notes: Weapon attachment for Willow longbow.
     equip_slot: 4
     item_id: 847
+    anchor_name: weapon_anchor
     offset_x: 0.0
     offset_y: 0.0
     offset_z: 0.0
@@ -1138,6 +1189,7 @@ assets:
     notes: Weapon attachment for Maple longbow.
     equip_slot: 4
     item_id: 851
+    anchor_name: weapon_anchor
     offset_x: 0.0
     offset_y: 0.0
     offset_z: 0.0
@@ -1154,6 +1206,7 @@ assets:
     notes: Weapon attachment for Yew longbow.
     equip_slot: 4
     item_id: 855
+    anchor_name: weapon_anchor
     offset_x: 0.0
     offset_y: 0.0
     offset_z: 0.0
@@ -1170,6 +1223,7 @@ assets:
     notes: Weapon attachment for Magic longbow.
     equip_slot: 4
     item_id: 859
+    anchor_name: weapon_anchor
     offset_x: 0.0
     offset_y: 0.0
     offset_z: 0.0
@@ -1186,6 +1240,7 @@ assets:
     notes: Weapon attachment for Air staff.
     equip_slot: 4
     item_id: 1381
+    anchor_name: weapon_anchor
     offset_x: 0.0
     offset_y: 0.0
     offset_z: 0.0
@@ -1202,6 +1257,7 @@ assets:
     notes: Leather cowl attachment.
     equip_slot: 0
     item_id: 1167
+    anchor_name: head_anchor
     offset_x: 0.0
     offset_y: 1.16
     offset_z: 0.0
@@ -1218,6 +1274,7 @@ assets:
     notes: Leather body attachment.
     equip_slot: 6
     item_id: 2129
+    anchor_name: body_anchor
     offset_x: 0.0
     offset_y: 0.84
     offset_z: 0.0
@@ -1234,6 +1291,7 @@ assets:
     notes: Leather chaps attachment.
     equip_slot: 7
     item_id: 1095
+    anchor_name: legs_anchor
     offset_x: 0.0
     offset_y: 0.38
     offset_z: 0.0
@@ -1250,6 +1308,7 @@ assets:
     notes: Leather gloves attachment.
     equip_slot: 8
     item_id: 1059
+    anchor_name: hands_anchor
     offset_x: 0.0
     offset_y: 0.82
     offset_z: 0.0
@@ -1266,6 +1325,7 @@ assets:
     notes: Leather boots attachment.
     equip_slot: 9
     item_id: 1061
+    anchor_name: feet_anchor
     offset_x: 0.0
     offset_y: 0.08
     offset_z: 0.0
@@ -1282,6 +1342,7 @@ assets:
     notes: Blue wizard hat attachment.
     equip_slot: 0
     item_id: 579
+    anchor_name: head_anchor
     offset_x: 0.0
     offset_y: 1.18
     offset_z: 0.0
@@ -1298,6 +1359,7 @@ assets:
     notes: Blue wizard robe attachment.
     equip_slot: 6
     item_id: 577
+    anchor_name: body_anchor
     offset_x: 0.0
     offset_y: 0.84
     offset_z: 0.0
@@ -1314,6 +1376,7 @@ assets:
     notes: Blue wizard robe skirt attachment.
     equip_slot: 7
     item_id: 1011
+    anchor_name: legs_anchor
     offset_x: 0.0
     offset_y: 0.38
     offset_z: 0.0
@@ -1330,6 +1393,7 @@ assets:
     notes: Black cape attachment.
     equip_slot: 1
     item_id: 1019
+    anchor_name: cape_anchor
     offset_x: 0.0
     offset_y: 0.82
     offset_z: 0.08
@@ -1346,6 +1410,7 @@ assets:
     notes: Bronze-arrow quiver attachment.
     equip_slot: 3
     item_id: 882
+    anchor_name: ammo_anchor
     offset_x: -0.12
     offset_y: 0.92
     offset_z: 0.1
@@ -1362,6 +1427,7 @@ assets:
     notes: Iron-arrow quiver attachment.
     equip_slot: 3
     item_id: 884
+    anchor_name: ammo_anchor
     offset_x: -0.12
     offset_y: 0.92
     offset_z: 0.1
@@ -1378,6 +1444,7 @@ assets:
     notes: Steel-arrow quiver attachment.
     equip_slot: 3
     item_id: 886
+    anchor_name: ammo_anchor
     offset_x: -0.12
     offset_y: 0.92
     offset_z: 0.1
@@ -1394,6 +1461,7 @@ assets:
     notes: Mithril-arrow quiver attachment.
     equip_slot: 3
     item_id: 888
+    anchor_name: ammo_anchor
     offset_x: -0.12
     offset_y: 0.92
     offset_z: 0.1
@@ -1410,6 +1478,7 @@ assets:
     notes: Adamant-arrow quiver attachment.
     equip_slot: 3
     item_id: 890
+    anchor_name: ammo_anchor
     offset_x: -0.12
     offset_y: 0.92
     offset_z: 0.1
@@ -1426,6 +1495,7 @@ assets:
     notes: Rune-arrow quiver attachment.
     equip_slot: 3
     item_id: 892
+    anchor_name: ammo_anchor
     offset_x: -0.12
     offset_y: 0.92
     offset_z: 0.1
