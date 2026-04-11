@@ -1411,6 +1411,13 @@ public class GameScreen extends ApplicationAdapter {
         }
 
         boolean[] modelRendered = new boolean[entries.size()];
+        Set<Integer> activeNpcEntities = new HashSet<>();
+        for (ActorRenderEntry entry : entries) {
+            if (!entry.isPlayer()) {
+                activeNpcEntities.add(entry.entityId());
+            }
+        }
+        renderer3d.retainAnimatedNpcEntities(activeNpcEntities);
 
         renderer3d.beginStaticPropPass();
         for (int i = 0; i < entries.size(); i++) {
@@ -1482,7 +1489,18 @@ public class GameScreen extends ApplicationAdapter {
             if (actorModelKey != null) {
                 float yawDegrees = actorModelYawDegrees(entry);
                 float alpha = isObstructingLocalPlayer(entry) ? 0.35f : 1f;
-                if (renderer3d.renderActorModel(actorModelKey, entry.tileX(), entry.tileY(), yawDegrees, alpha)) {
+                String animatedNpcBaseKey = resolveAnimatedNpcBaseKey3D(actorModelKey);
+                if ((animatedNpcBaseKey != null
+                    && renderer3d.renderAnimatedNpc(
+                    animatedNpcBaseKey,
+                    entry.entityId(),
+                    actorModelKey,
+                    entry.tileX(),
+                    entry.tileY(),
+                    yawDegrees,
+                    alpha,
+                    delta
+                )) || renderer3d.renderActorModel(actorModelKey, entry.tileX(), entry.tileY(), yawDegrees, alpha)) {
                     modelRendered[i] = true;
                 }
             }
@@ -1693,6 +1711,37 @@ public class GameScreen extends ApplicationAdapter {
                 return "npc_cow_action";
             }
             return npcAnimMoving.getOrDefault(entry.entityId(), false) ? "npc_cow_walk" : "npc_cow_idle";
+        }
+        return null;
+    }
+
+    private String resolveAnimatedNpcBaseKey3D(String stateKey) {
+        if (stateKey == null || stateKey.isBlank()) {
+            return null;
+        }
+        if (stateKey.startsWith("npc_banker_")) {
+            return "npc_banker_base";
+        }
+        if (stateKey.startsWith("npc_guide_")) {
+            return "npc_guide_base";
+        }
+        if (stateKey.startsWith("npc_instructor_")) {
+            return "npc_instructor_base";
+        }
+        if (stateKey.startsWith("npc_goblin_")) {
+            return "npc_goblin_base";
+        }
+        if (stateKey.startsWith("npc_rat_")) {
+            return "npc_rat_base";
+        }
+        if (stateKey.startsWith("npc_giant_rat_")) {
+            return "npc_giant_rat_base";
+        }
+        if (stateKey.startsWith("npc_chicken_")) {
+            return "npc_chicken_base";
+        }
+        if (stateKey.startsWith("npc_cow_")) {
+            return "npc_cow_base";
         }
         return null;
     }

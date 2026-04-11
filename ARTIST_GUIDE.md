@@ -442,6 +442,11 @@ Animated local-player base model:
 - The older state-specific static player models (`player_idle`, `player_walk`, etc.) remain active as fallback.
 - Keep attachment anchor nodes on `player_base` so equipped gear can bind correctly during animation playback.
 
+Animated NPC base model convention:
+- Preferred NPC actor path is `npc_*_base.g3dj` with clips named `idle`, `walk`, and `action`.
+- The renderer maps existing state keys (`npc_*_idle`, `npc_*_walk`, `npc_*_action`) to these clip names.
+- Legacy static state models remain in place as fallback when base models or clips are missing.
+
 3D equipment coverage audit:
 - Visible equipment coverage policy is defined in `art/models/equipment_coverage_policy.yaml`.
 - The project tracks visible slots separately from deferred slots (currently NECK/RING are deferred).

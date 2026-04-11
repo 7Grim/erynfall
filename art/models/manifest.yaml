@@ -2097,3 +2097,67 @@ assets:
     origin: tile-center
     required: false
     notes: Low-poly cow action pose.
+  - key: npc_banker_base
+    file: npc_banker_base.g3dj
+    category: actor
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Animated banker base model with clips: idle, walk, action.
+  - key: npc_guide_base
+    file: npc_guide_base.g3dj
+    category: actor
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Animated tutorial guide base model with clips: idle, walk, action.
+  - key: npc_instructor_base
+    file: npc_instructor_base.g3dj
+    category: actor
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Animated combat instructor base model with clips: idle, walk, action.
+  - key: npc_goblin_base
+    file: npc_goblin_base.g3dj
+    category: actor
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Animated goblin base model with clips: idle, walk, action.
+  - key: npc_rat_base
+    file: npc_rat_base.g3dj
+    category: actor
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Animated rat base model with clips: idle, walk, action.
+  - key: npc_giant_rat_base
+    file: npc_giant_rat_base.g3dj
+    category: actor
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Animated giant rat base model with clips: idle, walk, action.
+  - key: npc_chicken_base
+    file: npc_chicken_base.g3dj
+    category: actor
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Animated chicken base model with clips: idle, walk, action.
+  - key: npc_cow_base
+    file: npc_cow_base.g3dj
+    category: actor
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Animated cow base model with clips: idle, walk, action.

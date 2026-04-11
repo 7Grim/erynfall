@@ -123,6 +123,10 @@ public class Renderer3DExperimental {
     private ModelInstance localPlayerAnimatedInstance;
     private AnimationController localPlayerAnimationController;
     private String currentLocalPlayerClip = "";
+    private final Map<Integer, ModelInstance> npcAnimatedInstances = new HashMap<>();
+    private final Map<Integer, AnimationController> npcAnimationControllers = new HashMap<>();
+    private final Map<Integer, String> npcBaseKeyByEntityId = new HashMap<>();
+    private final Map<Integer, String> currentNpcClipByEntityId = new HashMap<>();
     private final Set<Long> missingEquipmentWarnings = new HashSet<>();
 
     private static final class WallMaterialBinding {
@@ -181,6 +185,10 @@ public class Renderer3DExperimental {
         localPlayerAnimatedInstance = null;
         localPlayerAnimationController = null;
         currentLocalPlayerClip = "";
+        npcAnimatedInstances.clear();
+        npcAnimationControllers.clear();
+        npcBaseKeyByEntityId.clear();
+        currentNpcClipByEntityId.clear();
         missingEquipmentWarnings.clear();
     }
 
@@ -647,6 +655,82 @@ public class Renderer3DExperimental {
         return true;
     }
 
+    public boolean renderAnimatedNpc(String baseKey,
+                                     int entityId,
+                                     String stateKey,
+                                     float tileX,
+                                     float tileY,
+                                     float rotationYDegrees,
+                                     float alpha,
+                                     float delta) {
+        if (!ensureAnimatedNpcModelLoaded(baseKey, entityId)) {
+            return false;
+        }
+
+        ModelInstance instance = npcAnimatedInstances.get(entityId);
+        AnimationController controller = npcAnimationControllers.get(entityId);
+        if (instance == null || controller == null) {
+            return false;
+        }
+
+        String clipName = normalizeNpcClipName(stateKey);
+        if (instance.getAnimation(clipName) == null) {
+            return false;
+        }
+
+        boolean ownsPass = !actorModelPassActive;
+        if (ownsPass) {
+            beginActorModelPass();
+        }
+
+        ModelLibrary.ModelMeta baseMeta = modelLibrary.getMeta(baseKey);
+        float baseScale = baseMeta != null && baseMeta.scale() > 0f ? baseMeta.scale() : 1f;
+        try {
+            String currentClip = currentNpcClipByEntityId.getOrDefault(entityId, "");
+            if (!clipName.equals(currentClip)) {
+                controller.setAnimation(clipName, -1);
+                currentNpcClipByEntityId.put(entityId, clipName);
+            }
+            controller.update(Math.max(0f, delta));
+
+            instance.transform.idt();
+            instance.transform.translate(tileX + 0.5f, 0f, tileY + 0.5f);
+            if (Math.abs(rotationYDegrees) > 0.0001f) {
+                instance.transform.rotate(Vector3.Y, rotationYDegrees);
+            }
+            if (Math.abs(baseScale - 1f) > 0.0001f) {
+                instance.transform.scale(baseScale, baseScale, baseScale);
+            }
+            instance.calculateTransforms();
+
+            renderInstanceWithOptionalAlpha(instance, alpha);
+        } catch (Exception e) {
+            if (ownsPass) {
+                endActorModelPass();
+            }
+            return false;
+        }
+
+        if (ownsPass) {
+            endActorModelPass();
+        }
+        return true;
+    }
+
+    public void retainAnimatedNpcEntities(Set<Integer> activeEntityIds) {
+        if (activeEntityIds == null) {
+            npcAnimatedInstances.clear();
+            npcAnimationControllers.clear();
+            npcBaseKeyByEntityId.clear();
+            currentNpcClipByEntityId.clear();
+            return;
+        }
+        npcAnimatedInstances.keySet().retainAll(activeEntityIds);
+        npcAnimationControllers.keySet().retainAll(activeEntityIds);
+        npcBaseKeyByEntityId.keySet().retainAll(activeEntityIds);
+        currentNpcClipByEntityId.keySet().retainAll(activeEntityIds);
+    }
+
     private void renderPlayerEquipmentAttachments(ModelInstance baseInstance,
                                                   float tileX,
                                                   float tileY,
@@ -740,6 +824,44 @@ public class Renderer3DExperimental {
         }
     }
 
+    private boolean ensureAnimatedNpcModelLoaded(String baseKey, int entityId) {
+        if (entityId <= 0 || baseKey == null || baseKey.isBlank() || modelLibrary == null || !modelLibrary.hasModel(baseKey)) {
+            npcAnimatedInstances.remove(entityId);
+            npcAnimationControllers.remove(entityId);
+            npcBaseKeyByEntityId.remove(entityId);
+            currentNpcClipByEntityId.remove(entityId);
+            return false;
+        }
+
+        String currentBaseKey = npcBaseKeyByEntityId.get(entityId);
+        if (baseKey.equals(currentBaseKey)
+            && npcAnimatedInstances.containsKey(entityId)
+            && npcAnimationControllers.containsKey(entityId)) {
+            return true;
+        }
+
+        Model model = modelLibrary.getModel(baseKey);
+        if (model == null) {
+            return false;
+        }
+
+        try {
+            ModelInstance instance = new ModelInstance(model);
+            AnimationController controller = new AnimationController(instance);
+            npcAnimatedInstances.put(entityId, instance);
+            npcAnimationControllers.put(entityId, controller);
+            npcBaseKeyByEntityId.put(entityId, baseKey);
+            currentNpcClipByEntityId.put(entityId, "");
+            return true;
+        } catch (Exception e) {
+            npcAnimatedInstances.remove(entityId);
+            npcAnimationControllers.remove(entityId);
+            npcBaseKeyByEntityId.remove(entityId);
+            currentNpcClipByEntityId.remove(entityId);
+            return false;
+        }
+    }
+
     private String normalizePlayerClipName(String stateKey) {
         if (stateKey == null || stateKey.isBlank()) {
             return "idle";
@@ -755,6 +877,69 @@ public class Renderer3DExperimental {
             case "player_spear" -> "spear";
             default -> "idle";
         };
+    }
+
+    private String normalizeNpcClipName(String stateKey) {
+        if (stateKey == null || stateKey.isBlank()) {
+            return "idle";
+        }
+        if (stateKey.endsWith("_walk")) {
+            return "walk";
+        }
+        if (stateKey.endsWith("_action")) {
+            return "action";
+        }
+        return "idle";
+    }
+
+    private void renderInstanceWithOptionalAlpha(ModelInstance instance, float alpha) {
+        float clampedAlpha = Math.max(0f, Math.min(1f, alpha));
+        if (clampedAlpha >= 0.999f) {
+            modelBatch.render(instance, environment);
+            return;
+        }
+
+        float[] previousDiffuseAlpha = new float[instance.materials.size];
+        float[] previousBlendAlpha = new float[instance.materials.size];
+        int[] previousBlendSource = new int[instance.materials.size];
+        int[] previousBlendDest = new int[instance.materials.size];
+        boolean[] hadBlend = new boolean[instance.materials.size];
+
+        for (int i = 0; i < instance.materials.size; i++) {
+            Material material = instance.materials.get(i);
+            ColorAttribute diffuse = (ColorAttribute) material.get(ColorAttribute.Diffuse);
+            previousDiffuseAlpha[i] = diffuse != null ? diffuse.color.a : 1f;
+
+            BlendingAttribute blend = (BlendingAttribute) material.get(BlendingAttribute.Type);
+            if (blend != null) {
+                hadBlend[i] = true;
+                previousBlendAlpha[i] = blend.opacity;
+                previousBlendSource[i] = blend.sourceFunction;
+                previousBlendDest[i] = blend.destFunction;
+            }
+
+            if (diffuse != null) {
+                diffuse.color.a = clampedAlpha;
+            }
+            material.set(new BlendingAttribute(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA, clampedAlpha));
+        }
+
+        Gdx.gl.glDepthMask(false);
+        modelBatch.render(instance, environment);
+        Gdx.gl.glDepthMask(true);
+
+        for (int i = 0; i < instance.materials.size; i++) {
+            Material material = instance.materials.get(i);
+            ColorAttribute diffuse = (ColorAttribute) material.get(ColorAttribute.Diffuse);
+            if (diffuse != null) {
+                diffuse.color.a = previousDiffuseAlpha[i];
+            }
+            if (hadBlend[i]) {
+                material.set(new BlendingAttribute(previousBlendSource[i], previousBlendDest[i], previousBlendAlpha[i]));
+            } else {
+                material.remove(BlendingAttribute.Type);
+            }
+        }
     }
 
     private void warnMissingEquipmentCoverageOnce(int equipSlot, int itemId) {
@@ -861,6 +1046,10 @@ public class Renderer3DExperimental {
         localPlayerAnimatedInstance = null;
         localPlayerAnimationController = null;
         currentLocalPlayerClip = "";
+        npcAnimatedInstances.clear();
+        npcAnimationControllers.clear();
+        npcBaseKeyByEntityId.clear();
+        currentNpcClipByEntityId.clear();
         missingEquipmentWarnings.clear();
         fallbackBillboardTexture.dispose();
         decalBatch.dispose();
