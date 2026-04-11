@@ -1,5 +1,11 @@
 props:
-  - key: building_shell_small
+  - key: building_shell_small_base
+    x: 46
+    y: 46
+    rotation_y_degrees: 0
+    scale: 1.0
+    visibility_group: base
+  - key: building_shell_small_roof
     x: 46
     y: 46
     rotation_y_degrees: 0
@@ -35,7 +41,13 @@ props:
     rotation_y_degrees: 0
     scale: 1.0
     visibility_group: base
-  - key: building_shell_service
+  - key: building_shell_service_base
+    x: 56
+    y: 48
+    rotation_y_degrees: 0
+    scale: 1.0
+    visibility_group: base
+  - key: building_shell_service_roof
     x: 56
     y: 48
     rotation_y_degrees: 0
@@ -71,7 +83,13 @@ props:
     rotation_y_degrees: 0
     scale: 1.0
     visibility_group: base
-  - key: building_shell_coastal
+  - key: building_shell_coastal_base
+    x: 52
+    y: 38
+    rotation_y_degrees: 0
+    scale: 1.0
+    visibility_group: base
+  - key: building_shell_coastal_roof
     x: 52
     y: 38
     rotation_y_degrees: 0

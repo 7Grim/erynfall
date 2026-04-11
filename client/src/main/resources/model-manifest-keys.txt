@@ -3,8 +3,14 @@ anvil
 barrel_small
 bench_small
 building_shell_coastal
+building_shell_coastal_base
+building_shell_coastal_roof
 building_shell_service
+building_shell_service_base
+building_shell_service_roof
 building_shell_small
+building_shell_small_base
+building_shell_small_roof
 cart_small
 cooking_range
 crate_small

@@ -168,6 +168,22 @@ assets:
     origin: tile-center
     required: false
     notes: Small static building shell for the 3D renderer.
+  - key: building_shell_small_base
+    file: building_shell_small_base.g3dj
+    category: shell
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Lower walls/base of the small shell.
+  - key: building_shell_small_roof
+    file: building_shell_small_roof.g3dj
+    category: shell
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Upper roof/foreground piece of the small shell.
   - key: dock_platform
     file: dock_platform.g3dj
     category: prop
@@ -216,6 +232,22 @@ assets:
     origin: tile-center
     required: false
     notes: Service-area building shell for the 3D renderer.
+  - key: building_shell_service_base
+    file: building_shell_service_base.g3dj
+    category: shell
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Lower walls/base of the service-area shell.
+  - key: building_shell_service_roof
+    file: building_shell_service_roof.g3dj
+    category: shell
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Upper roof/foreground piece of the service-area shell.
   - key: building_shell_coastal
     file: building_shell_coastal.g3dj
     category: shell
@@ -224,6 +256,22 @@ assets:
     origin: tile-center
     required: false
     notes: Shoreline/coastal building shell for the 3D renderer.
+  - key: building_shell_coastal_base
+    file: building_shell_coastal_base.g3dj
+    category: shell
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Lower walls/base of the coastal shell.
+  - key: building_shell_coastal_roof
+    file: building_shell_coastal_roof.g3dj
+    category: shell
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Upper roof/foreground piece of the coastal shell.
   - key: dock_pier_small
     file: dock_pier_small.g3dj
     category: prop

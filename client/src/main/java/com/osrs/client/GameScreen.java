@@ -1936,7 +1936,7 @@ public class GameScreen extends ApplicationAdapter {
     private boolean propOccludesLocalPlayer(StaticPropLoader.StaticPropPlacement prop) {
         float dx = Math.abs((prop.x + 0.5f) - (visualX + 0.5f));
         float dy = Math.abs((prop.y + 0.5f) - (visualY + 0.5f));
-        return dx <= 2.5f && dy <= 2.5f;
+        return dx <= 2.0f && dy <= 2.0f;
     }
 
     private TextureRegion resolveGroundItemSpriteRegion3D(int itemId) {
