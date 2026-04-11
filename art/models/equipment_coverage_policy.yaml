@@ -1,0 +1,14 @@
+visible_slots:
+  - HEAD
+  - CAPE
+  - AMMO
+  - WEAPON
+  - SHIELD
+  - BODY
+  - LEGS
+  - HANDS
+  - FEET
+deferred_slots:
+  - NECK
+  - RING
+deferred_item_ids: []

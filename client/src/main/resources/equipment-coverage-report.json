@@ -1,0 +1,499 @@
+{
+  "covered": [
+    {
+      "item_id": 579,
+      "name": "Blue wizard hat",
+      "slot": "HEAD"
+    },
+    {
+      "item_id": 1115,
+      "name": "Bronze full helm",
+      "slot": "HEAD"
+    },
+    {
+      "item_id": 1153,
+      "name": "Iron full helm",
+      "slot": "HEAD"
+    },
+    {
+      "item_id": 1157,
+      "name": "Steel full helm",
+      "slot": "HEAD"
+    },
+    {
+      "item_id": 1161,
+      "name": "Adamant full helm",
+      "slot": "HEAD"
+    },
+    {
+      "item_id": 1163,
+      "name": "Mithril full helm",
+      "slot": "HEAD"
+    },
+    {
+      "item_id": 1165,
+      "name": "Rune full helm",
+      "slot": "HEAD"
+    },
+    {
+      "item_id": 1167,
+      "name": "Leather cowl",
+      "slot": "HEAD"
+    },
+    {
+      "item_id": 1019,
+      "name": "Black cape",
+      "slot": "CAPE"
+    },
+    {
+      "item_id": 882,
+      "name": "Bronze arrow",
+      "slot": "AMMO"
+    },
+    {
+      "item_id": 884,
+      "name": "Iron arrow",
+      "slot": "AMMO"
+    },
+    {
+      "item_id": 886,
+      "name": "Steel arrow",
+      "slot": "AMMO"
+    },
+    {
+      "item_id": 888,
+      "name": "Mithril arrow",
+      "slot": "AMMO"
+    },
+    {
+      "item_id": 890,
+      "name": "Adamant arrow",
+      "slot": "AMMO"
+    },
+    {
+      "item_id": 892,
+      "name": "Rune arrow",
+      "slot": "AMMO"
+    },
+    {
+      "item_id": 839,
+      "name": "Longbow",
+      "slot": "WEAPON"
+    },
+    {
+      "item_id": 841,
+      "name": "Shortbow",
+      "slot": "WEAPON"
+    },
+    {
+      "item_id": 843,
+      "name": "Oak shortbow",
+      "slot": "WEAPON"
+    },
+    {
+      "item_id": 845,
+      "name": "Oak longbow",
+      "slot": "WEAPON"
+    },
+    {
+      "item_id": 847,
+      "name": "Willow longbow",
+      "slot": "WEAPON"
+    },
+    {
+      "item_id": 849,
+      "name": "Willow shortbow",
+      "slot": "WEAPON"
+    },
+    {
+      "item_id": 851,
+      "name": "Maple longbow",
+      "slot": "WEAPON"
+    },
+    {
+      "item_id": 853,
+      "name": "Maple shortbow",
+      "slot": "WEAPON"
+    },
+    {
+      "item_id": 855,
+      "name": "Yew longbow",
+      "slot": "WEAPON"
+    },
+    {
+      "item_id": 857,
+      "name": "Yew shortbow",
+      "slot": "WEAPON"
+    },
+    {
+      "item_id": 859,
+      "name": "Magic longbow",
+      "slot": "WEAPON"
+    },
+    {
+      "item_id": 861,
+      "name": "Magic shortbow",
+      "slot": "WEAPON"
+    },
+    {
+      "item_id": 1321,
+      "name": "Bronze scimitar",
+      "slot": "WEAPON"
+    },
+    {
+      "item_id": 1323,
+      "name": "Iron scimitar",
+      "slot": "WEAPON"
+    },
+    {
+      "item_id": 1325,
+      "name": "Steel scimitar",
+      "slot": "WEAPON"
+    },
+    {
+      "item_id": 1329,
+      "name": "Mithril scimitar",
+      "slot": "WEAPON"
+    },
+    {
+      "item_id": 1331,
+      "name": "Adamant scimitar",
+      "slot": "WEAPON"
+    },
+    {
+      "item_id": 1333,
+      "name": "Rune scimitar",
+      "slot": "WEAPON"
+    },
+    {
+      "item_id": 1349,
+      "name": "Iron axe",
+      "slot": "WEAPON"
+    },
+    {
+      "item_id": 1351,
+      "name": "Bronze axe",
+      "slot": "WEAPON"
+    },
+    {
+      "item_id": 1353,
+      "name": "Steel axe",
+      "slot": "WEAPON"
+    },
+    {
+      "item_id": 1355,
+      "name": "Mithril axe",
+      "slot": "WEAPON"
+    },
+    {
+      "item_id": 1357,
+      "name": "Adamant axe",
+      "slot": "WEAPON"
+    },
+    {
+      "item_id": 1359,
+      "name": "Rune axe",
+      "slot": "WEAPON"
+    },
+    {
+      "item_id": 1381,
+      "name": "Air staff",
+      "slot": "WEAPON"
+    },
+    {
+      "item_id": 1175,
+      "name": "Bronze sq shield",
+      "slot": "SHIELD"
+    },
+    {
+      "item_id": 1177,
+      "name": "Iron sq shield",
+      "slot": "SHIELD"
+    },
+    {
+      "item_id": 1185,
+      "name": "Rune sq shield",
+      "slot": "SHIELD"
+    },
+    {
+      "item_id": 1193,
+      "name": "Steel sq shield",
+      "slot": "SHIELD"
+    },
+    {
+      "item_id": 1197,
+      "name": "Mithril sq shield",
+      "slot": "SHIELD"
+    },
+    {
+      "item_id": 1199,
+      "name": "Adamant sq shield",
+      "slot": "SHIELD"
+    },
+    {
+      "item_id": 577,
+      "name": "Blue wizard robe",
+      "slot": "BODY"
+    },
+    {
+      "item_id": 1085,
+      "name": "Steel platebody",
+      "slot": "BODY"
+    },
+    {
+      "item_id": 1119,
+      "name": "Bronze platebody",
+      "slot": "BODY"
+    },
+    {
+      "item_id": 1127,
+      "name": "Rune platebody",
+      "slot": "BODY"
+    },
+    {
+      "item_id": 1129,
+      "name": "Mithril platebody",
+      "slot": "BODY"
+    },
+    {
+      "item_id": 1133,
+      "name": "Adamant platebody",
+      "slot": "BODY"
+    },
+    {
+      "item_id": 2000,
+      "name": "Iron platebody",
+      "slot": "BODY"
+    },
+    {
+      "item_id": 2129,
+      "name": "Leather body",
+      "slot": "BODY"
+    },
+    {
+      "item_id": 1011,
+      "name": "Blue wizard robe skirt",
+      "slot": "LEGS"
+    },
+    {
+      "item_id": 1067,
+      "name": "Bronze platelegs",
+      "slot": "LEGS"
+    },
+    {
+      "item_id": 1069,
+      "name": "Iron platelegs",
+      "slot": "LEGS"
+    },
+    {
+      "item_id": 1071,
+      "name": "Steel platelegs",
+      "slot": "LEGS"
+    },
+    {
+      "item_id": 1073,
+      "name": "Black platelegs",
+      "slot": "LEGS"
+    },
+    {
+      "item_id": 1075,
+      "name": "Mithril platelegs",
+      "slot": "LEGS"
+    },
+    {
+      "item_id": 1079,
+      "name": "Rune platelegs",
+      "slot": "LEGS"
+    },
+    {
+      "item_id": 1095,
+      "name": "Leather chaps",
+      "slot": "LEGS"
+    },
+    {
+      "item_id": 1059,
+      "name": "Leather gloves",
+      "slot": "HANDS"
+    },
+    {
+      "item_id": 1061,
+      "name": "Leather boots",
+      "slot": "FEET"
+    }
+  ],
+  "deferred": [],
+  "missing": [
+    {
+      "item_id": 1159,
+      "name": "Black full helm",
+      "slot": "HEAD"
+    },
+    {
+      "item_id": 1265,
+      "name": "Bronze pickaxe",
+      "slot": "HEAD"
+    },
+    {
+      "item_id": 1267,
+      "name": "Iron pickaxe",
+      "slot": "HEAD"
+    },
+    {
+      "item_id": 1269,
+      "name": "Steel pickaxe",
+      "slot": "HEAD"
+    },
+    {
+      "item_id": 1271,
+      "name": "Adamant pickaxe",
+      "slot": "HEAD"
+    },
+    {
+      "item_id": 1273,
+      "name": "Mithril pickaxe",
+      "slot": "HEAD"
+    },
+    {
+      "item_id": 1275,
+      "name": "Rune pickaxe",
+      "slot": "HEAD"
+    },
+    {
+      "item_id": 11335,
+      "name": "Dragon full helm",
+      "slot": "HEAD"
+    },
+    {
+      "item_id": 11920,
+      "name": "Dragon pickaxe",
+      "slot": "HEAD"
+    },
+    {
+      "item_id": 12297,
+      "name": "Black pickaxe",
+      "slot": "HEAD"
+    },
+    {
+      "item_id": 1277,
+      "name": "Bronze sword",
+      "slot": "WEAPON"
+    },
+    {
+      "item_id": 1291,
+      "name": "Bronze longsword",
+      "slot": "WEAPON"
+    },
+    {
+      "item_id": 1293,
+      "name": "Iron longsword",
+      "slot": "WEAPON"
+    },
+    {
+      "item_id": 1295,
+      "name": "Steel longsword",
+      "slot": "WEAPON"
+    },
+    {
+      "item_id": 1297,
+      "name": "Black longsword",
+      "slot": "WEAPON"
+    },
+    {
+      "item_id": 1299,
+      "name": "Mithril longsword",
+      "slot": "WEAPON"
+    },
+    {
+      "item_id": 1301,
+      "name": "Adamant longsword",
+      "slot": "WEAPON"
+    },
+    {
+      "item_id": 1303,
+      "name": "Rune longsword",
+      "slot": "WEAPON"
+    },
+    {
+      "item_id": 1305,
+      "name": "Dragon longsword",
+      "slot": "WEAPON"
+    },
+    {
+      "item_id": 1327,
+      "name": "Black scimitar",
+      "slot": "WEAPON"
+    },
+    {
+      "item_id": 1361,
+      "name": "Black axe",
+      "slot": "WEAPON"
+    },
+    {
+      "item_id": 1383,
+      "name": "Water staff",
+      "slot": "WEAPON"
+    },
+    {
+      "item_id": 1385,
+      "name": "Earth staff",
+      "slot": "WEAPON"
+    },
+    {
+      "item_id": 1387,
+      "name": "Fire staff",
+      "slot": "WEAPON"
+    },
+    {
+      "item_id": 4587,
+      "name": "Dragon scimitar",
+      "slot": "WEAPON"
+    },
+    {
+      "item_id": 6739,
+      "name": "Dragon axe",
+      "slot": "WEAPON"
+    },
+    {
+      "item_id": 1173,
+      "name": "Wooden shield",
+      "slot": "SHIELD"
+    },
+    {
+      "item_id": 1195,
+      "name": "Black sq shield",
+      "slot": "SHIELD"
+    },
+    {
+      "item_id": 11286,
+      "name": "Dragon sq shield",
+      "slot": "SHIELD"
+    },
+    {
+      "item_id": 1125,
+      "name": "Black platebody",
+      "slot": "BODY"
+    },
+    {
+      "item_id": 3140,
+      "name": "Dragon chainbody",
+      "slot": "BODY"
+    },
+    {
+      "item_id": 1077,
+      "name": "Adamant platelegs",
+      "slot": "LEGS"
+    },
+    {
+      "item_id": 4087,
+      "name": "Dragon platelegs",
+      "slot": "LEGS"
+    }
+  ],
+  "summary": {
+    "equipable_total": 97,
+    "visible_total": 97,
+    "covered": 64,
+    "deferred": 0,
+    "missing": 33
+  }
+}

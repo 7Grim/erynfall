@@ -86,6 +86,10 @@ public class ModelLibrary {
         return equipmentMetaBySlotItem.get(slotItemKey(equipSlot, itemId));
     }
 
+    public boolean hasEquipmentCoverage(int equipSlot, int itemId) {
+        return getEquipmentMeta(equipSlot, itemId) != null && getEquipmentModel(equipSlot, itemId) != null;
+    }
+
     private void loadRuntimeMetadata() {
         if (!Gdx.files.internal(RUNTIME_META_RESOURCE).exists()) {
             Gdx.app.log("ModelLibrary", "WARN: runtime metadata missing: " + RUNTIME_META_RESOURCE);

@@ -440,6 +440,12 @@ Animated local-player base model:
 - The older state-specific static player models (`player_idle`, `player_walk`, etc.) remain active as fallback.
 - Keep attachment anchor nodes on `player_base` so equipped gear can bind correctly during animation playback.
 
+3D equipment coverage audit:
+- Visible equipment coverage policy is defined in `art/models/equipment_coverage_policy.yaml`.
+- The project tracks visible slots separately from deferred slots (currently NECK/RING are deferred).
+- Resource generation runs `scripts/audit-3d-equipment-coverage.py` and refreshes `client/src/main/resources/equipment-coverage-report.json`.
+- Any item listed as missing in visible slots is an explicit 3D migration gap and should be addressed or deferred in policy.
+
 ---
 
 ## Replacing a placeholder

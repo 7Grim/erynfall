@@ -31,8 +31,10 @@ import com.badlogic.gdx.math.collision.Ray;
 import com.osrs.shared.EquipmentSlot;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 
 public class Renderer3DExperimental {
     private static final int MAP_WIDTH = 104;
@@ -121,6 +123,7 @@ public class Renderer3DExperimental {
     private ModelInstance localPlayerAnimatedInstance;
     private AnimationController localPlayerAnimationController;
     private String currentLocalPlayerClip = "";
+    private final Set<Long> missingEquipmentWarnings = new HashSet<>();
 
     private static final class WallMaterialBinding {
         private final Material material;
@@ -178,6 +181,7 @@ public class Renderer3DExperimental {
         localPlayerAnimatedInstance = null;
         localPlayerAnimationController = null;
         currentLocalPlayerClip = "";
+        missingEquipmentWarnings.clear();
     }
 
     public boolean hasStaticPropModel(String key) {
@@ -661,6 +665,11 @@ public class Renderer3DExperimental {
                 continue;
             }
 
+            if (!modelLibrary.hasEquipmentCoverage(slot, itemId)) {
+                warnMissingEquipmentCoverageOnce(slot, itemId);
+                continue;
+            }
+
             ModelLibrary.ModelMeta equipMeta = modelLibrary.getEquipmentMeta(slot, itemId);
             Model equipModel = modelLibrary.getEquipmentModel(slot, itemId);
             if (equipMeta == null || equipModel == null) {
@@ -748,6 +757,29 @@ public class Renderer3DExperimental {
         };
     }
 
+    private void warnMissingEquipmentCoverageOnce(int equipSlot, int itemId) {
+        long key = (((long) equipSlot) << 32) | (itemId & 0xffffffffL);
+        if (!missingEquipmentWarnings.add(key)) {
+            return;
+        }
+        String slotName = switch (equipSlot) {
+            case EquipmentSlot.HEAD -> "HEAD";
+            case EquipmentSlot.CAPE -> "CAPE";
+            case EquipmentSlot.AMMO -> "AMMO";
+            case EquipmentSlot.WEAPON -> "WEAPON";
+            case EquipmentSlot.SHIELD -> "SHIELD";
+            case EquipmentSlot.BODY -> "BODY";
+            case EquipmentSlot.LEGS -> "LEGS";
+            case EquipmentSlot.HANDS -> "HANDS";
+            case EquipmentSlot.FEET -> "FEET";
+            default -> "SLOT_" + equipSlot;
+        };
+        Gdx.app.log(
+            "Renderer3DExperimental",
+            "WARN: Missing 3D equipment attachment coverage for slot=" + slotName + ", itemId=" + itemId
+        );
+    }
+
     private Matrix4 findActorAnchorTransform(ModelInstance baseInstance, String anchorName) {
         if (baseInstance == null || anchorName == null || anchorName.isBlank()) {
             return null;
@@ -825,6 +857,7 @@ public class Renderer3DExperimental {
         localPlayerAnimatedInstance = null;
         localPlayerAnimationController = null;
         currentLocalPlayerClip = "";
+        missingEquipmentWarnings.clear();
         fallbackBillboardTexture.dispose();
         decalBatch.dispose();
         overlayDecalBatch.dispose();

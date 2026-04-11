@@ -18,7 +18,10 @@
     <properties>
         <skipArtValidation>false</skipArtValidation>
         <skipModelValidation>false</skipModelValidation>
+        <skipEquipmentCoverageAudit>false</skipEquipmentCoverageAudit>
         <skipModelCopy>false</skipModelCopy>
+        <strictEquipmentCoverage>false</strictEquipmentCoverage>
+        <equipmentCoverageStrictArg></equipmentCoverageStrictArg>
     </properties>
 
     <dependencies>
@@ -137,6 +140,27 @@
                         </configuration>
                     </execution>
                     <execution>
+                        <id>audit-equipment-coverage</id>
+                        <phase>generate-resources</phase>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                        <configuration>
+                            <skip>${skipEquipmentCoverageAudit}</skip>
+                            <target>
+                                <condition property="python.exe" value="python" else="python3">
+                                    <os family="windows"/>
+                                </condition>
+                                <exec executable="${python.exe}" failonerror="true">
+                                    <arg value="${project.basedir}/../scripts/audit-3d-equipment-coverage.py"/>
+                                    <arg value="--write-report"/>
+                                    <arg value="${project.basedir}/src/main/resources/equipment-coverage-report.json"/>
+                                    <arg line="${equipmentCoverageStrictArg}"/>
+                                </exec>
+                            </target>
+                        </configuration>
+                    </execution>
+                    <execution>
                         <id>copy-model-assets</id>
                         <phase>generate-resources</phase>
                         <goals>
@@ -238,6 +262,19 @@
             <properties>
                 <skipArtValidation>true</skipArtValidation>
                 <skipModelValidation>true</skipModelValidation>
+                <skipEquipmentCoverageAudit>true</skipEquipmentCoverageAudit>
+            </properties>
+        </profile>
+        <profile>
+            <id>strict-equipment-coverage</id>
+            <activation>
+                <property>
+                    <name>strictEquipmentCoverage</name>
+                    <value>true</value>
+                </property>
+            </activation>
+            <properties>
+                <equipmentCoverageStrictArg>--strict</equipmentCoverageStrictArg>
             </properties>
         </profile>
         <!-- macOS requires -XstartOnFirstThread for LWJGL3 OpenGL window -->
