@@ -864,6 +864,23 @@ assets:
     rot_x: 0.0
     rot_y: 0.0
     rot_z: 0.0
+  - key: equip_shield_wooden
+    file: equip_shield_wooden.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Wooden shield attachment.
+    equip_slot: 5
+    item_id: 1173
+    anchor_name: shield_anchor
+    offset_x: -0.24
+    offset_y: 0.84
+    offset_z: 0.02
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: 0.0
   - key: equip_weapon_bronze_scimitar
     file: equip_weapon_bronze_scimitar.g3dj
     category: equipment
@@ -1000,6 +1017,159 @@ assets:
     rot_x: 0.0
     rot_y: 0.0
     rot_z: -22.0
+  - key: equip_weapon_bronze_sword
+    file: equip_weapon_bronze_sword.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Bronze sword attachment.
+    equip_slot: 4
+    item_id: 1277
+    anchor_name: weapon_anchor
+    offset_x: 0.24
+    offset_y: 0.84
+    offset_z: -0.02
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: -16.0
+  - key: equip_weapon_bronze_longsword
+    file: equip_weapon_bronze_longsword.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Bronze longsword attachment.
+    equip_slot: 4
+    item_id: 1291
+    anchor_name: weapon_anchor
+    offset_x: 0.24
+    offset_y: 0.84
+    offset_z: -0.02
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: -16.0
+  - key: equip_weapon_iron_longsword
+    file: equip_weapon_iron_longsword.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Iron longsword attachment.
+    equip_slot: 4
+    item_id: 1293
+    anchor_name: weapon_anchor
+    offset_x: 0.24
+    offset_y: 0.84
+    offset_z: -0.02
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: -16.0
+  - key: equip_weapon_steel_longsword
+    file: equip_weapon_steel_longsword.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Steel longsword attachment.
+    equip_slot: 4
+    item_id: 1295
+    anchor_name: weapon_anchor
+    offset_x: 0.24
+    offset_y: 0.84
+    offset_z: -0.02
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: -16.0
+  - key: equip_weapon_black_longsword
+    file: equip_weapon_black_longsword.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Black longsword attachment.
+    equip_slot: 4
+    item_id: 1297
+    anchor_name: weapon_anchor
+    offset_x: 0.24
+    offset_y: 0.84
+    offset_z: -0.02
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: -16.0
+  - key: equip_weapon_mithril_longsword
+    file: equip_weapon_mithril_longsword.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Mithril longsword attachment.
+    equip_slot: 4
+    item_id: 1299
+    anchor_name: weapon_anchor
+    offset_x: 0.24
+    offset_y: 0.84
+    offset_z: -0.02
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: -16.0
+  - key: equip_weapon_adamant_longsword
+    file: equip_weapon_adamant_longsword.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Adamant longsword attachment.
+    equip_slot: 4
+    item_id: 1301
+    anchor_name: weapon_anchor
+    offset_x: 0.24
+    offset_y: 0.84
+    offset_z: -0.02
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: -16.0
+  - key: equip_weapon_rune_longsword
+    file: equip_weapon_rune_longsword.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Rune longsword attachment.
+    equip_slot: 4
+    item_id: 1303
+    anchor_name: weapon_anchor
+    offset_x: 0.24
+    offset_y: 0.84
+    offset_z: -0.02
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: -16.0
+  - key: equip_weapon_dragon_longsword
+    file: equip_weapon_dragon_longsword.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Dragon longsword attachment.
+    equip_slot: 4
+    item_id: 1305
+    anchor_name: weapon_anchor
+    offset_x: 0.24
+    offset_y: 0.84
+    offset_z: -0.02
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: -16.0
   - key: equip_weapon_bronze_axe
     file: equip_weapon_bronze_axe.g3dj
     category: equipment

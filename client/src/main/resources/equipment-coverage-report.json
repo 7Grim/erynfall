@@ -176,6 +176,51 @@
       "slot": "WEAPON"
     },
     {
+      "item_id": 1277,
+      "name": "Bronze sword",
+      "slot": "WEAPON"
+    },
+    {
+      "item_id": 1291,
+      "name": "Bronze longsword",
+      "slot": "WEAPON"
+    },
+    {
+      "item_id": 1293,
+      "name": "Iron longsword",
+      "slot": "WEAPON"
+    },
+    {
+      "item_id": 1295,
+      "name": "Steel longsword",
+      "slot": "WEAPON"
+    },
+    {
+      "item_id": 1297,
+      "name": "Black longsword",
+      "slot": "WEAPON"
+    },
+    {
+      "item_id": 1299,
+      "name": "Mithril longsword",
+      "slot": "WEAPON"
+    },
+    {
+      "item_id": 1301,
+      "name": "Adamant longsword",
+      "slot": "WEAPON"
+    },
+    {
+      "item_id": 1303,
+      "name": "Rune longsword",
+      "slot": "WEAPON"
+    },
+    {
+      "item_id": 1305,
+      "name": "Dragon longsword",
+      "slot": "WEAPON"
+    },
+    {
       "item_id": 1321,
       "name": "Bronze scimitar",
       "slot": "WEAPON"
@@ -284,6 +329,11 @@
       "item_id": 12297,
       "name": "Black pickaxe",
       "slot": "WEAPON"
+    },
+    {
+      "item_id": 1173,
+      "name": "Wooden shield",
+      "slot": "SHIELD"
     },
     {
       "item_id": 1175,
@@ -437,58 +487,7 @@
     }
   ],
   "deferred": [],
-  "missing": [
-    {
-      "item_id": 1277,
-      "name": "Bronze sword",
-      "slot": "WEAPON"
-    },
-    {
-      "item_id": 1291,
-      "name": "Bronze longsword",
-      "slot": "WEAPON"
-    },
-    {
-      "item_id": 1293,
-      "name": "Iron longsword",
-      "slot": "WEAPON"
-    },
-    {
-      "item_id": 1295,
-      "name": "Steel longsword",
-      "slot": "WEAPON"
-    },
-    {
-      "item_id": 1297,
-      "name": "Black longsword",
-      "slot": "WEAPON"
-    },
-    {
-      "item_id": 1299,
-      "name": "Mithril longsword",
-      "slot": "WEAPON"
-    },
-    {
-      "item_id": 1301,
-      "name": "Adamant longsword",
-      "slot": "WEAPON"
-    },
-    {
-      "item_id": 1303,
-      "name": "Rune longsword",
-      "slot": "WEAPON"
-    },
-    {
-      "item_id": 1305,
-      "name": "Dragon longsword",
-      "slot": "WEAPON"
-    },
-    {
-      "item_id": 1173,
-      "name": "Wooden shield",
-      "slot": "SHIELD"
-    }
-  ],
+  "missing": [],
   "item_names": {
     "579": "Blue wizard hat",
     "1115": "Bronze full helm",
@@ -525,6 +524,15 @@
     "1271": "Adamant pickaxe",
     "1273": "Mithril pickaxe",
     "1275": "Rune pickaxe",
+    "1277": "Bronze sword",
+    "1291": "Bronze longsword",
+    "1293": "Iron longsword",
+    "1295": "Steel longsword",
+    "1297": "Black longsword",
+    "1299": "Mithril longsword",
+    "1301": "Adamant longsword",
+    "1303": "Rune longsword",
+    "1305": "Dragon longsword",
     "1321": "Bronze scimitar",
     "1323": "Iron scimitar",
     "1325": "Steel scimitar",
@@ -547,6 +555,7 @@
     "6739": "Dragon axe",
     "11920": "Dragon pickaxe",
     "12297": "Black pickaxe",
+    "1173": "Wooden shield",
     "1175": "Bronze sq shield",
     "1177": "Iron sq shield",
     "1185": "Rune sq shield",
@@ -576,23 +585,13 @@
     "1095": "Leather chaps",
     "4087": "Dragon platelegs",
     "1059": "Leather gloves",
-    "1061": "Leather boots",
-    "1277": "Bronze sword",
-    "1291": "Bronze longsword",
-    "1293": "Iron longsword",
-    "1295": "Steel longsword",
-    "1297": "Black longsword",
-    "1299": "Mithril longsword",
-    "1301": "Adamant longsword",
-    "1303": "Rune longsword",
-    "1305": "Dragon longsword",
-    "1173": "Wooden shield"
+    "1061": "Leather boots"
   },
   "summary": {
     "equipable_total": 97,
     "visible_total": 97,
-    "covered": 87,
+    "covered": 97,
     "deferred": 0,
-    "missing": 10
+    "missing": 0
   }
 }

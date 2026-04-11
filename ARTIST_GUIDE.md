@@ -405,6 +405,7 @@ Equipment attachment prototype notes:
 - This is first-pass coverage only. Not every equipable item needs an attachment model yet.
 - Remote players may continue using billboard rendering while local-player composition is being evaluated.
 - Current weapon attachment coverage includes axes, pickaxes, scimitars, shortbows, longbows, and air staff.
+- Coverage also includes swords/longswords and wooden shield variants for lower-tier melee parity.
 - Current starter armour attachment coverage includes the ranged leather set and blue wizard set.
 - Coverage now also includes black melee variants, dragon melee variants, and elemental staves (air/water/earth/fire).
 - CAPE and AMMO visual support now exist experimentally.
