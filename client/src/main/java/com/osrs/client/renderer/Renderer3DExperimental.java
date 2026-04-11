@@ -92,6 +92,7 @@ public class Renderer3DExperimental {
     private static final float DEFAULT_FEET_ANCHOR_X = 0f;
     private static final float DEFAULT_FEET_ANCHOR_Y = 0.08f;
     private static final float DEFAULT_FEET_ANCHOR_Z = 0f;
+    private static final float DEFAULT_TERRAIN_HEIGHT_STEP = 0.6f;
 
     private final PerspectiveCamera camera;
     private final ModelBatch modelBatch;
@@ -137,6 +138,9 @@ public class Renderer3DExperimental {
     private int staticPropsRenderedLastFrame = 0;
     private int actorModelsRenderedLastFrame = 0;
     private int entityBillboardsRenderedLastFrame = 0;
+    private int[][] terrainHeightLevels;
+    private float terrainHeightStep = DEFAULT_TERRAIN_HEIGHT_STEP;
+    private int[][] lastTileMap;
 
     private static final class WallMaterialBinding {
         private final Material material;
@@ -209,6 +213,15 @@ public class Renderer3DExperimental {
         stateTime += delta;
     }
 
+    public void setTerrainHeightData(int[][] levels, float step) {
+        this.terrainHeightLevels = levels;
+        if (step > 0f) {
+            this.terrainHeightStep = step;
+        } else {
+            this.terrainHeightStep = DEFAULT_TERRAIN_HEIGHT_STEP;
+        }
+    }
+
     public void rebuildTerrain(int[][] tileMap) {
         rebuildTerrain(tileMap, activeMaterialProfile);
     }
@@ -258,6 +271,7 @@ public class Renderer3DExperimental {
         entityBillboardsRenderedLastFrame = 0;
 
         String normalizedProfile = normalizeMaterialProfile(materialProfile);
+        lastTileMap = tileMap;
         if (!normalizedProfile.equals(activeMaterialProfile)) {
             rebuildTerrain(tileMap, normalizedProfile);
         } else if (terrainChunks.isEmpty() && tileMap != null) {
@@ -349,7 +363,8 @@ public class Renderer3DExperimental {
             return;
         }
         Decal decal = obtainDecal(effectiveRegion, width, height);
-        decal.setPosition(tileX + 0.5f, baseY + height * 0.5f, tileY + 0.5f);
+        float tileBaseY = getTileTopY(tileX, tileY);
+        decal.setPosition(tileX + 0.5f, tileBaseY + baseY + height * 0.5f, tileY + 0.5f);
         decal.lookAt(camera.position, camera.up);
         decal.setColor(
             Math.max(0f, Math.min(1f, tintR)),
@@ -463,7 +478,8 @@ public class Renderer3DExperimental {
 
         ModelInstance instance = obtainStaticPropInstance(key, model);
         instance.transform.idt();
-        instance.transform.translate(tileX + 0.5f, 0f, tileY + 0.5f);
+        float tileBaseY = getTileTopY(tileX, tileY);
+        instance.transform.translate(tileX + 0.5f, tileBaseY, tileY + 0.5f);
         float effectiveScale = scaleOverride > 0f ? scaleOverride : meta.scale();
         if (effectiveScale > 0f && Math.abs(effectiveScale - 1f) > 0.0001f) {
             instance.transform.scale(effectiveScale, effectiveScale, effectiveScale);
@@ -561,7 +577,8 @@ public class Renderer3DExperimental {
 
         ModelInstance instance = obtainActorModelInstance(key, model);
         instance.transform.idt();
-        instance.transform.translate(tileX + 0.5f, 0f, tileY + 0.5f);
+        float tileBaseY = getTileTopY(tileX, tileY);
+        instance.transform.translate(tileX + 0.5f, tileBaseY, tileY + 0.5f);
         if (meta.scale() > 0f && Math.abs(meta.scale() - 1f) > 0.0001f) {
             instance.transform.scale(meta.scale(), meta.scale(), meta.scale());
         }
@@ -602,7 +619,8 @@ public class Renderer3DExperimental {
 
         ModelInstance baseInstance = obtainActorModelInstance(baseKey, baseModel);
         baseInstance.transform.idt();
-        baseInstance.transform.translate(tileX + 0.5f, 0f, tileY + 0.5f);
+        float tileBaseY = getTileTopY(tileX, tileY);
+        baseInstance.transform.translate(tileX + 0.5f, tileBaseY, tileY + 0.5f);
         if (Math.abs(rotationYDegrees) > 0.0001f) {
             baseInstance.transform.rotate(Vector3.Y, rotationYDegrees);
         }
@@ -613,7 +631,7 @@ public class Renderer3DExperimental {
             modelBatch.render(baseInstance, environment);
             actorModelsRenderedLastFrame++;
 
-        renderPlayerEquipmentAttachments(baseInstance, tileX, tileY, rotationYDegrees, baseScale, equippedItemIds);
+        renderPlayerEquipmentAttachments(baseInstance, tileX, tileY, tileBaseY, rotationYDegrees, baseScale, equippedItemIds);
 
         if (ownsPass) {
             endActorModelPass();
@@ -651,7 +669,8 @@ public class Renderer3DExperimental {
             localPlayerAnimationController.update(Math.max(0f, delta));
 
             localPlayerAnimatedInstance.transform.idt();
-            localPlayerAnimatedInstance.transform.translate(tileX + 0.5f, 0f, tileY + 0.5f);
+            float tileBaseY = getTileTopY(tileX, tileY);
+            localPlayerAnimatedInstance.transform.translate(tileX + 0.5f, tileBaseY, tileY + 0.5f);
             if (Math.abs(rotationYDegrees) > 0.0001f) {
                 localPlayerAnimatedInstance.transform.rotate(Vector3.Y, rotationYDegrees);
             }
@@ -661,7 +680,7 @@ public class Renderer3DExperimental {
             localPlayerAnimatedInstance.calculateTransforms();
             modelBatch.render(localPlayerAnimatedInstance, environment);
 
-            renderPlayerEquipmentAttachments(localPlayerAnimatedInstance, tileX, tileY, rotationYDegrees, baseScale, equippedItemIds);
+            renderPlayerEquipmentAttachments(localPlayerAnimatedInstance, tileX, tileY, tileBaseY, rotationYDegrees, baseScale, equippedItemIds);
         } catch (Exception e) {
             if (ownsPass) {
                 endActorModelPass();
@@ -714,7 +733,8 @@ public class Renderer3DExperimental {
             controller.update(Math.max(0f, delta));
 
             instance.transform.idt();
-            instance.transform.translate(tileX + 0.5f, 0f, tileY + 0.5f);
+            float tileBaseY = getTileTopY(tileX, tileY);
+            instance.transform.translate(tileX + 0.5f, tileBaseY, tileY + 0.5f);
             if (Math.abs(rotationYDegrees) > 0.0001f) {
                 instance.transform.rotate(Vector3.Y, rotationYDegrees);
             }
@@ -755,6 +775,7 @@ public class Renderer3DExperimental {
     private void renderPlayerEquipmentAttachments(ModelInstance baseInstance,
                                                   float tileX,
                                                   float tileY,
+                                                  float tileBaseY,
                                                   float rotationYDegrees,
                                                   float baseScale,
                                                   int[] equippedItemIds) {
@@ -792,7 +813,7 @@ public class Renderer3DExperimental {
                     equipMeta.offsetZ() - defaultAnchorOffsetZForSlot(slot)
                 );
             } else {
-                equipInstance.transform.translate(tileX + 0.5f, 0f, tileY + 0.5f);
+                equipInstance.transform.translate(tileX + 0.5f, tileBaseY, tileY + 0.5f);
                 if (Math.abs(rotationYDegrees) > 0.0001f) {
                     equipInstance.transform.rotate(Vector3.Y, rotationYDegrees);
                 }
@@ -1037,16 +1058,51 @@ public class Renderer3DExperimental {
 
     public int[] pickTile(int screenX, int screenY) {
         Ray ray = camera.getPickRay(screenX, screenY);
+        int centerTileX = clampTile((int) Math.floor(camera.position.x));
+        int centerTileY = clampTile((int) Math.floor(camera.position.z));
+        int radius = Math.min(40, Math.max(20, (int) Math.ceil(camera.position.y * 2f + 10f)));
+
+        int minTileX = Math.max(0, centerTileX - radius);
+        int maxTileX = Math.min(MAP_WIDTH - 1, centerTileX + radius);
+        int minTileY = Math.max(0, centerTileY - radius);
+        int maxTileY = Math.min(MAP_HEIGHT - 1, centerTileY + radius);
+
+        float bestT = Float.POSITIVE_INFINITY;
+        int bestX = -1;
+        int bestY = -1;
+        if (Math.abs(ray.direction.y) > 0.000001f) {
+            for (int y = minTileY; y <= maxTileY; y++) {
+                for (int x = minTileX; x <= maxTileX; x++) {
+                    float tileTopY = getTileTopY(lastTileMap, x, y);
+                    float t = (tileTopY - ray.origin.y) / ray.direction.y;
+                    if (t <= 0.0001f || t >= bestT) {
+                        continue;
+                    }
+                    float hitX = ray.origin.x + ray.direction.x * t;
+                    float hitZ = ray.origin.z + ray.direction.z * t;
+                    if (hitX >= x && hitX <= x + 1f && hitZ >= y && hitZ <= y + 1f) {
+                        bestT = t;
+                        bestX = x;
+                        bestY = y;
+                    }
+                }
+            }
+        }
+
+        if (bestX >= 0 && bestY >= 0) {
+            return new int[]{bestX, bestY};
+        }
+
         Vector3 intersection = new Vector3();
         if (!Intersector.intersectRayPlane(ray, groundPlane, intersection)) {
             return new int[]{-1, -1};
         }
-        int tileX = (int) Math.floor(intersection.x);
-        int tileY = (int) Math.floor(intersection.z);
-        if (tileX < 0 || tileY < 0 || tileX >= MAP_WIDTH || tileY >= MAP_HEIGHT) {
+        int fallbackX = (int) Math.floor(intersection.x);
+        int fallbackY = (int) Math.floor(intersection.z);
+        if (fallbackX < 0 || fallbackY < 0 || fallbackX >= MAP_WIDTH || fallbackY >= MAP_HEIGHT) {
             return new int[]{-1, -1};
         }
-        return new int[]{tileX, tileY};
+        return new int[]{fallbackX, fallbackY};
     }
 
     public Float intersectRayCylinder(Ray ray,
@@ -1112,6 +1168,12 @@ public class Renderer3DExperimental {
         }
 
         return bestT == Float.POSITIVE_INFINITY ? null : bestT;
+    }
+
+    public float getTileTopY(float tileX, float tileY) {
+        int x = (int) Math.floor(tileX);
+        int y = (int) Math.floor(tileY);
+        return getTileTopY(lastTileMap, x, y);
     }
 
     public boolean isPointNearCamera(float worldX, float worldY, float worldZ, float maxDistance) {
@@ -1208,8 +1270,19 @@ public class Renderer3DExperimental {
                 float z0 = y;
                 float x1 = x + 1f;
                 float z1 = y + 1f;
+                float tileTopY = getTileTopY(tileMap, x, y);
 
                 if (type == 3) {
+                    Material baseTileMaterial = new Material(TextureAttribute.createDiffuse(region.getTexture()));
+                    MeshPartBuilder baseTilePart = modelBuilder.part(
+                        "wall_tile_base_" + x + "_" + y,
+                        GL20.GL_TRIANGLES,
+                        VertexAttributes.Usage.Position | VertexAttributes.Usage.Normal | VertexAttributes.Usage.TextureCoordinates,
+                        baseTileMaterial
+                    );
+                    addTopQuad(baseTilePart, x0, z0, x1, z1, tileTopY, region);
+
+                    float wallTopY = tileTopY + WALL_TOP_Y;
                     Material topMaterial = createWallTopMaterial(region);
                     MeshPartBuilder topPart = modelBuilder.part(
                         "wall_top_" + x + "_" + y,
@@ -1217,7 +1290,7 @@ public class Renderer3DExperimental {
                         VertexAttributes.Usage.Position | VertexAttributes.Usage.Normal | VertexAttributes.Usage.TextureCoordinates,
                         topMaterial
                     );
-                    addTopQuad(topPart, x0, z0, x1, z1, WALL_TOP_Y, region);
+                    addTopQuad(topPart, x0, z0, x1, z1, wallTopY, region);
                     wallBindings.add(new WallMaterialBinding(topMaterial, x, y, 1f));
 
                     if (!isWallTile(tileMap, x, y - 1)) {
@@ -1230,10 +1303,10 @@ public class Renderer3DExperimental {
                         );
                         addVerticalFace(
                             northFacePart,
-                            x0, GROUND_Y, z0,
-                            x1, GROUND_Y, z0,
-                            x1, WALL_TOP_Y, z0,
-                            x0, WALL_TOP_Y, z0,
+                            x0, tileTopY, z0,
+                            x1, tileTopY, z0,
+                            x1, wallTopY, z0,
+                            x0, wallTopY, z0,
                             region,
                             0f, 0f, -1f
                         );
@@ -1250,10 +1323,10 @@ public class Renderer3DExperimental {
                         );
                         addVerticalFace(
                             southFacePart,
-                            x1, GROUND_Y, z1,
-                            x0, GROUND_Y, z1,
-                            x0, WALL_TOP_Y, z1,
-                            x1, WALL_TOP_Y, z1,
+                            x1, tileTopY, z1,
+                            x0, tileTopY, z1,
+                            x0, wallTopY, z1,
+                            x1, wallTopY, z1,
                             region,
                             0f, 0f, 1f
                         );
@@ -1270,10 +1343,10 @@ public class Renderer3DExperimental {
                         );
                         addVerticalFace(
                             westFacePart,
-                            x0, GROUND_Y, z1,
-                            x0, GROUND_Y, z0,
-                            x0, WALL_TOP_Y, z0,
-                            x0, WALL_TOP_Y, z1,
+                            x0, tileTopY, z1,
+                            x0, tileTopY, z0,
+                            x0, wallTopY, z0,
+                            x0, wallTopY, z1,
                             region,
                             -1f, 0f, 0f
                         );
@@ -1290,10 +1363,10 @@ public class Renderer3DExperimental {
                         );
                         addVerticalFace(
                             eastFacePart,
-                            x1, GROUND_Y, z0,
-                            x1, GROUND_Y, z1,
-                            x1, WALL_TOP_Y, z1,
-                            x1, WALL_TOP_Y, z0,
+                            x1, tileTopY, z0,
+                            x1, tileTopY, z1,
+                            x1, wallTopY, z1,
+                            x1, wallTopY, z0,
                             region,
                             1f, 0f, 0f
                         );
@@ -1307,7 +1380,45 @@ public class Renderer3DExperimental {
                         VertexAttributes.Usage.Position | VertexAttributes.Usage.Normal | VertexAttributes.Usage.TextureCoordinates,
                         material
                     );
-                    addTopQuad(part, x0, z0, x1, z1, GROUND_Y, region);
+                    addTopQuad(part, x0, z0, x1, z1, tileTopY, region);
+                }
+
+                float northTop = getTileTopY(tileMap, x, y - 1);
+                float southTop = getTileTopY(tileMap, x, y + 1);
+                float eastTop = getTileTopY(tileMap, x + 1, y);
+                float westTop = getTileTopY(tileMap, x - 1, y);
+
+                if (northTop + 0.0001f < tileTopY) {
+                    addTerrainStepFace(region, "step_n_" + x + "_" + y,
+                        x0, northTop, z0,
+                        x1, northTop, z0,
+                        x1, tileTopY, z0,
+                        x0, tileTopY, z0,
+                        0f, 0f, -1f);
+                }
+                if (southTop + 0.0001f < tileTopY) {
+                    addTerrainStepFace(region, "step_s_" + x + "_" + y,
+                        x1, southTop, z1,
+                        x0, southTop, z1,
+                        x0, tileTopY, z1,
+                        x1, tileTopY, z1,
+                        0f, 0f, 1f);
+                }
+                if (westTop + 0.0001f < tileTopY) {
+                    addTerrainStepFace(region, "step_w_" + x + "_" + y,
+                        x0, westTop, z1,
+                        x0, westTop, z0,
+                        x0, tileTopY, z0,
+                        x0, tileTopY, z1,
+                        -1f, 0f, 0f);
+                }
+                if (eastTop + 0.0001f < tileTopY) {
+                    addTerrainStepFace(region, "step_e_" + x + "_" + y,
+                        x1, eastTop, z0,
+                        x1, eastTop, z1,
+                        x1, tileTopY, z1,
+                        x1, tileTopY, z0,
+                        1f, 0f, 0f);
                 }
                 hasGeometry = true;
             }
@@ -1509,15 +1620,16 @@ public class Renderer3DExperimental {
                 boolean waterSouth = isTile(tileMap, x, y + 1, 1);
                 boolean waterEast = isTile(tileMap, x + 1, y, 1);
                 boolean waterWest = isTile(tileMap, x - 1, y, 1);
-                float baseOverlayY = type == 3 ? WALL_TOP_Y + WALL_OVERLAY_Y : GROUND_Y + OVERLAY_Y;
+                float tileTopY = getTileTopY(tileMap, x, y);
+                float baseOverlayY = type == 3 ? tileTopY + WALL_TOP_Y + WALL_OVERLAY_Y : tileTopY + OVERLAY_Y;
 
                 if (type == 1) {
                     TextureRegion shimmer = resolveAnimatedOverlayRegion("water_shimmer", materialProfile);
-                    renderGroundOverlayDecal(x, y, GROUND_Y + WATER_OVERLAY_Y, shimmer, 0.18f);
+                    renderGroundOverlayDecal(x, y, tileTopY + WATER_OVERLAY_Y, shimmer, 0.18f);
 
                     if (waterSeed(x, y) % 7 == 0) {
                         TextureRegion sparkle = resolveAnimatedOverlayRegion("water_sparkle", materialProfile);
-                        renderGroundOverlayDecal(x, y, GROUND_Y + WATER_OVERLAY_Y + 0.001f, sparkle, 0.10f);
+                        renderGroundOverlayDecal(x, y, tileTopY + WATER_OVERLAY_Y + 0.001f, sparkle, 0.10f);
                     }
                 }
 
@@ -1785,6 +1897,54 @@ public class Renderer3DExperimental {
         int radius = (int) Math.ceil(estimate);
         radius = Math.max(MIN_OVERLAY_RADIUS, radius);
         return Math.min(MAX_OVERLAY_RADIUS, radius);
+    }
+
+    private float getTileTopY(int[][] tileMap, int tileX, int tileY) {
+        int level = getHeightLevel(tileMap, tileX, tileY);
+        return level * terrainHeightStep;
+    }
+
+    private int getHeightLevel(int[][] tileMap, int tileX, int tileY) {
+        if (tileX < 0 || tileX >= MAP_WIDTH || tileY < 0 || tileY >= MAP_HEIGHT) {
+            return 0;
+        }
+        if (tileMap != null && isTile(tileMap, tileX, tileY, 1)) {
+            return 0;
+        }
+        if (terrainHeightLevels == null
+            || tileX >= terrainHeightLevels.length
+            || terrainHeightLevels[tileX] == null
+            || tileY >= terrainHeightLevels[tileX].length) {
+            return 0;
+        }
+        return Math.max(0, terrainHeightLevels[tileX][tileY]);
+    }
+
+    private void addTerrainStepFace(TextureRegion region,
+                                    String partId,
+                                    float x0,
+                                    float y0,
+                                    float z0,
+                                    float x1,
+                                    float y1,
+                                    float z1,
+                                    float x2,
+                                    float y2,
+                                    float z2,
+                                    float x3,
+                                    float y3,
+                                    float z3,
+                                    float nx,
+                                    float ny,
+                                    float nz) {
+        Material material = createWallFaceMaterial(region);
+        MeshPartBuilder part = modelBuilder.part(
+            partId,
+            GL20.GL_TRIANGLES,
+            VertexAttributes.Usage.Position | VertexAttributes.Usage.Normal | VertexAttributes.Usage.TextureCoordinates,
+            material
+        );
+        addVerticalFace(part, x0, y0, z0, x1, y1, z1, x2, y2, z2, x3, y3, z3, region, nx, ny, nz);
     }
 
     private int clampTile(int value) {

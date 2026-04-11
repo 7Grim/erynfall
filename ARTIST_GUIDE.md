@@ -447,6 +447,11 @@ Animated NPC base model convention:
 - The renderer maps existing state keys (`npc_*_idle`, `npc_*_walk`, `npc_*_action`) to these clip names.
 - Legacy static state models remain in place as fallback when base models or clips are missing.
 
+Stepped terrain note:
+- 3D terrain height is client-authored in `client/src/main/resources/terrain_height.yaml`.
+- Terrain is stepped by integer levels (`level * height_step`), not smooth slopes.
+- In 3D mode, actors/resources/props are placed on each tile's terrain-top height.
+
 3D equipment coverage audit:
 - Visible equipment coverage policy is defined in `art/models/equipment_coverage_policy.yaml`.
 - The project tracks visible slots separately from deferred slots (currently NECK/RING are deferred).

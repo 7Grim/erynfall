@@ -1,0 +1,32 @@
+height_step: 0.6
+regions:
+  - name: "town_plateau"
+    min_x: 8
+    min_y: 40
+    max_x: 96
+    max_y: 60
+    level: 1
+  - name: "woodcutting_strip"
+    min_x: 8
+    min_y: 36
+    max_x: 96
+    max_y: 39
+    level: 2
+  - name: "mining_strip"
+    min_x: 8
+    min_y: 32
+    max_x: 96
+    max_y: 35
+    level: 2
+  - name: "fishing_strip"
+    min_x: 8
+    min_y: 28
+    max_x: 96
+    max_y: 31
+    level: 1
+  - name: "services_strip"
+    min_x: 8
+    min_y: 24
+    max_x: 96
+    max_y: 27
+    level: 1

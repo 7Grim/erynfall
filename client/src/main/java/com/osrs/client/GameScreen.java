@@ -29,6 +29,7 @@ import com.osrs.client.audio.AudioManager;
 import com.osrs.client.renderer.SpriteSheet;
 import com.osrs.client.world.MapLoader;
 import com.osrs.client.world.StaticPropLoader;
+import com.osrs.client.world.TerrainHeightLoader;
 import com.osrs.client.ui.AdminToolsPopup;
 import com.osrs.client.ui.ChatBox;
 import com.osrs.client.ui.CombatUI;
@@ -156,6 +157,8 @@ public class GameScreen extends ApplicationAdapter {
     private SpriteSheet      spriteSheet;
     private ModelLibrary     modelLibrary;
     private List<StaticPropLoader.StaticPropPlacement> staticPropPlacements = List.of();
+    private int[][] terrainHeightLevels;
+    private float terrainHeightStep = 0.6f;
     private AudioManager     audioManager;
     private BitmapFont       font;
     private Matrix4          screenProjection;
@@ -550,7 +553,11 @@ public class GameScreen extends ApplicationAdapter {
         renderer3d.setModelLibrary(modelLibrary);
         mapLoader  = MapLoader.load();
         tileMap    = mapLoader.getLayout();
+        TerrainHeightLoader.TerrainHeightData terrainHeightData = TerrainHeightLoader.load();
+        terrainHeightLevels = terrainHeightData.levels;
+        terrainHeightStep = terrainHeightData.heightStep;
         staticPropPlacements = StaticPropLoader.load();
+        renderer3d.setTerrainHeightData(terrainHeightLevels, terrainHeightStep);
         renderer3d.rebuildTerrain(tileMap);
         contextMenu = new ContextMenu();
         combatUI   = new CombatUI();
@@ -1171,7 +1178,8 @@ public class GameScreen extends ApplicationAdapter {
         if (camera3d == null) {
             return false;
         }
-        out.set(tileX + 0.5f, worldHeight, tileY + 0.5f).prj(camera3d.combined);
+        float terrainY = renderer3d == null ? 0f : renderer3d.getTileTopY(tileX, tileY);
+        out.set(tileX + 0.5f, terrainY + worldHeight, tileY + 0.5f).prj(camera3d.combined);
         return out.z >= 0f && out.z <= 1f;
     }
 
@@ -1266,9 +1274,13 @@ public class GameScreen extends ApplicationAdapter {
             spriteSheet = SpriteSheet.load();
             modelLibrary = ModelLibrary.load();
             staticPropPlacements = StaticPropLoader.load();
+            TerrainHeightLoader.TerrainHeightData terrainHeightData = TerrainHeightLoader.load();
+            terrainHeightLevels = terrainHeightData.levels;
+            terrainHeightStep = terrainHeightData.heightStep;
             renderer2d.setSpriteSheet(spriteSheet);
             renderer3d.setSpriteSheet(spriteSheet);
             renderer3d.setModelLibrary(modelLibrary);
+            renderer3d.setTerrainHeightData(terrainHeightLevels, terrainHeightStep);
             renderer3d.rebuildTerrain(tileMap);
             LOG.info("Sprite atlas reloaded");
         }
