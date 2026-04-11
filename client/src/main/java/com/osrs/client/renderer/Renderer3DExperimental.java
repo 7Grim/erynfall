@@ -128,10 +128,10 @@ public class Renderer3DExperimental {
     private boolean actorModelPassActive = false;
 
     private ModelLibrary modelLibrary;
-    private ModelInstance localPlayerAnimatedInstance;
-    private AnimationController localPlayerAnimationController;
-    private String currentLocalPlayerClip = "";
-    private float localPlayerAnimTime = 0f;
+    private final Map<Integer, ModelInstance> animatedPlayerInstances = new HashMap<>();
+    private final Map<Integer, AnimationController> playerAnimationControllers = new HashMap<>();
+    private final Map<Integer, String> currentPlayerClipByEntityId = new HashMap<>();
+    private final Map<Integer, Float> playerAnimTimes = new HashMap<>();
     private final Map<Integer, ModelInstance> npcAnimatedInstances = new HashMap<>();
     private final Map<Integer, AnimationController> npcAnimationControllers = new HashMap<>();
     private final Map<Integer, String> npcBaseKeyByEntityId = new HashMap<>();
@@ -206,10 +206,10 @@ public class Renderer3DExperimental {
         staticPropInstanceCursor.clear();
         actorModelInstancePool.clear();
         actorModelInstanceCursor.clear();
-        localPlayerAnimatedInstance = null;
-        localPlayerAnimationController = null;
-        currentLocalPlayerClip = "";
-        localPlayerAnimTime = 0f;
+        animatedPlayerInstances.clear();
+        playerAnimationControllers.clear();
+        currentPlayerClipByEntityId.clear();
+        playerAnimTimes.clear();
         npcAnimatedInstances.clear();
         npcAnimationControllers.clear();
         npcBaseKeyByEntityId.clear();
@@ -652,20 +652,27 @@ public class Renderer3DExperimental {
         return true;
     }
 
-    public boolean renderAnimatedLocalPlayer(String stateKey,
-                                             float tileX,
-                                             float tileY,
-                                             float rotationYDegrees,
-                                             int[] equippedItemIds,
-                                             float delta) {
-        if (!ensureLocalPlayerAnimatedModelLoaded()) {
+    public boolean renderAnimatedPlayer(String stateKey,
+                                        int entityId,
+                                        float tileX,
+                                        float tileY,
+                                        float rotationYDegrees,
+                                        int[] equippedItemIds,
+                                        float delta) {
+        if (!ensureAnimatedPlayerModelLoaded(entityId)) {
+            return false;
+        }
+
+        ModelInstance animatedInstance = animatedPlayerInstances.get(entityId);
+        AnimationController animationController = playerAnimationControllers.get(entityId);
+        if (animatedInstance == null || animationController == null) {
             return false;
         }
 
         String clipName = normalizePlayerClipName(stateKey);
-        boolean hasClips = localPlayerAnimatedInstance.animations != null
-                           && !localPlayerAnimatedInstance.animations.isEmpty();
-        if (hasClips && localPlayerAnimatedInstance.getAnimation(clipName) == null) {
+        boolean hasClips = animatedInstance.animations != null
+                           && !animatedInstance.animations.isEmpty();
+        if (hasClips && animatedInstance.getAnimation(clipName) == null) {
             return false;
         }
 
@@ -678,29 +685,32 @@ public class Renderer3DExperimental {
         float baseScale = baseMeta != null && baseMeta.scale() > 0f ? baseMeta.scale() : 1f;
         try {
             if (hasClips) {
-                if (!clipName.equals(currentLocalPlayerClip)) {
-                    localPlayerAnimationController.setAnimation(clipName, -1);
-                    currentLocalPlayerClip = clipName;
+                String currentClip = currentPlayerClipByEntityId.getOrDefault(entityId, "");
+                if (!clipName.equals(currentClip)) {
+                    animationController.setAnimation(clipName, -1);
+                    currentPlayerClipByEntityId.put(entityId, clipName);
                 }
-                localPlayerAnimationController.update(Math.max(0f, delta));
+                animationController.update(Math.max(0f, delta));
             } else {
-                localPlayerAnimTime += Math.max(0f, delta);
-                applyCharacterAnimation(localPlayerAnimatedInstance, clipName, localPlayerAnimTime);
+                float animTime = playerAnimTimes.getOrDefault(entityId, 0f) + Math.max(0f, delta);
+                playerAnimTimes.put(entityId, animTime);
+                applyCharacterAnimation(animatedInstance, clipName, animTime);
             }
 
-            localPlayerAnimatedInstance.transform.idt();
+            animatedInstance.transform.idt();
             float tileBaseY = getTileTopY(tileX, tileY);
-            localPlayerAnimatedInstance.transform.translate(tileX + 0.5f, tileBaseY, tileY + 0.5f);
+            animatedInstance.transform.translate(tileX + 0.5f, tileBaseY, tileY + 0.5f);
             if (Math.abs(rotationYDegrees) > 0.0001f) {
-                localPlayerAnimatedInstance.transform.rotate(Vector3.Y, rotationYDegrees);
+                animatedInstance.transform.rotate(Vector3.Y, rotationYDegrees);
             }
             if (Math.abs(baseScale - 1f) > 0.0001f) {
-                localPlayerAnimatedInstance.transform.scale(baseScale, baseScale, baseScale);
+                animatedInstance.transform.scale(baseScale, baseScale, baseScale);
             }
-            localPlayerAnimatedInstance.calculateTransforms();
-            modelBatch.render(localPlayerAnimatedInstance, characterEnvironment);
+            animatedInstance.calculateTransforms();
+            modelBatch.render(animatedInstance, characterEnvironment);
+            actorModelsRenderedLastFrame++;
 
-            renderPlayerEquipmentAttachments(localPlayerAnimatedInstance, tileX, tileY, tileBaseY, rotationYDegrees, baseScale, equippedItemIds);
+            renderPlayerEquipmentAttachments(animatedInstance, tileX, tileY, tileBaseY, rotationYDegrees, baseScale, equippedItemIds);
         } catch (Exception e) {
             if (ownsPass) {
                 endActorModelPass();
@@ -712,6 +722,20 @@ public class Renderer3DExperimental {
             endActorModelPass();
         }
         return true;
+    }
+
+    public void retainAnimatedPlayerEntities(Set<Integer> activePlayerEntityIds) {
+        if (activePlayerEntityIds == null) {
+            animatedPlayerInstances.clear();
+            playerAnimationControllers.clear();
+            currentPlayerClipByEntityId.clear();
+            playerAnimTimes.clear();
+            return;
+        }
+        animatedPlayerInstances.keySet().retainAll(activePlayerEntityIds);
+        playerAnimationControllers.keySet().retainAll(activePlayerEntityIds);
+        currentPlayerClipByEntityId.keySet().retainAll(activePlayerEntityIds);
+        playerAnimTimes.keySet().retainAll(activePlayerEntityIds);
     }
 
     public boolean renderAnimatedNpc(String baseKey,
@@ -867,14 +891,15 @@ public class Renderer3DExperimental {
         }
     }
 
-    private boolean ensureLocalPlayerAnimatedModelLoaded() {
-        if (modelLibrary == null || !modelLibrary.hasModel("player_base")) {
-            localPlayerAnimatedInstance = null;
-            localPlayerAnimationController = null;
-            currentLocalPlayerClip = "";
+    private boolean ensureAnimatedPlayerModelLoaded(int entityId) {
+        if (entityId <= 0 || modelLibrary == null || !modelLibrary.hasModel("player_base")) {
+            animatedPlayerInstances.remove(entityId);
+            playerAnimationControllers.remove(entityId);
+            currentPlayerClipByEntityId.remove(entityId);
+            playerAnimTimes.remove(entityId);
             return false;
         }
-        if (localPlayerAnimatedInstance != null && localPlayerAnimationController != null) {
+        if (animatedPlayerInstances.containsKey(entityId) && playerAnimationControllers.containsKey(entityId)) {
             return true;
         }
 
@@ -883,14 +908,18 @@ public class Renderer3DExperimental {
             return false;
         }
         try {
-            localPlayerAnimatedInstance = new ModelInstance(model);
-            localPlayerAnimationController = new AnimationController(localPlayerAnimatedInstance);
-            currentLocalPlayerClip = "";
+            ModelInstance instance = new ModelInstance(model);
+            AnimationController controller = new AnimationController(instance);
+            animatedPlayerInstances.put(entityId, instance);
+            playerAnimationControllers.put(entityId, controller);
+            currentPlayerClipByEntityId.put(entityId, "");
+            playerAnimTimes.put(entityId, 0f);
             return true;
         } catch (Exception e) {
-            localPlayerAnimatedInstance = null;
-            localPlayerAnimationController = null;
-            currentLocalPlayerClip = "";
+            animatedPlayerInstances.remove(entityId);
+            playerAnimationControllers.remove(entityId);
+            currentPlayerClipByEntityId.remove(entityId);
+            playerAnimTimes.remove(entityId);
             return false;
         }
     }
@@ -1321,10 +1350,10 @@ public class Renderer3DExperimental {
         terrainChunkModels.clear();
         terrainChunks.clear();
         wallMaterialsByChunk.clear();
-        localPlayerAnimatedInstance = null;
-        localPlayerAnimationController = null;
-        currentLocalPlayerClip = "";
-        localPlayerAnimTime = 0f;
+        animatedPlayerInstances.clear();
+        playerAnimationControllers.clear();
+        currentPlayerClipByEntityId.clear();
+        playerAnimTimes.clear();
         npcAnimatedInstances.clear();
         npcAnimationControllers.clear();
         npcBaseKeyByEntityId.clear();

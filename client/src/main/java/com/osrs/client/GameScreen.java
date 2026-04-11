@@ -1513,16 +1513,19 @@ public class GameScreen extends ApplicationAdapter {
 
         boolean[] modelRendered = new boolean[entries.size()];
         boolean[] culled = new boolean[entries.size()];
+        Set<Integer> activePlayerEntities = new HashSet<>();
         Set<Integer> activeNpcEntities = new HashSet<>();
         for (ActorRenderEntry entry : entries) {
             if (entry.isPlayer()) {
-                continue;
-            }
-            String actorModelKey = resolveActorModelKey3D(entry);
-            if (resolveAnimatedNpcBaseKey3D(actorModelKey) != null) {
-                activeNpcEntities.add(entry.entityId());
+                activePlayerEntities.add(entry.entityId());
+            } else {
+                String actorModelKey = resolveActorModelKey3D(entry);
+                if (resolveAnimatedNpcBaseKey3D(actorModelKey) != null) {
+                    activeNpcEntities.add(entry.entityId());
+                }
             }
         }
+        renderer3d.retainAnimatedPlayerEntities(activePlayerEntities);
         renderer3d.retainAnimatedNpcEntities(activeNpcEntities);
 
         renderer3d.beginStaticPropPass();
@@ -1552,8 +1555,9 @@ public class GameScreen extends ApplicationAdapter {
                     float yawDegrees = actorModelYawDegrees(entry);
                     if (entry.entityId() == localPlayerId) {
                         populateLocalPlayerEquipmentModelIds();
-                        if (renderer3d.renderAnimatedLocalPlayer(
+                        if (renderer3d.renderAnimatedPlayer(
                             basePlayerModelKey,
+                            entry.entityId(),
                             entry.tileX(),
                             entry.tileY(),
                             yawDegrees,
@@ -1573,7 +1577,19 @@ public class GameScreen extends ApplicationAdapter {
                         int[] remoteVisibleEquipment = packetHandler == null
                             ? null
                             : packetHandler.getRemotePlayerEquipment(entry.entityId());
-                        if (populateRemotePlayerEquipmentModelIds(remoteVisibleEquipment)
+                        boolean hasRemoteEquipment = populateRemotePlayerEquipmentModelIds(remoteVisibleEquipment);
+                        if (hasRemoteEquipment
+                            && renderer3d.renderAnimatedPlayer(
+                            basePlayerModelKey,
+                            entry.entityId(),
+                            entry.tileX(),
+                            entry.tileY(),
+                            yawDegrees,
+                            remotePlayerEquipmentModelIds,
+                            delta
+                        )) {
+                            modelRendered[i] = true;
+                        } else if (hasRemoteEquipment
                             && renderer3d.renderPlayerModelComposed(
                                 basePlayerModelKey,
                                 entry.tileX(),
