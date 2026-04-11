@@ -208,6 +208,70 @@ assets:
     origin: tile-center
     required: false
     notes: Small barrel prop.
+  - key: building_shell_service
+    file: building_shell_service.g3dj
+    category: shell
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Service-area building shell for the 3D renderer.
+  - key: building_shell_coastal
+    file: building_shell_coastal.g3dj
+    category: shell
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Shoreline/coastal building shell for the 3D renderer.
+  - key: dock_pier_small
+    file: dock_pier_small.g3dj
+    category: prop
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Small shoreline dock/pier segment.
+  - key: fence_post_small
+    file: fence_post_small.g3dj
+    category: prop
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Small fence post world prop.
+  - key: signpost_small
+    file: signpost_small.g3dj
+    category: prop
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Small signpost world prop.
+  - key: bench_small
+    file: bench_small.g3dj
+    category: prop
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Small bench prop.
+  - key: sack_stack_small
+    file: sack_stack_small.g3dj
+    category: prop
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Sack stack prop for service/trade areas.
+  - key: cart_small
+    file: cart_small.g3dj
+    category: prop
+    format: g3dj
+    scale: 1.0
+    origin: tile-center
+    required: false
+    notes: Small cart prop for town/services areas.
   - key: player_idle
     file: player_idle.g3dj
     category: actor

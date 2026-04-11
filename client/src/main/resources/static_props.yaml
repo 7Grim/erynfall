@@ -35,3 +35,75 @@ props:
     rotation_y_degrees: 0
     scale: 1.0
     visibility_group: base
+  - key: building_shell_service
+    x: 56
+    y: 48
+    rotation_y_degrees: 0
+    scale: 1.0
+    visibility_group: roof
+  - key: bench_small
+    x: 54
+    y: 48
+    rotation_y_degrees: 90
+    scale: 1.0
+    visibility_group: base
+  - key: signpost_small
+    x: 58
+    y: 46
+    rotation_y_degrees: 0
+    scale: 1.0
+    visibility_group: base
+  - key: sack_stack_small
+    x: 57
+    y: 50
+    rotation_y_degrees: 0
+    scale: 1.0
+    visibility_group: base
+  - key: cart_small
+    x: 53
+    y: 50
+    rotation_y_degrees: 180
+    scale: 1.0
+    visibility_group: base
+  - key: fence_post_small
+    x: 55
+    y: 46
+    rotation_y_degrees: 0
+    scale: 1.0
+    visibility_group: base
+  - key: building_shell_coastal
+    x: 52
+    y: 38
+    rotation_y_degrees: 0
+    scale: 1.0
+    visibility_group: roof
+  - key: dock_pier_small
+    x: 50
+    y: 36
+    rotation_y_degrees: 0
+    scale: 1.0
+    visibility_group: base
+  - key: dock_pier_small
+    x: 51
+    y: 35
+    rotation_y_degrees: 0
+    scale: 1.0
+    visibility_group: base
+  - key: signpost_small
+    x: 53
+    y: 37
+    rotation_y_degrees: 180
+    scale: 1.0
+    visibility_group: base
+  - key: fence_post_small
+    x: 49
+    y: 37
+    rotation_y_degrees: 0
+    scale: 1.0
+    visibility_group: base
+  - key: barrel_small
+    x: 52
+    y: 36
+    rotation_y_degrees: 0
+    scale: 1.0
+    visibility_group: base
