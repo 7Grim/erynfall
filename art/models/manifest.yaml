@@ -422,6 +422,40 @@ assets:
     rot_x: 0.0
     rot_y: 0.0
     rot_z: 0.0
+  - key: equip_head_black_full_helm
+    file: equip_head_black_full_helm.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Black full helm attachment.
+    equip_slot: 0
+    item_id: 1159
+    anchor_name: head_anchor
+    offset_x: 0.0
+    offset_y: 1.18
+    offset_z: 0.0
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: 0.0
+  - key: equip_head_dragon_full_helm
+    file: equip_head_dragon_full_helm.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Dragon full helm attachment.
+    equip_slot: 0
+    item_id: 11335
+    anchor_name: head_anchor
+    offset_x: 0.0
+    offset_y: 1.18
+    offset_z: 0.0
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: 0.0
   - key: equip_body_bronze_platebody
     file: equip_body_bronze_platebody.g3dj
     category: equipment
@@ -524,6 +558,40 @@ assets:
     rot_x: 0.0
     rot_y: 0.0
     rot_z: 0.0
+  - key: equip_body_black_platebody
+    file: equip_body_black_platebody.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Black platebody attachment.
+    equip_slot: 6
+    item_id: 1125
+    anchor_name: body_anchor
+    offset_x: 0.0
+    offset_y: 0.84
+    offset_z: 0.0
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: 0.0
+  - key: equip_body_dragon_chainbody
+    file: equip_body_dragon_chainbody.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Dragon chainbody attachment.
+    equip_slot: 6
+    item_id: 3140
+    anchor_name: body_anchor
+    offset_x: 0.0
+    offset_y: 0.84
+    offset_z: 0.0
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: 0.0
   - key: equip_legs_bronze_platelegs
     file: equip_legs_bronze_platelegs.g3dj
     category: equipment
@@ -601,7 +669,7 @@ assets:
     required: false
     notes: Adamant platelegs attachment.
     equip_slot: 7
-    item_id: 1073
+    item_id: 1077
     anchor_name: legs_anchor
     offset_x: 0.0
     offset_y: 0.38
@@ -619,6 +687,40 @@ assets:
     notes: Rune platelegs attachment.
     equip_slot: 7
     item_id: 1079
+    anchor_name: legs_anchor
+    offset_x: 0.0
+    offset_y: 0.38
+    offset_z: 0.0
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: 0.0
+  - key: equip_legs_black_platelegs
+    file: equip_legs_black_platelegs.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Black platelegs attachment.
+    equip_slot: 7
+    item_id: 1073
+    anchor_name: legs_anchor
+    offset_x: 0.0
+    offset_y: 0.38
+    offset_z: 0.0
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: 0.0
+  - key: equip_legs_dragon_platelegs
+    file: equip_legs_dragon_platelegs.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Dragon platelegs attachment.
+    equip_slot: 7
+    item_id: 4087
     anchor_name: legs_anchor
     offset_x: 0.0
     offset_y: 0.38
@@ -728,6 +830,40 @@ assets:
     rot_x: 0.0
     rot_y: 0.0
     rot_z: 0.0
+  - key: equip_shield_black_sq
+    file: equip_shield_black_sq.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Black sq shield attachment.
+    equip_slot: 5
+    item_id: 1195
+    anchor_name: shield_anchor
+    offset_x: -0.24
+    offset_y: 0.84
+    offset_z: 0.02
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: 0.0
+  - key: equip_shield_dragon_sq
+    file: equip_shield_dragon_sq.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Dragon sq shield attachment.
+    equip_slot: 5
+    item_id: 11286
+    anchor_name: shield_anchor
+    offset_x: -0.24
+    offset_y: 0.84
+    offset_z: 0.02
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: 0.0
   - key: equip_weapon_bronze_scimitar
     file: equip_weapon_bronze_scimitar.g3dj
     category: equipment
@@ -823,6 +959,40 @@ assets:
     notes: Rune scimitar attachment.
     equip_slot: 4
     item_id: 1333
+    anchor_name: weapon_anchor
+    offset_x: 0.24
+    offset_y: 0.84
+    offset_z: -0.02
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: -22.0
+  - key: equip_weapon_black_scimitar
+    file: equip_weapon_black_scimitar.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Black scimitar attachment.
+    equip_slot: 4
+    item_id: 1327
+    anchor_name: weapon_anchor
+    offset_x: 0.24
+    offset_y: 0.84
+    offset_z: -0.02
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: -22.0
+  - key: equip_weapon_dragon_scimitar
+    file: equip_weapon_dragon_scimitar.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Dragon scimitar attachment.
+    equip_slot: 4
+    item_id: 4587
     anchor_name: weapon_anchor
     offset_x: 0.24
     offset_y: 0.84
@@ -932,6 +1102,40 @@ assets:
     rot_x: 0.0
     rot_y: 0.0
     rot_z: -18.0
+  - key: equip_weapon_black_axe
+    file: equip_weapon_black_axe.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Black axe attachment.
+    equip_slot: 4
+    item_id: 1361
+    anchor_name: weapon_anchor
+    offset_x: 0.24
+    offset_y: 0.84
+    offset_z: -0.02
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: -18.0
+  - key: equip_weapon_dragon_axe
+    file: equip_weapon_dragon_axe.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Dragon axe attachment.
+    equip_slot: 4
+    item_id: 6739
+    anchor_name: weapon_anchor
+    offset_x: 0.24
+    offset_y: 0.84
+    offset_z: -0.02
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: -18.0
   - key: equip_weapon_bronze_pickaxe
     file: equip_weapon_bronze_pickaxe.g3dj
     category: equipment
@@ -1027,6 +1231,40 @@ assets:
     notes: Rune pickaxe attachment.
     equip_slot: 4
     item_id: 1275
+    anchor_name: weapon_anchor
+    offset_x: 0.24
+    offset_y: 0.84
+    offset_z: -0.02
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: -18.0
+  - key: equip_weapon_black_pickaxe
+    file: equip_weapon_black_pickaxe.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Black pickaxe attachment.
+    equip_slot: 4
+    item_id: 12297
+    anchor_name: weapon_anchor
+    offset_x: 0.24
+    offset_y: 0.84
+    offset_z: -0.02
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: -18.0
+  - key: equip_weapon_dragon_pickaxe
+    file: equip_weapon_dragon_pickaxe.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Dragon pickaxe attachment.
+    equip_slot: 4
+    item_id: 11920
     anchor_name: weapon_anchor
     offset_x: 0.24
     offset_y: 0.84
@@ -1248,6 +1486,57 @@ assets:
     notes: Weapon attachment for Air staff.
     equip_slot: 4
     item_id: 1381
+    anchor_name: weapon_anchor
+    offset_x: 0.0
+    offset_y: 0.0
+    offset_z: 0.0
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: 0.0
+  - key: equip_weapon_water_staff
+    file: equip_weapon_water_staff.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Weapon attachment for Water staff.
+    equip_slot: 4
+    item_id: 1383
+    anchor_name: weapon_anchor
+    offset_x: 0.0
+    offset_y: 0.0
+    offset_z: 0.0
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: 0.0
+  - key: equip_weapon_earth_staff
+    file: equip_weapon_earth_staff.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Weapon attachment for Earth staff.
+    equip_slot: 4
+    item_id: 1385
+    anchor_name: weapon_anchor
+    offset_x: 0.0
+    offset_y: 0.0
+    offset_z: 0.0
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: 0.0
+  - key: equip_weapon_fire_staff
+    file: equip_weapon_fire_staff.g3dj
+    category: equipment
+    format: g3dj
+    scale: 1.0
+    origin: actor-center
+    required: false
+    notes: Weapon attachment for Fire staff.
+    equip_slot: 4
+    item_id: 1387
     anchor_name: weapon_anchor
     offset_x: 0.0
     offset_y: 0.0
