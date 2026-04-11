@@ -203,7 +203,7 @@ public class GameScreen extends ApplicationAdapter {
     private static final float CULL_DISTANCE_OVERHEAD_TEXT_3D = 24f;
     private static final float CULL_DISTANCE_GROUND_ITEM_BILLBOARDS_3D = 22f;
     private static final float CULL_DISTANCE_GROUND_LABELS_3D = 18f;
-    private static final float CULL_DISTANCE_CLICK_MARKERS_3D = 20f;
+    private static final float CULL_DISTANCE_CLICK_MARKERS_3D = 24f;
     private boolean debugPickVolumes3D = false;
     private boolean debug3DRenderBudget = false;
     private float debug3DRenderBudgetTimer = 0f;
@@ -1409,7 +1409,10 @@ public class GameScreen extends ApplicationAdapter {
         sidePanel.render(shapeRenderer, screenBatch, font, w, h, screenProjection,
                          mouseScreenX, mouseScreenY);
         miniMap.render(shapeRenderer, screenBatch, font, screenProjection,
-            w, h, playerX, playerY, tileMap, handler());
+            w, h, playerX, playerY,
+            walkDestX, walkDestY,
+            use3DRenderer ? cameraYaw : 0f,
+            tileMap, handler());
         if (dialogueUI.isVisible()) {
             renderDialogueOverlay(mouseScreenX, mouseScreenY);
         } else if (smeltingUI.isVisible()) {

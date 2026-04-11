@@ -58,6 +58,8 @@ public class MiniMap {
     public void render(ShapeRenderer sr, SpriteBatch batch, BitmapFont font,
                        Matrix4 proj, int screenW, int screenH,
                        int playerTileX, int playerTileY,
+                       int walkDestX, int walkDestY,
+                       float cameraYaw,
                        int[][] tileMap, ClientPacketHandler h) {
 
         // -- Centre of the minimap circle --
@@ -82,8 +84,9 @@ public class MiniMap {
                 if (tx < 0 || tx >= TutorialIslandMap.WIDTH) continue;
                 if (ty < 0 || ty >= TutorialIslandMap.HEIGHT) continue;
 
-                float mx = cx + dtx * TILE_PX;
-                float my = cy + dty * TILE_PX;
+                float[] rotated = rotateMinimapOffset(dtx, dty, cameraYaw);
+                float mx = cx + rotated[0] * TILE_PX;
+                float my = cy + rotated[1] * TILE_PX;
 
                 // Skip pixels outside the circle
                 float dx = mx - cx, dy = my - cy;
@@ -106,8 +109,9 @@ public class MiniMap {
             sr.setColor(1f, 0.92f, 0.20f, 1f);
             for (int[] item : h.getGroundItemPositions()) {
                 // item = {x, y}
-                float mx = cx + (item[0] - playerTileX) * TILE_PX;
-                float my = cy + (item[1] - playerTileY) * TILE_PX;
+                float[] rotated = rotateMinimapOffset(item[0] - playerTileX, item[1] - playerTileY, cameraYaw);
+                float mx = cx + rotated[0] * TILE_PX;
+                float my = cy + rotated[1] * TILE_PX;
                 float dd = (mx - cx) * (mx - cx) + (my - cy) * (my - cy);
                 if (dd > (RADIUS - 4) * (RADIUS - 4)) continue;
                 sr.circle(mx, my, 2.5f);
@@ -118,8 +122,9 @@ public class MiniMap {
                 int id = entry.getKey();
                 if (h.isPlayer(id)) continue;
                 int[] pos = entry.getValue();
-                float mx = cx + (pos[0] - playerTileX) * TILE_PX;
-                float my = cy + (pos[1] - playerTileY) * TILE_PX;
+                float[] rotated = rotateMinimapOffset(pos[0] - playerTileX, pos[1] - playerTileY, cameraYaw);
+                float mx = cx + rotated[0] * TILE_PX;
+                float my = cy + rotated[1] * TILE_PX;
                 float dd = (mx - cx) * (mx - cx) + (my - cy) * (my - cy);
                 if (dd > (RADIUS - 4) * (RADIUS - 4)) continue;
                 if (h.isNpcHostile(id)) {
@@ -128,6 +133,26 @@ public class MiniMap {
                     sr.setColor(1f, 0.95f, 0.10f, 1f);
                 }
                 sr.circle(mx, my, 3.5f);
+            }
+
+            if (walkDestX >= 0 && walkDestY >= 0) {
+                float[] rotated = rotateMinimapOffset(walkDestX - playerTileX, walkDestY - playerTileY, cameraYaw);
+                float fx = rotated[0] * TILE_PX;
+                float fy = rotated[1] * TILE_PX;
+                float len2 = fx * fx + fy * fy;
+                float limit = (RADIUS - 6f);
+                float markerX = cx + fx;
+                float markerY = cy + fy;
+                if (len2 > limit * limit) {
+                    float len = (float) Math.sqrt(len2);
+                    if (len > 0.0001f) {
+                        markerX = cx + fx / len * limit;
+                        markerY = cy + fy / len * limit;
+                    }
+                }
+                sr.setColor(0.90f, 0.10f, 0.10f, 1f);
+                sr.triangle(markerX, markerY + 5f, markerX - 3f, markerY - 3f, markerX + 3f, markerY - 3f);
+                sr.rect(markerX - 1f, markerY - 5f, 2f, 4f);
             }
         }
 
@@ -155,9 +180,20 @@ public class MiniMap {
         font.getData().setScale(0.75f);
         font.setColor(1f, 0.92f, 0.20f, 1f);     // gold
         compassGlyph.setText(font, "N");
-        font.draw(batch, "N", cx - compassGlyph.width / 2f, cy + RADIUS - 2);
+        float[] north = rotateMinimapOffset(0f, 1f, cameraYaw);
+        float nx = cx + north[0] * (RADIUS - 2f);
+        float ny = cy + north[1] * (RADIUS - 2f);
+        font.draw(batch, "N", nx - compassGlyph.width / 2f, ny + compassGlyph.height / 2f);
         font.getData().setScale(1f);
         font.setColor(Color.WHITE);
         batch.end();
+    }
+
+    private float[] rotateMinimapOffset(float dxTiles, float dyTiles, float cameraYaw) {
+        float cos = (float) Math.cos(-cameraYaw);
+        float sin = (float) Math.sin(-cameraYaw);
+        float rx = dxTiles * cos - dyTiles * sin;
+        float ry = dxTiles * sin + dyTiles * cos;
+        return new float[]{rx, ry};
     }
 }
