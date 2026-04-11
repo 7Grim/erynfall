@@ -1,19 +1,17 @@
 """
-Generate G3DJ humanoid character models with single-bone world-space geometry.
-All mesh vertices are in WORLD space — all parts hang off the root node.
-This gives correct flat-shading under a directional light (OSRS style).
+Generate G3DJ humanoid character models with single-bone world-space geometry
+and OSRS-style pre-baked per-face vertex colors.
 
-Outputs to art/models/ — the authoritative source that Maven copies to
-client/src/main/resources/models/ during the generate-resources phase.
+OSRS does not use realtime dynamic lighting — each face has a manually-set
+constant color that encodes its relationship to an imaginary light source.
+We replicate this by baking a face-direction-based shading factor into the
+vertex COLOR attribute instead of using NORMAL + a directional light.
 
-Part layout (world-space Y=0 at ground):
-  torso:     Y 0.60-1.06  X ±0.11   Z ±0.07
-  head:      Y 1.06-1.28  X ±0.09   Z ±0.08
-  hair:      Y 1.28-1.34  X ±0.10   Z ±0.09
-  upper_arm: Y 0.82-1.04  X ±0.11..0.20  Z ±0.045  (shirt sleeve)
-  lower_arm: Y 0.60-0.82  X ±0.115..0.195 Z ±0.040 (skin / gauntlet)
-  upper_leg: Y 0.36-0.60  X ±0.035..0.145 Z ±0.055 (pants)
-  lower_leg: Y 0.08-0.36  X ±0.037..0.143 Z ±0.063 (boots)
+The renderer uses a separate characterEnvironment (AmbientLight=white, no
+DirectionalLight) for character models so the baked colors are displayed at
+exactly the values set here.
+
+Outputs to art/models/ (Maven copies to client/src/main/resources/models/).
 
 Total height: Y 0.08 to 1.34 = 1.26 units
 """
@@ -22,9 +20,24 @@ import json, os
 
 OUT_DIR = os.path.join(os.path.dirname(__file__), "..", "art", "models")
 
+# Per-face brightness multipliers — OSRS light from upper-front-left.
+# Face order matches box_verts: +X, -X, +Y, -Y, +Z, -Z
+FACE_SHADE = [
+    0.70,  # +X  character's right side (shadow side)
+    0.78,  # -X  character's left side  (lit side)
+    0.92,  # +Y  top — brightest
+    0.35,  # -Y  bottom — deepest shadow
+    0.85,  # +Z  front face toward camera — well lit
+    0.50,  # -Z  back — turned away from light
+]
 
-def box_verts(x0, y0, z0, x1, y1, z1):
-    """World-space axis-aligned box. 6 faces × 4 vertices × 6 floats (pos+normal)."""
+
+def box_verts(x0, y0, z0, x1, y1, z1, rgba):
+    """
+    World-space axis-aligned box with pre-baked per-face shading.
+    Returns 6 faces × 4 vertices × 7 floats: [px, py, pz, r, g, b, a].
+    """
+    r_base, g_base, b_base, _ = rgba
     faces = [
         [(x1,y0,z0), (x1,y0,z1), (x1,y1,z1), (x1,y1,z0)],   # +X
         [(x0,y0,z1), (x0,y0,z0), (x0,y1,z0), (x0,y1,z1)],   # -X
@@ -33,12 +46,13 @@ def box_verts(x0, y0, z0, x1, y1, z1):
         [(x0,y0,z1), (x0,y1,z1), (x1,y1,z1), (x1,y0,z1)],   # +Z
         [(x1,y0,z0), (x1,y1,z0), (x0,y1,z0), (x0,y0,z0)],   # -Z
     ]
-    normals = [(1,0,0), (-1,0,0), (0,1,0), (0,-1,0), (0,0,1), (0,0,-1)]
     out = []
-    for face, n in zip(faces, normals):
+    for face, shade in zip(faces, FACE_SHADE):
+        r = round(r_base * shade, 4)
+        g = round(g_base * shade, 4)
+        b = round(b_base * shade, 4)
         for p in face:
-            out.extend([round(p[0],4), round(p[1],4), round(p[2],4),
-                        float(n[0]),   float(n[1]),   float(n[2])])
+            out.extend([round(p[0],4), round(p[1],4), round(p[2],4), r, g, b, 1.0])
     return out
 
 
@@ -50,7 +64,7 @@ def box_indices(base):
     return idx
 
 
-# (name, x0, y0, z0, x1, y1, z1)  — all world-space
+# World-space part geometry: (name, x0, y0, z0, x1, y1, z1)
 PART_GEOM = [
     ("torso",  -0.11,  0.60, -0.07,   0.11,  1.06,  0.07),
     ("head",   -0.09,  1.06, -0.08,   0.09,  1.28,  0.08),
@@ -73,19 +87,19 @@ def make_character(model_id, colors, include_anchors=False, player_anims=False):
     player_anims: use player animation set vs NPC set
     """
     skin      = colors["skin"]
-    hair      = colors["hair"]
+    hair_c    = colors["hair"]
     shirt     = colors["shirt"]
     lower_arm = colors.get("lower_arm", skin)
     pants     = colors["pants"]
     boots     = colors["boots"]
 
-    # One color per part, same order as PART_GEOM
+    # One color per part — same order as PART_GEOM
     part_colors = [
         shirt,      # torso
         skin,       # head
-        hair,       # hair
-        shirt,      # ua_l  (shirt sleeve)
-        lower_arm,  # la_l  (skin forearm or gauntlet)
+        hair_c,     # hair
+        shirt,      # ua_l (shirt sleeve)
+        lower_arm,  # la_l (skin forearm or gauntlet)
         shirt,      # ua_r
         lower_arm,  # la_r
         pants,      # ul_l
@@ -95,21 +109,21 @@ def make_character(model_id, colors, include_anchors=False, player_anims=False):
     ]
 
     meshes = []
-    materials = []
     node_parts = []
 
     for i, (name, *bounds) in enumerate(PART_GEOM):
         mid = f"mesh_{i}"
         pid = f"part_{i}"
-        mat = f"mat_{i}"
         meshes.append({
             "id": mid,
-            "attributes": ["POSITION", "NORMAL"],
-            "vertices": box_verts(*bounds),
+            "attributes": ["POSITION", "COLOR"],
+            "vertices": box_verts(*bounds, part_colors[i]),
             "parts": [{"id": pid, "type": "TRIANGLES", "indices": box_indices(0)}]
         })
-        materials.append({"id": mat, "diffuse": part_colors[i]})
-        node_parts.append({"meshpartid": pid, "materialid": mat})
+        node_parts.append({"meshpartid": pid, "materialid": "mat_white"})
+
+    # Single white material — all color is baked into vertex COLOR attributes
+    materials = [{"id": "mat_white", "diffuse": [1.0, 1.0, 1.0, 1.0]}]
 
     bone_id = f"{model_id}_node"
     node = {"id": bone_id, "parts": node_parts}
@@ -133,33 +147,20 @@ def make_character(model_id, colors, include_anchors=False, player_anims=False):
 
     if player_anims:
         animations = [
-            {"id": "idle",   "bones": [{"boneId": bone_id, "keyframes": [
-                kf(0.0), kf(1000.0)]}]},
-            {"id": "walk",   "bones": [{"boneId": bone_id, "keyframes": [
-                kf(0.0), kf(350.0, 0.03), kf(700.0)]}]},
-            {"id": "pickup", "bones": [{"boneId": bone_id, "keyframes": [
-                kf(0.0), kf(250.0, -0.06), kf(500.0)]}]},
-            {"id": "chop",   "bones": [{"boneId": bone_id, "keyframes": [
-                kf(0.0), kf(220.0, 0.04), kf(440.0)]}]},
-            {"id": "mine",   "bones": [{"boneId": bone_id, "keyframes": [
-                kf(0.0), kf(220.0, 0.04), kf(440.0)]}]},
-            {"id": "fish",   "bones": [{"boneId": bone_id, "keyframes": [
-                kf(0.0), kf(280.0, 0.03), kf(560.0)]}]},
-            {"id": "sword",  "bones": [{"boneId": bone_id, "keyframes": [
-                kf(0.0), kf(180.0, 0.05), kf(360.0)]}]},
-            {"id": "spear",  "bones": [{"boneId": bone_id, "keyframes": [
-                kf(0.0), kf(180.0, 0.05), kf(360.0)]}]},
+            {"id": "idle",   "bones": [{"boneId": bone_id, "keyframes": [kf(0.0), kf(1000.0)]}]},
+            {"id": "walk",   "bones": [{"boneId": bone_id, "keyframes": [kf(0.0), kf(350.0, 0.03), kf(700.0)]}]},
+            {"id": "pickup", "bones": [{"boneId": bone_id, "keyframes": [kf(0.0), kf(250.0, -0.06), kf(500.0)]}]},
+            {"id": "chop",   "bones": [{"boneId": bone_id, "keyframes": [kf(0.0), kf(220.0, 0.04), kf(440.0)]}]},
+            {"id": "mine",   "bones": [{"boneId": bone_id, "keyframes": [kf(0.0), kf(220.0, 0.04), kf(440.0)]}]},
+            {"id": "fish",   "bones": [{"boneId": bone_id, "keyframes": [kf(0.0), kf(280.0, 0.03), kf(560.0)]}]},
+            {"id": "sword",  "bones": [{"boneId": bone_id, "keyframes": [kf(0.0), kf(180.0, 0.05), kf(360.0)]}]},
+            {"id": "spear",  "bones": [{"boneId": bone_id, "keyframes": [kf(0.0), kf(180.0, 0.05), kf(360.0)]}]},
         ]
     else:
         animations = [
-            {"id": "idle",   "bones": [{"boneId": bone_id, "keyframes": [
-                kf(0.0), kf(500.0, 0.007), kf(1000.0)]}]},
-            {"id": "walk",   "bones": [{"boneId": bone_id, "keyframes": [
-                kf(0.0), kf(200.0, 0.025), kf(400.0),
-                kf(600.0, 0.025), kf(800.0)]}]},
-            {"id": "action", "bones": [{"boneId": bone_id, "keyframes": [
-                kf(0.0), kf(180.0, 0.015), kf(360.0),
-                kf(540.0, 0.01125), kf(720.0)]}]},
+            {"id": "idle",   "bones": [{"boneId": bone_id, "keyframes": [kf(0.0), kf(500.0, 0.007), kf(1000.0)]}]},
+            {"id": "walk",   "bones": [{"boneId": bone_id, "keyframes": [kf(0.0), kf(200.0, 0.025), kf(400.0), kf(600.0, 0.025), kf(800.0)]}]},
+            {"id": "action", "bones": [{"boneId": bone_id, "keyframes": [kf(0.0), kf(180.0, 0.015), kf(360.0), kf(540.0, 0.01125), kf(720.0)]}]},
         ]
 
     return {
@@ -179,9 +180,9 @@ CHARACTERS = {
     "player_base": {
         "colors": {
             "skin":  SKIN,
-            "hair":  [0.30, 0.18, 0.06, 1.0],   # dark brown
-            "shirt": [0.40, 0.46, 0.18, 1.0],   # olive-green
-            "pants": [0.22, 0.42, 0.16, 1.0],   # medium green
+            "hair":  [0.30, 0.18, 0.06, 1.0],
+            "shirt": [0.40, 0.46, 0.18, 1.0],
+            "pants": [0.22, 0.42, 0.16, 1.0],
             "boots": BOOTS,
         },
         "include_anchors": True,
@@ -191,8 +192,8 @@ CHARACTERS = {
         "colors": {
             "skin":  SKIN,
             "hair":  [0.22, 0.14, 0.05, 1.0],
-            "shirt": [0.12, 0.22, 0.45, 1.0],   # dark navy vest
-            "pants": [0.18, 0.18, 0.22, 1.0],   # dark pants
+            "shirt": [0.12, 0.22, 0.45, 1.0],
+            "pants": [0.18, 0.18, 0.22, 1.0],
             "boots": BOOTS,
         },
     },
@@ -200,8 +201,8 @@ CHARACTERS = {
         "colors": {
             "skin":  SKIN,
             "hair":  [0.32, 0.20, 0.06, 1.0],
-            "shirt": [0.25, 0.52, 0.28, 1.0],   # forest green robe
-            "pants": [0.25, 0.52, 0.28, 1.0],   # same green
+            "shirt": [0.25, 0.52, 0.28, 1.0],
+            "pants": [0.25, 0.52, 0.28, 1.0],
             "boots": BOOTS,
         },
     },
@@ -209,15 +210,15 @@ CHARACTERS = {
         "colors": {
             "skin":      SKIN,
             "hair":      [0.20, 0.12, 0.04, 1.0],
-            "shirt":     [0.65, 0.12, 0.12, 1.0],   # red plate
-            "lower_arm": [0.52, 0.52, 0.55, 1.0],   # metal gauntlet
-            "pants":     [0.32, 0.30, 0.28, 1.0],   # dark metal
-            "boots":     [0.28, 0.26, 0.24, 1.0],   # metal boots
+            "shirt":     [0.65, 0.12, 0.12, 1.0],
+            "lower_arm": [0.52, 0.52, 0.55, 1.0],
+            "pants":     [0.32, 0.30, 0.28, 1.0],
+            "boots":     [0.28, 0.26, 0.24, 1.0],
         },
     },
     "npc_goblin_base": {
         "colors": {
-            "skin":  [0.54, 0.60, 0.28, 1.0],   # goblin green
+            "skin":  [0.54, 0.60, 0.28, 1.0],
             "hair":  [0.18, 0.10, 0.02, 1.0],
             "shirt": [0.48, 0.56, 0.24, 1.0],
             "pants": [0.40, 0.48, 0.20, 1.0],

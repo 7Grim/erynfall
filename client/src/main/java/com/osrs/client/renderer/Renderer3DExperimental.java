@@ -102,6 +102,7 @@ public class Renderer3DExperimental {
     private final DecalBatch decalBatch;
     private final DecalBatch overlayDecalBatch;
     private final Environment environment;
+    private final Environment characterEnvironment;
     private final ModelBuilder modelBuilder = new ModelBuilder();
     private final Plane groundPlane = new Plane(new Vector3(0f, 1f, 0f), 0f);
     private final ArrayList<Decal> decalPool = new ArrayList<>();
@@ -177,6 +178,10 @@ public class Renderer3DExperimental {
         environment = new Environment();
         environment.set(new ColorAttribute(ColorAttribute.AmbientLight, 0.38f, 0.40f, 0.45f, 1f));
         environment.add(new DirectionalLight().set(0.85f, 0.82f, 0.78f, -0.5f, -0.8f, -0.3f));
+
+        // Character models use pre-baked vertex colors — full ambient, no directional light.
+        characterEnvironment = new Environment();
+        characterEnvironment.set(new ColorAttribute(ColorAttribute.AmbientLight, 1f, 1f, 1f, 1f));
 
         Pixmap pixmap = new Pixmap(1, 1, Pixmap.Format.RGBA8888);
         pixmap.setColor(Color.WHITE);
@@ -594,7 +599,7 @@ public class Renderer3DExperimental {
             instance.transform.rotate(Vector3.Y, rotationYDegrees);
         }
 
-        modelBatch.render(instance, environment);
+        modelBatch.render(instance, characterEnvironment);
         actorModelsRenderedLastFrame++;
 
         if (ownsPass) {
@@ -636,7 +641,7 @@ public class Renderer3DExperimental {
             baseInstance.transform.scale(baseScale, baseScale, baseScale);
         }
         baseInstance.calculateTransforms();
-            modelBatch.render(baseInstance, environment);
+            modelBatch.render(baseInstance, characterEnvironment);
             actorModelsRenderedLastFrame++;
 
         renderPlayerEquipmentAttachments(baseInstance, tileX, tileY, tileBaseY, rotationYDegrees, baseScale, equippedItemIds);
@@ -693,7 +698,7 @@ public class Renderer3DExperimental {
                 localPlayerAnimatedInstance.transform.scale(baseScale, baseScale, baseScale);
             }
             localPlayerAnimatedInstance.calculateTransforms();
-            modelBatch.render(localPlayerAnimatedInstance, environment);
+            modelBatch.render(localPlayerAnimatedInstance, characterEnvironment);
 
             renderPlayerEquipmentAttachments(localPlayerAnimatedInstance, tileX, tileY, tileBaseY, rotationYDegrees, baseScale, equippedItemIds);
         } catch (Exception e) {
@@ -765,7 +770,7 @@ public class Renderer3DExperimental {
             }
             instance.calculateTransforms();
 
-            renderInstanceWithOptionalAlpha(instance, alpha);
+            renderInstanceWithOptionalAlpha(instance, alpha, characterEnvironment);
             actorModelsRenderedLastFrame++;
         } catch (Exception e) {
             if (ownsPass) {
@@ -1016,9 +1021,13 @@ public class Renderer3DExperimental {
     // ────────────────────────────────────────────────────────────────────────
 
     private void renderInstanceWithOptionalAlpha(ModelInstance instance, float alpha) {
+        renderInstanceWithOptionalAlpha(instance, alpha, environment);
+    }
+
+    private void renderInstanceWithOptionalAlpha(ModelInstance instance, float alpha, Environment env) {
         float clampedAlpha = Math.max(0f, Math.min(1f, alpha));
         if (clampedAlpha >= 0.999f) {
-            modelBatch.render(instance, environment);
+            modelBatch.render(instance, env);
             return;
         }
 
@@ -1048,7 +1057,7 @@ public class Renderer3DExperimental {
         }
 
         Gdx.gl.glDepthMask(false);
-        modelBatch.render(instance, environment);
+        modelBatch.render(instance, env);
         Gdx.gl.glDepthMask(true);
 
         for (int i = 0; i < instance.materials.size; i++) {
