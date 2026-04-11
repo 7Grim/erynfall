@@ -180,6 +180,20 @@ public class GameScreen extends ApplicationAdapter {
     private static final float PITCH_MAX = 1.4f;
     private static final float YAW_SPEED = 1.8f;
     private static final float PITCH_SPEED = 1.2f;
+    private static final float PICK_RADIUS_HUMANOID = 0.28f;
+    private static final float PICK_RADIUS_SMALL_CREATURE = 0.22f;
+    private static final float PICK_RADIUS_MEDIUM_CREATURE = 0.38f;
+    private static final float PICK_RADIUS_TREE = 0.42f;
+    private static final float PICK_RADIUS_ROCK = 0.34f;
+    private static final float PICK_RADIUS_STATION = 0.32f;
+    private static final float PICK_MIN_Y = 0f;
+    private static final float PICK_MAX_Y_HUMANOID = 1.7f;
+    private static final float PICK_MAX_Y_SMALL_CREATURE = 0.7f;
+    private static final float PICK_MAX_Y_MEDIUM_CREATURE = 1.1f;
+    private static final float PICK_MAX_Y_TREE = 2.4f;
+    private static final float PICK_MAX_Y_ROCK = 1.0f;
+    private static final float PICK_MAX_Y_STATION = 1.0f;
+    private boolean debugPickVolumes3D = false;
 
     // -----------------------------------------------------------------------
     // Game objects
@@ -627,6 +641,15 @@ public class GameScreen extends ApplicationAdapter {
                                      float alpha,
                                      float sortY,
                                      float sortX) {}
+
+    private record PickableEntry(int entityId,
+                                 int tileX,
+                                 int tileY,
+                                 float radius,
+                                 float minY,
+                                 float maxY,
+                                 boolean isPlayer,
+                                 String npcName) {}
 
     private static final java.util.Comparator<GroundItemRenderEntry> GROUND_ITEM_RENDER_ORDER =
         java.util.Comparator.comparingDouble(GroundItemRenderEntry::sortY)
@@ -1194,6 +1217,10 @@ public class GameScreen extends ApplicationAdapter {
             use3DRenderer = !use3DRenderer;
             LOG.info("Renderer mode switched: {}", use3DRenderer ? "3D experimental" : "2D isometric");
         }
+        if (Gdx.input.isKeyJustPressed(Input.Keys.F10)) {
+            debugPickVolumes3D = !debugPickVolumes3D;
+            LOG.info("3D pick volume debug: {}", debugPickVolumes3D ? "enabled" : "disabled");
+        }
 
         // F5: hot-reload sprite atlas (run mvn generate-resources -pl client first)
         if (Gdx.input.isKeyJustPressed(Input.Keys.F5)) {
@@ -1262,6 +1289,7 @@ public class GameScreen extends ApplicationAdapter {
             renderer3d.endEntityPass();
             renderHealthBarsLayer3D(actorEntries);
             renderGroundItemLabels();
+            renderPickVolumeDebug3D();
         } else {
             renderer2d.renderWorld(tileMap, visualX, visualY, visualX, visualY, activeMaterialProfile);
             renderGroundItemsLayer(groundItemEntries);
@@ -2647,6 +2675,164 @@ public class GameScreen extends ApplicationAdapter {
         };
     }
 
+    private Integer pick3DEntityId(int screenX, int screenY) {
+        if (!use3DRenderer || renderer3d == null || camera3d == null) {
+            return null;
+        }
+        Ray ray = camera3d.getPickRay(screenX, screenY);
+        List<PickableEntry> entries = collectPickableEntries();
+        Renderer3DExperimental.PickHit best = null;
+        for (PickableEntry entry : entries) {
+            Float distance = renderer3d.intersectRayCylinder(
+                ray,
+                entry.tileX() + 0.5f,
+                entry.tileY() + 0.5f,
+                entry.radius(),
+                entry.minY(),
+                entry.maxY()
+            );
+            if (distance == null || distance <= 0f) {
+                continue;
+            }
+            if (best == null || distance < best.distance()) {
+                best = new Renderer3DExperimental.PickHit(entry.entityId(), distance);
+            }
+        }
+        return best == null ? null : best.entityId();
+    }
+
+    private List<PickableEntry> collectPickableEntries() {
+        List<PickableEntry> out = new ArrayList<>();
+        ClientPacketHandler h = handler();
+        if (h == null) {
+            return out;
+        }
+
+        if (localPlayerId >= 0) {
+            out.add(new PickableEntry(
+                localPlayerId,
+                Math.round(visualX),
+                Math.round(visualY),
+                PICK_RADIUS_HUMANOID,
+                PICK_MIN_Y,
+                PICK_MAX_Y_HUMANOID,
+                true,
+                null
+            ));
+        }
+
+        for (Map.Entry<Integer, int[]> entry : h.getEntityPositions().entrySet()) {
+            int entityId = entry.getKey();
+            if (entityId == localPlayerId) {
+                continue;
+            }
+
+            float[] vis = npcVisual.get(entityId);
+            int tileX = vis != null ? Math.round(vis[0]) : entry.getValue()[0];
+            int tileY = vis != null ? Math.round(vis[1]) : entry.getValue()[1];
+            if (!CoordinateConverter.isValidTile(tileX, tileY)) {
+                continue;
+            }
+
+            if (h.isPlayer(entityId)) {
+                out.add(new PickableEntry(
+                    entityId,
+                    tileX,
+                    tileY,
+                    PICK_RADIUS_HUMANOID,
+                    PICK_MIN_Y,
+                    PICK_MAX_Y_HUMANOID,
+                    true,
+                    null
+                ));
+                continue;
+            }
+
+            String npcName = h.getEntityName(entityId);
+            float radius = PICK_RADIUS_HUMANOID;
+            float maxY = PICK_MAX_Y_HUMANOID;
+            if ("Rat".equals(npcName) || "Chicken".equals(npcName)) {
+                radius = PICK_RADIUS_SMALL_CREATURE;
+                maxY = PICK_MAX_Y_SMALL_CREATURE;
+            } else if ("Giant Rat".equals(npcName) || "Cow".equals(npcName)) {
+                radius = PICK_RADIUS_MEDIUM_CREATURE;
+                maxY = PICK_MAX_Y_MEDIUM_CREATURE;
+            } else if (isTreeResourceName(npcName)) {
+                radius = PICK_RADIUS_TREE;
+                maxY = PICK_MAX_Y_TREE;
+            } else if (isRockResourceName(npcName)) {
+                radius = PICK_RADIUS_ROCK;
+                maxY = PICK_MAX_Y_ROCK;
+            } else if (isPickableResourceName(npcName)) {
+                radius = PICK_RADIUS_STATION;
+                maxY = PICK_MAX_Y_STATION;
+            }
+
+            out.add(new PickableEntry(entityId, tileX, tileY, radius, PICK_MIN_Y, maxY, false, npcName));
+        }
+        return out;
+    }
+
+    private boolean isPickableResourceName(String npcName) {
+        return isTreeResourceName(npcName)
+            || isRockResourceName(npcName)
+            || "Fishing Spot".equalsIgnoreCase(npcName)
+            || "Cooking Fire".equalsIgnoreCase(npcName)
+            || "Cooking Range".equalsIgnoreCase(npcName)
+            || "Furnace".equalsIgnoreCase(npcName)
+            || "Anvil".equalsIgnoreCase(npcName);
+    }
+
+    private boolean isTreeResourceName(String npcName) {
+        return "Tree".equalsIgnoreCase(npcName)
+            || "Oak Tree".equalsIgnoreCase(npcName)
+            || "Willow Tree".equalsIgnoreCase(npcName)
+            || "Teak Tree".equalsIgnoreCase(npcName)
+            || "Maple Tree".equalsIgnoreCase(npcName)
+            || "Mahogany Tree".equalsIgnoreCase(npcName)
+            || "Yew Tree".equalsIgnoreCase(npcName)
+            || "Magic Tree".equalsIgnoreCase(npcName);
+    }
+
+    private boolean isRockResourceName(String npcName) {
+        return "Copper Rock".equalsIgnoreCase(npcName)
+            || "Tin Rock".equalsIgnoreCase(npcName)
+            || "Iron Rock".equalsIgnoreCase(npcName)
+            || "Silver Rock".equalsIgnoreCase(npcName)
+            || "Coal Rock".equalsIgnoreCase(npcName)
+            || "Gold Rock".equalsIgnoreCase(npcName)
+            || "Mithril Rock".equalsIgnoreCase(npcName)
+            || "Adamantite Rock".equalsIgnoreCase(npcName)
+            || "Runite Rock".equalsIgnoreCase(npcName);
+    }
+
+    private void renderPickVolumeDebug3D() {
+        if (!use3DRenderer || !debugPickVolumes3D) {
+            return;
+        }
+        List<PickableEntry> entries = collectPickableEntries();
+        if (entries.isEmpty()) {
+            return;
+        }
+        shapeRenderer.setProjectionMatrix(screenProjection);
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Line);
+        for (PickableEntry entry : entries) {
+            if (!projectWorldToScreen3D(entry.tileX(), entry.tileY(), entry.maxY(), projectedWorldPoint)) {
+                continue;
+            }
+            float radiusPx = Math.max(4f, entry.radius() * 34f);
+            if (entry.isPlayer()) {
+                shapeRenderer.setColor(0.25f, 0.90f, 1.00f, 0.85f);
+            } else if (isPickableResourceName(entry.npcName())) {
+                shapeRenderer.setColor(0.42f, 1.00f, 0.42f, 0.85f);
+            } else {
+                shapeRenderer.setColor(1.00f, 0.75f, 0.28f, 0.85f);
+            }
+            shapeRenderer.circle(projectedWorldPoint.x, projectedWorldPoint.y, radiusPx, 12);
+        }
+        shapeRenderer.end();
+    }
+
     private void handleInput() {
         // Block all input while death screen is showing
         if (deathScreenTimer > 0) return;
@@ -3103,9 +3289,15 @@ public class GameScreen extends ApplicationAdapter {
                     }
                 }
             } else {
-                int[] tile = screenToTile(mx, my);
-                LOG.debug("Right-click tile ({},{})", tile[0], tile[1]);
-                List<ContextMenu.MenuItem> opts = generateContextMenu(tile[0], tile[1]);
+                Integer pickedEntityId = pick3DEntityId(mx, my);
+                List<ContextMenu.MenuItem> opts;
+                if (pickedEntityId != null) {
+                    opts = generateContextMenuForEntity(pickedEntityId);
+                } else {
+                    int[] tile = screenToTile(mx, my);
+                    LOG.debug("Right-click tile ({},{})", tile[0], tile[1]);
+                    opts = generateContextMenu(tile[0], tile[1]);
+                }
                 if (!opts.isEmpty())
                     contextMenu.open(mx, screenMy, opts, w, h);
             }
@@ -3209,13 +3401,21 @@ public class GameScreen extends ApplicationAdapter {
                     selectedInventorySlot = -1;
                     sidePanel.setSelectedInventorySlot(-1);
                 }
-                int[] tile = screenToTile(mx, my);
-                if (CoordinateConverter.isValidTile(tile[0], tile[1])) {
-                    boolean didAction = handleWorldLeftClick(tile[0], tile[1]);
-                    if (!didAction) {
-                        walkTo(tile[0], tile[1]);
+                Integer pickedEntityId = pick3DEntityId(mx, my);
+                if (pickedEntityId != null && handleWorldLeftClickEntity(pickedEntityId)) {
+                    int[] entityPos = entityLogicalPosition(pickedEntityId);
+                    if (entityPos != null) {
+                        clickMarkers.add(new ClickMarker(entityPos[0], entityPos[1], true));
                     }
-                    clickMarkers.add(new ClickMarker(tile[0], tile[1], didAction));
+                } else {
+                    int[] tile = screenToTile(mx, my);
+                    if (CoordinateConverter.isValidTile(tile[0], tile[1])) {
+                        boolean didAction = handleWorldLeftClick(tile[0], tile[1]);
+                        if (!didAction) {
+                            walkTo(tile[0], tile[1]);
+                        }
+                        clickMarkers.add(new ClickMarker(tile[0], tile[1], didAction));
+                    }
                 }
             }
         }
@@ -4391,6 +4591,43 @@ public class GameScreen extends ApplicationAdapter {
     // Context menu
     // -----------------------------------------------------------------------
 
+    private List<ContextMenu.MenuItem> generateContextMenuForEntity(int entityId) {
+        List<ContextMenu.MenuItem> opts = new ArrayList<>();
+        ClientPacketHandler h = handler();
+        if (h == null) {
+            return opts;
+        }
+
+        int[] tile = entityLogicalPosition(entityId);
+        if (tile != null && CoordinateConverter.isValidTile(tile[0], tile[1])) {
+            opts.add(new ContextMenu.MenuItem(ContextMenu.Action.WALK_HERE, null, new int[]{tile[0], tile[1]}));
+        }
+
+        if (h.isPlayer(entityId)) {
+            if (localPlayerId >= 0 && entityId == localPlayerId) {
+                return opts;
+            }
+            String pName = h.getEntityName(entityId);
+            if (pName == null || pName.isEmpty()) {
+                pName = "Player";
+            }
+            String yellow = "[#ffff00]" + pName + "[]";
+            boolean isFriend = friendIds.contains((long) entityId);
+            opts.add(new ContextMenu.MenuItem(ContextMenu.Action.TRADE, yellow, entityId));
+            opts.add(new ContextMenu.MenuItem(ContextMenu.Action.FOLLOW, yellow, entityId));
+            opts.add(new ContextMenu.MenuItem(ContextMenu.Action.CHALLENGE, yellow, entityId));
+            opts.add(new ContextMenu.MenuItem(
+                isFriend ? ContextMenu.Action.REMOVE_FRIEND : ContextMenu.Action.ADD_FRIEND,
+                yellow,
+                entityId
+            ));
+            return opts;
+        }
+
+        appendNpcContextMenuOptions(opts, entityId);
+        return opts;
+    }
+
     private List<ContextMenu.MenuItem> generateContextMenu(int tileX, int tileY) {
         List<ContextMenu.MenuItem> opts = new ArrayList<>();
         if (!CoordinateConverter.isValidTile(tileX, tileY)) return opts;
@@ -4441,84 +4678,75 @@ public class GameScreen extends ApplicationAdapter {
                 int vx = (int) Math.round(vis[0]);
                 int vy = (int) Math.round(vis[1]);
                 if (tileX == vx && tileY == vy) {
-                    String rawName = h.getEntityName(id);
-                    if (rawName == null || rawName.isEmpty()) rawName = "NPC " + id;
-                    int level = h.getEntityCombatLevel(id);
-
-                    // Yellow name with level suffix — OSRS style
-                    String yellowName = "[#ffff00]" + rawName + "[]";
-                    String levelSuffix = level > 0 ? " (level-" + level + ")" : "";
-                    boolean isTreeResource = "Tree".equalsIgnoreCase(rawName)
-                        || "Oak Tree".equalsIgnoreCase(rawName)
-                        || "Willow Tree".equalsIgnoreCase(rawName)
-                        || "Teak Tree".equalsIgnoreCase(rawName)
-                        || "Maple Tree".equalsIgnoreCase(rawName)
-                        || "Mahogany Tree".equalsIgnoreCase(rawName)
-                        || "Yew Tree".equalsIgnoreCase(rawName)
-                        || "Magic Tree".equalsIgnoreCase(rawName);
-                    boolean isMiningRock = "Copper Rock".equalsIgnoreCase(rawName)
-                        || "Tin Rock".equalsIgnoreCase(rawName)
-                        || "Iron Rock".equalsIgnoreCase(rawName)
-                        || "Silver Rock".equalsIgnoreCase(rawName)
-                        || "Coal Rock".equalsIgnoreCase(rawName)
-                        || "Gold Rock".equalsIgnoreCase(rawName)
-                        || "Mithril Rock".equalsIgnoreCase(rawName)
-                        || "Adamantite Rock".equalsIgnoreCase(rawName)
-                        || "Runite Rock".equalsIgnoreCase(rawName);
-                    boolean isFishingSpot = "Fishing Spot".equalsIgnoreCase(rawName);
-                    boolean isCookingStation = "Cooking Fire".equalsIgnoreCase(rawName)
-                        || "Cooking Range".equalsIgnoreCase(rawName);
-                    boolean isFurnace = "Furnace".equalsIgnoreCase(rawName);
-                    boolean isBanker = "Banker".equalsIgnoreCase(rawName);
-                    boolean isFishingSupplier = "Fishing Supplier".equalsIgnoreCase(rawName);
-                    boolean isSmithingSupplier = "Smithing Supplier".equalsIgnoreCase(rawName);
-                    boolean isShopkeeper = isFishingSupplier || isSmithingSupplier;
-
-                    if (level > 0) {
-                        // Combat NPC: Attack is the primary option (top)
-                        opts.add(new ContextMenu.MenuItem(
-                            "Attack " + yellowName + levelSuffix, ContextMenu.Action.ATTACK.id, id));
-                    }
-                    if (isTreeResource) {
-                        opts.add(new ContextMenu.MenuItem(ContextMenu.Action.CHOP, yellowName, id));
-                    } else if (isMiningRock) {
-                        opts.add(new ContextMenu.MenuItem(ContextMenu.Action.MINE, yellowName, id));
-                    } else if (isFishingSpot) {
-                        List<String> fishingActions = h.getFishingActions(id);
-                        for (String fishingAction : fishingActions) {
-                            if ("fish_net".equals(fishingAction)) {
-                                opts.add(new ContextMenu.MenuItem(ContextMenu.Action.NET, yellowName, id));
-                            } else if ("fish_bait".equals(fishingAction)) {
-                                opts.add(new ContextMenu.MenuItem(ContextMenu.Action.BAIT, yellowName, id));
-                            } else if ("fish_lure".equals(fishingAction)) {
-                                opts.add(new ContextMenu.MenuItem(ContextMenu.Action.LURE, yellowName, id));
-                            } else if ("fish_cage".equals(fishingAction)) {
-                                opts.add(new ContextMenu.MenuItem(ContextMenu.Action.CAGE, yellowName, id));
-                            } else if ("fish_harpoon".equals(fishingAction)) {
-                                opts.add(new ContextMenu.MenuItem(ContextMenu.Action.HARPOON, yellowName, id));
-                            }
-                        }
-                    } else if (isCookingStation) {
-                        opts.add(new ContextMenu.MenuItem(ContextMenu.Action.COOK_AT, yellowName, id));
-                    } else if (isFurnace) {
-                        opts.add(new ContextMenu.MenuItem(ContextMenu.Action.SMELT, yellowName, id));
-                    } else if ("Anvil".equalsIgnoreCase(rawName)) {
-                        opts.add(new ContextMenu.MenuItem(ContextMenu.Action.SMITH, yellowName, id));
-                    } else if (isBanker) {
-                        opts.add(new ContextMenu.MenuItem(ContextMenu.Action.BANK, yellowName, id));
-                        opts.add(new ContextMenu.MenuItem(ContextMenu.Action.TALK_TO, yellowName, id));
-                    } else if (isShopkeeper) {
-                        opts.add(new ContextMenu.MenuItem(ContextMenu.Action.SHOP, yellowName, id));
-                        opts.add(new ContextMenu.MenuItem(ContextMenu.Action.SUPPLIES, yellowName, id));
-                        opts.add(new ContextMenu.MenuItem(ContextMenu.Action.TALK_TO, yellowName, id));
-                    } else {
-                        opts.add(new ContextMenu.MenuItem(ContextMenu.Action.TALK_TO, yellowName, id));
-                    }
-                    opts.add(new ContextMenu.MenuItem(ContextMenu.Action.EXAMINE_NPC, yellowName, id));
+                    appendNpcContextMenuOptions(opts, id);
                 }
             }
         }
         return opts;
+    }
+
+    private void appendNpcContextMenuOptions(List<ContextMenu.MenuItem> opts, int npcId) {
+        ClientPacketHandler h = handler();
+        if (h == null) {
+            return;
+        }
+        String rawName = h.getEntityName(npcId);
+        if (rawName == null || rawName.isEmpty()) rawName = "NPC " + npcId;
+        int level = h.getEntityCombatLevel(npcId);
+
+        String yellowName = "[#ffff00]" + rawName + "[]";
+        String levelSuffix = level > 0 ? " (level-" + level + ")" : "";
+        boolean isTreeResource = isTreeResourceName(rawName);
+        boolean isMiningRock = isRockResourceName(rawName);
+        boolean isFishingSpot = "Fishing Spot".equalsIgnoreCase(rawName);
+        boolean isCookingStation = "Cooking Fire".equalsIgnoreCase(rawName)
+            || "Cooking Range".equalsIgnoreCase(rawName);
+        boolean isFurnace = "Furnace".equalsIgnoreCase(rawName);
+        boolean isBanker = "Banker".equalsIgnoreCase(rawName);
+        boolean isFishingSupplier = "Fishing Supplier".equalsIgnoreCase(rawName);
+        boolean isSmithingSupplier = "Smithing Supplier".equalsIgnoreCase(rawName);
+        boolean isShopkeeper = isFishingSupplier || isSmithingSupplier;
+
+        if (level > 0) {
+            opts.add(new ContextMenu.MenuItem(
+                "Attack " + yellowName + levelSuffix, ContextMenu.Action.ATTACK.id, npcId));
+        }
+        if (isTreeResource) {
+            opts.add(new ContextMenu.MenuItem(ContextMenu.Action.CHOP, yellowName, npcId));
+        } else if (isMiningRock) {
+            opts.add(new ContextMenu.MenuItem(ContextMenu.Action.MINE, yellowName, npcId));
+        } else if (isFishingSpot) {
+            List<String> fishingActions = h.getFishingActions(npcId);
+            for (String fishingAction : fishingActions) {
+                if ("fish_net".equals(fishingAction)) {
+                    opts.add(new ContextMenu.MenuItem(ContextMenu.Action.NET, yellowName, npcId));
+                } else if ("fish_bait".equals(fishingAction)) {
+                    opts.add(new ContextMenu.MenuItem(ContextMenu.Action.BAIT, yellowName, npcId));
+                } else if ("fish_lure".equals(fishingAction)) {
+                    opts.add(new ContextMenu.MenuItem(ContextMenu.Action.LURE, yellowName, npcId));
+                } else if ("fish_cage".equals(fishingAction)) {
+                    opts.add(new ContextMenu.MenuItem(ContextMenu.Action.CAGE, yellowName, npcId));
+                } else if ("fish_harpoon".equals(fishingAction)) {
+                    opts.add(new ContextMenu.MenuItem(ContextMenu.Action.HARPOON, yellowName, npcId));
+                }
+            }
+        } else if (isCookingStation) {
+            opts.add(new ContextMenu.MenuItem(ContextMenu.Action.COOK_AT, yellowName, npcId));
+        } else if (isFurnace) {
+            opts.add(new ContextMenu.MenuItem(ContextMenu.Action.SMELT, yellowName, npcId));
+        } else if ("Anvil".equalsIgnoreCase(rawName)) {
+            opts.add(new ContextMenu.MenuItem(ContextMenu.Action.SMITH, yellowName, npcId));
+        } else if (isBanker) {
+            opts.add(new ContextMenu.MenuItem(ContextMenu.Action.BANK, yellowName, npcId));
+            opts.add(new ContextMenu.MenuItem(ContextMenu.Action.TALK_TO, yellowName, npcId));
+        } else if (isShopkeeper) {
+            opts.add(new ContextMenu.MenuItem(ContextMenu.Action.SHOP, yellowName, npcId));
+            opts.add(new ContextMenu.MenuItem(ContextMenu.Action.SUPPLIES, yellowName, npcId));
+            opts.add(new ContextMenu.MenuItem(ContextMenu.Action.TALK_TO, yellowName, npcId));
+        } else {
+            opts.add(new ContextMenu.MenuItem(ContextMenu.Action.TALK_TO, yellowName, npcId));
+        }
+        opts.add(new ContextMenu.MenuItem(ContextMenu.Action.EXAMINE_NPC, yellowName, npcId));
     }
 
     private void handleContextMenuAction(ContextMenu.MenuItem item) {
@@ -4684,6 +4912,42 @@ public class GameScreen extends ApplicationAdapter {
         }
 
         return false;
+    }
+
+    private boolean handleWorldLeftClickEntity(int entityId) {
+        ClientPacketHandler h = handler();
+        if (h == null) {
+            return false;
+        }
+        if (h.isPlayer(entityId)) {
+            return false;
+        }
+        String primarySkill = h.getResourcePrimarySkill(entityId);
+        if (primarySkill != null) {
+            startApproach(entityId, primarySkill);
+            return true;
+        }
+        if (h.isNpcHostile(entityId)) {
+            startApproach(entityId, "attack");
+        } else {
+            startApproach(entityId, "talk");
+        }
+        return true;
+    }
+
+    private int[] entityLogicalPosition(int entityId) {
+        ClientPacketHandler h = handler();
+        if (h == null) {
+            return null;
+        }
+        if (entityId == localPlayerId) {
+            return new int[]{Math.round(visualX), Math.round(visualY)};
+        }
+        int[] pos = h.getEntityPosition(entityId);
+        if (pos == null) {
+            return null;
+        }
+        return new int[]{pos[0], pos[1]};
     }
 
     // -----------------------------------------------------------------------

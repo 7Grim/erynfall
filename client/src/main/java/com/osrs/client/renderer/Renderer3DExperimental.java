@@ -37,6 +37,8 @@ import java.util.Map;
 import java.util.Set;
 
 public class Renderer3DExperimental {
+    public record PickHit(int entityId, float distance) {}
+
     private static final int MAP_WIDTH = 104;
     private static final int MAP_HEIGHT = 104;
     private static final int CHUNK_SIZE = 16;
@@ -1026,6 +1028,71 @@ public class Renderer3DExperimental {
             return new int[]{-1, -1};
         }
         return new int[]{tileX, tileY};
+    }
+
+    public Float intersectRayCylinder(Ray ray,
+                                      float centerX,
+                                      float centerZ,
+                                      float radius,
+                                      float minY,
+                                      float maxY) {
+        if (ray == null || radius <= 0f || maxY <= minY) {
+            return null;
+        }
+
+        float ox = ray.origin.x - centerX;
+        float oz = ray.origin.z - centerZ;
+        float dx = ray.direction.x;
+        float dz = ray.direction.z;
+
+        float bestT = Float.POSITIVE_INFINITY;
+        float a = dx * dx + dz * dz;
+        if (a > 0.000001f) {
+            float b = 2f * (ox * dx + oz * dz);
+            float c = ox * ox + oz * oz - radius * radius;
+            float discriminant = b * b - 4f * a * c;
+            if (discriminant >= 0f) {
+                float sqrtDisc = (float) Math.sqrt(discriminant);
+                float invDenominator = 1f / (2f * a);
+                float t0 = (-b - sqrtDisc) * invDenominator;
+                float t1 = (-b + sqrtDisc) * invDenominator;
+                if (t0 > 0.0001f) {
+                    float y0 = ray.origin.y + ray.direction.y * t0;
+                    if (y0 >= minY && y0 <= maxY) {
+                        bestT = Math.min(bestT, t0);
+                    }
+                }
+                if (t1 > 0.0001f) {
+                    float y1 = ray.origin.y + ray.direction.y * t1;
+                    if (y1 >= minY && y1 <= maxY) {
+                        bestT = Math.min(bestT, t1);
+                    }
+                }
+            }
+        }
+
+        float dy = ray.direction.y;
+        if (Math.abs(dy) > 0.000001f) {
+            float tMinCap = (minY - ray.origin.y) / dy;
+            if (tMinCap > 0.0001f) {
+                float x = ray.origin.x + ray.direction.x * tMinCap - centerX;
+                float z = ray.origin.z + ray.direction.z * tMinCap - centerZ;
+                if (x * x + z * z <= radius * radius) {
+                    bestT = Math.min(bestT, tMinCap);
+                }
+            }
+
+            float tMaxCap = (maxY - ray.origin.y) / dy;
+            if (tMaxCap > 0.0001f) {
+                float x = ray.origin.x + ray.direction.x * tMaxCap - centerX;
+                float z = ray.origin.z + ray.direction.z * tMaxCap - centerZ;
+                if (x * x + z * z <= radius * radius) {
+                    bestT = Math.min(bestT, tMaxCap);
+                }
+            }
+        }
+
+        return bestT == Float.POSITIVE_INFINITY ? null : bestT;
     }
 
     public void resize(int width, int height) {
