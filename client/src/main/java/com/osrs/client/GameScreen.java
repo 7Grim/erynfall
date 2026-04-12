@@ -116,24 +116,36 @@ public class GameScreen extends ApplicationAdapter {
     private final ErynfallGame game;
     private final String loginEmail;
     private final String loginPassword;
+    private final LaunchOptions launchOptions;
+    private final boolean artistMode;
     private boolean logoutRequested = false;
 
     public GameScreen() {
         this.game = null;
         this.loginEmail = "test1@example.com";
         this.loginPassword = "testpass";
+        this.launchOptions = LaunchOptions.normal();
+        this.artistMode = false;
     }
 
     public GameScreen(String username, String password) {
         this.game = null;
         this.loginEmail = username;
         this.loginPassword = password;
+        this.launchOptions = LaunchOptions.normal();
+        this.artistMode = false;
     }
 
     public GameScreen(ErynfallGame game, String username, String password) {
+        this(game, username, password, game != null ? game.getLaunchOptions() : LaunchOptions.normal());
+    }
+
+    public GameScreen(ErynfallGame game, String username, String password, LaunchOptions launchOptions) {
         this.game = game;
         this.loginEmail = username;
         this.loginPassword = password;
+        this.launchOptions = launchOptions == null ? LaunchOptions.normal() : launchOptions;
+        this.artistMode = this.launchOptions.artistMode();
     }
 
     // -----------------------------------------------------------------------
@@ -501,9 +513,16 @@ public class GameScreen extends ApplicationAdapter {
         LOG.info("GameScreen created – display {}x{}",
             Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
 
-        authState = AuthState.CONNECTING;
-        authError = "";
-        initialized = false;
+        if (artistMode) {
+            authState = AuthState.READY;
+            authError = "";
+            initialized = true;
+            LOG.info("Artist mode enabled: skipping auth and server connection.");
+        } else {
+            authState = AuthState.CONNECTING;
+            authError = "";
+            initialized = false;
+        }
 
         batch        = new SpriteBatch();
         screenBatch  = new SpriteBatch();
@@ -552,7 +571,7 @@ public class GameScreen extends ApplicationAdapter {
             0, 0, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
 
         spriteSheet = SpriteSheet.load();
-        modelLibrary = ModelLibrary.load();
+        modelLibrary = ModelLibrary.load(launchOptions);
         renderer2d.setSpriteSheet(spriteSheet);
         renderer3d.setSpriteSheet(spriteSheet);
         renderer3d.setModelLibrary(modelLibrary);
@@ -581,7 +600,8 @@ public class GameScreen extends ApplicationAdapter {
         skillGuidePopup = new SkillGuidePopup();
         adminToolsPopup = new AdminToolsPopup();
 
-        Thread t = new Thread(() -> {
+        if (!artistMode) {
+            Thread t = new Thread(() -> {
             try {
                 AuthApiClient authApiClient = new AuthApiClient();
                 AuthApiClient.LoginResult loginResult = authApiClient.login(loginEmail, loginPassword);
@@ -634,9 +654,10 @@ public class GameScreen extends ApplicationAdapter {
                     LOG.debug("Failed disconnect after login error", e);
                 }
             }
-        }, "erynfall-auth-connect");
-        t.setDaemon(true);
-        t.start();
+            }, "erynfall-auth-connect");
+            t.setDaemon(true);
+            t.start();
+        }
     }
 
     // -----------------------------------------------------------------------
@@ -1277,7 +1298,7 @@ public class GameScreen extends ApplicationAdapter {
             if (spriteSheet != null) spriteSheet.dispose();
             if (modelLibrary != null) modelLibrary.dispose();
             spriteSheet = SpriteSheet.load();
-            modelLibrary = ModelLibrary.load();
+            modelLibrary = ModelLibrary.load(launchOptions);
             staticPropPlacements = StaticPropLoader.load();
             TerrainHeightLoader.TerrainHeightData terrainHeightData = TerrainHeightLoader.load();
             terrainHeightLevels = terrainHeightData.levels;
@@ -1287,7 +1308,8 @@ public class GameScreen extends ApplicationAdapter {
             renderer3d.setModelLibrary(modelLibrary);
             renderer3d.setTerrainHeightData(terrainHeightLevels, terrainHeightStep);
             renderer3d.rebuildTerrain(tileMap);
-            LOG.info("Sprite atlas reloaded");
+            LOG.info("Hot reload complete (sprites, models, static props, terrain). Model source={}",
+                artistMode ? "repo art/models" : "classpath runtime resources");
         }
 
         if (use3DRenderer) {

@@ -15,12 +15,25 @@ import com.osrs.client.ui.LoginScreen;
  */
 public class ErynfallGame extends Game {
 
+    private final LaunchOptions launchOptions;
     private AudioManager audioManager;
+
+    public ErynfallGame() {
+        this(LaunchOptions.normal());
+    }
+
+    public ErynfallGame(LaunchOptions launchOptions) {
+        this.launchOptions = launchOptions == null ? LaunchOptions.normal() : launchOptions;
+    }
 
     @Override
     public void create() {
         audioManager = new AudioManager();
-        showLoginScreen();
+        if (launchOptions.artistMode()) {
+            startGame("artist@local", "");
+        } else {
+            showLoginScreen();
+        }
     }
 
     @Override
@@ -33,9 +46,13 @@ public class ErynfallGame extends Game {
         return audioManager;
     }
 
+    public LaunchOptions getLaunchOptions() {
+        return launchOptions;
+    }
+
     /** Called by LoginScreen once credentials are confirmed. */
     public void startGame(String username, String password) {
-        GameScreen gs = new GameScreen(this, username, password);
+        GameScreen gs = new GameScreen(this, username, password, launchOptions);
         setScreen(new ScreenAdapter() {
             @Override public void show()                   { gs.create(); }
             @Override public void render(float delta)      { gs.render(); }
@@ -51,6 +68,10 @@ public class ErynfallGame extends Game {
     }
 
     public void showLoginScreen(String errorMessage) {
+        if (launchOptions.artistMode()) {
+            startGame("artist@local", "");
+            return;
+        }
         setScreen(new LoginScreen(this, errorMessage));
     }
 }

@@ -15,9 +15,12 @@ public class Client {
     private static final Logger LOG = LoggerFactory.getLogger(Client.class);
     
     public static void main(String[] args) {
+        LaunchOptions launchOptions = LaunchOptions.fromArgs(args);
         LOG.info("Erynfall Client starting...");
         LOG.info("OS: {}", System.getProperty("os.name"));
         LOG.info("Arch: {}", System.getProperty("os.arch"));
+        LOG.info("Artist mode: {}", launchOptions.artistMode());
+        LOG.info("Repo root: {}", launchOptions.repoRootPath());
         
         // Disable GLFW thread check (allows running from Maven on non-macOS)
         Configuration.GLFW_CHECK_THREAD0.set(false);
@@ -32,7 +35,7 @@ public class Client {
         
         LOG.info("Creating LibGDX application...");
         try {
-            new Lwjgl3Application(new ErynfallGame(), config);
+            new Lwjgl3Application(new ErynfallGame(launchOptions), config);
             LOG.info("LibGDX application created successfully");
         } catch (Exception e) {
             LOG.error("Failed to create LibGDX application", e);
