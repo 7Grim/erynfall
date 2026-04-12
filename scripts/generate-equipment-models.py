@@ -221,6 +221,31 @@ def make_platelegs(model_id, main_col, trim_col=None):
     return multi_box_model(model_id, boxes)
 
 
+def make_bronze_platelegs(model_id):
+    """
+    Bronze reference platelegs with clearer OSRS silhouette:
+    - separate left/right cuisse + greave volumes
+    - visible knee cops
+    - short split fauld panel at the hips
+    """
+    boxes = [
+        # Waist / fauld panel
+        (-0.128, 0.000, -0.086, 0.128, 0.120, 0.082, BRONZE),
+        # Left/right upper leg shells (cuisses)
+        (-0.126, -0.190, -0.080, -0.010, 0.000, 0.072, BRONZE),
+        (0.010, -0.190, -0.080, 0.126, 0.000, 0.072, BRONZE),
+        # Left/right lower leg shells (greaves)
+        (-0.114, -0.405, -0.074, -0.018, -0.190, 0.080, BRONZE),
+        (0.018, -0.405, -0.074, 0.114, -0.190, 0.080, BRONZE),
+        # Knee cops
+        (-0.122, -0.225, 0.052, -0.010, -0.175, 0.092, BRONZE_DARK),
+        (0.010, -0.225, 0.052, 0.122, -0.175, 0.092, BRONZE_DARK),
+        # Inner split trim to avoid tube-like read
+        (-0.012, -0.405, -0.082, 0.012, 0.090, -0.050, BRONZE_DARK),
+    ]
+    return multi_box_model(model_id, boxes)
+
+
 def make_sq_shield(model_id, main_col, trim_col=None):
     """
     Sq shield: flat slab held in left hand.
@@ -234,6 +259,24 @@ def make_sq_shield(model_id, main_col, trim_col=None):
         # Rim trim
         inset = 0.015
         boxes.append((-hw, -hh, hd,  hw, hh, hd + 0.006, trim_col))
+    return multi_box_model(model_id, boxes)
+
+
+def make_bronze_sq_shield(model_id):
+    """
+    Bronze reference square shield with thickness and grip readability.
+    Face (+Z) is outward; negative Z side is arm-side.
+    """
+    boxes = [
+        # Main wooden/metal body with slight taper
+        (-0.126, -0.168, -0.024, 0.126, 0.168, 0.018, BRONZE),
+        # Raised rim frame
+        (-0.136, -0.178, 0.014, 0.136, 0.178, 0.034, BRONZE_DARK),
+        # Central boss
+        (-0.034, -0.032, 0.030, 0.034, 0.036, 0.052, BRONZE_DARK),
+        # Arm-side grip block / strap mount
+        (-0.020, -0.050, -0.044, 0.020, 0.080, -0.020, BRONZE_DARK),
+    ]
     return multi_box_model(model_id, boxes)
 
 
@@ -312,7 +355,7 @@ EQUIPMENT = {
     "equip_body_dragon_chainbody":  lambda: make_platebody("equip_body_dragon_chainbody",  DRAGON, DRAGON_DARK),
 
     # Platelegs
-    "equip_legs_bronze_platelegs":  lambda: make_platelegs("equip_legs_bronze_platelegs",  BRONZE, BRONZE_DARK),
+    "equip_legs_bronze_platelegs":  lambda: make_bronze_platelegs("equip_legs_bronze_platelegs"),
     "equip_legs_iron_platelegs":    lambda: make_platelegs("equip_legs_iron_platelegs",    IRON,   IRON_DARK),
     "equip_legs_steel_platelegs":   lambda: make_platelegs("equip_legs_steel_platelegs",   STEEL,  STEEL_DARK),
     "equip_legs_mithril_platelegs": lambda: make_platelegs("equip_legs_mithril_platelegs", MITHRIL, MITHRIL_DARK),
@@ -322,7 +365,7 @@ EQUIPMENT = {
     "equip_legs_dragon_platelegs":  lambda: make_platelegs("equip_legs_dragon_platelegs",  DRAGON, DRAGON_DARK),
 
     # Sq shields
-    "equip_shield_bronze_sq":       lambda: make_sq_shield("equip_shield_bronze_sq",    BRONZE, BRONZE_DARK),
+    "equip_shield_bronze_sq":       lambda: make_bronze_sq_shield("equip_shield_bronze_sq"),
     "equip_shield_iron_sq":         lambda: make_sq_shield("equip_shield_iron_sq",      IRON,   IRON_DARK),
     "equip_shield_steel_sq":        lambda: make_sq_shield("equip_shield_steel_sq",     STEEL,  STEEL_DARK),
     "equip_shield_mithril_sq":      lambda: make_sq_shield("equip_shield_mithril_sq",   MITHRIL, MITHRIL_DARK),
