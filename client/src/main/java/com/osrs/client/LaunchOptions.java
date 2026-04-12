@@ -2,16 +2,21 @@ package com.osrs.client;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.Files;
 
 public record LaunchOptions(boolean artistMode, String repoRoot) {
 
+    private static final String ARTIST_MODE_PROPERTY = "erynfall.artistMode";
+    private static final String REPO_ROOT_PROPERTY = "erynfall.repoRoot";
+
     public static LaunchOptions normal() {
-        return new LaunchOptions(false, Paths.get("").toAbsolutePath().normalize().toString());
+        return new LaunchOptions(false, detectDefaultRepoRoot().toString());
     }
 
     public static LaunchOptions fromArgs(String[] args) {
-        boolean artistMode = false;
-        String repoRoot = Paths.get("").toAbsolutePath().normalize().toString();
+        LaunchOptions defaults = fromSystemProperties();
+        boolean artistMode = defaults.artistMode();
+        String repoRoot = defaults.repoRoot();
 
         if (args != null) {
             for (String arg : args) {
@@ -30,6 +35,28 @@ public record LaunchOptions(boolean artistMode, String repoRoot) {
         }
 
         return new LaunchOptions(artistMode, repoRoot);
+    }
+
+    private static LaunchOptions fromSystemProperties() {
+        boolean artistMode = Boolean.parseBoolean(System.getProperty(ARTIST_MODE_PROPERTY, "false"));
+        String defaultRepoRoot = detectDefaultRepoRoot().toString();
+        String configuredRepoRoot = System.getProperty(REPO_ROOT_PROPERTY, "").trim();
+        String repoRoot = configuredRepoRoot.isEmpty()
+            ? defaultRepoRoot
+            : Paths.get(configuredRepoRoot).toAbsolutePath().normalize().toString();
+        return new LaunchOptions(artistMode, repoRoot);
+    }
+
+    private static Path detectDefaultRepoRoot() {
+        Path cwd = Paths.get("").toAbsolutePath().normalize();
+        Path cursor = cwd;
+        for (int i = 0; i < 6 && cursor != null; i++) {
+            if (Files.exists(cursor.resolve("art/models/manifest.yaml"))) {
+                return cursor;
+            }
+            cursor = cursor.getParent();
+        }
+        return cwd;
     }
 
     public Path repoRootPath() {

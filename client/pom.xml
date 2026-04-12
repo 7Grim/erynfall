@@ -23,6 +23,8 @@
         <strictEquipmentCoverage>false</strictEquipmentCoverage>
         <equipmentCoverageStrictArg></equipmentCoverageStrictArg>
         <gdxGltf.version>2.2.1</gdxGltf.version>
+        <erynfall.artistMode>false</erynfall.artistMode>
+        <erynfall.repoRoot></erynfall.repoRoot>
     </properties>
 
     <repositories>
@@ -313,6 +315,8 @@
                             <executable>java</executable>
                             <arguments>
                                 <argument>-XstartOnFirstThread</argument>
+                                <argument>-Derynfall.artistMode=${erynfall.artistMode}</argument>
+                                <argument>-Derynfall.repoRoot=${erynfall.repoRoot}</argument>
                                 <argument>-classpath</argument>
                                 <classpath/>
                                 <argument>com.osrs.client.Client</argument>
@@ -336,6 +340,8 @@
                         <configuration>
                             <executable>java</executable>
                             <arguments>
+                                <argument>-Derynfall.artistMode=${erynfall.artistMode}</argument>
+                                <argument>-Derynfall.repoRoot=${erynfall.repoRoot}</argument>
                                 <argument>-classpath</argument>
                                 <classpath/>
                                 <argument>com.osrs.client.Client</argument>

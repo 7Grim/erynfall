@@ -8,16 +8,16 @@ import com.badlogic.gdx.utils.Disposable;
 import com.badlogic.gdx.utils.JsonReader;
 import com.badlogic.gdx.utils.JsonValue;
 import com.badlogic.gdx.utils.UBJsonReader;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.osrs.client.LaunchOptions;
 import net.mgsx.gltf.loaders.glb.GLBLoader;
 import net.mgsx.gltf.scene3d.scene.SceneAsset;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class ModelLibrary {
 
@@ -25,6 +25,9 @@ public class ModelLibrary {
     private static final String COVERAGE_REPORT_RESOURCE = "equipment-coverage-report.json";
     private static final String MODELS_RESOURCE_DIR = "models";
     private static final String SOURCE_MANIFEST = "art/models/manifest.yaml";
+    private static final Pattern ENTRY_START_PATTERN = Pattern.compile("^\\s*-\\s+key:\\s*(.+)$");
+    private static final Pattern LIST_ITEM_PATTERN = Pattern.compile("^\\s{6}-\\s*(.+)$");
+    private static final Pattern FIELD_PATTERN = Pattern.compile("^\\s{4}([a-z_]+):\\s*(.*)$");
 
     private record LoadedAsset(Model model, Disposable owner) {}
 
@@ -189,14 +192,8 @@ public class ModelLibrary {
             return;
         }
         try {
-            ObjectMapper mapper = new ObjectMapper(new YAMLFactory());
-            JsonNode root = mapper.readTree(manifestHandle.readString());
-            JsonNode assets = root.get("assets");
-            if (assets == null || !assets.isArray()) {
-                Gdx.app.log("ModelLibrary", "WARN: no assets array in source model manifest");
-                return;
-            }
-            for (JsonNode asset : assets) {
+            List<Map<String, Object>> items = parseSourceManifest(manifestHandle.readString());
+            for (Map<String, Object> asset : items) {
                 String key = text(asset, "key", "");
                 String file = text(asset, "file", "");
                 if (key.isBlank() || file.isBlank()) {
@@ -232,6 +229,118 @@ public class ModelLibrary {
             metaByKey.clear();
             equipmentMetaBySlotItem.clear();
         }
+    }
+
+    private List<Map<String, Object>> parseSourceManifest(String content) {
+        String[] lines = content.split("\\R");
+        boolean inAssets = false;
+        String activeListField = null;
+        ArrayList<Map<String, Object>> items = new ArrayList<>();
+        Map<String, Object> current = null;
+
+        for (String rawLine : lines) {
+            String line = rawLine;
+            int comment = line.indexOf('#');
+            if (comment >= 0) {
+                line = line.substring(0, comment);
+            }
+            line = rstrip(line);
+            if (line.trim().isEmpty()) {
+                continue;
+            }
+            if ("assets:".equals(line.trim())) {
+                inAssets = true;
+                continue;
+            }
+            if (!inAssets) {
+                continue;
+            }
+
+            Matcher entryStart = ENTRY_START_PATTERN.matcher(line);
+            if (entryStart.matches()) {
+                activeListField = null;
+                if (current != null) {
+                    items.add(current);
+                }
+                current = new HashMap<>();
+                current.put("key", parseScalar(entryStart.group(1)));
+                continue;
+            }
+
+            Matcher listItem = LIST_ITEM_PATTERN.matcher(line);
+            if (activeListField != null && listItem.matches()) {
+                if (current == null) {
+                    continue;
+                }
+                Object existing = current.get(activeListField);
+                if (existing instanceof List<?> list) {
+                    @SuppressWarnings("unchecked")
+                    List<Object> values = (List<Object>) list;
+                    values.add(parseScalar(listItem.group(1)));
+                }
+                continue;
+            }
+
+            activeListField = null;
+            Matcher pair = FIELD_PATTERN.matcher(line);
+            if (pair.matches() && current != null) {
+                String fieldName = pair.group(1);
+                String fieldValue = pair.group(2);
+                if (fieldValue.isEmpty()) {
+                    current.put(fieldName, new ArrayList<>());
+                    activeListField = fieldName;
+                } else {
+                    current.put(fieldName, parseScalar(fieldValue));
+                }
+            }
+        }
+
+        if (current != null) {
+            items.add(current);
+        }
+        return items;
+    }
+
+    private String rstrip(String text) {
+        int end = text.length();
+        while (end > 0 && Character.isWhitespace(text.charAt(end - 1))) {
+            end--;
+        }
+        return text.substring(0, end);
+    }
+
+    private Object parseScalar(String raw) {
+        if (raw == null) {
+            return "";
+        }
+        String value = raw.trim();
+        if (value.isEmpty()) {
+            return "";
+        }
+        if ((value.startsWith("\"") && value.endsWith("\"")) || (value.startsWith("'") && value.endsWith("'"))) {
+            return value.length() >= 2 ? value.substring(1, value.length() - 1) : "";
+        }
+        if ("true".equals(value)) {
+            return true;
+        }
+        if ("false".equals(value)) {
+            return false;
+        }
+        if (value.matches("-?\\d+")) {
+            try {
+                return Integer.parseInt(value);
+            } catch (NumberFormatException ignored) {
+                return value;
+            }
+        }
+        if (value.matches("-?\\d+\\.\\d+")) {
+            try {
+                return Double.parseDouble(value);
+            } catch (NumberFormatException ignored) {
+                return value;
+            }
+        }
+        return value;
     }
 
     private void loadModels() {
@@ -331,75 +440,93 @@ public class ModelLibrary {
         return List.copyOf(strings);
     }
 
-    private List<String> readStringList(JsonNode value) {
-        if (value == null || !value.isArray()) {
+    private List<String> readStringList(Object value) {
+        if (!(value instanceof List<?> list)) {
             return List.of();
         }
         java.util.ArrayList<String> strings = new java.util.ArrayList<>();
-        for (JsonNode entry : value) {
-            if (entry != null && entry.isValueNode()) {
-                String text = entry.asText("").trim();
-                if (!text.isEmpty()) {
-                    strings.add(text);
-                }
+        for (Object entry : list) {
+            if (entry == null) {
+                continue;
+            }
+            String text = String.valueOf(entry).trim();
+            if (!text.isEmpty()) {
+                strings.add(text);
             }
         }
         return List.copyOf(strings);
     }
 
-    private String text(JsonNode node, String field, String fallback) {
+    private String text(Map<String, Object> node, String field, String fallback) {
         if (node == null) {
             return fallback;
         }
-        JsonNode value = node.get(field);
-        if (value == null || value.isNull()) {
+        Object value = node.get(field);
+        if (value == null) {
             return fallback;
         }
-        String text = value.asText(fallback);
+        String text = String.valueOf(value);
         return text == null ? fallback : text;
     }
 
-    private float floatValue(JsonNode node, String field, float fallback) {
+    private float floatValue(Map<String, Object> node, String field, float fallback) {
         if (node == null) {
             return fallback;
         }
-        JsonNode value = node.get(field);
-        if (value == null || value.isNull()) {
+        Object value = node.get(field);
+        if (value == null) {
             return fallback;
         }
-        return (float) value.asDouble(fallback);
+        if (value instanceof Number number) {
+            return number.floatValue();
+        }
+        try {
+            return Float.parseFloat(String.valueOf(value));
+        } catch (NumberFormatException ignored) {
+            return fallback;
+        }
     }
 
-    private int intValue(JsonNode node, String field, int fallback) {
+    private int intValue(Map<String, Object> node, String field, int fallback) {
         if (node == null) {
             return fallback;
         }
-        JsonNode value = node.get(field);
-        if (value == null || value.isNull()) {
+        Object value = node.get(field);
+        if (value == null) {
             return fallback;
         }
-        return value.asInt(fallback);
+        if (value instanceof Number number) {
+            return number.intValue();
+        }
+        try {
+            return Integer.parseInt(String.valueOf(value));
+        } catch (NumberFormatException ignored) {
+            return fallback;
+        }
     }
 
-    private boolean boolValue(JsonNode node, String field, boolean fallback) {
+    private boolean boolValue(Map<String, Object> node, String field, boolean fallback) {
         if (node == null) {
             return fallback;
         }
-        JsonNode value = node.get(field);
-        if (value == null || value.isNull()) {
+        Object value = node.get(field);
+        if (value == null) {
             return fallback;
         }
-        return value.asBoolean(fallback);
+        if (value instanceof Boolean bool) {
+            return bool;
+        }
+        return Boolean.parseBoolean(String.valueOf(value));
     }
 
-    private int equipSlotValue(JsonNode value) {
-        if (value == null || value.isNull()) {
+    private int equipSlotValue(Object value) {
+        if (value == null) {
             return -1;
         }
-        if (value.isInt()) {
-            return value.asInt(-1);
+        if (value instanceof Number number) {
+            return number.intValue();
         }
-        String slot = value.asText("").trim().toUpperCase();
+        String slot = String.valueOf(value).trim().toUpperCase();
         return switch (slot) {
             case "HEAD" -> 0;
             case "CAPE" -> 1;
