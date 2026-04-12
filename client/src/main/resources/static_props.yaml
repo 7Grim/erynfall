@@ -24,104 +24,104 @@ props:
     scale: 1.0
     visibility_group: base
   - key: table_small
+    x: 43
+    y: 45
+    rotation_y_degrees: 0
+    scale: 1.0
+    visibility_group: base
+  - key: crate_small
+    x: 44
+    y: 48
+    rotation_y_degrees: 0
+    scale: 1.0
+    visibility_group: base
+  - key: barrel_small
     x: 48
     y: 48
     rotation_y_degrees: 0
     scale: 1.0
     visibility_group: base
-  - key: crate_small
-    x: 46
-    y: 48
-    rotation_y_degrees: 0
-    scale: 1.0
-    visibility_group: base
-  - key: barrel_small
-    x: 50
-    y: 48
-    rotation_y_degrees: 0
-    scale: 1.0
-    visibility_group: base
   - key: building_shell_service_base
-    x: 56
-    y: 48
+    x: 58
+    y: 50
     rotation_y_degrees: 0
     scale: 1.0
     visibility_group: base
   - key: building_shell_service_roof
-    x: 56
-    y: 48
+    x: 58
+    y: 50
     rotation_y_degrees: 0
     scale: 1.0
     visibility_group: roof
   - key: bench_small
     x: 54
-    y: 48
+    y: 53
     rotation_y_degrees: 90
     scale: 1.0
     visibility_group: base
   - key: signpost_small
-    x: 58
-    y: 46
+    x: 61
+    y: 53
     rotation_y_degrees: 0
     scale: 1.0
     visibility_group: base
   - key: sack_stack_small
-    x: 57
-    y: 50
+    x: 62
+    y: 51
     rotation_y_degrees: 0
     scale: 1.0
     visibility_group: base
   - key: cart_small
-    x: 53
-    y: 50
+    x: 55
+    y: 51
     rotation_y_degrees: 180
     scale: 1.0
     visibility_group: base
   - key: fence_post_small
-    x: 55
-    y: 46
+    x: 53
+    y: 50
     rotation_y_degrees: 0
     scale: 1.0
     visibility_group: base
   - key: building_shell_coastal_base
     x: 52
-    y: 38
+    y: 37
     rotation_y_degrees: 0
     scale: 1.0
     visibility_group: base
   - key: building_shell_coastal_roof
     x: 52
-    y: 38
+    y: 37
     rotation_y_degrees: 0
     scale: 1.0
     visibility_group: roof
   - key: dock_pier_small
-    x: 50
-    y: 36
+    x: 49
+    y: 34
     rotation_y_degrees: 0
     scale: 1.0
     visibility_group: base
   - key: dock_pier_small
-    x: 51
-    y: 35
+    x: 50
+    y: 33
     rotation_y_degrees: 0
     scale: 1.0
     visibility_group: base
   - key: signpost_small
-    x: 53
-    y: 37
+    x: 55
+    y: 36
     rotation_y_degrees: 180
     scale: 1.0
     visibility_group: base
   - key: fence_post_small
-    x: 49
-    y: 37
+    x: 48
+    y: 36
     rotation_y_degrees: 0
     scale: 1.0
     visibility_group: base
   - key: barrel_small
-    x: 52
-    y: 36
+    x: 53
+    y: 34
     rotation_y_degrees: 0
     scale: 1.0
     visibility_group: base

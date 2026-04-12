@@ -392,6 +392,7 @@ Important migration note:
 - Those placements are visual-only for the experimental 3D renderer and currently do not add gameplay collision or interaction.
 - `static_props.yaml` supports broader world-dressing composition (shells, dock pieces, benches, signs, carts, crates/barrels/sacks) to strengthen area identity without changing gameplay semantics.
 - Larger shell assets should be split into `_base` and `_roof` model pairs; `static_props.yaml` marks base/roof via `visibility_group` so roof pieces can fade for readability while base structure stays visible.
+- Building shells should be authored as multi-tile structures with believable floor area, not single-tile decorative blocks, so future interior gameplay can be added without replacing the whole structure language.
 
 Actor model prototype notes:
 - The experimental renderer now supports a first actor-model prototype path using state-swapped static meshes (not animated rigs).
