@@ -16,6 +16,7 @@ import com.badlogic.gdx.graphics.g3d.ModelInstance;
 import com.badlogic.gdx.graphics.g3d.model.Node;
 import com.badlogic.gdx.graphics.g3d.attributes.BlendingAttribute;
 import com.badlogic.gdx.graphics.g3d.attributes.ColorAttribute;
+import com.badlogic.gdx.graphics.g3d.attributes.IntAttribute;
 import com.badlogic.gdx.graphics.g3d.attributes.TextureAttribute;
 import com.badlogic.gdx.graphics.g3d.decals.CameraGroupStrategy;
 import com.badlogic.gdx.graphics.g3d.decals.Decal;
@@ -165,10 +166,10 @@ public class Renderer3DExperimental {
     }
 
     public Renderer3DExperimental(int screenW, int screenH) {
-        camera = new PerspectiveCamera(67f, Math.max(1, screenW), Math.max(1, screenH));
+        camera = new PerspectiveCamera(45f, Math.max(1, screenW), Math.max(1, screenH));
         camera.near = 0.1f;
         camera.far = 600f;
-        camera.position.set(52f, 12f, 62f);
+        camera.position.set(52f, 26f, 74f);
         camera.lookAt(52f, 0f, 52f);
         camera.up.set(0f, 1f, 0f);
         camera.update();
@@ -178,8 +179,8 @@ public class Renderer3DExperimental {
         overlayDecalBatch = new DecalBatch(new CameraGroupStrategy(camera));
 
         environment = new Environment();
-        environment.set(new ColorAttribute(ColorAttribute.AmbientLight, 0.38f, 0.40f, 0.45f, 1f));
-        environment.add(new DirectionalLight().set(0.85f, 0.82f, 0.78f, -0.5f, -0.8f, -0.3f));
+        environment.set(new ColorAttribute(ColorAttribute.AmbientLight, 0.50f, 0.48f, 0.42f, 1f));
+        environment.add(new DirectionalLight().set(0.45f, 0.42f, 0.36f, -0.5f, -0.85f, -0.2f));
 
         // Character models use pre-baked vertex colors — full ambient, no directional light.
         characterEnvironment = new Environment();
@@ -921,6 +922,7 @@ public class Renderer3DExperimental {
         }
         try {
             ModelInstance instance = new ModelInstance(model);
+            for (Material m : instance.materials) m.set(IntAttribute.createCullFace(GL20.GL_BACK));
             AnimationController controller = new AnimationController(instance);
             animatedPlayerInstances.put(entityId, instance);
             playerAnimationControllers.put(entityId, controller);
@@ -959,6 +961,7 @@ public class Renderer3DExperimental {
 
         try {
             ModelInstance instance = new ModelInstance(model);
+            for (Material m : instance.materials) m.set(IntAttribute.createCullFace(GL20.GL_BACK));
             AnimationController controller = new AnimationController(instance);
             npcAnimatedInstances.put(entityId, instance);
             npcAnimationControllers.put(entityId, controller);
@@ -1487,6 +1490,15 @@ public class Renderer3DExperimental {
         modelBuilder.begin();
         boolean hasGeometry = false;
 
+        // One shared vertex-colored part for all ground tiles (grass/path/water/sand).
+        // Vertex colors blend at shared corners → eliminates visible tile seams.
+        Material colorMat = new Material(ColorAttribute.createDiffuse(Color.WHITE));
+        int colorAttrs = VertexAttributes.Usage.Position
+                       | VertexAttributes.Usage.Normal
+                       | VertexAttributes.Usage.ColorUnpacked;
+        MeshPartBuilder coloredPart = modelBuilder.part(
+            "ground_" + chunkX + "_" + chunkY, GL20.GL_TRIANGLES, colorAttrs, colorMat);
+
         for (int y = startY; y < endY; y++) {
             for (int x = startX; x < endX; x++) {
                 int type = tileMap[x][y];
@@ -1600,22 +1612,9 @@ public class Renderer3DExperimental {
                         wallBindings.add(new WallMaterialBinding(eastFaceMaterial, x, y, WALL_FACE_SHADE));
                     }
                 } else {
-                    Material material = useFallback
-                        ? new Material(ColorAttribute.createDiffuse(tileTypeFallbackColor(type)))
-                        : new Material(TextureAttribute.createDiffuse(region.getTexture()));
-                    int attrs = VertexAttributes.Usage.Position | VertexAttributes.Usage.Normal
-                        | (useFallback ? 0 : VertexAttributes.Usage.TextureCoordinates);
-                    MeshPartBuilder part = modelBuilder.part(
-                        "tile_" + x + "_" + y,
-                        GL20.GL_TRIANGLES,
-                        attrs,
-                        material
-                    );
-                    if (useFallback) {
-                        addTopQuadNoUV(part, x0, z0, x1, z1, tileTopY);
-                    } else {
-                        addTopQuad(part, x0, z0, x1, z1, tileTopY, region);
-                    }
+                    // Ground tiles use the shared vertex-colored part for seamless blending.
+                    addColoredTopQuad(coloredPart, x0, z0, x1, z1, tileTopY, tileMap, x, y);
+                    hasGeometry = true;
                 }
 
                 float northTop = getTileTopY(tileMap, x, y - 1);
@@ -1712,6 +1711,67 @@ public class Renderer3DExperimental {
         MeshPartBuilder.VertexInfo v10 = new MeshPartBuilder.VertexInfo().setPos(x1, y, z0).setNor(0f, 1f, 0f);
         MeshPartBuilder.VertexInfo v11 = new MeshPartBuilder.VertexInfo().setPos(x1, y, z1).setNor(0f, 1f, 0f);
         MeshPartBuilder.VertexInfo v01 = new MeshPartBuilder.VertexInfo().setPos(x0, y, z1).setNor(0f, 1f, 0f);
+        part.rect(v01, v11, v10, v00);
+    }
+
+    /** OSRS-accurate base colors for each tile type (pre-lighting). */
+    private static Color tileBaseColor(int type) {
+        return switch (type) {
+            case 1 -> new Color(0.20f, 0.36f, 0.48f, 1f); // water: slate blue
+            case 2 -> new Color(0.40f, 0.36f, 0.28f, 1f); // path: warm gray-brown
+            case 3 -> new Color(0.36f, 0.34f, 0.32f, 1f); // wall top: stone gray
+            case 4 -> new Color(0.56f, 0.48f, 0.28f, 1f); // sand: warm tan
+            default -> new Color(0.22f, 0.42f, 0.13f, 1f); // grass: dark natural green
+        };
+    }
+
+    /**
+     * Per-corner vertex color: average of up to 4 neighboring tile base colors
+     * plus ±5% seeded noise to break up uniformity (texture-like variation).
+     * cx, cz are tile-corner world coordinates (0..mapW, 0..mapH).
+     */
+    private Color tileCornerColor(int[][] tileMap, int cx, int cz) {
+        float r = 0, g = 0, b = 0;
+        int n = 0;
+        int[] dxs = {-1, 0, -1, 0};
+        int[] dzs = {-1, -1, 0, 0};
+        for (int i = 0; i < 4; i++) {
+            int tx = cx + dxs[i], tz = cz + dzs[i];
+            if (tx >= 0 && tx < tileMap.length && tz >= 0 && tz < tileMap[0].length) {
+                Color c = tileBaseColor(tileMap[tx][tz]);
+                r += c.r; g += c.g; b += c.b; n++;
+            }
+        }
+        if (n == 0) return tileBaseColor(0);
+        r /= n; g /= n; b /= n;
+        // Deterministic ±5% per-corner noise
+        int h = (cx * 374761393) ^ (cz * 668265263);
+        h = (h ^ (h >>> 13)) * 1274126177;
+        h ^= (h >>> 16);
+        float noise = ((h & 0xFF) / 255f - 0.5f) * 0.10f;
+        return new Color(
+            Math.max(0f, Math.min(1f, r + noise)),
+            Math.max(0f, Math.min(1f, g + noise * 0.7f)),
+            Math.max(0f, Math.min(1f, b + noise * 0.4f)),
+            1f);
+    }
+
+    /**
+     * Adds a ground tile quad to the shared vertex-colored part.
+     * Each corner gets a color averaged from neighboring tile types,
+     * producing seamless blending across tile boundaries.
+     */
+    private void addColoredTopQuad(MeshPartBuilder part,
+                                   float x0, float z0, float x1, float z1, float y,
+                                   int[][] tileMap, int tx, int tz) {
+        Color c00 = tileCornerColor(tileMap, tx,   tz  );
+        Color c10 = tileCornerColor(tileMap, tx+1, tz  );
+        Color c11 = tileCornerColor(tileMap, tx+1, tz+1);
+        Color c01 = tileCornerColor(tileMap, tx,   tz+1);
+        MeshPartBuilder.VertexInfo v00 = new MeshPartBuilder.VertexInfo().setPos(x0,y,z0).setNor(0f,1f,0f).setCol(c00);
+        MeshPartBuilder.VertexInfo v10 = new MeshPartBuilder.VertexInfo().setPos(x1,y,z0).setNor(0f,1f,0f).setCol(c10);
+        MeshPartBuilder.VertexInfo v11 = new MeshPartBuilder.VertexInfo().setPos(x1,y,z1).setNor(0f,1f,0f).setCol(c11);
+        MeshPartBuilder.VertexInfo v01 = new MeshPartBuilder.VertexInfo().setPos(x0,y,z1).setNor(0f,1f,0f).setCol(c01);
         part.rect(v01, v11, v10, v00);
     }
 
@@ -2372,6 +2432,7 @@ public class Renderer3DExperimental {
             instance = pool.get(cursor);
         } else {
             instance = new ModelInstance(model);
+            for (Material m : instance.materials) m.set(IntAttribute.createCullFace(GL20.GL_BACK));
             pool.add(instance);
         }
         actorModelInstanceCursor.put(key, cursor + 1);

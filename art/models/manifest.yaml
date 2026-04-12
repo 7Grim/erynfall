@@ -444,9 +444,9 @@ assets:
     item_id: 1115
     anchor_name: head_anchor
     offset_x: 0.0
-    offset_y: 1.185
+    offset_y: 1.18
     offset_z: 0.0
-    rot_x: 2.0
+    rot_x: 3.0
     rot_y: 0.0
     rot_z: 0.0
     hide_nodes:
@@ -583,7 +583,7 @@ assets:
     item_id: 1119
     anchor_name: body_anchor
     offset_x: 0.0
-    offset_y: 0.825
+    offset_y: 0.82
     offset_z: 0.0
     rot_x: 0.0
     rot_y: 0.0
@@ -727,7 +727,10 @@ assets:
     rot_y: 0.0
     rot_z: 0.0
     hide_nodes:
-      - legs
+      - upper_leg_l
+      - lower_leg_l
+      - upper_leg_r
+      - lower_leg_r
   - key: equip_legs_iron_platelegs
     file: equip_legs_iron_platelegs.g3dj
     category: equipment
@@ -740,11 +743,16 @@ assets:
     item_id: 1067
     anchor_name: legs_anchor
     offset_x: 0.0
-    offset_y: 0.38
+    offset_y: 0.365
     offset_z: 0.0
     rot_x: 0.0
     rot_y: 0.0
     rot_z: 0.0
+    hide_nodes:
+      - upper_leg_l
+      - lower_leg_l
+      - upper_leg_r
+      - lower_leg_r
   - key: equip_legs_steel_platelegs
     file: equip_legs_steel_platelegs.g3dj
     category: equipment
@@ -757,11 +765,16 @@ assets:
     item_id: 1069
     anchor_name: legs_anchor
     offset_x: 0.0
-    offset_y: 0.38
+    offset_y: 0.365
     offset_z: 0.0
     rot_x: 0.0
     rot_y: 0.0
     rot_z: 0.0
+    hide_nodes:
+      - upper_leg_l
+      - lower_leg_l
+      - upper_leg_r
+      - lower_leg_r
   - key: equip_legs_mithril_platelegs
     file: equip_legs_mithril_platelegs.g3dj
     category: equipment
@@ -774,11 +787,16 @@ assets:
     item_id: 1071
     anchor_name: legs_anchor
     offset_x: 0.0
-    offset_y: 0.38
+    offset_y: 0.365
     offset_z: 0.0
     rot_x: 0.0
     rot_y: 0.0
     rot_z: 0.0
+    hide_nodes:
+      - upper_leg_l
+      - lower_leg_l
+      - upper_leg_r
+      - lower_leg_r
   - key: equip_legs_adamant_platelegs
     file: equip_legs_adamant_platelegs.g3dj
     category: equipment
@@ -791,11 +809,16 @@ assets:
     item_id: 1077
     anchor_name: legs_anchor
     offset_x: 0.0
-    offset_y: 0.38
+    offset_y: 0.365
     offset_z: 0.0
     rot_x: 0.0
     rot_y: 0.0
     rot_z: 0.0
+    hide_nodes:
+      - upper_leg_l
+      - lower_leg_l
+      - upper_leg_r
+      - lower_leg_r
   - key: equip_legs_rune_platelegs
     file: equip_legs_rune_platelegs.g3dj
     category: equipment
@@ -808,11 +831,16 @@ assets:
     item_id: 1079
     anchor_name: legs_anchor
     offset_x: 0.0
-    offset_y: 0.38
+    offset_y: 0.365
     offset_z: 0.0
     rot_x: 0.0
     rot_y: 0.0
     rot_z: 0.0
+    hide_nodes:
+      - upper_leg_l
+      - lower_leg_l
+      - upper_leg_r
+      - lower_leg_r
   - key: equip_legs_black_platelegs
     file: equip_legs_black_platelegs.g3dj
     category: equipment
@@ -825,11 +853,16 @@ assets:
     item_id: 1073
     anchor_name: legs_anchor
     offset_x: 0.0
-    offset_y: 0.38
+    offset_y: 0.365
     offset_z: 0.0
     rot_x: 0.0
     rot_y: 0.0
     rot_z: 0.0
+    hide_nodes:
+      - upper_leg_l
+      - lower_leg_l
+      - upper_leg_r
+      - lower_leg_r
   - key: equip_legs_dragon_platelegs
     file: equip_legs_dragon_platelegs.g3dj
     category: equipment
@@ -842,11 +875,16 @@ assets:
     item_id: 4087
     anchor_name: legs_anchor
     offset_x: 0.0
-    offset_y: 0.38
+    offset_y: 0.365
     offset_z: 0.0
     rot_x: 0.0
     rot_y: 0.0
     rot_z: 0.0
+    hide_nodes:
+      - upper_leg_l
+      - lower_leg_l
+      - upper_leg_r
+      - lower_leg_r
   - key: equip_shield_bronze_sq
     file: equip_shield_bronze_sq.g3dj
     category: equipment
@@ -1300,12 +1338,12 @@ assets:
     equip_slot: 4
     item_id: 1351
     anchor_name: weapon_anchor
-    offset_x: 0.228
-    offset_y: 0.84
-    offset_z: -0.01
-    rot_x: 34.0
-    rot_y: 12.0
-    rot_z: -32.0
+    offset_x: 0.216
+    offset_y: 0.835
+    offset_z: -0.021
+    rot_x: 46.0
+    rot_y: 16.0
+    rot_z: -44.0
   - key: equip_weapon_iron_axe
     file: equip_weapon_iron_axe.g3dj
     category: equipment
@@ -1436,12 +1474,12 @@ assets:
     equip_slot: 4
     item_id: 1265
     anchor_name: weapon_anchor
-    offset_x: 0.232
-    offset_y: 0.84
-    offset_z: -0.012
-    rot_x: 28.0
-    rot_y: -8.0
-    rot_z: -30.0
+    offset_x: 0.218
+    offset_y: 0.836
+    offset_z: -0.02
+    rot_x: 42.0
+    rot_y: -18.0
+    rot_z: -40.0
   - key: equip_weapon_iron_pickaxe
     file: equip_weapon_iron_pickaxe.g3dj
     category: equipment
