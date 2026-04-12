@@ -577,10 +577,10 @@ public class GameScreen extends ApplicationAdapter {
         renderer3d.setModelLibrary(modelLibrary);
         mapLoader  = MapLoader.load();
         tileMap    = mapLoader.getLayout();
-        TerrainHeightLoader.TerrainHeightData terrainHeightData = TerrainHeightLoader.load();
+        TerrainHeightLoader.TerrainHeightData terrainHeightData = TerrainHeightLoader.load(launchOptions);
         terrainHeightLevels = terrainHeightData.levels;
         terrainHeightStep = terrainHeightData.heightStep;
-        staticPropPlacements = StaticPropLoader.load();
+        staticPropPlacements = StaticPropLoader.load(launchOptions);
         renderer3d.setTerrainHeightData(terrainHeightLevels, terrainHeightStep);
         renderer3d.rebuildTerrain(tileMap);
         contextMenu = new ContextMenu();
@@ -1299,8 +1299,8 @@ public class GameScreen extends ApplicationAdapter {
             if (modelLibrary != null) modelLibrary.dispose();
             spriteSheet = SpriteSheet.load();
             modelLibrary = ModelLibrary.load(launchOptions);
-            staticPropPlacements = StaticPropLoader.load();
-            TerrainHeightLoader.TerrainHeightData terrainHeightData = TerrainHeightLoader.load();
+            staticPropPlacements = StaticPropLoader.load(launchOptions);
+            TerrainHeightLoader.TerrainHeightData terrainHeightData = TerrainHeightLoader.load(launchOptions);
             terrainHeightLevels = terrainHeightData.levels;
             terrainHeightStep = terrainHeightData.heightStep;
             renderer2d.setSpriteSheet(spriteSheet);

@@ -1,8 +1,7 @@
 package com.osrs.client.world;
 
 import com.badlogic.gdx.Gdx;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
+import com.osrs.client.LaunchOptions;
 
 import java.util.List;
 import java.util.Map;
@@ -23,19 +22,20 @@ public final class TerrainHeightLoader {
     }
 
     public static TerrainHeightData load() {
+        return load(LaunchOptions.normal());
+    }
+
+    public static TerrainHeightData load(LaunchOptions launchOptions) {
         int[][] levels = new int[MapLoader.WIDTH][MapLoader.HEIGHT];
         float heightStep = DEFAULT_HEIGHT_STEP;
 
         try {
-            if (!Gdx.files.internal("terrain_height.yaml").exists()) {
-                Gdx.app.log("TerrainHeightLoader", "WARN: terrain_height.yaml not found; using flat terrain");
+            WorldSceneLoader.WorldSceneData sceneData = WorldSceneLoader.load(launchOptions);
+            Map<String, Object> data = sceneData.terrainHeight();
+            if (data.isEmpty()) {
+                Gdx.app.log("TerrainHeightLoader", "WARN: terrain_height block missing; using flat terrain");
                 return new TerrainHeightData(levels, heightStep);
             }
-
-            ObjectMapper mapper = new ObjectMapper(new YAMLFactory());
-            String yaml = Gdx.files.internal("terrain_height.yaml").readString();
-            @SuppressWarnings("unchecked")
-            Map<String, Object> data = mapper.readValue(yaml, Map.class);
 
             Object stepValue = data.get("height_step");
             if (stepValue instanceof Number n && n.floatValue() > 0f) {
@@ -90,10 +90,11 @@ public final class TerrainHeightLoader {
                 }
             }
 
-            Gdx.app.log("TerrainHeightLoader", "Loaded terrain heights with step=" + heightStep);
+            String source = sceneData.repoBacked() ? "repo" : "classpath";
+            Gdx.app.log("TerrainHeightLoader", "Loaded terrain heights with step=" + heightStep + " from " + source + " scene");
             return new TerrainHeightData(levels, heightStep);
         } catch (Exception e) {
-            Gdx.app.log("TerrainHeightLoader", "WARN: failed to load terrain_height.yaml: " + e.getMessage());
+            Gdx.app.log("TerrainHeightLoader", "WARN: failed to load terrain height scene data: " + e.getMessage());
             return new TerrainHeightData(levels, DEFAULT_HEIGHT_STEP);
         }
     }

@@ -209,6 +209,28 @@
                         </configuration>
                     </execution>
                     <execution>
+                        <id>copy-world-scene</id>
+                        <phase>generate-resources</phase>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                        <configuration>
+                            <target>
+                                <mkdir dir="${project.basedir}/src/main/resources/world"/>
+                                <delete includeemptydirs="false">
+                                    <fileset dir="${project.basedir}/src/main/resources/world">
+                                        <include name="**/*.scene.yaml"/>
+                                    </fileset>
+                                </delete>
+                                <copy todir="${project.basedir}/src/main/resources/world" overwrite="true">
+                                    <fileset dir="${project.basedir}/../art/world">
+                                        <include name="**/*.scene.yaml"/>
+                                    </fileset>
+                                </copy>
+                            </target>
+                        </configuration>
+                    </execution>
+                    <execution>
                         <id>pack-textures</id>
                         <phase>generate-resources</phase>
                         <goals>

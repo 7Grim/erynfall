@@ -1,8 +1,7 @@
 package com.osrs.client.world;
 
 import com.badlogic.gdx.Gdx;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
+import com.osrs.client.LaunchOptions;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -40,18 +39,15 @@ public final class StaticPropLoader {
     }
 
     public static List<StaticPropPlacement> load() {
-        ObjectMapper mapper = new ObjectMapper(new YAMLFactory());
-        try {
-            if (!Gdx.files.internal("static_props.yaml").exists()) {
-                Gdx.app.log("StaticPropLoader", "WARN: static_props.yaml not found in classpath");
-                return List.of();
-            }
+        return load(LaunchOptions.normal());
+    }
 
-            String yaml = Gdx.files.internal("static_props.yaml").readString();
-            @SuppressWarnings("unchecked")
-            Map<String, Object> data = mapper.readValue(yaml, Map.class);
-            Object propsObj = data.get("props");
-            if (!(propsObj instanceof List<?> rows)) {
+    public static List<StaticPropPlacement> load(LaunchOptions launchOptions) {
+        try {
+            WorldSceneLoader.WorldSceneData sceneData = WorldSceneLoader.load(launchOptions);
+            List<Map<String, Object>> rows = sceneData.staticProps();
+            if (rows.isEmpty()) {
+                Gdx.app.log("StaticPropLoader", "WARN: no static props found in scene file: " + sceneData.sourcePath());
                 return List.of();
             }
 
@@ -81,10 +77,11 @@ public final class StaticPropLoader {
                 placements.add(new StaticPropPlacement(key, x, y, rotationY, scale, visibilityGroup));
             }
 
-            Gdx.app.log("StaticPropLoader", "Loaded " + placements.size() + " placed static props");
+            String source = sceneData.repoBacked() ? "repo" : "classpath";
+            Gdx.app.log("StaticPropLoader", "Loaded " + placements.size() + " placed static props from " + source + " scene");
             return Collections.unmodifiableList(placements);
         } catch (Exception e) {
-            Gdx.app.log("StaticPropLoader", "WARN: failed to load static_props.yaml: " + e.getMessage());
+            Gdx.app.log("StaticPropLoader", "WARN: failed to load static props from scene data: " + e.getMessage());
             return List.of();
         }
     }
