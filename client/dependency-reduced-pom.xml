@@ -38,6 +38,74 @@
             </configuration>
           </execution>
           <execution>
+            <id>validate-model-manifest</id>
+            <phase>generate-resources</phase>
+            <goals>
+              <goal>run</goal>
+            </goals>
+            <configuration>
+              <skip>${skipModelValidation}</skip>
+              <target>
+                <condition>
+                  <os />
+                </condition>
+                <exec>
+                  <arg />
+                  <arg />
+                  <arg />
+                  <arg />
+                  <arg />
+                </exec>
+              </target>
+            </configuration>
+          </execution>
+          <execution>
+            <id>audit-equipment-coverage</id>
+            <phase>generate-resources</phase>
+            <goals>
+              <goal>run</goal>
+            </goals>
+            <configuration>
+              <skip>${skipEquipmentCoverageAudit}</skip>
+              <target>
+                <condition>
+                  <os />
+                </condition>
+                <exec>
+                  <arg />
+                  <arg />
+                  <arg />
+                  <arg />
+                </exec>
+              </target>
+            </configuration>
+          </execution>
+          <execution>
+            <id>copy-model-assets</id>
+            <phase>generate-resources</phase>
+            <goals>
+              <goal>run</goal>
+            </goals>
+            <configuration>
+              <skip>${skipModelCopy}</skip>
+              <target>
+                <mkdir />
+                <delete>
+                  <fileset>
+                    <include />
+                    <include />
+                  </fileset>
+                </delete>
+                <copy>
+                  <fileset>
+                    <include />
+                    <include />
+                  </fileset>
+                </copy>
+              </target>
+            </configuration>
+          </execution>
+          <execution>
             <id>pack-textures</id>
             <phase>generate-resources</phase>
             <goals>
@@ -103,7 +171,15 @@
     <profile>
       <id>windows-skip-art-validation</id>
       <properties>
+        <skipModelValidation>true</skipModelValidation>
+        <skipEquipmentCoverageAudit>true</skipEquipmentCoverageAudit>
         <skipArtValidation>true</skipArtValidation>
+      </properties>
+    </profile>
+    <profile>
+      <id>strict-equipment-coverage</id>
+      <properties>
+        <equipmentCoverageStrictArg>--strict</equipmentCoverageStrictArg>
       </properties>
     </profile>
     <profile>
@@ -169,6 +245,10 @@
     </dependency>
   </dependencies>
   <properties>
+    <skipModelValidation>false</skipModelValidation>
+    <strictEquipmentCoverage>false</strictEquipmentCoverage>
+    <skipModelCopy>false</skipModelCopy>
+    <skipEquipmentCoverageAudit>false</skipEquipmentCoverageAudit>
     <skipArtValidation>false</skipArtValidation>
   </properties>
 </project>
