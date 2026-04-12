@@ -208,15 +208,21 @@ def make_character(model_id, colors, include_anchors=False):
     # Torso pivot at Y=0.54 (leaves room for neck node 0..+0.06 above it at Y=1.00).
     # Legs at X=±0.055 (less splayed than previous ±0.090 — more OSRS proportioned).
     root_id = f"{model_id}_node"
+    lower_arm_l_children = []
+    lower_arm_r_children = []
+    if include_anchors:
+        lower_arm_l_children.append(anchor("shield_anchor", -0.085, 0.06, 0.02))
+        lower_arm_r_children.append(anchor("weapon_anchor", 0.085, 0.06, -0.02))
+
     root_children = [
         node("torso",        0.0,    0.54, 0.0, pid="part_torso"),
         node("neck",         0.0,    1.00, 0.0, pid="part_neck"),
         node("head",         0.0,    1.06, 0.0, pid="part_head",
              children=[node("hair", 0.0,  0.22, 0.0, pid="part_hair")]),
         node("upper_arm_l", -0.155,  1.04, 0.0, pid="part_upper_arm_l",
-             children=[node("lower_arm_l", 0.0, -0.22, 0.0, pid="part_lower_arm_l")]),
+             children=[node("lower_arm_l", 0.0, -0.22, 0.0, pid="part_lower_arm_l", children=lower_arm_l_children)]),
         node("upper_arm_r",  0.155,  1.04, 0.0, pid="part_upper_arm_r",
-             children=[node("lower_arm_r", 0.0, -0.22, 0.0, pid="part_lower_arm_r")]),
+             children=[node("lower_arm_r", 0.0, -0.22, 0.0, pid="part_lower_arm_r", children=lower_arm_r_children)]),
         node("upper_leg_l", -0.055,  0.54, 0.0, pid="part_upper_leg_l",
              children=[node("lower_leg_l", 0.0, -0.24, 0.0, pid="part_lower_leg_l")]),
         node("upper_leg_r",  0.055,  0.54, 0.0, pid="part_upper_leg_r",
@@ -227,8 +233,6 @@ def make_character(model_id, colors, include_anchors=False):
         root_children += [
             anchor("head_anchor",    0.0,  1.28,  0.0),
             anchor("cape_anchor",    0.0,  1.00,  0.08),
-            anchor("weapon_anchor",  0.24, 0.88, -0.02),
-            anchor("shield_anchor", -0.24, 0.88,  0.02),
             anchor("ammo_anchor",   -0.12, 1.00,  0.10),
             anchor("body_anchor",    0.0,  0.88,  0.0),
             anchor("legs_anchor",    0.0,  0.44,  0.0),
