@@ -222,6 +222,12 @@ public class GameScreen extends ApplicationAdapter {
     private boolean debug3DArtistBoundsAxes = false;
     private boolean debug3DArtistAnchors = false;
     private float debug3DRenderBudgetTimer = 0f;
+    private boolean workbenchPreviewDragging = false;
+    private int workbenchPreviewLastMouseX = 0;
+    private int workbenchPreviewLastMouseY = 0;
+    private static final float WORKBENCH_PREVIEW_YAW_SENSITIVITY = 0.45f;
+    private static final float WORKBENCH_PREVIEW_PITCH_SENSITIVITY = 0.30f;
+    private static final float WORKBENCH_PREVIEW_ZOOM_STEP = 0.25f;
     private int overlaysRenderedLastFrame3D = 0;
 
     // -----------------------------------------------------------------------
@@ -606,6 +612,7 @@ public class GameScreen extends ApplicationAdapter {
         adminToolsPopup = new AdminToolsPopup();
         artWorkbenchPopup = new ArtWorkbenchPopup();
         artWorkbenchPopup.setModelKeys(modelLibrary.getModelKeys());
+        artWorkbenchPopup.setEquipmentOptions(modelLibrary.getLoadedEquipmentOptionsBySlot());
 
         if (!artistMode) {
             Thread t = new Thread(() -> {
@@ -1302,6 +1309,8 @@ public class GameScreen extends ApplicationAdapter {
         if (artistMode && Gdx.input.isKeyJustPressed(Input.Keys.F6)) {
             artWorkbenchPopup.toggle();
             artWorkbenchPopup.setModelKeys(modelLibrary.getModelKeys());
+            artWorkbenchPopup.setEquipmentOptions(modelLibrary.getLoadedEquipmentOptionsBySlot());
+            workbenchPreviewDragging = false;
             LOG.info("Art workbench: {}", artWorkbenchPopup.isVisible() ? "opened" : "closed");
         }
         if (Gdx.input.isKeyJustPressed(Input.Keys.F7)) {
@@ -1337,14 +1346,21 @@ public class GameScreen extends ApplicationAdapter {
             renderer3d.rebuildTerrain(tileMap);
             if (artWorkbenchPopup != null) {
                 artWorkbenchPopup.setModelKeys(modelLibrary.getModelKeys());
+                artWorkbenchPopup.setEquipmentOptions(modelLibrary.getLoadedEquipmentOptionsBySlot());
             }
             LOG.info("Hot reload complete (sprites, models, static props, terrain). Model source={}",
                 artistMode ? "repo art/models" : "classpath runtime resources");
         }
 
         if (use3DRenderer) {
+            boolean previewMode = artistMode && artWorkbenchPopup != null && artWorkbenchPopup.isVisible();
             renderer3d.update(delta);
-            updateCameraOrbit(delta);
+            if (!previewMode) {
+                updateCameraOrbit(delta);
+            } else if (pendingScrollAmount != 0) {
+                renderer3d.zoomWorkbenchPreviewCamera(pendingScrollAmount * WORKBENCH_PREVIEW_ZOOM_STEP);
+                pendingScrollAmount = 0;
+            }
         } else {
             if (pendingScrollAmount != 0) {
                 targetZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX,
@@ -1389,11 +1405,19 @@ public class GameScreen extends ApplicationAdapter {
         if (use3DRenderer) {
             boolean previewMode = artistMode && artWorkbenchPopup != null && artWorkbenchPopup.isVisible();
             if (previewMode) {
-                renderer3d.renderWorkbenchModelPreview(
-                    artWorkbenchPopup.selectedModelKey(),
-                    artWorkbenchPopup.selectedClipName(),
-                    delta
-                );
+                if (artWorkbenchPopup.mode() == ArtWorkbenchPopup.Mode.EQUIPMENT_FIT) {
+                    renderer3d.renderWorkbenchEquipmentFitPreview(
+                        artWorkbenchPopup.selectedClipName(),
+                        artWorkbenchPopup.selectedEquipmentItemIds(),
+                        delta
+                    );
+                } else {
+                    renderer3d.renderWorkbenchModelPreview(
+                        artWorkbenchPopup.selectedModelKey(),
+                        artWorkbenchPopup.selectedClipName(),
+                        delta
+                    );
+                }
             } else {
                 renderer3d.renderTerrain(tileMap, visualX, visualY, activeMaterialProfile);
                 renderStaticProps3D();
@@ -3012,6 +3036,11 @@ public class GameScreen extends ApplicationAdapter {
         if (artistMode && artWorkbenchPopup != null && artWorkbenchPopup.isVisible()) {
             if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE) || Gdx.input.isKeyJustPressed(Input.Keys.F6)) {
                 artWorkbenchPopup.dismiss();
+                workbenchPreviewDragging = false;
+                return;
+            }
+            if (Gdx.input.isKeyJustPressed(Input.Keys.TAB)) {
+                artWorkbenchPopup.cycleMode();
                 return;
             }
             if (Gdx.input.isKeyJustPressed(Input.Keys.LEFT_BRACKET)) {
@@ -3026,11 +3055,55 @@ public class GameScreen extends ApplicationAdapter {
                 artWorkbenchPopup.cycleClipMode();
                 return;
             }
-            if (Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)
-                || Gdx.input.isButtonJustPressed(Input.Buttons.RIGHT)
+            if (Gdx.input.isKeyJustPressed(Input.Keys.COMMA)) {
+                artWorkbenchPopup.cycleActiveSlot(-1);
+                return;
+            }
+            if (Gdx.input.isKeyJustPressed(Input.Keys.PERIOD)) {
+                artWorkbenchPopup.cycleActiveSlot(1);
+                return;
+            }
+            if (Gdx.input.isKeyJustPressed(Input.Keys.BACKSPACE)) {
+                artWorkbenchPopup.clearActiveSlot();
+                return;
+            }
+
+            int mx = Gdx.input.getX();
+            int my = Gdx.input.getY();
+            if (Gdx.input.isButtonJustPressed(Input.Buttons.MIDDLE)) {
+                if (renderer3d != null) {
+                    renderer3d.resetWorkbenchPreviewCamera();
+                }
+                workbenchPreviewDragging = false;
+                return;
+            }
+            if (Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)) {
+                workbenchPreviewDragging = true;
+                workbenchPreviewLastMouseX = mx;
+                workbenchPreviewLastMouseY = my;
+                return;
+            }
+            if (!Gdx.input.isButtonPressed(Input.Buttons.LEFT)) {
+                workbenchPreviewDragging = false;
+            }
+            if (workbenchPreviewDragging && renderer3d != null) {
+                int dx = mx - workbenchPreviewLastMouseX;
+                int dy = my - workbenchPreviewLastMouseY;
+                workbenchPreviewLastMouseX = mx;
+                workbenchPreviewLastMouseY = my;
+                renderer3d.orbitWorkbenchPreviewCamera(
+                    -dx * WORKBENCH_PREVIEW_YAW_SENSITIVITY,
+                    -dy * WORKBENCH_PREVIEW_PITCH_SENSITIVITY
+                );
+                return;
+            }
+            if (Gdx.input.isButtonJustPressed(Input.Buttons.RIGHT)
+                || Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)
                 || Gdx.input.isButtonJustPressed(Input.Buttons.MIDDLE)) {
                 return;
             }
+
+            return;
         }
 
         if (dialogueUI.isVisible()) {

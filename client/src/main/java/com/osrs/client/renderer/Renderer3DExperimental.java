@@ -114,6 +114,13 @@ public class Renderer3DExperimental {
         "hands_anchor",
         "feet_anchor"
     };
+    private static final float PREVIEW_DEFAULT_YAW_DEGREES = 210f;
+    private static final float PREVIEW_DEFAULT_PITCH_DEGREES = 18f;
+    private static final float PREVIEW_DEFAULT_DISTANCE = 3.35f;
+    private static final float PREVIEW_MIN_DISTANCE = 1.1f;
+    private static final float PREVIEW_MAX_DISTANCE = 7.5f;
+    private static final float PREVIEW_MIN_PITCH = -15f;
+    private static final float PREVIEW_MAX_PITCH = 70f;
 
     private static final class DebugModelMarker {
         private final Matrix4 transform;
@@ -177,6 +184,12 @@ public class Renderer3DExperimental {
     private final Map<String, ModelInstance> previewInstanceByKey = new HashMap<>();
     private final Map<String, AnimationController> previewAnimationControllerByKey = new HashMap<>();
     private final Map<String, String> previewClipByKey = new HashMap<>();
+    private ModelInstance previewEquipmentFitPlayerInstance;
+    private AnimationController previewEquipmentFitPlayerController;
+    private String previewEquipmentFitPlayerClip = "";
+    private float previewCameraYawDegrees = PREVIEW_DEFAULT_YAW_DEGREES;
+    private float previewCameraPitchDegrees = PREVIEW_DEFAULT_PITCH_DEGREES;
+    private float previewCameraDistance = PREVIEW_DEFAULT_DISTANCE;
     private final Set<Long> missingEquipmentWarnings = new HashSet<>();
     private final Vector3 frustumQueryPoint = new Vector3();
     private int terrainChunksRenderedLastFrame = 0;
@@ -256,6 +269,12 @@ public class Renderer3DExperimental {
         npcBaseKeyByEntityId.clear();
         currentNpcClipByEntityId.clear();
         npcAnimTimes.clear();
+        previewInstanceByKey.clear();
+        previewAnimationControllerByKey.clear();
+        previewClipByKey.clear();
+        previewEquipmentFitPlayerInstance = null;
+        previewEquipmentFitPlayerController = null;
+        previewEquipmentFitPlayerClip = "";
         missingEquipmentWarnings.clear();
         modelBoundsCache.clear();
         debugModelMarkers.clear();
@@ -265,6 +284,26 @@ public class Renderer3DExperimental {
     public void setArtistDebugVisualization(boolean showModelAxesAndBounds, boolean showAnchorMarkers) {
         this.debugModelAxesAndBoundsEnabled = showModelAxesAndBounds;
         this.debugAnchorMarkersEnabled = showAnchorMarkers;
+    }
+
+    public void orbitWorkbenchPreviewCamera(float yawDeltaDegrees, float pitchDeltaDegrees) {
+        previewCameraYawDegrees = (previewCameraYawDegrees + yawDeltaDegrees) % 360f;
+        if (previewCameraYawDegrees < 0f) {
+            previewCameraYawDegrees += 360f;
+        }
+        previewCameraPitchDegrees = Math.max(PREVIEW_MIN_PITCH, Math.min(PREVIEW_MAX_PITCH,
+            previewCameraPitchDegrees + pitchDeltaDegrees));
+    }
+
+    public void zoomWorkbenchPreviewCamera(float distanceDelta) {
+        previewCameraDistance = Math.max(PREVIEW_MIN_DISTANCE, Math.min(PREVIEW_MAX_DISTANCE,
+            previewCameraDistance + distanceDelta));
+    }
+
+    public void resetWorkbenchPreviewCamera() {
+        previewCameraYawDegrees = PREVIEW_DEFAULT_YAW_DEGREES;
+        previewCameraPitchDegrees = PREVIEW_DEFAULT_PITCH_DEGREES;
+        previewCameraDistance = PREVIEW_DEFAULT_DISTANCE;
     }
 
     public boolean hasStaticPropModel(String key) {
@@ -518,6 +557,68 @@ public class Renderer3DExperimental {
         captureDebugModelMarker(modelKey, model, instance);
         capturePlayerAnchorMarkers(instance);
         return true;
+    }
+
+    public boolean renderWorkbenchEquipmentFitPreview(String requestedClip, int[] equippedItemIds, float delta) {
+        resetDebugCapture();
+        if (modelLibrary == null || !modelLibrary.hasModel("player_base")) {
+            return false;
+        }
+
+        Model baseModel = modelLibrary.getModel("player_base");
+        ModelLibrary.ModelMeta baseMeta = modelLibrary.getMeta("player_base");
+        if (baseModel == null || baseMeta == null) {
+            return false;
+        }
+
+        if (previewEquipmentFitPlayerInstance == null || previewEquipmentFitPlayerInstance.model != baseModel) {
+            previewEquipmentFitPlayerInstance = new ModelInstance(baseModel);
+            for (Material m : previewEquipmentFitPlayerInstance.materials) {
+                m.set(IntAttribute.createCullFace(GL20.GL_BACK));
+            }
+            previewEquipmentFitPlayerController = new AnimationController(previewEquipmentFitPlayerInstance);
+            previewEquipmentFitPlayerClip = "";
+        }
+
+        applyPreviewCamera();
+        drawPreviewGroundMarkers();
+
+        String clipToPlay = resolvePreviewClip(previewEquipmentFitPlayerInstance, requestedClip);
+        if (!clipToPlay.isBlank() && previewEquipmentFitPlayerController != null) {
+            if (!clipToPlay.equals(previewEquipmentFitPlayerClip)) {
+                previewEquipmentFitPlayerController.setAnimation(clipToPlay, -1);
+                previewEquipmentFitPlayerClip = clipToPlay;
+            }
+            previewEquipmentFitPlayerController.update(Math.max(0f, delta));
+        }
+
+        applyManifestModelTransform(previewEquipmentFitPlayerInstance, baseMeta, -0.5f, -0.5f, 0f, 0f, 1f);
+        previewEquipmentFitPlayerInstance.calculateTransforms();
+        float baseScale = baseMeta.scale() > 0f ? baseMeta.scale() : 1f;
+
+        java.util.Map<Node, Boolean> previousNodeVisibility = applyHiddenBaseNodes(previewEquipmentFitPlayerInstance, equippedItemIds);
+        boolean batchOpen = false;
+        try {
+            Gdx.gl.glEnable(GL20.GL_DEPTH_TEST);
+            Gdx.gl.glDepthMask(true);
+            modelBatch.begin(camera);
+            batchOpen = true;
+            modelBatch.render(previewEquipmentFitPlayerInstance, characterEnvironment);
+            actorModelsRenderedLastFrame++;
+            captureDebugModelMarker("player_base", baseModel, previewEquipmentFitPlayerInstance);
+            capturePlayerAnchorMarkers(previewEquipmentFitPlayerInstance);
+            renderPlayerEquipmentAttachments(previewEquipmentFitPlayerInstance, -0.5f, -0.5f, 0f, 0f, baseScale, equippedItemIds);
+            modelBatch.end();
+            batchOpen = false;
+            Gdx.gl.glDisable(GL20.GL_DEPTH_TEST);
+            return true;
+        } finally {
+            if (batchOpen) {
+                modelBatch.end();
+            }
+            Gdx.gl.glDisable(GL20.GL_DEPTH_TEST);
+            restoreHiddenBaseNodes(previousNodeVisibility);
+        }
     }
 
     private void resetDebugCapture() {
@@ -1376,8 +1477,23 @@ public class Renderer3DExperimental {
     }
 
     private void applyPreviewCamera() {
-        camera.position.set(0f, 1.55f, 3.35f);
-        camera.lookAt(0f, 0.85f, 0f);
+        float yawRad = previewCameraYawDegrees * MathUtils.degreesToRadians;
+        float pitchRad = previewCameraPitchDegrees * MathUtils.degreesToRadians;
+        float cosPitch = (float) Math.cos(pitchRad);
+        float sinPitch = (float) Math.sin(pitchRad);
+        float sinYaw = (float) Math.sin(yawRad);
+        float cosYaw = (float) Math.cos(yawRad);
+
+        float targetX = 0f;
+        float targetY = 0.85f;
+        float targetZ = 0f;
+
+        float offsetX = sinYaw * cosPitch * previewCameraDistance;
+        float offsetY = sinPitch * previewCameraDistance;
+        float offsetZ = cosYaw * cosPitch * previewCameraDistance;
+
+        camera.position.set(targetX + offsetX, targetY + offsetY, targetZ + offsetZ);
+        camera.lookAt(targetX, targetY, targetZ);
         camera.up.set(0f, 1f, 0f);
         camera.update();
     }
@@ -1772,6 +1888,9 @@ public class Renderer3DExperimental {
         previewInstanceByKey.clear();
         previewAnimationControllerByKey.clear();
         previewClipByKey.clear();
+        previewEquipmentFitPlayerInstance = null;
+        previewEquipmentFitPlayerController = null;
+        previewEquipmentFitPlayerClip = "";
         missingEquipmentWarnings.clear();
         fallbackBillboardTexture.dispose();
         debugShapeRenderer.dispose();

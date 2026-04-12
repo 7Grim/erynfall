@@ -32,6 +32,11 @@ public class ModelLibrary {
 
     private record LoadedAsset(Model model, Disposable owner) {}
 
+    public record EquipmentPreviewOption(int equipSlot,
+                                         int itemId,
+                                         String modelKey,
+                                         String itemName) {}
+
     public record ModelMeta(String key,
                             String file,
                             String category,
@@ -136,9 +141,46 @@ public class ModelLibrary {
     }
 
     public List<String> getModelKeys() {
-        ArrayList<String> keys = new ArrayList<>(metaByKey.keySet());
+        ArrayList<String> keys = new ArrayList<>(loadedAssetByKey.keySet());
         Collections.sort(keys);
         return List.copyOf(keys);
+    }
+
+    public Map<Integer, List<EquipmentPreviewOption>> getLoadedEquipmentOptionsBySlot() {
+        Map<Integer, ArrayList<EquipmentPreviewOption>> bySlot = new HashMap<>();
+        for (Map.Entry<Long, ModelMeta> entry : equipmentMetaBySlotItem.entrySet()) {
+            ModelMeta meta = entry.getValue();
+            if (meta == null || meta.equipSlot() < 0 || meta.itemId() <= 0) {
+                continue;
+            }
+            if (!loadedAssetByKey.containsKey(meta.key())) {
+                continue;
+            }
+            String itemName = getKnownItemName(meta.itemId());
+            EquipmentPreviewOption option = new EquipmentPreviewOption(
+                meta.equipSlot(),
+                meta.itemId(),
+                meta.key(),
+                itemName
+            );
+            bySlot.computeIfAbsent(meta.equipSlot(), ignored -> new ArrayList<>()).add(option);
+        }
+
+        Map<Integer, List<EquipmentPreviewOption>> result = new HashMap<>();
+        for (Map.Entry<Integer, ArrayList<EquipmentPreviewOption>> entry : bySlot.entrySet()) {
+            ArrayList<EquipmentPreviewOption> options = entry.getValue();
+            options.sort((a, b) -> {
+                String aName = a.itemName() == null ? "" : a.itemName();
+                String bName = b.itemName() == null ? "" : b.itemName();
+                int cmp = aName.compareToIgnoreCase(bName);
+                if (cmp != 0) {
+                    return cmp;
+                }
+                return Integer.compare(a.itemId(), b.itemId());
+            });
+            result.put(entry.getKey(), List.copyOf(options));
+        }
+        return result;
     }
 
     private void loadRuntimeMetadata() {
