@@ -9,6 +9,7 @@ import com.badlogic.gdx.utils.JsonValue;
 import com.badlogic.gdx.utils.UBJsonReader;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class ModelLibrary {
@@ -33,7 +34,8 @@ public class ModelLibrary {
                             float rotX,
                             float rotY,
                             float rotZ,
-                            String anchorName) {}
+                            String anchorName,
+                            List<String> hideNodes) {}
 
     private final Map<String, ModelMeta> metaByKey = new HashMap<>();
     private final Map<String, Model> modelByKey = new HashMap<>();
@@ -137,7 +139,8 @@ public class ModelLibrary {
                     asset.getFloat("rot_x", 0f),
                     asset.getFloat("rot_y", 0f),
                     asset.getFloat("rot_z", 0f),
-                    asset.getString("anchor_name", "")
+                    asset.getString("anchor_name", ""),
+                    readStringList(asset.get("hide_nodes"))
                 );
                 metaByKey.put(key, meta);
                 if ("equipment".equals(meta.category()) && meta.equipSlot() >= 0 && meta.itemId() > 0) {
@@ -210,5 +213,19 @@ public class ModelLibrary {
 
     private long slotItemKey(int slot, int itemId) {
         return ((long) slot << 32) | (itemId & 0xffffffffL);
+    }
+
+    private List<String> readStringList(JsonValue value) {
+        if (value == null || !value.isArray()) {
+            return List.of();
+        }
+        java.util.ArrayList<String> strings = new java.util.ArrayList<>();
+        for (JsonValue entry = value.child; entry != null; entry = entry.next) {
+            String text = entry.asString();
+            if (text != null && !text.isBlank()) {
+                strings.add(text);
+            }
+        }
+        return List.copyOf(strings);
     }
 }

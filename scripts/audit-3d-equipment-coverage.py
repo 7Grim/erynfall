@@ -103,6 +103,7 @@ def parse_model_manifest(manifest_path: Path) -> set[tuple[int, int]]:
     lines = manifest_path.read_text(encoding="utf-8").splitlines()
     in_assets = False
     current: dict[str, object] | None = None
+    active_list_field: str | None = None
     covered: set[tuple[int, int]] = set()
 
     def consume(item: dict[str, object] | None) -> None:
@@ -129,15 +130,34 @@ def parse_model_manifest(manifest_path: Path) -> set[tuple[int, int]]:
 
         start = re.match(r"^\s*-\s+key:\s*(.+)$", line)
         if start:
+            active_list_field = None
             consume(current)
             current = {"key": parse_scalar(start.group(1))}
             continue
+
+        list_item = re.match(r"^\s{6}-\s*(.+)$", line)
+        if list_item and active_list_field is not None:
+            if current is None:
+                raise ValueError(f"Line {idx}: found list item before asset entry")
+            values = current.get(active_list_field)
+            if not isinstance(values, list):
+                raise ValueError(f"Line {idx}: manifest list field '{active_list_field}' is not a list")
+            values.append(parse_scalar(list_item.group(1)))
+            continue
+
+        active_list_field = None
 
         pair = re.match(r"^\s{4}([a-z_]+):\s*(.*)$", line)
         if pair:
             if current is None:
                 raise ValueError(f"Line {idx}: found field before asset entry")
-            current[pair.group(1)] = parse_scalar(pair.group(2))
+            field_name = pair.group(1)
+            field_value = pair.group(2)
+            if field_value == "":
+                current[field_name] = []
+                active_list_field = field_name
+            else:
+                current[field_name] = parse_scalar(field_value)
             continue
 
         raise ValueError(f"Line {idx}: unsupported manifest syntax: {raw_line}")

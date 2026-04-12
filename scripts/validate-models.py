@@ -37,6 +37,7 @@ class ModelEntry:
     rot_x: float | None
     rot_y: float | None
     rot_z: float | None
+    hide_nodes: tuple[str, ...]
 
 
 SLOT_NAME_TO_ID = {
@@ -148,6 +149,7 @@ def parse_manifest(manifest_path: Path) -> list[ModelEntry]:
     in_assets = False
     items: list[dict[str, object]] = []
     current: dict[str, object] | None = None
+    active_list_field: str | None = None
 
     for index, raw_line in enumerate(lines, start=1):
         line = raw_line.split("#", 1)[0].rstrip()
@@ -164,16 +166,35 @@ def parse_manifest(manifest_path: Path) -> list[ModelEntry]:
 
         entry_start = re.match(r"^\s*-\s+key:\s*(.+)$", line)
         if entry_start:
+            active_list_field = None
             if current is not None:
                 items.append(current)
             current = {"key": parse_scalar(entry_start.group(1))}
             continue
 
+        list_item = re.match(r"^\s{6}-\s*(.+)$", line)
+        if list_item and active_list_field is not None:
+            if current is None:
+                raise ValueError(f"Line {index}: found list item before list field: {raw_line}")
+            values = current.get(active_list_field)
+            if not isinstance(values, list):
+                raise ValueError(f"Line {index}: list field '{active_list_field}' is not a list")
+            values.append(parse_scalar(list_item.group(1)))
+            continue
+
+        active_list_field = None
+
         pair = re.match(r"^\s{4}([a-z_]+):\s*(.*)$", line)
         if pair:
             if current is None:
                 raise ValueError(f"Line {index}: found field before list item: {raw_line}")
-            current[pair.group(1)] = parse_scalar(pair.group(2))
+            field_name = pair.group(1)
+            field_value = pair.group(2)
+            if field_value == "":
+                current[field_name] = []
+                active_list_field = field_name
+            else:
+                current[field_name] = parse_scalar(field_value)
             continue
 
         raise ValueError(f"Line {index}: unsupported manifest syntax: {raw_line}")
@@ -207,6 +228,9 @@ def parse_manifest(manifest_path: Path) -> list[ModelEntry]:
         if not file_name.lower().endswith(f".{fmt}"):
             raise ValueError(f"File extension does not match format for '{key}': {file_name} vs {fmt}")
 
+        hide_nodes_raw = item.get("hide_nodes")
+        hide_nodes_list = hide_nodes_raw if isinstance(hide_nodes_raw, list) else []
+
         entry = ModelEntry(
             key=key,
             file=file_name,
@@ -226,6 +250,11 @@ def parse_manifest(manifest_path: Path) -> list[ModelEntry]:
             rot_x=as_optional_float(item.get("rot_x"), "rot_x", key),
             rot_y=as_optional_float(item.get("rot_y"), "rot_y", key),
             rot_z=as_optional_float(item.get("rot_z"), "rot_z", key),
+            hide_nodes=tuple(
+                str(node).strip()
+                for node in hide_nodes_list
+                if str(node).strip()
+            ),
         )
         if entry.scale <= 0:
             raise ValueError(f"Scale must be > 0 for key '{key}'")
@@ -234,6 +263,10 @@ def parse_manifest(manifest_path: Path) -> list[ModelEntry]:
                 raise ValueError(f"Equipment model '{key}' must define equip_slot")
             if entry.item_id is None or entry.item_id <= 0:
                 raise ValueError(f"Equipment model '{key}' must define item_id > 0")
+            if hide_nodes_raw is not None and not isinstance(hide_nodes_raw, list):
+                raise ValueError(f"Equipment model '{key}' field 'hide_nodes' must be a list when present")
+        elif item.get("hide_nodes") is not None:
+            raise ValueError(f"Only equipment models may define 'hide_nodes' (key '{key}')")
 
         seen_keys.add(key)
         seen_files.add(file_name)
@@ -310,6 +343,8 @@ def write_runtime_metadata(entries: Iterable[ModelEntry], output_path: Path) -> 
             asset["rot_y"] = entry.rot_y
         if entry.rot_z is not None:
             asset["rot_z"] = entry.rot_z
+        if entry.hide_nodes:
+            asset["hide_nodes"] = list(entry.hide_nodes)
         assets.append(asset)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(json.dumps({"assets": assets}, sort_keys=True, separators=(",", ":")), encoding="utf-8")

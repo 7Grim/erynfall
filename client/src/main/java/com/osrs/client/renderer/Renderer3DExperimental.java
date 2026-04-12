@@ -36,6 +36,8 @@ import com.osrs.shared.EquipmentSlot;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 
@@ -641,10 +643,15 @@ public class Renderer3DExperimental {
             baseInstance.transform.scale(baseScale, baseScale, baseScale);
         }
         baseInstance.calculateTransforms();
+        java.util.Map<Node, Boolean> previousNodeVisibility = applyHiddenBaseNodes(baseInstance, equippedItemIds);
+        try {
             modelBatch.render(baseInstance, characterEnvironment);
             actorModelsRenderedLastFrame++;
 
-        renderPlayerEquipmentAttachments(baseInstance, tileX, tileY, tileBaseY, rotationYDegrees, baseScale, equippedItemIds);
+            renderPlayerEquipmentAttachments(baseInstance, tileX, tileY, tileBaseY, rotationYDegrees, baseScale, equippedItemIds);
+        } finally {
+            restoreHiddenBaseNodes(previousNodeVisibility);
+        }
 
         if (ownsPass) {
             endActorModelPass();
@@ -707,10 +714,15 @@ public class Renderer3DExperimental {
                 animatedInstance.transform.scale(baseScale, baseScale, baseScale);
             }
             animatedInstance.calculateTransforms();
+            java.util.Map<Node, Boolean> previousNodeVisibility = applyHiddenBaseNodes(animatedInstance, equippedItemIds);
+            try {
             modelBatch.render(animatedInstance, characterEnvironment);
             actorModelsRenderedLastFrame++;
 
-            renderPlayerEquipmentAttachments(animatedInstance, tileX, tileY, tileBaseY, rotationYDegrees, baseScale, equippedItemIds);
+                renderPlayerEquipmentAttachments(animatedInstance, tileX, tileY, tileBaseY, rotationYDegrees, baseScale, equippedItemIds);
+            } finally {
+                restoreHiddenBaseNodes(previousNodeVisibility);
+            }
         } catch (Exception e) {
             if (ownsPass) {
                 endActorModelPass();
@@ -1139,6 +1151,102 @@ public class Renderer3DExperimental {
             return null;
         }
         return new Matrix4(baseInstance.transform).mul(anchorNode.globalTransform);
+    }
+
+    private java.util.Map<Node, Boolean> applyHiddenBaseNodes(ModelInstance baseInstance, int[] equippedItemIds) {
+        java.util.Map<Node, Boolean> previous = new LinkedHashMap<>();
+        if (baseInstance == null || equippedItemIds == null || modelLibrary == null) {
+            return previous;
+        }
+
+        LinkedHashSet<String> hideNodeNames = new LinkedHashSet<>();
+        for (int slot : PLAYER_EQUIPMENT_VISIBLE_SLOTS) {
+            if (slot < 0 || slot >= equippedItemIds.length) {
+                continue;
+            }
+            int itemId = equippedItemIds[slot];
+            if (itemId <= 0) {
+                continue;
+            }
+            ModelLibrary.ModelMeta equipMeta = modelLibrary.getEquipmentMeta(slot, itemId);
+            if (equipMeta == null || equipMeta.hideNodes() == null || equipMeta.hideNodes().isEmpty()) {
+                continue;
+            }
+            for (String nodeName : equipMeta.hideNodes()) {
+                if (nodeName != null && !nodeName.isBlank()) {
+                    hideNodeNames.add(nodeName);
+                }
+            }
+        }
+
+        for (String nodeName : hideNodeNames) {
+            Node node = baseInstance.getNode(nodeName, true);
+            if (node == null) {
+                continue;
+            }
+            captureNodeVisibility(node, previous);
+            setNodeVisibilityRecursive(node, false);
+        }
+
+        return previous;
+    }
+
+    private void restoreHiddenBaseNodes(java.util.Map<Node, Boolean> previous) {
+        if (previous == null || previous.isEmpty()) {
+            return;
+        }
+        for (Map.Entry<Node, Boolean> entry : previous.entrySet()) {
+            Node node = entry.getKey();
+            if (node == null || node.parts == null) {
+                continue;
+            }
+            boolean enabled = Boolean.TRUE.equals(entry.getValue());
+            for (int i = 0; i < node.parts.size; i++) {
+                node.parts.get(i).enabled = enabled;
+            }
+        }
+    }
+
+    private void captureNodeVisibility(Node node, java.util.Map<Node, Boolean> previous) {
+        if (node == null || previous.containsKey(node)) {
+            return;
+        }
+        previous.put(node, areNodePartsVisible(node));
+        if (node.getChildren() == null) {
+            return;
+        }
+        for (Node child : node.getChildren()) {
+            captureNodeVisibility(child, previous);
+        }
+    }
+
+    private void setNodeVisibilityRecursive(Node node, boolean enabled) {
+        if (node == null) {
+            return;
+        }
+        if (node.parts != null) {
+            for (int i = 0; i < node.parts.size; i++) {
+                node.parts.get(i).enabled = enabled;
+            }
+        }
+        if (node.getChildren() == null) {
+            return;
+        }
+        for (Node child : node.getChildren()) {
+            setNodeVisibilityRecursive(child, enabled);
+        }
+    }
+
+    private boolean areNodePartsVisible(Node node) {
+        if (node == null || node.parts == null || node.parts.size == 0) {
+            return true;
+        }
+        for (int i = 0; i < node.parts.size; i++) {
+            if (node.parts.get(i).enabled) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private float defaultAnchorOffsetXForSlot(int slot) {

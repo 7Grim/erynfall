@@ -444,11 +444,14 @@ assets:
     item_id: 1115
     anchor_name: head_anchor
     offset_x: 0.0
-    offset_y: 1.18
+    offset_y: 1.19
     offset_z: 0.0
     rot_x: 0.0
     rot_y: 0.0
     rot_z: 0.0
+    hide_nodes:
+      - head
+      - hair
   - key: equip_head_iron_full_helm
     file: equip_head_iron_full_helm.g3dj
     category: equipment
@@ -580,11 +583,13 @@ assets:
     item_id: 1119
     anchor_name: body_anchor
     offset_x: 0.0
-    offset_y: 0.84
+    offset_y: 0.83
     offset_z: 0.0
     rot_x: 0.0
     rot_y: 0.0
     rot_z: 0.0
+    hide_nodes:
+      - torso
   - key: equip_body_iron_platebody
     file: equip_body_iron_platebody.g3dj
     category: equipment
@@ -716,11 +721,13 @@ assets:
     item_id: 1075
     anchor_name: legs_anchor
     offset_x: 0.0
-    offset_y: 0.38
+    offset_y: 0.37
     offset_z: 0.0
     rot_x: 0.0
     rot_y: 0.0
     rot_z: 0.0
+    hide_nodes:
+      - legs
   - key: equip_legs_iron_platelegs
     file: equip_legs_iron_platelegs.g3dj
     category: equipment
@@ -851,12 +858,12 @@ assets:
     equip_slot: 5
     item_id: 1175
     anchor_name: shield_anchor
-    offset_x: -0.24
-    offset_y: 0.84
-    offset_z: 0.02
+    offset_x: -0.25
+    offset_y: 0.85
+    offset_z: 0.03
     rot_x: 0.0
     rot_y: 0.0
-    rot_z: 0.0
+    rot_z: 6.0
   - key: equip_shield_iron_sq
     file: equip_shield_iron_sq.g3dj
     category: equipment
@@ -1004,12 +1011,12 @@ assets:
     equip_slot: 4
     item_id: 1321
     anchor_name: weapon_anchor
-    offset_x: 0.24
-    offset_y: 0.84
-    offset_z: -0.02
+    offset_x: 0.25
+    offset_y: 0.85
+    offset_z: -0.015
     rot_x: 0.0
     rot_y: 0.0
-    rot_z: -22.0
+    rot_z: -24.0
   - key: equip_weapon_iron_scimitar
     file: equip_weapon_iron_scimitar.g3dj
     category: equipment
@@ -1140,12 +1147,12 @@ assets:
     equip_slot: 4
     item_id: 1277
     anchor_name: weapon_anchor
-    offset_x: 0.24
-    offset_y: 0.84
-    offset_z: -0.02
+    offset_x: 0.25
+    offset_y: 0.85
+    offset_z: -0.015
     rot_x: 0.0
     rot_y: 0.0
-    rot_z: -16.0
+    rot_z: -18.0
   - key: equip_weapon_bronze_longsword
     file: equip_weapon_bronze_longsword.g3dj
     category: equipment
@@ -1293,12 +1300,12 @@ assets:
     equip_slot: 4
     item_id: 1351
     anchor_name: weapon_anchor
-    offset_x: 0.24
-    offset_y: 0.84
-    offset_z: -0.02
+    offset_x: 0.25
+    offset_y: 0.85
+    offset_z: -0.015
     rot_x: 0.0
     rot_y: 0.0
-    rot_z: -18.0
+    rot_z: -20.0
   - key: equip_weapon_iron_axe
     file: equip_weapon_iron_axe.g3dj
     category: equipment
@@ -1429,12 +1436,12 @@ assets:
     equip_slot: 4
     item_id: 1265
     anchor_name: weapon_anchor
-    offset_x: 0.24
-    offset_y: 0.84
-    offset_z: -0.02
+    offset_x: 0.25
+    offset_y: 0.85
+    offset_z: -0.015
     rot_x: 0.0
     rot_y: 0.0
-    rot_z: -18.0
+    rot_z: -21.0
   - key: equip_weapon_iron_pickaxe
     file: equip_weapon_iron_pickaxe.g3dj
     category: equipment

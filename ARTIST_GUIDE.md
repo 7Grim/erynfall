@@ -404,6 +404,9 @@ Equipment attachment prototype notes:
 - Equipment attachments are also supported experimentally as separate models in the `equipment` manifest category.
 - Attachments are matched by `equip_slot` + `item_id` metadata and composed onto the local player model.
 - Attachment transform metadata (`offset_*`, `rot_*`) is read from `art/models/manifest.yaml` and passed through to runtime metadata.
+- Some equipment entries can now optionally define `hide_nodes` (list of base model node IDs) to suppress covered base geometry while that attachment is equipped.
+- First intended `hide_nodes` use is fully covering armour pieces: full helms, body armour, and leg armour.
+- Prefer `hide_nodes` for seam suppression under covering armour rather than oversized armour meshes.
 - Missing attachment models are expected and safe; the base player model still renders.
 - This is first-pass coverage only. Not every equipable item needs an attachment model yet.
 - Remote players may continue using billboard rendering while local-player composition is being evaluated.
