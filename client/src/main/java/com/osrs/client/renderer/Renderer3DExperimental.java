@@ -1006,7 +1006,7 @@ public class Renderer3DExperimental {
 
     // ── Programmatic skeletal animation ─────────────────────────────────────
 
-    private static final float WALK_PERIOD    = 0.7f;
+    private static final float WALK_PERIOD    = 0.6f;
     private static final float WALK_LEG_ANG   = 28f;
     private static final float WALK_ARM_ANG   = 20f;
     private static final float WALK_KNEE_F    = 0.45f;
