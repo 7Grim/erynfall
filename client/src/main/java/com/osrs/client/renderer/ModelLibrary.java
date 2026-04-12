@@ -4,9 +4,12 @@ import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.files.FileHandle;
 import com.badlogic.gdx.graphics.g3d.Model;
 import com.badlogic.gdx.graphics.g3d.loader.G3dModelLoader;
+import com.badlogic.gdx.utils.Disposable;
 import com.badlogic.gdx.utils.JsonReader;
 import com.badlogic.gdx.utils.JsonValue;
 import com.badlogic.gdx.utils.UBJsonReader;
+import net.mgsx.gltf.loaders.glb.GLBLoader;
+import net.mgsx.gltf.scene3d.scene.SceneAsset;
 
 import java.util.HashMap;
 import java.util.List;
@@ -17,6 +20,8 @@ public class ModelLibrary {
     private static final String RUNTIME_META_RESOURCE = "model-manifest-runtime.json";
     private static final String COVERAGE_REPORT_RESOURCE = "equipment-coverage-report.json";
     private static final String MODELS_RESOURCE_DIR = "models";
+
+    private record LoadedAsset(Model model, Disposable owner) {}
 
     public record ModelMeta(String key,
                             String file,
@@ -38,7 +43,7 @@ public class ModelLibrary {
                             List<String> hideNodes) {}
 
     private final Map<String, ModelMeta> metaByKey = new HashMap<>();
-    private final Map<String, Model> modelByKey = new HashMap<>();
+    private final Map<String, LoadedAsset> loadedAssetByKey = new HashMap<>();
     private final Map<Long, ModelMeta> equipmentMetaBySlotItem = new HashMap<>();
     private final Map<Integer, String> knownItemNamesById = new HashMap<>();
 
@@ -51,11 +56,12 @@ public class ModelLibrary {
     }
 
     public boolean hasModel(String key) {
-        return key != null && modelByKey.containsKey(key);
+        return key != null && loadedAssetByKey.containsKey(key);
     }
 
     public Model getModel(String key) {
-        return key == null ? null : modelByKey.get(key);
+        LoadedAsset asset = key == null ? null : loadedAssetByKey.get(key);
+        return asset == null ? null : asset.model();
     }
 
     public ModelMeta getMeta(String key) {
@@ -63,10 +69,10 @@ public class ModelLibrary {
     }
 
     public void dispose() {
-        for (Model model : modelByKey.values()) {
-            model.dispose();
+        for (LoadedAsset asset : loadedAssetByKey.values()) {
+            asset.owner().dispose();
         }
-        modelByKey.clear();
+        loadedAssetByKey.clear();
         metaByKey.clear();
         equipmentMetaBySlotItem.clear();
         knownItemNamesById.clear();
@@ -74,7 +80,7 @@ public class ModelLibrary {
 
     public boolean hasEquipmentModel(int equipSlot, int itemId) {
         ModelMeta meta = getEquipmentMeta(equipSlot, itemId);
-        return meta != null && modelByKey.containsKey(meta.key());
+        return meta != null && loadedAssetByKey.containsKey(meta.key());
     }
 
     public Model getEquipmentModel(int equipSlot, int itemId) {
@@ -82,7 +88,8 @@ public class ModelLibrary {
         if (meta == null) {
             return null;
         }
-        return modelByKey.get(meta.key());
+        LoadedAsset asset = loadedAssetByKey.get(meta.key());
+        return asset == null ? null : asset.model();
     }
 
     public ModelMeta getEquipmentMeta(int equipSlot, int itemId) {
@@ -157,6 +164,7 @@ public class ModelLibrary {
     private void loadModels() {
         G3dModelLoader g3djLoader = new G3dModelLoader(new JsonReader());
         G3dModelLoader g3dbLoader = new G3dModelLoader(new UBJsonReader());
+        GLBLoader glbLoader = new GLBLoader();
 
         for (ModelMeta meta : metaByKey.values()) {
             String resourcePath = MODELS_RESOURCE_DIR + "/" + meta.file();
@@ -167,14 +175,22 @@ public class ModelLibrary {
                 continue;
             }
             try {
-                Model model;
+                LoadedAsset loadedAsset;
                 String lowerFile = meta.file().toLowerCase();
                 if (lowerFile.endsWith(".g3db")) {
-                    model = g3dbLoader.loadModel(handle);
+                    Model model = g3dbLoader.loadModel(handle);
+                    loadedAsset = new LoadedAsset(model, model);
+                } else if (lowerFile.endsWith(".glb")) {
+                    SceneAsset sceneAsset = glbLoader.load(handle);
+                    if (sceneAsset == null || sceneAsset.scene == null || sceneAsset.scene.model == null) {
+                        throw new IllegalStateException("GLB scene asset missing root model");
+                    }
+                    loadedAsset = new LoadedAsset(sceneAsset.scene.model, sceneAsset);
                 } else {
-                    model = g3djLoader.loadModel(handle);
+                    Model model = g3djLoader.loadModel(handle);
+                    loadedAsset = new LoadedAsset(model, model);
                 }
-                modelByKey.put(meta.key(), model);
+                loadedAssetByKey.put(meta.key(), loadedAsset);
             } catch (Exception e) {
                 String level = meta.required() ? "ERROR" : "WARN";
                 Gdx.app.log("ModelLibrary", level + ": failed to load model for key '" + meta.key() + "': " + e.getMessage());

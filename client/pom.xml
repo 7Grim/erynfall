@@ -22,7 +22,15 @@
         <skipModelCopy>false</skipModelCopy>
         <strictEquipmentCoverage>false</strictEquipmentCoverage>
         <equipmentCoverageStrictArg></equipmentCoverageStrictArg>
+        <gdxGltf.version>2.2.1</gdxGltf.version>
     </properties>
+
+    <repositories>
+        <repository>
+            <id>jitpack.io</id>
+            <url>https://jitpack.io</url>
+        </repository>
+    </repositories>
 
     <dependencies>
         <dependency>
@@ -60,6 +68,17 @@
             <artifactId>gdx-freetype-platform</artifactId>
             <version>${libgdx.version}</version>
             <classifier>natives-desktop</classifier>
+        </dependency>
+        <dependency>
+            <groupId>com.github.mgsx-dev.gdx-gltf</groupId>
+            <artifactId>gltf</artifactId>
+            <version>${gdxGltf.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.badlogicgames.gdx</groupId>
+                    <artifactId>gdx</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
@@ -174,12 +193,14 @@
                                     <fileset dir="${project.basedir}/src/main/resources/models">
                                         <include name="**/*.g3dj"/>
                                         <include name="**/*.g3db"/>
+                                        <include name="**/*.glb"/>
                                     </fileset>
                                 </delete>
                                 <copy todir="${project.basedir}/src/main/resources/models" overwrite="true">
                                     <fileset dir="${project.basedir}/../art/models">
                                         <include name="**/*.g3dj"/>
                                         <include name="**/*.g3db"/>
+                                        <include name="**/*.glb"/>
                                     </fileset>
                                 </copy>
                             </target>

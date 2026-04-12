@@ -223,7 +223,7 @@ def parse_manifest(manifest_path: Path) -> list[ModelEntry]:
         if file_name in seen_files:
             raise ValueError(f"Duplicate file in manifest: {file_name}")
 
-        if fmt not in {"g3dj", "g3db"}:
+        if fmt not in {"g3dj", "g3db", "glb"}:
             raise ValueError(f"Unsupported format for '{key}': {fmt}")
         if not file_name.lower().endswith(f".{fmt}"):
             raise ValueError(f"File extension does not match format for '{key}': {file_name} vs {fmt}")
@@ -290,7 +290,7 @@ def validate(entries: list[ModelEntry], models_dir: Path) -> tuple[list[str], li
             else:
                 warnings.append(msg)
 
-    known_extensions = {".g3dj", ".g3db"}
+    known_extensions = {".g3dj", ".g3db", ".glb"}
     for model_path in sorted(models_dir.iterdir()):
         if model_path.is_dir():
             continue
