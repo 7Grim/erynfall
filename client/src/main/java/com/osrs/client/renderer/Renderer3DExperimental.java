@@ -25,12 +25,14 @@ import com.badlogic.gdx.graphics.g3d.environment.DirectionalLight;
 import com.badlogic.gdx.graphics.g3d.utils.AnimationController;
 import com.badlogic.gdx.graphics.g3d.utils.MeshPartBuilder;
 import com.badlogic.gdx.graphics.g3d.utils.ModelBuilder;
+import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.Intersector;
 import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Matrix4;
 import com.badlogic.gdx.math.Plane;
 import com.badlogic.gdx.math.Quaternion;
 import com.badlogic.gdx.math.Vector3;
+import com.badlogic.gdx.math.collision.BoundingBox;
 import com.badlogic.gdx.math.collision.Ray;
 import com.osrs.shared.EquipmentSlot;
 
@@ -99,9 +101,33 @@ public class Renderer3DExperimental {
     private static final float DEFAULT_FEET_ANCHOR_Y = 0.08f;
     private static final float DEFAULT_FEET_ANCHOR_Z = 0f;
     private static final float DEFAULT_TERRAIN_HEIGHT_STEP = 0.6f;
+    private static final float DEBUG_AXIS_LENGTH = 0.35f;
+    private static final float DEBUG_ANCHOR_CROSS_SIZE = 0.10f;
+    private static final String[] DEBUG_PLAYER_ANCHOR_NAMES = {
+        "weapon_anchor",
+        "shield_anchor",
+        "head_anchor",
+        "cape_anchor",
+        "ammo_anchor",
+        "body_anchor",
+        "legs_anchor",
+        "hands_anchor",
+        "feet_anchor"
+    };
+
+    private static final class DebugModelMarker {
+        private final Matrix4 transform;
+        private final BoundingBox localBounds;
+
+        private DebugModelMarker(Matrix4 transform, BoundingBox localBounds) {
+            this.transform = transform;
+            this.localBounds = localBounds;
+        }
+    }
 
     private final PerspectiveCamera camera;
     private final ModelBatch modelBatch;
+    private final ShapeRenderer debugShapeRenderer;
     private final DecalBatch decalBatch;
     private final DecalBatch overlayDecalBatch;
     private final Environment environment;
@@ -127,6 +153,14 @@ public class Renderer3DExperimental {
     private final Map<String, Integer> staticPropInstanceCursor = new HashMap<>();
     private final Map<String, ArrayList<ModelInstance>> actorModelInstancePool = new HashMap<>();
     private final Map<String, Integer> actorModelInstanceCursor = new HashMap<>();
+    private final Map<String, BoundingBox> modelBoundsCache = new HashMap<>();
+    private final ArrayList<DebugModelMarker> debugModelMarkers = new ArrayList<>();
+    private final ArrayList<Vector3> debugAnchorPoints = new ArrayList<>();
+    private final Vector3 debugTmpA = new Vector3();
+    private final Vector3 debugTmpB = new Vector3();
+    private final Vector3 debugTmpC = new Vector3();
+    private boolean debugModelAxesAndBoundsEnabled = false;
+    private boolean debugAnchorMarkersEnabled = false;
     private boolean staticPropPassActive = false;
     private boolean actorModelPassActive = false;
 
@@ -140,6 +174,9 @@ public class Renderer3DExperimental {
     private final Map<Integer, String> npcBaseKeyByEntityId = new HashMap<>();
     private final Map<Integer, String> currentNpcClipByEntityId = new HashMap<>();
     private final Map<Integer, Float> npcAnimTimes = new HashMap<>();
+    private final Map<String, ModelInstance> previewInstanceByKey = new HashMap<>();
+    private final Map<String, AnimationController> previewAnimationControllerByKey = new HashMap<>();
+    private final Map<String, String> previewClipByKey = new HashMap<>();
     private final Set<Long> missingEquipmentWarnings = new HashSet<>();
     private final Vector3 frustumQueryPoint = new Vector3();
     private int terrainChunksRenderedLastFrame = 0;
@@ -175,6 +212,7 @@ public class Renderer3DExperimental {
         camera.update();
 
         modelBatch = new ModelBatch();
+        debugShapeRenderer = new ShapeRenderer();
         decalBatch = new DecalBatch(new CameraGroupStrategy(camera));
         overlayDecalBatch = new DecalBatch(new CameraGroupStrategy(camera));
 
@@ -219,6 +257,14 @@ public class Renderer3DExperimental {
         currentNpcClipByEntityId.clear();
         npcAnimTimes.clear();
         missingEquipmentWarnings.clear();
+        modelBoundsCache.clear();
+        debugModelMarkers.clear();
+        debugAnchorPoints.clear();
+    }
+
+    public void setArtistDebugVisualization(boolean showModelAxesAndBounds, boolean showAnchorMarkers) {
+        this.debugModelAxesAndBoundsEnabled = showModelAxesAndBounds;
+        this.debugAnchorMarkersEnabled = showAnchorMarkers;
     }
 
     public boolean hasStaticPropModel(String key) {
@@ -285,6 +331,7 @@ public class Renderer3DExperimental {
         staticPropsRenderedLastFrame = 0;
         actorModelsRenderedLastFrame = 0;
         entityBillboardsRenderedLastFrame = 0;
+        resetDebugCapture();
 
         String normalizedProfile = normalizeMaterialProfile(materialProfile);
         lastTileMap = tileMap;
@@ -409,6 +456,104 @@ public class Renderer3DExperimental {
         endEntityPass();
     }
 
+    public boolean renderWorkbenchModelPreview(String modelKey, String requestedClip, float delta) {
+        resetDebugCapture();
+        if (modelLibrary == null || modelKey == null || modelKey.isBlank() || !modelLibrary.hasModel(modelKey)) {
+            return false;
+        }
+
+        Model model = modelLibrary.getModel(modelKey);
+        ModelLibrary.ModelMeta meta = modelLibrary.getMeta(modelKey);
+        if (model == null || meta == null) {
+            return false;
+        }
+
+        ModelInstance instance = previewInstanceByKey.get(modelKey);
+        if (instance == null) {
+            instance = new ModelInstance(model);
+            for (Material m : instance.materials) {
+                m.set(IntAttribute.createCullFace(GL20.GL_BACK));
+            }
+            previewInstanceByKey.put(modelKey, instance);
+        }
+
+        if (instance.model != model) {
+            instance = new ModelInstance(model);
+            for (Material m : instance.materials) {
+                m.set(IntAttribute.createCullFace(GL20.GL_BACK));
+            }
+            previewInstanceByKey.put(modelKey, instance);
+            previewAnimationControllerByKey.remove(modelKey);
+            previewClipByKey.remove(modelKey);
+        }
+
+        applyPreviewCamera();
+        drawPreviewGroundMarkers();
+
+        String clipToPlay = resolvePreviewClip(instance, requestedClip);
+        if (!clipToPlay.isBlank()) {
+            AnimationController controller = previewAnimationControllerByKey.get(modelKey);
+            if (controller == null) {
+                controller = new AnimationController(instance);
+                previewAnimationControllerByKey.put(modelKey, controller);
+            }
+            String current = previewClipByKey.getOrDefault(modelKey, "");
+            if (!clipToPlay.equals(current)) {
+                controller.setAnimation(clipToPlay, -1);
+                previewClipByKey.put(modelKey, clipToPlay);
+            }
+            controller.update(Math.max(0f, delta));
+        }
+
+        applyManifestModelTransform(instance, meta, -0.5f, -0.5f, 0f, 0f, 1f);
+        instance.calculateTransforms();
+
+        Gdx.gl.glEnable(GL20.GL_DEPTH_TEST);
+        Gdx.gl.glDepthMask(true);
+        modelBatch.begin(camera);
+        modelBatch.render(instance, characterEnvironment);
+        modelBatch.end();
+        Gdx.gl.glDisable(GL20.GL_DEPTH_TEST);
+
+        captureDebugModelMarker(modelKey, model, instance);
+        capturePlayerAnchorMarkers(instance);
+        return true;
+    }
+
+    private void resetDebugCapture() {
+        debugModelMarkers.clear();
+        debugAnchorPoints.clear();
+    }
+
+    public void renderArtistDebugOverlays() {
+        if (!debugModelAxesAndBoundsEnabled && !debugAnchorMarkersEnabled) {
+            return;
+        }
+
+        Gdx.gl.glEnable(GL20.GL_DEPTH_TEST);
+        Gdx.gl.glDepthMask(false);
+        debugShapeRenderer.setProjectionMatrix(camera.combined);
+        debugShapeRenderer.begin(ShapeRenderer.ShapeType.Line);
+
+        if (debugModelAxesAndBoundsEnabled) {
+            for (DebugModelMarker marker : debugModelMarkers) {
+                drawAxes(marker.transform);
+                drawBounds(marker.transform, marker.localBounds);
+            }
+        }
+
+        if (debugAnchorMarkersEnabled) {
+            debugShapeRenderer.setColor(1f, 1f, 0.2f, 1f);
+            for (Vector3 point : debugAnchorPoints) {
+                drawCross(point, DEBUG_ANCHOR_CROSS_SIZE);
+            }
+        }
+
+        debugShapeRenderer.end();
+        Gdx.gl.glDepthMask(true);
+        Gdx.gl.glDisable(GL20.GL_DEPTH_TEST);
+    }
+
     public void beginStaticPropPass() {
         if (staticPropPassActive) {
             return;
@@ -493,19 +638,9 @@ public class Renderer3DExperimental {
         }
 
         ModelInstance instance = obtainStaticPropInstance(key, model);
-        instance.transform.idt();
         float tileBaseY = getTileTopY(tileX, tileY);
-        instance.transform.translate(tileX + 0.5f, tileBaseY, tileY + 0.5f);
-        float effectiveScale = scaleOverride > 0f ? scaleOverride : meta.scale();
-        if (effectiveScale > 0f && Math.abs(effectiveScale - 1f) > 0.0001f) {
-            instance.transform.scale(effectiveScale, effectiveScale, effectiveScale);
-        }
-        if (Math.abs(rotationYDegrees) > 0.0001f) {
-            instance.transform.rotate(Vector3.Y, rotationYDegrees);
-        }
-        if (!"tile-center".equals(meta.origin())) {
-            instance.transform.translate(0f, 0f, 0f);
-        }
+        float placementScale = scaleOverride > 0f ? scaleOverride : 1f;
+        applyManifestModelTransform(instance, meta, tileX, tileY, tileBaseY, rotationYDegrees, placementScale);
 
         float clampedAlpha = Math.max(0f, Math.min(1f, alpha));
         float[] previousDiffuseAlpha = null;
@@ -548,6 +683,8 @@ public class Renderer3DExperimental {
         if (clampedAlpha < 0.999f) {
             Gdx.gl.glDepthMask(true);
         }
+
+        captureDebugModelMarker(key, model, instance);
 
         if (clampedAlpha < 0.999f) {
             for (int i = 0; i < instance.materials.size; i++) {
@@ -592,18 +729,12 @@ public class Renderer3DExperimental {
         }
 
         ModelInstance instance = obtainActorModelInstance(key, model);
-        instance.transform.idt();
         float tileBaseY = getTileTopY(tileX, tileY);
-        instance.transform.translate(tileX + 0.5f, tileBaseY, tileY + 0.5f);
-        if (meta.scale() > 0f && Math.abs(meta.scale() - 1f) > 0.0001f) {
-            instance.transform.scale(meta.scale(), meta.scale(), meta.scale());
-        }
-        if (Math.abs(rotationYDegrees) > 0.0001f) {
-            instance.transform.rotate(Vector3.Y, rotationYDegrees);
-        }
+        applyManifestModelTransform(instance, meta, tileX, tileY, tileBaseY, rotationYDegrees, 1f);
 
         modelBatch.render(instance, characterEnvironment);
         actorModelsRenderedLastFrame++;
+        captureDebugModelMarker(key, model, instance);
 
         if (ownsPass) {
             endActorModelPass();
@@ -634,20 +765,15 @@ public class Renderer3DExperimental {
         float baseScale = baseMeta.scale() > 0f ? baseMeta.scale() : 1f;
 
         ModelInstance baseInstance = obtainActorModelInstance(baseKey, baseModel);
-        baseInstance.transform.idt();
         float tileBaseY = getTileTopY(tileX, tileY);
-        baseInstance.transform.translate(tileX + 0.5f, tileBaseY, tileY + 0.5f);
-        if (Math.abs(rotationYDegrees) > 0.0001f) {
-            baseInstance.transform.rotate(Vector3.Y, rotationYDegrees);
-        }
-        if (Math.abs(baseScale - 1f) > 0.0001f) {
-            baseInstance.transform.scale(baseScale, baseScale, baseScale);
-        }
+        applyManifestModelTransform(baseInstance, baseMeta, tileX, tileY, tileBaseY, rotationYDegrees, 1f);
         baseInstance.calculateTransforms();
         java.util.Map<Node, Boolean> previousNodeVisibility = applyHiddenBaseNodes(baseInstance, equippedItemIds);
         try {
             modelBatch.render(baseInstance, characterEnvironment);
             actorModelsRenderedLastFrame++;
+            captureDebugModelMarker(baseKey, baseModel, baseInstance);
+            capturePlayerAnchorMarkers(baseInstance);
 
             renderPlayerEquipmentAttachments(baseInstance, tileX, tileY, tileBaseY, rotationYDegrees, baseScale, equippedItemIds);
         } finally {
@@ -707,18 +833,14 @@ public class Renderer3DExperimental {
 
             animatedInstance.transform.idt();
             float tileBaseY = getTileTopY(tileX, tileY);
-            animatedInstance.transform.translate(tileX + 0.5f, tileBaseY, tileY + 0.5f);
-            if (Math.abs(rotationYDegrees) > 0.0001f) {
-                animatedInstance.transform.rotate(Vector3.Y, rotationYDegrees);
-            }
-            if (Math.abs(baseScale - 1f) > 0.0001f) {
-                animatedInstance.transform.scale(baseScale, baseScale, baseScale);
-            }
+            applyManifestModelTransform(animatedInstance, baseMeta, tileX, tileY, tileBaseY, rotationYDegrees, 1f);
             animatedInstance.calculateTransforms();
             java.util.Map<Node, Boolean> previousNodeVisibility = applyHiddenBaseNodes(animatedInstance, equippedItemIds);
             try {
             modelBatch.render(animatedInstance, characterEnvironment);
             actorModelsRenderedLastFrame++;
+                captureDebugModelMarker("player_base", animatedInstance.model, animatedInstance);
+                capturePlayerAnchorMarkers(animatedInstance);
 
                 renderPlayerEquipmentAttachments(animatedInstance, tileX, tileY, tileBaseY, rotationYDegrees, baseScale, equippedItemIds);
             } finally {
@@ -798,17 +920,12 @@ public class Renderer3DExperimental {
 
             instance.transform.idt();
             float tileBaseY = getTileTopY(tileX, tileY);
-            instance.transform.translate(tileX + 0.5f, tileBaseY, tileY + 0.5f);
-            if (Math.abs(rotationYDegrees) > 0.0001f) {
-                instance.transform.rotate(Vector3.Y, rotationYDegrees);
-            }
-            if (Math.abs(baseScale - 1f) > 0.0001f) {
-                instance.transform.scale(baseScale, baseScale, baseScale);
-            }
+            applyManifestModelTransform(instance, baseMeta, tileX, tileY, tileBaseY, rotationYDegrees, 1f);
             instance.calculateTransforms();
 
             renderInstanceWithOptionalAlpha(instance, alpha, characterEnvironment);
             actorModelsRenderedLastFrame++;
+            captureDebugModelMarker(baseKey, instance.model, instance);
         } catch (Exception e) {
             if (ownsPass) {
                 endActorModelPass();
@@ -1156,6 +1273,188 @@ public class Renderer3DExperimental {
         return new Matrix4(baseInstance.transform).mul(anchorNode.globalTransform);
     }
 
+    private void captureDebugModelMarker(String modelKey, Model model, ModelInstance instance) {
+        if (!debugModelAxesAndBoundsEnabled || instance == null || model == null) {
+            return;
+        }
+        BoundingBox cachedBounds = getCachedModelBounds(modelKey, model);
+        if (cachedBounds == null) {
+            return;
+        }
+        debugModelMarkers.add(new DebugModelMarker(new Matrix4(instance.transform), new BoundingBox(cachedBounds)));
+    }
+
+    private BoundingBox getCachedModelBounds(String modelKey, Model model) {
+        if (model == null) {
+            return null;
+        }
+        String key = modelKey == null || modelKey.isBlank() ? "__anon__" + System.identityHashCode(model) : modelKey;
+        BoundingBox cached = modelBoundsCache.get(key);
+        if (cached != null) {
+            return cached;
+        }
+        BoundingBox bounds = new BoundingBox();
+        model.calculateBoundingBox(bounds);
+        modelBoundsCache.put(key, bounds);
+        return bounds;
+    }
+
+    private void capturePlayerAnchorMarkers(ModelInstance baseInstance) {
+        if (!debugAnchorMarkersEnabled || baseInstance == null) {
+            return;
+        }
+        for (String anchorName : DEBUG_PLAYER_ANCHOR_NAMES) {
+            Matrix4 anchorTransform = findActorAnchorTransform(baseInstance, anchorName);
+            if (anchorTransform == null) {
+                continue;
+            }
+            Vector3 point = new Vector3();
+            anchorTransform.getTranslation(point);
+            debugAnchorPoints.add(point);
+        }
+    }
+
+    private void drawAxes(Matrix4 transform) {
+        Vector3 origin = debugTmpA.set(0f, 0f, 0f).mul(transform);
+        Vector3 x = debugTmpB.set(DEBUG_AXIS_LENGTH, 0f, 0f).mul(transform);
+        Vector3 y = debugTmpC.set(0f, DEBUG_AXIS_LENGTH, 0f).mul(transform);
+        Vector3 z = new Vector3(0f, 0f, DEBUG_AXIS_LENGTH).mul(transform);
+
+        debugShapeRenderer.setColor(1f, 0f, 0f, 1f);
+        debugShapeRenderer.line(origin, x);
+        debugShapeRenderer.setColor(0f, 1f, 0f, 1f);
+        debugShapeRenderer.line(origin, y);
+        debugShapeRenderer.setColor(0.2f, 0.6f, 1f, 1f);
+        debugShapeRenderer.line(origin, z);
+    }
+
+    private void drawBounds(Matrix4 transform, BoundingBox localBounds) {
+        if (localBounds == null) {
+            return;
+        }
+        float minX = localBounds.min.x;
+        float minY = localBounds.min.y;
+        float minZ = localBounds.min.z;
+        float maxX = localBounds.max.x;
+        float maxY = localBounds.max.y;
+        float maxZ = localBounds.max.z;
+
+        Vector3 p000 = new Vector3(minX, minY, minZ).mul(transform);
+        Vector3 p100 = new Vector3(maxX, minY, minZ).mul(transform);
+        Vector3 p010 = new Vector3(minX, maxY, minZ).mul(transform);
+        Vector3 p110 = new Vector3(maxX, maxY, minZ).mul(transform);
+        Vector3 p001 = new Vector3(minX, minY, maxZ).mul(transform);
+        Vector3 p101 = new Vector3(maxX, minY, maxZ).mul(transform);
+        Vector3 p011 = new Vector3(minX, maxY, maxZ).mul(transform);
+        Vector3 p111 = new Vector3(maxX, maxY, maxZ).mul(transform);
+
+        debugShapeRenderer.setColor(0.9f, 0.85f, 0.2f, 1f);
+        debugShapeRenderer.line(p000, p100);
+        debugShapeRenderer.line(p100, p110);
+        debugShapeRenderer.line(p110, p010);
+        debugShapeRenderer.line(p010, p000);
+        debugShapeRenderer.line(p001, p101);
+        debugShapeRenderer.line(p101, p111);
+        debugShapeRenderer.line(p111, p011);
+        debugShapeRenderer.line(p011, p001);
+        debugShapeRenderer.line(p000, p001);
+        debugShapeRenderer.line(p100, p101);
+        debugShapeRenderer.line(p110, p111);
+        debugShapeRenderer.line(p010, p011);
+    }
+
+    private void drawCross(Vector3 point, float size) {
+        Vector3 x1 = new Vector3(point.x - size, point.y, point.z);
+        Vector3 x2 = new Vector3(point.x + size, point.y, point.z);
+        Vector3 y1 = new Vector3(point.x, point.y - size, point.z);
+        Vector3 y2 = new Vector3(point.x, point.y + size, point.z);
+        Vector3 z1 = new Vector3(point.x, point.y, point.z - size);
+        Vector3 z2 = new Vector3(point.x, point.y, point.z + size);
+        debugShapeRenderer.line(x1, x2);
+        debugShapeRenderer.line(y1, y2);
+        debugShapeRenderer.line(z1, z2);
+    }
+
+    private void applyPreviewCamera() {
+        camera.position.set(0f, 1.55f, 3.35f);
+        camera.lookAt(0f, 0.85f, 0f);
+        camera.up.set(0f, 1f, 0f);
+        camera.update();
+    }
+
+    private void drawPreviewGroundMarkers() {
+        Gdx.gl.glEnable(GL20.GL_DEPTH_TEST);
+        Gdx.gl.glDepthMask(false);
+        debugShapeRenderer.setProjectionMatrix(camera.combined);
+        debugShapeRenderer.begin(ShapeRenderer.ShapeType.Line);
+        debugShapeRenderer.setColor(0.26f, 0.30f, 0.34f, 0.95f);
+        for (int i = -4; i <= 4; i++) {
+            debugShapeRenderer.line(i, 0f, -4f, i, 0f, 4f);
+            debugShapeRenderer.line(-4f, 0f, i, 4f, 0f, i);
+        }
+        debugShapeRenderer.setColor(0.80f, 0.20f, 0.20f, 1f);
+        debugShapeRenderer.line(-0.18f, 0.001f, 0f, 0.18f, 0.001f, 0f);
+        debugShapeRenderer.setColor(0.20f, 0.84f, 0.24f, 1f);
+        debugShapeRenderer.line(0f, 0.001f, -0.18f, 0f, 0.001f, 0.18f);
+        debugShapeRenderer.end();
+        Gdx.gl.glDepthMask(true);
+        Gdx.gl.glDisable(GL20.GL_DEPTH_TEST);
+    }
+
+    private String resolvePreviewClip(ModelInstance instance, String requestedClip) {
+        if (instance == null || instance.animations == null || instance.animations.isEmpty()) {
+            return "";
+        }
+        if (requestedClip != null && !requestedClip.isBlank() && instance.getAnimation(requestedClip) != null) {
+            return requestedClip;
+        }
+        if (instance.getAnimation("idle") != null) {
+            return "idle";
+        }
+        return instance.animations.get(0).id;
+    }
+
+    private void applyManifestModelTransform(ModelInstance instance,
+                                             ModelLibrary.ModelMeta meta,
+                                             float tileX,
+                                             float tileY,
+                                             float tileBaseY,
+                                             float placementRotationYDegrees,
+                                             float placementScale) {
+        instance.transform.idt();
+        instance.transform.translate(tileX + 0.5f, tileBaseY, tileY + 0.5f);
+
+        if (Math.abs(placementRotationYDegrees) > 0.0001f) {
+            instance.transform.rotate(Vector3.Y, placementRotationYDegrees);
+        }
+
+        if (meta != null) {
+            if (Math.abs(meta.offsetX()) > 0.0001f || Math.abs(meta.offsetY()) > 0.0001f || Math.abs(meta.offsetZ()) > 0.0001f) {
+                instance.transform.translate(meta.offsetX(), meta.offsetY(), meta.offsetZ());
+            }
+            if (Math.abs(meta.rotX()) > 0.0001f) {
+                instance.transform.rotate(Vector3.X, meta.rotX());
+            }
+            if (Math.abs(meta.rotY()) > 0.0001f) {
+                instance.transform.rotate(Vector3.Y, meta.rotY());
+            }
+            if (Math.abs(meta.rotZ()) > 0.0001f) {
+                instance.transform.rotate(Vector3.Z, meta.rotZ());
+            }
+        }
+
+        float effectiveScale = 1f;
+        if (meta != null && meta.scale() > 0f) {
+            effectiveScale *= meta.scale();
+        }
+        if (placementScale > 0f) {
+            effectiveScale *= placementScale;
+        }
+        if (Math.abs(effectiveScale - 1f) > 0.0001f) {
+            instance.transform.scale(effectiveScale, effectiveScale, effectiveScale);
+        }
+    }
+
     private java.util.Map<Node, Boolean> applyHiddenBaseNodes(ModelInstance baseInstance, int[] equippedItemIds) {
         java.util.Map<Node, Boolean> previous = new LinkedHashMap<>();
         if (baseInstance == null || equippedItemIds == null || modelLibrary == null) {
@@ -1470,8 +1769,12 @@ public class Renderer3DExperimental {
         npcBaseKeyByEntityId.clear();
         currentNpcClipByEntityId.clear();
         npcAnimTimes.clear();
+        previewInstanceByKey.clear();
+        previewAnimationControllerByKey.clear();
+        previewClipByKey.clear();
         missingEquipmentWarnings.clear();
         fallbackBillboardTexture.dispose();
+        debugShapeRenderer.dispose();
         decalBatch.dispose();
         overlayDecalBatch.dispose();
         modelBatch.dispose();

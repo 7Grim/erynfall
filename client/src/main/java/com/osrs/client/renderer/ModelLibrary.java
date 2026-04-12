@@ -13,6 +13,7 @@ import net.mgsx.gltf.loaders.glb.GLBLoader;
 import net.mgsx.gltf.scene3d.scene.SceneAsset;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -132,6 +133,12 @@ public class ModelLibrary {
             return "";
         }
         return knownItemNamesById.getOrDefault(itemId, "");
+    }
+
+    public List<String> getModelKeys() {
+        ArrayList<String> keys = new ArrayList<>(metaByKey.keySet());
+        Collections.sort(keys);
+        return List.copyOf(keys);
     }
 
     private void loadRuntimeMetadata() {

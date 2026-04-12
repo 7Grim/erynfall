@@ -31,6 +31,7 @@ import com.osrs.client.world.MapLoader;
 import com.osrs.client.world.StaticPropLoader;
 import com.osrs.client.world.TerrainHeightLoader;
 import com.osrs.client.ui.AdminToolsPopup;
+import com.osrs.client.ui.ArtWorkbenchPopup;
 import com.osrs.client.ui.ChatBox;
 import com.osrs.client.ui.CombatUI;
 import com.osrs.client.ui.ContextMenu;
@@ -218,6 +219,8 @@ public class GameScreen extends ApplicationAdapter {
     private static final float CULL_DISTANCE_CLICK_MARKERS_3D = 24f;
     private boolean debugPickVolumes3D = false;
     private boolean debug3DRenderBudget = false;
+    private boolean debug3DArtistBoundsAxes = false;
+    private boolean debug3DArtistAnchors = false;
     private float debug3DRenderBudgetTimer = 0f;
     private int overlaysRenderedLastFrame3D = 0;
 
@@ -239,6 +242,7 @@ public class GameScreen extends ApplicationAdapter {
     private LevelUpOverlay levelUpOverlay;
     private SkillGuidePopup skillGuidePopup;
     private AdminToolsPopup adminToolsPopup;
+    private ArtWorkbenchPopup artWorkbenchPopup;
     private boolean loggedAdminButtonVisible = false;
     private int[][]      tileMap;
     private MapLoader    mapLoader;
@@ -575,6 +579,7 @@ public class GameScreen extends ApplicationAdapter {
         renderer2d.setSpriteSheet(spriteSheet);
         renderer3d.setSpriteSheet(spriteSheet);
         renderer3d.setModelLibrary(modelLibrary);
+        renderer3d.setArtistDebugVisualization(debug3DArtistBoundsAxes, debug3DArtistAnchors);
         mapLoader  = MapLoader.load();
         tileMap    = mapLoader.getLayout();
         TerrainHeightLoader.TerrainHeightData terrainHeightData = TerrainHeightLoader.load(launchOptions);
@@ -599,6 +604,8 @@ public class GameScreen extends ApplicationAdapter {
         levelUpOverlay = new LevelUpOverlay();
         skillGuidePopup = new SkillGuidePopup();
         adminToolsPopup = new AdminToolsPopup();
+        artWorkbenchPopup = new ArtWorkbenchPopup();
+        artWorkbenchPopup.setModelKeys(modelLibrary.getModelKeys());
 
         if (!artistMode) {
             Thread t = new Thread(() -> {
@@ -1292,6 +1299,25 @@ public class GameScreen extends ApplicationAdapter {
             debug3DRenderBudgetTimer = 0f;
             LOG.info("3D render budget debug: {}", debug3DRenderBudget ? "enabled" : "disabled");
         }
+        if (artistMode && Gdx.input.isKeyJustPressed(Input.Keys.F6)) {
+            artWorkbenchPopup.toggle();
+            artWorkbenchPopup.setModelKeys(modelLibrary.getModelKeys());
+            LOG.info("Art workbench: {}", artWorkbenchPopup.isVisible() ? "opened" : "closed");
+        }
+        if (Gdx.input.isKeyJustPressed(Input.Keys.F7)) {
+            debug3DArtistBoundsAxes = !debug3DArtistBoundsAxes;
+            if (renderer3d != null) {
+                renderer3d.setArtistDebugVisualization(debug3DArtistBoundsAxes, debug3DArtistAnchors);
+            }
+            LOG.info("3D artist bounds/axes debug: {}", debug3DArtistBoundsAxes ? "enabled" : "disabled");
+        }
+        if (Gdx.input.isKeyJustPressed(Input.Keys.F8)) {
+            debug3DArtistAnchors = !debug3DArtistAnchors;
+            if (renderer3d != null) {
+                renderer3d.setArtistDebugVisualization(debug3DArtistBoundsAxes, debug3DArtistAnchors);
+            }
+            LOG.info("3D artist anchor debug: {}", debug3DArtistAnchors ? "enabled" : "disabled");
+        }
 
         // F5: hot-reload sprite atlas (run mvn generate-resources -pl client first)
         if (Gdx.input.isKeyJustPressed(Input.Keys.F5)) {
@@ -1306,8 +1332,12 @@ public class GameScreen extends ApplicationAdapter {
             renderer2d.setSpriteSheet(spriteSheet);
             renderer3d.setSpriteSheet(spriteSheet);
             renderer3d.setModelLibrary(modelLibrary);
+            renderer3d.setArtistDebugVisualization(debug3DArtistBoundsAxes, debug3DArtistAnchors);
             renderer3d.setTerrainHeightData(terrainHeightLevels, terrainHeightStep);
             renderer3d.rebuildTerrain(tileMap);
+            if (artWorkbenchPopup != null) {
+                artWorkbenchPopup.setModelKeys(modelLibrary.getModelKeys());
+            }
             LOG.info("Hot reload complete (sprites, models, static props, terrain). Model source={}",
                 artistMode ? "repo art/models" : "classpath runtime resources");
         }
@@ -1357,15 +1387,27 @@ public class GameScreen extends ApplicationAdapter {
         List<ActorRenderEntry> actorEntries = collectActorRenderEntries(handler);
         List<ShadowRenderEntry> shadowEntries = collectShadowRenderEntries(actorEntries);
         if (use3DRenderer) {
-            renderer3d.renderTerrain(tileMap, visualX, visualY, activeMaterialProfile);
-            renderStaticProps3D();
-            renderer3d.beginEntityPass();
-            renderGroundItemsLayer3D(groundItemEntries);
-            renderActorsLayer3D(actorEntries, delta);
-            renderer3d.endEntityPass();
-            renderHealthBarsLayer3D(actorEntries);
-            renderGroundItemLabels();
-            renderPickVolumeDebug3D();
+            boolean previewMode = artistMode && artWorkbenchPopup != null && artWorkbenchPopup.isVisible();
+            if (previewMode) {
+                renderer3d.renderWorkbenchModelPreview(
+                    artWorkbenchPopup.selectedModelKey(),
+                    artWorkbenchPopup.selectedClipName(),
+                    delta
+                );
+            } else {
+                renderer3d.renderTerrain(tileMap, visualX, visualY, activeMaterialProfile);
+                renderStaticProps3D();
+                renderer3d.beginEntityPass();
+                renderGroundItemsLayer3D(groundItemEntries);
+                renderActorsLayer3D(actorEntries, delta);
+                renderer3d.endEntityPass();
+            }
+            renderer3d.renderArtistDebugOverlays();
+            if (!previewMode) {
+                renderHealthBarsLayer3D(actorEntries);
+                renderGroundItemLabels();
+                renderPickVolumeDebug3D();
+            }
         } else {
             renderer2d.renderWorld(tileMap, visualX, visualY, visualX, visualY, activeMaterialProfile);
             renderGroundItemsLayer(groundItemEntries);
@@ -1455,6 +1497,9 @@ public class GameScreen extends ApplicationAdapter {
         skillGuidePopup.render(shapeRenderer, screenBatch, font, w, h, screenProjection);
         renderAdminToolsButton(shapeRenderer, screenBatch, font, w, h, screenProjection, mouseScreenX, mouseScreenY);
         adminToolsPopup.render(shapeRenderer, screenBatch, font, w, h, screenProjection, handler());
+        if (artistMode && artWorkbenchPopup != null && artWorkbenchPopup.isVisible()) {
+            artWorkbenchPopup.render(shapeRenderer, screenBatch, font, w, h, screenProjection);
+        }
         xpDropOverlay.render(shapeRenderer, screenBatch, font, w, h, screenProjection,
             sidePanel.getPanelX(), SidePanel.TOTAL_H + SidePanel.MARGIN);
         if (handler != null && handler.isBankOpen()) {
@@ -2187,6 +2232,7 @@ public class GameScreen extends ApplicationAdapter {
         if (smithingUI != null && smithingUI.isVisible() && smithingUI.isOver(mouseX, mouseY)) return true;
         if (shopUI != null && shopUI.isVisible() && shopUI.isOver(mouseX, mouseY)) return true;
         if (adminToolsPopup != null && adminToolsPopup.isVisible()) return true;
+        if (artistMode && artWorkbenchPopup != null && artWorkbenchPopup.isVisible()) return true;
         if (skillGuidePopup != null && skillGuidePopup.isVisible()) return true;
         if (contextMenu != null && contextMenu.isVisible()) return true;
         int w = Gdx.graphics.getWidth();
@@ -2962,6 +3008,30 @@ public class GameScreen extends ApplicationAdapter {
     private void handleInput() {
         // Block all input while death screen is showing
         if (deathScreenTimer > 0) return;
+
+        if (artistMode && artWorkbenchPopup != null && artWorkbenchPopup.isVisible()) {
+            if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE) || Gdx.input.isKeyJustPressed(Input.Keys.F6)) {
+                artWorkbenchPopup.dismiss();
+                return;
+            }
+            if (Gdx.input.isKeyJustPressed(Input.Keys.LEFT_BRACKET)) {
+                artWorkbenchPopup.selectPrevious();
+                return;
+            }
+            if (Gdx.input.isKeyJustPressed(Input.Keys.RIGHT_BRACKET)) {
+                artWorkbenchPopup.selectNext();
+                return;
+            }
+            if (Gdx.input.isKeyJustPressed(Input.Keys.SEMICOLON)) {
+                artWorkbenchPopup.cycleClipMode();
+                return;
+            }
+            if (Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)
+                || Gdx.input.isButtonJustPressed(Input.Buttons.RIGHT)
+                || Gdx.input.isButtonJustPressed(Input.Buttons.MIDDLE)) {
+                return;
+            }
+        }
 
         if (dialogueUI.isVisible()) {
             handleDialogueInput();
