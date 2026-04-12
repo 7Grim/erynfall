@@ -417,6 +417,8 @@ Equipment attachment prototype notes:
 - CAPE and AMMO visual support now exist experimentally.
 - Ammo currently uses a quiver-style representation for arrow tiers.
 - NECK and RING visuals remain intentionally deferred in this phase.
+- `player_base` plus the bronze melee/tool set is the current reference-quality baseline for humanoid/equipment fidelity.
+- Future metal tier sets should follow the same silhouette and attachment-fit logic established by this bronze baseline.
 
 Attachment anchor convention (animation-ready foundation):
 - Actor models can now expose optional named attachment nodes for semantic binding.
