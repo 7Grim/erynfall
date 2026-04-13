@@ -31,8 +31,10 @@ import com.osrs.client.renderer.Renderer3DExperimental;
 import com.osrs.client.audio.AudioManager;
 import com.osrs.client.renderer.SpriteSheet;
 import com.osrs.client.world.MapLoader;
+import com.osrs.client.world.EntityVisualRegistry;
 import com.osrs.client.world.StaticPropLoader;
 import com.osrs.client.world.TerrainHeightLoader;
+import com.osrs.client.world.TerrainVisualLoader;
 import com.osrs.client.ui.AdminToolsPopup;
 import com.osrs.client.ui.ArtWorkbenchPopup;
 import com.osrs.client.ui.ChatBox;
@@ -173,6 +175,8 @@ public class GameScreen extends ApplicationAdapter {
     /** Null when sprites.atlas has not been packed yet — falls back to ShapeRenderer. */
     private SpriteSheet      spriteSheet;
     private ModelLibrary     modelLibrary;
+    private EntityVisualRegistry entityVisualRegistry;
+    private TerrainVisualLoader.TerrainVisualData terrainVisualData;
     private List<StaticPropLoader.StaticPropPlacement> staticPropPlacements = List.of();
     private SceneEditState sceneEditState;
     private int worldPlacementHoverTileX = -1;
@@ -258,6 +262,7 @@ public class GameScreen extends ApplicationAdapter {
     private ArtWorkbenchPopup artWorkbenchPopup;
     private boolean loggedAdminButtonVisible = false;
     private int[][]      tileMap;
+    private int[][]      visualTerrainTileMap;
     private MapLoader    mapLoader;
 
     // -----------------------------------------------------------------------
@@ -589,12 +594,15 @@ public class GameScreen extends ApplicationAdapter {
 
         spriteSheet = SpriteSheet.load();
         modelLibrary = ModelLibrary.load(launchOptions);
+        entityVisualRegistry = EntityVisualRegistry.load(launchOptions);
         renderer2d.setSpriteSheet(spriteSheet);
         renderer3d.setSpriteSheet(spriteSheet);
         renderer3d.setModelLibrary(modelLibrary);
         renderer3d.setArtistDebugVisualization(debug3DArtistBoundsAxes, debug3DArtistAnchors);
         mapLoader  = MapLoader.load();
         tileMap    = mapLoader.getLayout();
+        terrainVisualData = TerrainVisualLoader.loadTerrainVisualData(launchOptions);
+        visualTerrainTileMap = TerrainVisualLoader.composeVisualTileMap(tileMap, terrainVisualData, null);
         TerrainHeightLoader.TerrainHeightData terrainHeightData = TerrainHeightLoader.load(launchOptions);
         terrainHeightLevels = terrainHeightData.levels;
         terrainHeightStep = terrainHeightData.heightStep;
@@ -602,8 +610,10 @@ public class GameScreen extends ApplicationAdapter {
         sceneEditState = new SceneEditState();
         sceneEditState.setPlacements(staticPropPlacements);
         sceneEditState.setPlaceableKeys(collectPlaceableStaticPropKeys());
+        sceneEditState.setTerrainTileOverrides(TerrainVisualLoader.loadTileOverrides(launchOptions));
+        applyTerrainPaintEditStateToVisualMap();
         renderer3d.setTerrainHeightData(terrainHeightLevels, terrainHeightStep);
-        renderer3d.rebuildTerrain(tileMap);
+        renderer3d.rebuildTerrain(activeTerrainRenderMap());
         contextMenu = new ContextMenu();
         combatUI   = new CombatUI();
         sidePanel  = new SidePanel();
@@ -695,6 +705,7 @@ public class GameScreen extends ApplicationAdapter {
                                     boolean isPlayer,
                                     float tileX,
                                     float tileY,
+                                    int definitionId,
                                     String npcName,
                                     boolean pickingUp,
                                     String playerPose,
@@ -770,6 +781,7 @@ public class GameScreen extends ApplicationAdapter {
                 if (vis == null) continue;
 
                 boolean isPlayerEntity = handler.isPlayer(id);
+                int definitionId = isPlayerEntity ? 0 : handler.getNpcDefinitionId(id);
                 String npcName = isPlayerEntity ? null : handler.getEntityName(id);
                 int[] hp = handler.getEntityHealth(id);
                 int health = hp == null ? 0 : hp[0];
@@ -780,6 +792,7 @@ public class GameScreen extends ApplicationAdapter {
                     isPlayerEntity,
                     vis[0],
                     vis[1],
+                    definitionId,
                     npcName,
                     false,
                     null,
@@ -799,6 +812,7 @@ public class GameScreen extends ApplicationAdapter {
             true,
             visualX,
             visualY,
+            0,
             null,
             pickupAnimationTimer > 0,
             localPose,
@@ -832,6 +846,15 @@ public class GameScreen extends ApplicationAdapter {
                 height = 5f;
                 alpha = 0.18f;
             } else {
+                EntityVisualRegistry.EntityVisual visual = resolveEntityVisual(entry);
+                if (visual != null
+                    && visual.shadowWidth() != null
+                    && visual.shadowHeight() != null
+                    && visual.shadowAlpha() != null) {
+                    width = visual.shadowWidth();
+                    height = visual.shadowHeight();
+                    alpha = visual.shadowAlpha();
+                } else {
                 String npcName = entry.npcName();
                 if ("Rat".equals(npcName) || "Chicken".equals(npcName)) {
                     width = 8f;
@@ -875,6 +898,7 @@ public class GameScreen extends ApplicationAdapter {
                     height = 5f;
                     alpha = 0.18f;
                 }
+                }
             }
 
             String spriteKey = actorSpriteKey(entry);
@@ -906,11 +930,33 @@ public class GameScreen extends ApplicationAdapter {
         if (entry.isPlayer()) {
             return "player";
         }
+        EntityVisualRegistry.EntityVisual visual = resolveEntityVisual(entry);
+        if (visual != null && visual.spriteKey2d() != null && !visual.spriteKey2d().isBlank()) {
+            return visual.spriteKey2d();
+        }
         return IsometricRenderer.npcSpriteKeyForName(entry.npcName());
+    }
+
+    private EntityVisualRegistry.EntityVisual resolveEntityVisual(ActorRenderEntry entry) {
+        if (entry == null || entry.isPlayer()) {
+            return null;
+        }
+        return resolveEntityVisual(entry.definitionId(), entry.npcName());
+    }
+
+    private EntityVisualRegistry.EntityVisual resolveEntityVisual(int definitionId, String npcName) {
+        if (entityVisualRegistry == null) {
+            return null;
+        }
+        return entityVisualRegistry.resolve(definitionId, npcName);
     }
 
     private boolean isOccludingWorldResource(ActorRenderEntry entry) {
         if (entry.isPlayer()) return false;
+        EntityVisualRegistry.EntityVisual visual = resolveEntityVisual(entry);
+        if (visual != null && visual.occludesWorld() != null) {
+            return visual.occludesWorld();
+        }
         String name = entry.npcName();
         return "Tree".equals(name)
             || "Oak Tree".equals(name)
@@ -934,7 +980,11 @@ public class GameScreen extends ApplicationAdapter {
             || "Cooking Range".equals(name);
     }
 
-    private boolean isNpcActionAnimated(String npcName) {
+    private boolean isNpcActionAnimated(int definitionId, String npcName) {
+        EntityVisualRegistry.EntityVisual visual = resolveEntityVisual(definitionId, npcName);
+        if (visual != null && visual.actionAnimated() != null) {
+            return visual.actionAnimated();
+        }
         return "Rat".equals(npcName)
             || "Giant Rat".equals(npcName)
             || "Goblin".equals(npcName)
@@ -942,11 +992,22 @@ public class GameScreen extends ApplicationAdapter {
             || "Cow".equals(npcName);
     }
 
+    private boolean isActionAnimationActive(ActorRenderEntry entry) {
+        if (entry == null || entry.isPlayer()) {
+            return false;
+        }
+        if (npcActionAnimTimer.getOrDefault(entry.entityId(), 0f) <= 0f) {
+            return false;
+        }
+        return isNpcActionAnimated(entry.definitionId(), entry.npcName());
+    }
+
     private void triggerNpcActionFromCombatHit(ClientPacketHandler h, ClientPacketHandler.CombatHitEvent evt) {
         int targetId = evt.targetId;
         if (targetId >= 0 && npcVisual.containsKey(targetId) && !h.isPlayer(targetId)) {
             String targetName = h.getEntityName(targetId);
-            if (isNpcActionAnimated(targetName)) {
+            int definitionId = h.getNpcDefinitionId(targetId);
+            if (isNpcActionAnimated(definitionId, targetName)) {
                 npcActionAnimTimer.put(targetId, NPC_ACTION_ANIM_DURATION);
             }
         }
@@ -982,8 +1043,11 @@ public class GameScreen extends ApplicationAdapter {
         for (Map.Entry<Integer, int[]> entry : handler.getEntityPositions().entrySet()) {
             int id = entry.getKey();
             if (handler.isPlayer(id)) continue;
+            int definitionId = handler.getNpcDefinitionId(id);
             String npcName = handler.getEntityName(id);
-            if (!"Cooking Fire".equals(npcName)) continue;
+            EntityVisualRegistry.EntityVisual visual = resolveEntityVisual(definitionId, npcName);
+            boolean isFire = visual != null && "fire".equals(visual.spriteKey2d());
+            if (!isFire && !"Cooking Fire".equals(npcName)) continue;
             float[] vis = npcVisual.get(id);
             if (vis == null) continue;
             renderer.renderGroundGlowInPass(vis[0], vis[1], 22f, 10f, 1.0f, 0.55f, 0.15f, 0.12f);
@@ -1042,13 +1106,23 @@ public class GameScreen extends ApplicationAdapter {
                 String dir = npcAnimDir.getOrDefault(entry.entityId(), "s");
                 float time = npcAnimTime.getOrDefault(entry.entityId(), 0f);
                 float alpha = isObstructingLocalPlayer(entry) ? 0.35f : 1f;
-                boolean actionActive = npcActionAnimTimer.getOrDefault(entry.entityId(), 0f) > 0f;
+                boolean actionActive = isActionAnimationActive(entry);
+                String spriteKey = actorSpriteKey(entry);
                 if (mode != MODE_SPRITE) {
                     if (mode == MODE_SHAPE) renderer.endWorldShapePass();
                     renderer.beginWorldSpritePass();
                     mode = MODE_SPRITE;
                 }
-                boolean drawn = renderer.renderNPCSpriteInPass(entry.tileX(), entry.tileY(), entry.entityId(), entry.npcName(), moving, dir, time, actionActive, alpha);
+                boolean drawn = renderer.renderNPCSpriteByKeyInPass(
+                    entry.tileX(),
+                    entry.tileY(),
+                    spriteKey,
+                    moving,
+                    dir,
+                    time,
+                    actionActive,
+                    alpha
+                );
                 if (!drawn) {
                     renderer.endWorldSpritePass();
                     renderer.beginWorldShapePass(ShapeRenderer.ShapeType.Filled);
@@ -1346,7 +1420,8 @@ public class GameScreen extends ApplicationAdapter {
 
         if (use3DRenderer) {
             boolean previewMode = artistMode && artWorkbenchPopup != null && artWorkbenchPopup.isVisible()
-                && artWorkbenchPopup.mode() != ArtWorkbenchPopup.Mode.WORLD_PLACEMENT;
+                && artWorkbenchPopup.mode() != ArtWorkbenchPopup.Mode.WORLD_PLACEMENT
+                && artWorkbenchPopup.mode() != ArtWorkbenchPopup.Mode.TERRAIN_PAINT;
             renderer3d.update(delta);
             if (!previewMode) {
                 updateCameraOrbit(delta);
@@ -1397,10 +1472,12 @@ public class GameScreen extends ApplicationAdapter {
         List<ShadowRenderEntry> shadowEntries = collectShadowRenderEntries(actorEntries);
         if (use3DRenderer) {
             boolean previewMode = artistMode && artWorkbenchPopup != null && artWorkbenchPopup.isVisible()
-                && artWorkbenchPopup.mode() != ArtWorkbenchPopup.Mode.WORLD_PLACEMENT;
+                && artWorkbenchPopup.mode() != ArtWorkbenchPopup.Mode.WORLD_PLACEMENT
+                && artWorkbenchPopup.mode() != ArtWorkbenchPopup.Mode.TERRAIN_PAINT;
             boolean worldPlacementMode = artistMode && artWorkbenchPopup != null && artWorkbenchPopup.isVisible()
                 && artWorkbenchPopup.mode() == ArtWorkbenchPopup.Mode.WORLD_PLACEMENT;
-            if (worldPlacementMode) {
+            boolean terrainPaintMode = isTerrainPaintModeActive();
+            if (worldPlacementMode || terrainPaintMode) {
                 updateWorldPlacementHoverTile();
             }
             if (previewMode) {
@@ -1419,7 +1496,7 @@ public class GameScreen extends ApplicationAdapter {
                     );
                 }
             } else {
-                renderer3d.renderTerrain(tileMap, visualX, visualY, activeMaterialProfile);
+                renderer3d.renderTerrain(activeTerrainRenderMap(), visualX, visualY, activeMaterialProfile);
                 renderStaticProps3D();
                 renderer3d.beginEntityPass();
                 renderGroundItemsLayer3D(groundItemEntries);
@@ -1431,15 +1508,17 @@ public class GameScreen extends ApplicationAdapter {
                 renderHealthBarsLayer3D(actorEntries);
                 renderGroundItemLabels();
                 renderPickVolumeDebug3D();
+                renderTerrainPaintHoverOverlay();
             }
         } else {
-            renderer2d.renderWorld(tileMap, visualX, visualY, visualX, visualY, activeMaterialProfile);
+            renderer2d.renderWorld(activeTerrainRenderMap(), visualX, visualY, visualX, visualY, activeMaterialProfile);
             renderGroundItemsLayer(groundItemEntries);
             renderShadowsLayer(shadowEntries);
             renderFireGlows(handler);
             renderActorsLayer(actorEntries);
             renderHealthBarsLayer(actorEntries);
             renderGroundItemLabels();
+            renderTerrainPaintHoverOverlay();
 
             // Firemaking animation — fire on the player's tile
             if (firemakerAnimTimer > 0) {
@@ -1611,7 +1690,7 @@ public class GameScreen extends ApplicationAdapter {
                 activePlayerEntities.add(entry.entityId());
             } else {
                 String actorModelKey = resolveActorModelKey3D(entry);
-                if (resolveAnimatedNpcBaseKey3D(actorModelKey) != null) {
+                if (resolveAnimatedNpcBaseKey3D(entry, actorModelKey) != null) {
                     activeNpcEntities.add(entry.entityId());
                 }
             }
@@ -1707,7 +1786,7 @@ public class GameScreen extends ApplicationAdapter {
             if (actorModelKey != null) {
                 float yawDegrees = actorModelYawDegrees(entry);
                 float alpha = isObstructingLocalPlayer(entry) ? 0.35f : 1f;
-                String animatedNpcBaseKey = resolveAnimatedNpcBaseKey3D(actorModelKey);
+                String animatedNpcBaseKey = resolveAnimatedNpcBaseKey3D(entry, actorModelKey);
                 if ((animatedNpcBaseKey != null
                     && renderer3d.renderAnimatedNpc(
                     animatedNpcBaseKey,
@@ -1851,6 +1930,13 @@ public class GameScreen extends ApplicationAdapter {
         if (entry.isPlayer()) {
             return null;
         }
+        EntityVisualRegistry.EntityVisual visual = resolveEntityVisual(entry);
+        if (visual != null
+            && visual.modelKey3d() != null
+            && !visual.modelKey3d().isBlank()
+            && !Boolean.TRUE.equals(visual.animated3d())) {
+            return visual.modelKey3d();
+        }
         String spriteKey = actorSpriteKey(entry);
         if (spriteKey == null) {
             return null;
@@ -1886,6 +1972,17 @@ public class GameScreen extends ApplicationAdapter {
                 }
             }
             return playerAnimMovingForEntry(entry) ? "player_walk" : "player_idle";
+        }
+
+        EntityVisualRegistry.EntityVisual visual = resolveEntityVisual(entry);
+        if (visual != null
+            && visual.modelKey3d() != null
+            && !visual.modelKey3d().isBlank()
+            && Boolean.TRUE.equals(visual.animated3d())) {
+            String stateKey = resolveAnimatedNpcStateModelKey3D(entry, visual.modelKey3d());
+            if (stateKey != null) {
+                return stateKey;
+            }
         }
 
         String name = entry.npcName();
@@ -1936,7 +2033,44 @@ public class GameScreen extends ApplicationAdapter {
         return null;
     }
 
-    private String resolveAnimatedNpcBaseKey3D(String stateKey) {
+    private String resolveAnimatedNpcStateModelKey3D(ActorRenderEntry entry, String modelBaseKey) {
+        if (modelBaseKey == null || modelBaseKey.isBlank()) {
+            return null;
+        }
+
+        boolean moving = npcAnimMoving.getOrDefault(entry.entityId(), false);
+        boolean actionActive = isActionAnimationActive(entry);
+        if (actionActive && hasModelKey3D(modelBaseKey + "_action")) {
+            return modelBaseKey + "_action";
+        }
+        if (moving && hasModelKey3D(modelBaseKey + "_walk")) {
+            return modelBaseKey + "_walk";
+        }
+        if (hasModelKey3D(modelBaseKey + "_idle")) {
+            return modelBaseKey + "_idle";
+        }
+        if (hasModelKey3D(modelBaseKey)) {
+            return modelBaseKey;
+        }
+        return null;
+    }
+
+    private String resolveAnimatedNpcBaseKey3D(ActorRenderEntry entry, String stateKey) {
+        EntityVisualRegistry.EntityVisual visual = resolveEntityVisual(entry);
+        if (visual != null
+            && visual.modelKey3d() != null
+            && !visual.modelKey3d().isBlank()
+            && Boolean.TRUE.equals(visual.animated3d())) {
+            String baseKey = visual.modelKey3d() + "_base";
+            if (hasModelKey3D(baseKey)) {
+                return baseKey;
+            }
+        }
+
+        return resolveLegacyAnimatedNpcBaseKey3D(stateKey);
+    }
+
+    private String resolveLegacyAnimatedNpcBaseKey3D(String stateKey) {
         if (stateKey == null || stateKey.isBlank()) {
             return null;
         }
@@ -1965,6 +2099,10 @@ public class GameScreen extends ApplicationAdapter {
             return "npc_cow_base";
         }
         return null;
+    }
+
+    private boolean hasModelKey3D(String key) {
+        return key != null && !key.isBlank() && modelLibrary != null && modelLibrary.hasModel(key);
     }
 
     private float actorModelYawDegrees(ActorRenderEntry entry) {
@@ -2081,6 +2219,14 @@ public class GameScreen extends ApplicationAdapter {
             && sceneEditState != null;
     }
 
+    private boolean isTerrainPaintModeActive() {
+        return artistMode
+            && artWorkbenchPopup != null
+            && artWorkbenchPopup.isVisible()
+            && artWorkbenchPopup.mode() == ArtWorkbenchPopup.Mode.TERRAIN_PAINT
+            && sceneEditState != null;
+    }
+
     private List<StaticPropLoader.StaticPropPlacement> getRenderStaticPropPlacements() {
         if (isWorldPlacementModeActive()) {
             return sceneEditState.placements();
@@ -2088,10 +2234,28 @@ public class GameScreen extends ApplicationAdapter {
         return staticPropPlacements;
     }
 
+    private int[][] activeTerrainRenderMap() {
+        if (visualTerrainTileMap != null && visualTerrainTileMap.length > 0) {
+            return visualTerrainTileMap;
+        }
+        return tileMap;
+    }
+
+    private void applyTerrainPaintEditStateToVisualMap() {
+        if (tileMap == null || sceneEditState == null) {
+            return;
+        }
+        visualTerrainTileMap = TerrainVisualLoader.composeVisualTileMap(
+            tileMap,
+            terrainVisualData,
+            sceneEditState.terrainTileOverrides()
+        );
+    }
+
     private void updateWorldPlacementHoverTile() {
         worldPlacementHoverTileX = -1;
         worldPlacementHoverTileY = -1;
-        if (!isWorldPlacementModeActive()) {
+        if (!isWorldPlacementModeActive() && !isTerrainPaintModeActive()) {
             return;
         }
         int[] tile = screenToTile(Gdx.input.getX(), Gdx.input.getY());
@@ -2099,6 +2263,42 @@ public class GameScreen extends ApplicationAdapter {
             worldPlacementHoverTileX = tile[0];
             worldPlacementHoverTileY = tile[1];
         }
+    }
+
+    private void renderTerrainPaintHoverOverlay() {
+        if (!isTerrainPaintModeActive() || worldPlacementHoverTileX < 0 || worldPlacementHoverTileY < 0) {
+            return;
+        }
+
+        float sx;
+        float sy;
+        if (use3DRenderer) {
+            if (!projectWorldToScreen3D(worldPlacementHoverTileX, worldPlacementHoverTileY, 0.05f, projectedWorldPoint)) {
+                return;
+            }
+            sx = projectedWorldPoint.x;
+            sy = projectedWorldPoint.y;
+        } else {
+            sx = renderer.worldToScreenX(worldPlacementHoverTileX, worldPlacementHoverTileY);
+            sy = renderer.worldToScreenY(worldPlacementHoverTileX, worldPlacementHoverTileY);
+        }
+
+        float size = use3DRenderer ? 18f : 14f;
+        Color c = switch (sceneEditState.selectedTerrainType()) {
+            case 1 -> new Color(0.35f, 0.68f, 1f, 0.95f);
+            case 2 -> new Color(0.92f, 0.80f, 0.46f, 0.95f);
+            case 3 -> new Color(0.78f, 0.78f, 0.82f, 0.95f);
+            case 4 -> new Color(0.94f, 0.86f, 0.58f, 0.95f);
+            default -> new Color(0.54f, 0.92f, 0.48f, 0.95f);
+        };
+
+        shapeRenderer.setProjectionMatrix(screenProjection);
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Line);
+        shapeRenderer.setColor(c);
+        shapeRenderer.rect(sx - size, sy - size, size * 2f, size * 2f);
+        shapeRenderer.line(sx - size, sy, sx + size, sy);
+        shapeRenderer.line(sx, sy - size, sx, sy + size);
+        shapeRenderer.end();
     }
 
     private List<String> collectPlaceableStaticPropKeys() {
@@ -2202,8 +2402,8 @@ public class GameScreen extends ApplicationAdapter {
         boolean moving = npcAnimMoving.getOrDefault(entry.entityId(), false);
         String dir = npcAnimDir.getOrDefault(entry.entityId(), "s");
         float time = npcAnimTime.getOrDefault(entry.entityId(), 0f);
-        boolean actionActive = npcActionAnimTimer.getOrDefault(entry.entityId(), 0f) > 0f;
-        String baseKey = IsometricRenderer.npcSpriteKeyForName(entry.npcName());
+        boolean actionActive = isActionAnimationActive(entry);
+        String baseKey = actorSpriteKey(entry);
         return resolveNpcSpriteRegion3D(baseKey, moving, dir, time, actionActive);
     }
 
@@ -2267,6 +2467,9 @@ public class GameScreen extends ApplicationAdapter {
                                                    float animTime,
                                                    boolean actionActive) {
         if (spriteSheet == null) {
+            return null;
+        }
+        if (baseKey == null || baseKey.isBlank()) {
             return null;
         }
 
@@ -3104,7 +3307,8 @@ public class GameScreen extends ApplicationAdapter {
         if (deathScreenTimer > 0) return;
 
         if (artistMode && artWorkbenchPopup != null && artWorkbenchPopup.isVisible()) {
-            if (Gdx.input.isKeyJustPressed(Input.Keys.SLASH)) {
+            if (Gdx.input.isKeyJustPressed(Input.Keys.SLASH)
+                && artWorkbenchPopup.mode() != ArtWorkbenchPopup.Mode.TERRAIN_PAINT) {
                 artWorkbenchPopup.activateSelectionSearch();
                 return;
             }
@@ -3207,8 +3411,49 @@ public class GameScreen extends ApplicationAdapter {
                     } else {
                         artWorkbenchPopup.setWorldPlacementStatus("No placement selected");
                     }
+                } else if (artWorkbenchPopup.mode() == ArtWorkbenchPopup.Mode.TERRAIN_PAINT) {
+                    // no-op: terrain erase uses E
                 } else {
                     artWorkbenchPopup.clearActiveSlot();
+                }
+                return;
+            }
+            if (artWorkbenchPopup.mode() == ArtWorkbenchPopup.Mode.TERRAIN_PAINT) {
+                if (Gdx.input.isKeyJustPressed(Input.Keys.E)) {
+                    if (sceneEditState == null || worldPlacementHoverTileX < 0 || worldPlacementHoverTileY < 0) {
+                        artWorkbenchPopup.setTerrainPaintStatus("No hovered tile to erase");
+                    } else if (sceneEditState.eraseTerrainOverride(worldPlacementHoverTileX, worldPlacementHoverTileY)) {
+                        applyTerrainPaintEditStateToVisualMap();
+                        renderer3d.rebuildTerrain(activeTerrainRenderMap());
+                        artWorkbenchPopup.setTerrainPaintStatus(
+                            "Erased override at " + worldPlacementHoverTileX + "," + worldPlacementHoverTileY
+                        );
+                    } else {
+                        artWorkbenchPopup.setTerrainPaintStatus("No override set on hovered tile");
+                    }
+                    return;
+                }
+                if (Gdx.input.isKeyJustPressed(Input.Keys.P)) {
+                    saveTerrainVisualScene();
+                    return;
+                }
+
+                if (Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)) {
+                    int[] tile = screenToTile(Gdx.input.getX(), Gdx.input.getY());
+                    if (tile[0] >= 0 && tile[1] >= 0 && sceneEditState != null) {
+                        if (sceneEditState.paintTerrainOverride(tile[0], tile[1])) {
+                            applyTerrainPaintEditStateToVisualMap();
+                            renderer3d.rebuildTerrain(activeTerrainRenderMap());
+                        }
+                        artWorkbenchPopup.setTerrainPaintStatus(
+                            "Painted " + sceneEditState.selectedTerrainTypeLabel() + " at " + tile[0] + "," + tile[1]
+                        );
+                    }
+                    return;
+                }
+                if (Gdx.input.isButtonJustPressed(Input.Buttons.RIGHT)
+                    || Gdx.input.isButtonJustPressed(Input.Buttons.MIDDLE)) {
+                    return;
                 }
                 return;
             }
@@ -4161,15 +4406,49 @@ public class GameScreen extends ApplicationAdapter {
         LOG.info("World placement save succeeded: {}", scenePath);
     }
 
+    private void saveTerrainVisualScene() {
+        if (!isTerrainPaintModeActive()) {
+            if (artWorkbenchPopup != null) {
+                artWorkbenchPopup.setTerrainPaintStatus("Terrain visual save unavailable in current mode");
+            }
+            return;
+        }
+        if (sceneEditState == null) {
+            artWorkbenchPopup.setTerrainPaintStatus("No scene edit state available");
+            return;
+        }
+
+        java.nio.file.Path scenePath = launchOptions.repoRootPath().resolve("art/world/tutorial_island.scene.yaml");
+        ScenePersistence.SaveResult result = ScenePersistence.saveTerrainVisualOverrides(
+            scenePath,
+            sceneEditState.terrainTileOverrides()
+        );
+        if (!result.success()) {
+            artWorkbenchPopup.setTerrainPaintStatus(result.message());
+            LOG.warn("Terrain visual save failed: {}", result.message());
+            return;
+        }
+
+        sceneEditState.markTerrainSaved();
+        reloadRuntimeAssets();
+        artWorkbenchPopup.setTerrainPaintStatus("Terrain visuals saved and reloaded");
+        LOG.info("Terrain visual save succeeded: {}", scenePath);
+    }
+
     private void reloadRuntimeAssets() {
         if (spriteSheet != null) spriteSheet.dispose();
         if (modelLibrary != null) modelLibrary.dispose();
         spriteSheet = SpriteSheet.load();
         modelLibrary = ModelLibrary.load(launchOptions);
+        entityVisualRegistry = EntityVisualRegistry.load(launchOptions);
+        terrainVisualData = TerrainVisualLoader.loadTerrainVisualData(launchOptions);
+        visualTerrainTileMap = TerrainVisualLoader.composeVisualTileMap(tileMap, terrainVisualData, null);
         staticPropPlacements = StaticPropLoader.load(launchOptions);
         if (sceneEditState != null) {
             sceneEditState.setPlacements(staticPropPlacements);
             sceneEditState.setPlaceableKeys(collectPlaceableStaticPropKeys());
+            sceneEditState.setTerrainTileOverrides(TerrainVisualLoader.loadTileOverrides(launchOptions));
+            applyTerrainPaintEditStateToVisualMap();
         }
         TerrainHeightLoader.TerrainHeightData terrainHeightData = TerrainHeightLoader.load(launchOptions);
         terrainHeightLevels = terrainHeightData.levels;
@@ -4179,7 +4458,7 @@ public class GameScreen extends ApplicationAdapter {
         renderer3d.setModelLibrary(modelLibrary);
         renderer3d.setArtistDebugVisualization(debug3DArtistBoundsAxes, debug3DArtistAnchors);
         renderer3d.setTerrainHeightData(terrainHeightLevels, terrainHeightStep);
-        renderer3d.rebuildTerrain(tileMap);
+        renderer3d.rebuildTerrain(activeTerrainRenderMap());
         if (artWorkbenchPopup != null) {
             artWorkbenchPopup.setSceneEditState(sceneEditState);
             artWorkbenchPopup.setModelKeys(modelLibrary.getModelKeys());

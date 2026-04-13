@@ -219,12 +219,12 @@
                                 <mkdir dir="${project.basedir}/src/main/resources/world"/>
                                 <delete includeemptydirs="false">
                                     <fileset dir="${project.basedir}/src/main/resources/world">
-                                        <include name="**/*.scene.yaml"/>
+                                        <include name="**/*.yaml"/>
                                     </fileset>
                                 </delete>
                                 <copy todir="${project.basedir}/src/main/resources/world" overwrite="true">
                                     <fileset dir="${project.basedir}/../art/world">
-                                        <include name="**/*.scene.yaml"/>
+                                        <include name="**/*.yaml"/>
                                     </fileset>
                                 </copy>
                             </target>

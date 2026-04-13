@@ -1017,8 +1017,28 @@ public class IsometricRenderer {
     public boolean renderNPCSpriteInPass(float npcX, float npcY, int npcId, String npcName,
                                          boolean moving, String animDir, float animTime,
                                          boolean actionActive, float alpha) {
+        return renderNPCSpriteByKeyInPass(
+            npcX,
+            npcY,
+            npcSpriteKeyForName(npcName),
+            moving,
+            animDir,
+            animTime,
+            actionActive,
+            alpha
+        );
+    }
+
+    public boolean renderNPCSpriteByKeyInPass(float npcX,
+                                              float npcY,
+                                              String baseKey,
+                                              boolean moving,
+                                              String animDir,
+                                              float animTime,
+                                              boolean actionActive,
+                                              float alpha) {
         if (spriteSheet == null || !batch.isDrawing()) return false;
-        String baseKey = npcSpriteKeyForName(npcName);
+        if (baseKey == null || baseKey.isBlank()) return false;
         TextureRegion region = resolveNpcSpriteRegion(baseKey, moving, animDir, animTime, actionActive);
         if (region == null) return false;
         drawEntitySpriteWithPivot(baseKey, region, worldToScreenX(npcX, npcY), worldToScreenY(npcX, npcY), alpha);

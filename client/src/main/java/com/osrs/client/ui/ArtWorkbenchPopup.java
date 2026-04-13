@@ -28,7 +28,8 @@ public class ArtWorkbenchPopup {
     public enum Mode {
         MODEL_PREVIEW,
         EQUIPMENT_FIT,
-        WORLD_PLACEMENT
+        WORLD_PLACEMENT,
+        TERRAIN_PAINT
     }
 
     private static final int PANEL_W = 760;
@@ -72,6 +73,7 @@ public class ArtWorkbenchPopup {
     private String exportStatus = "";
     private String exportSnippet = "";
     private String worldPlacementStatus = "";
+    private String terrainPaintStatus = "";
     private SceneEditState sceneEditState;
     private String modelSearchQuery = "";
     private final Map<Integer, String> equipmentSearchBySlot = new HashMap<>();
@@ -150,6 +152,7 @@ public class ArtWorkbenchPopup {
             case MODEL_PREVIEW -> filteredModelIndices().size();
             case EQUIPMENT_FIT -> filteredEquipmentIndices(activeSlot()).size();
             case WORLD_PLACEMENT -> filteredWorldIndices().size();
+            case TERRAIN_PAINT -> 0;
         };
     }
 
@@ -197,6 +200,10 @@ public class ArtWorkbenchPopup {
             cycleWorldPlacementProp(1);
             return;
         }
+        if (mode == Mode.TERRAIN_PAINT) {
+            cycleTerrainPaintType(1);
+            return;
+        }
         List<Integer> filtered = filteredModelIndices();
         if (filtered.isEmpty()) {
             selectedIndex = 0;
@@ -217,6 +224,10 @@ public class ArtWorkbenchPopup {
             cycleWorldPlacementProp(-1);
             return;
         }
+        if (mode == Mode.TERRAIN_PAINT) {
+            cycleTerrainPaintType(-1);
+            return;
+        }
         List<Integer> filtered = filteredModelIndices();
         if (filtered.isEmpty()) {
             selectedIndex = 0;
@@ -232,7 +243,8 @@ public class ArtWorkbenchPopup {
         mode = switch (mode) {
             case MODEL_PREVIEW -> Mode.EQUIPMENT_FIT;
             case EQUIPMENT_FIT -> Mode.WORLD_PLACEMENT;
-            case WORLD_PLACEMENT -> Mode.MODEL_PREVIEW;
+            case WORLD_PLACEMENT -> Mode.TERRAIN_PAINT;
+            case TERRAIN_PAINT -> Mode.MODEL_PREVIEW;
         };
         selectionSearchActive = false;
         applySearchSelection();
@@ -297,6 +309,16 @@ public class ArtWorkbenchPopup {
 
     public void setWorldPlacementStatus(String status) {
         this.worldPlacementStatus = status == null ? "" : status;
+    }
+
+    public void setTerrainPaintStatus(String status) {
+        this.terrainPaintStatus = status == null ? "" : status;
+    }
+
+    public void cycleTerrainPaintType(int direction) {
+        if (mode == Mode.TERRAIN_PAINT && sceneEditState != null) {
+            sceneEditState.cycleSelectedTerrainType(direction);
+        }
     }
 
     public void cycleWorldPlacementProp(int direction) {
@@ -459,6 +481,9 @@ public class ArtWorkbenchPopup {
                     sceneEditState.setSelectedPlaceableKeyIndex(filtered.get(0));
                 }
             }
+            case TERRAIN_PAINT -> {
+                // no searchable list in terrain paint mode
+            }
         }
     }
 
@@ -467,6 +492,7 @@ public class ArtWorkbenchPopup {
             case MODEL_PREVIEW -> modelSearchQuery;
             case EQUIPMENT_FIT -> equipmentSearchBySlot.getOrDefault(activeSlot(), "");
             case WORLD_PLACEMENT -> worldSearchQuery;
+            case TERRAIN_PAINT -> "";
         };
     }
 
@@ -476,6 +502,8 @@ public class ArtWorkbenchPopup {
             case MODEL_PREVIEW -> modelSearchQuery = normalized;
             case EQUIPMENT_FIT -> equipmentSearchBySlot.put(activeSlot(), normalized);
             case WORLD_PLACEMENT -> worldSearchQuery = normalized;
+            case TERRAIN_PAINT -> {
+            }
         }
         applySearchSelection();
     }
@@ -615,13 +643,15 @@ public class ArtWorkbenchPopup {
         font.setColor(0.99f, 0.96f, 0.72f, 1f);
         font.draw(batch, mode.name(), x + 272, y + PANEL_H - 16);
 
-        if (mode != Mode.WORLD_PLACEMENT) {
+        if (mode == Mode.MODEL_PREVIEW || mode == Mode.EQUIPMENT_FIT) {
             font.setColor(0.82f, 0.88f, 0.98f, 1f);
             font.draw(batch, "Clip:", x + 520, y + PANEL_H - 16);
             font.setColor(0.96f, 0.96f, 0.96f, 1f);
             font.draw(batch, clipMode.name(), x + 558, y + PANEL_H - 16);
         } else {
-            boolean dirty = sceneEditState != null && sceneEditState.dirty();
+            boolean dirty = mode == Mode.WORLD_PLACEMENT
+                ? (sceneEditState != null && sceneEditState.dirty())
+                : (sceneEditState != null && sceneEditState.terrainDirty());
             font.setColor(dirty ? 1f : 0.72f, dirty ? 0.9f : 0.84f, 0.62f, 1f);
             font.draw(batch, dirty ? "DIRTY" : "CLEAN", x + PANEL_W - 78, y + PANEL_H - 16);
         }
@@ -631,8 +661,10 @@ public class ArtWorkbenchPopup {
             renderModelPreviewText(batch, font, leftX, topY, rightX, topY, leftW, rightW);
         } else if (mode == Mode.EQUIPMENT_FIT) {
             renderEquipmentFitText(batch, font, leftX, topY, rightX, topY, leftW, rightW);
-        } else {
+        } else if (mode == Mode.WORLD_PLACEMENT) {
             renderWorldPlacementText(batch, font, leftX, topY, rightX, topY, leftW, rightW);
+        } else {
+            renderTerrainPaintText(batch, font, leftX, topY, rightX, topY, leftW, rightW);
         }
 
         String statusA = "";
@@ -642,6 +674,8 @@ public class ArtWorkbenchPopup {
             statusB = exportSnippet == null ? "" : exportSnippet.replace('\n', ' ').trim();
         } else if (mode == Mode.WORLD_PLACEMENT) {
             statusA = worldPlacementStatus;
+        } else if (mode == Mode.TERRAIN_PAINT) {
+            statusA = terrainPaintStatus;
         }
         font.setColor(0.93f, 0.95f, 0.84f, 1f);
         font.draw(batch, truncateToWidth(font, statusA.isBlank() ? "Status: -" : "Status: " + statusA, PANEL_W - 28), x + 14, statusY + STATUS_H - 16);
@@ -650,8 +684,11 @@ public class ArtWorkbenchPopup {
             font.draw(batch, truncateToWidth(font, statusB, PANEL_W - 28), x + 14, statusY + STATUS_H - 36);
         }
 
+        String footer = mode == Mode.TERRAIN_PAINT
+            ? "F6 close   TAB mode   LMB drag orbit   wheel zoom   MMB reset camera   F7/F8 debug"
+            : "F6 close   TAB mode   / search   LMB drag orbit   wheel zoom   MMB reset camera   F7/F8 debug";
         font.setColor(0.80f, 0.84f, 0.90f, 1f);
-        font.draw(batch, "F6 close   TAB mode   / search   LMB drag orbit   wheel zoom   MMB reset camera   F7/F8 debug", x + 14, y + 22);
+        font.draw(batch, footer, x + 14, y + 22);
 
         font.getData().setScale(1f);
         font.setColor(Color.WHITE);
@@ -851,6 +888,53 @@ public class ArtWorkbenchPopup {
         font.draw(batch, truncateToWidth(font, "P save scene", rightWidth), rightX, y);
         y -= 20;
         font.draw(batch, truncateToWidth(font, "/ search   Enter apply   Esc exit search", rightWidth), rightX, y);
+    }
+
+    private void renderTerrainPaintText(SpriteBatch batch,
+                                        BitmapFont font,
+                                        int leftX,
+                                        int leftTopY,
+                                        int rightX,
+                                        int rightTopY,
+                                        int leftWidth,
+                                        int rightWidth) {
+        int y = leftTopY;
+        int terrainType = sceneEditState == null ? 0 : sceneEditState.selectedTerrainType();
+        String terrainTypeLabel = sceneEditState == null ? "grass" : sceneEditState.selectedTerrainTypeLabel();
+        boolean dirty = sceneEditState != null && sceneEditState.terrainDirty();
+        int overrideCount = sceneEditState == null ? 0 : sceneEditState.terrainTileOverrides().size();
+
+        font.setColor(0.82f, 0.88f, 0.98f, 1f);
+        font.draw(batch, "Paint", leftX, y);
+        y -= 22;
+        font.setColor(0.80f, 0.84f, 0.90f, 1f);
+        font.draw(batch, "Type:", leftX, y);
+        font.setColor(0.99f, 0.96f, 0.72f, 1f);
+        font.draw(batch, terrainTypeLabel + " (" + terrainType + ")", leftX + 42, y);
+        y -= 22;
+        font.setColor(0.80f, 0.84f, 0.90f, 1f);
+        font.draw(batch, "Dirty: " + dirty, leftX, y);
+        y -= 20;
+        font.draw(batch, "Tile overrides: " + overrideCount, leftX, y);
+        y -= 20;
+        font.draw(batch, "Hover tile: see in-world highlight", leftX, y);
+        y -= 20;
+        font.draw(batch, "Writes terrain_visual.tile_overrides", leftX, y);
+
+        y = rightTopY;
+        font.setColor(0.82f, 0.88f, 0.98f, 1f);
+        font.draw(batch, "Actions", rightX, y);
+        y -= 22;
+        font.setColor(0.80f, 0.84f, 0.90f, 1f);
+        font.draw(batch, truncateToWidth(font, "[ / ] cycle terrain type", rightWidth), rightX, y);
+        y -= 20;
+        font.draw(batch, truncateToWidth(font, "LMB paint hovered tile", rightWidth), rightX, y);
+        y -= 20;
+        font.draw(batch, truncateToWidth(font, "E erase override on hovered tile", rightWidth), rightX, y);
+        y -= 20;
+        font.draw(batch, truncateToWidth(font, "P save scene terrain visuals", rightWidth), rightX, y);
+        y -= 20;
+        font.draw(batch, truncateToWidth(font, "ESC closes (or exits search)", rightWidth), rightX, y);
     }
 
     private String truncateToWidth(BitmapFont font, String text, float maxWidth) {

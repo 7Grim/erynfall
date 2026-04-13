@@ -545,6 +545,7 @@ npcs:
 
   # OSRS: Chicken — Combat 1, HP 3, Max hit 1, Respawn 25 OSRS ticks (3850 server ticks)
   - id: 53
+    definition_id: 53
     name: "Chicken"
     combat_level: 1
     max_hp: 3
@@ -560,6 +561,7 @@ npcs:
     loot_table: "chicken_basic"
 
   - id: 54
+    definition_id: 53
     name: "Chicken"
     combat_level: 1
     max_hp: 3
@@ -574,6 +576,7 @@ npcs:
     loot_table: "chicken_basic"
 
   - id: 55
+    definition_id: 53
     name: "Chicken"
     combat_level: 1
     max_hp: 3
@@ -594,7 +597,7 @@ npcs:
 
   # OSRS: Giant rat — Combat 3, HP 5, Max hit 1, Respawn ~25 OSRS ticks (3850 server ticks)
   - id: 60
-    definition_id: 3
+    definition_id: 60
     name: "Giant Rat"
     combat_level: 3
     max_hp: 5
@@ -610,7 +613,7 @@ npcs:
     loot_table: "giant_rat_basic"
 
   - id: 61
-    definition_id: 3
+    definition_id: 60
     name: "Giant Rat"
     combat_level: 3
     max_hp: 5
@@ -647,6 +650,7 @@ npcs:
 
   # OSRS: Cow — Combat 2, HP 8, Max hit 1, Respawn 45 OSRS ticks (6930 server ticks)
   - id: 70
+    definition_id: 70
     name: "Cow"
     combat_level: 2
     max_hp: 8
@@ -662,6 +666,7 @@ npcs:
     loot_table: "cow_basic"
 
   - id: 71
+    definition_id: 70
     name: "Cow"
     combat_level: 2
     max_hp: 8

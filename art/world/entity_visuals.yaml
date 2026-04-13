@@ -1,0 +1,341 @@
+entity_visuals:
+  # Tutorial/support NPCs
+  - definition_id: 1
+    name: Tutorial Guide
+    sprite_key_2d: npc_guide
+    model_key_3d: npc_guide
+    animated_3d: true
+    action_animated: false
+    shadow_width: 10.0
+    shadow_height: 5.0
+    shadow_alpha: 0.18
+
+  - definition_id: 2
+    name: Combat Instructor
+    sprite_key_2d: npc_instructor
+    model_key_3d: npc_instructor
+    animated_3d: true
+    action_animated: false
+    shadow_width: 10.0
+    shadow_height: 5.0
+    shadow_alpha: 0.18
+
+  - definition_id: 40
+    name: Banker
+    sprite_key_2d: npc_banker
+    model_key_3d: npc_banker
+    animated_3d: true
+    action_animated: false
+    shadow_width: 10.0
+    shadow_height: 5.0
+    shadow_alpha: 0.18
+
+  # Combat NPCs
+  - definition_id: 62
+    name: Goblin
+    sprite_key_2d: npc_goblin
+    model_key_3d: npc_goblin
+    animated_3d: true
+    action_animated: true
+    shadow_width: 10.0
+    shadow_height: 5.0
+    shadow_alpha: 0.18
+
+  - definition_id: 3
+    name: Rat
+    sprite_key_2d: npc_rat
+    model_key_3d: npc_rat
+    animated_3d: true
+    action_animated: true
+    shadow_width: 8.0
+    shadow_height: 4.0
+    shadow_alpha: 0.16
+
+  - definition_id: 60
+    name: Giant Rat
+    sprite_key_2d: npc_giant_rat
+    model_key_3d: npc_giant_rat
+    animated_3d: true
+    action_animated: true
+    shadow_width: 12.0
+    shadow_height: 6.0
+    shadow_alpha: 0.18
+
+  - definition_id: 53
+    name: Chicken
+    sprite_key_2d: npc_chicken
+    model_key_3d: npc_chicken
+    animated_3d: true
+    action_animated: true
+    shadow_width: 8.0
+    shadow_height: 4.0
+    shadow_alpha: 0.16
+
+  - definition_id: 70
+    name: Cow
+    sprite_key_2d: npc_cow
+    model_key_3d: npc_cow
+    animated_3d: true
+    action_animated: true
+    shadow_width: 12.0
+    shadow_height: 6.0
+    shadow_alpha: 0.18
+
+  # Resource-like entities represented as NPCs
+  - definition_id: 100
+    name: Tree
+    sprite_key_2d: tree
+    model_key_3d: tree
+    animated_3d: false
+    occludes_world: true
+    shadow_width: 14.0
+    shadow_height: 6.0
+    shadow_alpha: 0.16
+
+  - definition_id: 101
+    name: Oak Tree
+    sprite_key_2d: tree_oak
+    model_key_3d: tree_oak
+    animated_3d: false
+    occludes_world: true
+    shadow_width: 14.0
+    shadow_height: 6.0
+    shadow_alpha: 0.16
+
+  - definition_id: 102
+    name: Willow Tree
+    sprite_key_2d: tree_willow
+    model_key_3d: tree_willow
+    animated_3d: false
+    occludes_world: true
+    shadow_width: 14.0
+    shadow_height: 6.0
+    shadow_alpha: 0.16
+
+  - definition_id: 106
+    name: Teak Tree
+    sprite_key_2d: tree_teak
+    model_key_3d: tree_willow
+    animated_3d: false
+    occludes_world: true
+    shadow_width: 14.0
+    shadow_height: 6.0
+    shadow_alpha: 0.16
+
+  - definition_id: 103
+    name: Maple Tree
+    sprite_key_2d: tree_maple
+    model_key_3d: tree_maple
+    animated_3d: false
+    occludes_world: true
+    shadow_width: 14.0
+    shadow_height: 6.0
+    shadow_alpha: 0.16
+
+  - definition_id: 107
+    name: Mahogany Tree
+    sprite_key_2d: tree_mahogany
+    model_key_3d: tree_mahogany
+    animated_3d: false
+    occludes_world: true
+    shadow_width: 14.0
+    shadow_height: 6.0
+    shadow_alpha: 0.16
+
+  - definition_id: 104
+    name: Yew Tree
+    sprite_key_2d: tree_yew
+    model_key_3d: tree_yew
+    animated_3d: false
+    occludes_world: true
+    shadow_width: 14.0
+    shadow_height: 6.0
+    shadow_alpha: 0.16
+
+  - definition_id: 105
+    name: Magic Tree
+    sprite_key_2d: tree_magic
+    model_key_3d: tree_magic
+    animated_3d: false
+    occludes_world: true
+    shadow_width: 14.0
+    shadow_height: 6.0
+    shadow_alpha: 0.16
+
+  - definition_id: 300
+    name: Copper Rock
+    sprite_key_2d: rock_copper
+    model_key_3d: rock_copper
+    animated_3d: false
+    occludes_world: true
+    shadow_width: 12.0
+    shadow_height: 5.0
+    shadow_alpha: 0.16
+
+  - definition_id: 301
+    name: Tin Rock
+    sprite_key_2d: rock_tin
+    model_key_3d: rock_tin
+    animated_3d: false
+    occludes_world: true
+    shadow_width: 12.0
+    shadow_height: 5.0
+    shadow_alpha: 0.16
+
+  - definition_id: 302
+    name: Iron Rock
+    sprite_key_2d: rock_iron
+    model_key_3d: rock_iron
+    animated_3d: false
+    occludes_world: true
+    shadow_width: 12.0
+    shadow_height: 5.0
+    shadow_alpha: 0.16
+
+  - definition_id: 303
+    name: Silver Rock
+    sprite_key_2d: rock_silver
+    model_key_3d: rock_silver
+    animated_3d: false
+    occludes_world: true
+    shadow_width: 12.0
+    shadow_height: 5.0
+    shadow_alpha: 0.16
+
+  - definition_id: 304
+    name: Coal Rock
+    sprite_key_2d: rock_coal
+    model_key_3d: rock_coal
+    animated_3d: false
+    occludes_world: true
+    shadow_width: 12.0
+    shadow_height: 5.0
+    shadow_alpha: 0.16
+
+  - definition_id: 305
+    name: Gold Rock
+    sprite_key_2d: rock_gold
+    model_key_3d: rock_gold
+    animated_3d: false
+    occludes_world: true
+    shadow_width: 12.0
+    shadow_height: 5.0
+    shadow_alpha: 0.16
+
+  - definition_id: 306
+    name: Mithril Rock
+    sprite_key_2d: rock_mithril
+    model_key_3d: rock_mithril
+    animated_3d: false
+    occludes_world: true
+    shadow_width: 12.0
+    shadow_height: 5.0
+    shadow_alpha: 0.16
+
+  - definition_id: 307
+    name: Adamantite Rock
+    sprite_key_2d: rock_adamantite
+    model_key_3d: rock_adamantite
+    animated_3d: false
+    occludes_world: true
+    shadow_width: 12.0
+    shadow_height: 5.0
+    shadow_alpha: 0.16
+
+  - definition_id: 308
+    name: Runite Rock
+    sprite_key_2d: rock_runite
+    model_key_3d: rock_runite
+    animated_3d: false
+    occludes_world: true
+    shadow_width: 12.0
+    shadow_height: 5.0
+    shadow_alpha: 0.16
+
+  - definition_id: 200
+    name: Fishing Spot
+    sprite_key_2d: fishing_spot
+    model_key_3d: fishing_spot
+    animated_3d: false
+    occludes_world: true
+    shadow_width: 12.0
+    shadow_height: 5.0
+    shadow_alpha: 0.14
+
+  - definition_id: 201
+    name: Fishing Spot
+    sprite_key_2d: fishing_spot
+    model_key_3d: fishing_spot
+    animated_3d: false
+    occludes_world: true
+    shadow_width: 12.0
+    shadow_height: 5.0
+    shadow_alpha: 0.14
+
+  - definition_id: 202
+    name: Fishing Spot
+    sprite_key_2d: fishing_spot
+    model_key_3d: fishing_spot
+    animated_3d: false
+    occludes_world: true
+    shadow_width: 12.0
+    shadow_height: 5.0
+    shadow_alpha: 0.14
+
+  - definition_id: 203
+    name: Fishing Spot
+    sprite_key_2d: fishing_spot
+    model_key_3d: fishing_spot
+    animated_3d: false
+    occludes_world: true
+    shadow_width: 12.0
+    shadow_height: 5.0
+    shadow_alpha: 0.14
+
+  - definition_id: 400
+    name: Cooking Fire
+    sprite_key_2d: fire
+    animated_3d: false
+    occludes_world: true
+    shadow_width: 12.0
+    shadow_height: 5.0
+    shadow_alpha: 0.14
+
+  - definition_id: 401
+    name: Cooking Range
+    sprite_key_2d: cooking_range
+    model_key_3d: cooking_range
+    animated_3d: false
+    occludes_world: true
+    shadow_width: 12.0
+    shadow_height: 5.0
+    shadow_alpha: 0.14
+
+  - definition_id: 500
+    name: Furnace
+    sprite_key_2d: furnace
+    model_key_3d: furnace
+    animated_3d: false
+    shadow_width: 12.0
+    shadow_height: 5.0
+    shadow_alpha: 0.16
+
+  - definition_id: 501
+    name: Anvil
+    sprite_key_2d: anvil
+    model_key_3d: anvil
+    animated_3d: false
+    shadow_width: 12.0
+    shadow_height: 5.0
+    shadow_alpha: 0.16
+
+  # Service NPCs without dedicated model keys yet.
+  - definition_id: 37
+    name: Fishing Supplier
+    sprite_key_2d: npc_supplier
+    animated_3d: false
+
+  - definition_id: 39
+    name: Smithing Supplier
+    sprite_key_2d: npc_supplier
+    animated_3d: false

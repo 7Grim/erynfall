@@ -17,6 +17,12 @@ import java.util.*;
 public class WorldLoader {
     
     private static final Logger LOG = LoggerFactory.getLogger(WorldLoader.class);
+    private static final Set<String> VISUAL_ARCHETYPE_NAMES = Set.of(
+        "rat",
+        "giant rat",
+        "chicken",
+        "cow"
+    );
     
     /**
      * Load world from world.yml resource
@@ -129,6 +135,7 @@ public class WorldLoader {
                     worldData.npcs.add(npcDef2);
                 }
                 LOG.info("Loaded {} NPCs", worldData.npcs.size());
+                validateVisualArchetypeDefinitionIds(worldData.npcs);
             }
             
             return worldData;
@@ -168,6 +175,31 @@ public class WorldLoader {
         lootDrop.maxQuantity = getInt(drop, "max_quantity", lootDrop.minQuantity);
         lootDrop.chance = getInt(drop, "chance", 100);  // Default: always
         return lootDrop;
+    }
+
+    private static void validateVisualArchetypeDefinitionIds(List<WorldData.NPCDefinition> npcs) {
+        Map<String, Set<Integer>> definitionIdsByName = new HashMap<>();
+        Map<Integer, Set<String>> namesByDefinitionId = new HashMap<>();
+
+        for (WorldData.NPCDefinition npc : npcs) {
+            String normalizedName = npc.name == null ? "" : npc.name.trim().toLowerCase(Locale.ROOT);
+            if (!VISUAL_ARCHETYPE_NAMES.contains(normalizedName)) {
+                continue;
+            }
+            definitionIdsByName.computeIfAbsent(normalizedName, ignored -> new HashSet<>()).add(npc.definitionId);
+            namesByDefinitionId.computeIfAbsent(npc.definitionId, ignored -> new HashSet<>()).add(normalizedName);
+        }
+
+        for (Map.Entry<String, Set<Integer>> entry : definitionIdsByName.entrySet()) {
+            if (entry.getValue().size() > 1) {
+                LOG.warn("Visual archetype '{}' uses multiple definition_ids: {}", entry.getKey(), entry.getValue());
+            }
+        }
+        for (Map.Entry<Integer, Set<String>> entry : namesByDefinitionId.entrySet()) {
+            if (entry.getValue().size() > 1) {
+                LOG.warn("definition_id {} is shared across visual archetypes: {}", entry.getKey(), entry.getValue());
+            }
+        }
     }
 }
 

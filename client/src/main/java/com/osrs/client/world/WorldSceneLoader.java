@@ -17,6 +17,7 @@ public final class WorldSceneLoader {
     private WorldSceneLoader() {}
 
     public record WorldSceneData(Map<String, Object> terrainHeight,
+                                 Map<String, Object> terrainVisual,
                                  List<Map<String, Object>> staticProps,
                                  boolean repoBacked,
                                  String sourcePath) {}
@@ -35,7 +36,7 @@ public final class WorldSceneLoader {
         if (!sceneHandle.exists()) {
             String source = repoBacked ? "repo" : "classpath";
             Gdx.app.log("WorldSceneLoader", "WARN: world scene file missing in " + source + ": " + sceneHandle.path());
-            return new WorldSceneData(Map.of(), List.of(), repoBacked, sceneHandle.path());
+            return new WorldSceneData(Map.of(), Map.of(), List.of(), repoBacked, sceneHandle.path());
         }
 
         ObjectMapper mapper = new ObjectMapper(new YAMLFactory());
@@ -49,14 +50,19 @@ public final class WorldSceneLoader {
                 : Map.of();
 
             @SuppressWarnings("unchecked")
+            Map<String, Object> terrainVisual = root.get("terrain_visual") instanceof Map<?, ?>
+                ? (Map<String, Object>) root.get("terrain_visual")
+                : Map.of();
+
+            @SuppressWarnings("unchecked")
             List<Map<String, Object>> staticProps = root.get("static_props") instanceof List<?>
                 ? (List<Map<String, Object>>) root.get("static_props")
                 : List.of();
 
-            return new WorldSceneData(terrainHeight, staticProps, repoBacked, sceneHandle.path());
+            return new WorldSceneData(terrainHeight, terrainVisual, staticProps, repoBacked, sceneHandle.path());
         } catch (Exception e) {
             Gdx.app.log("WorldSceneLoader", "WARN: failed to parse scene data from " + sceneHandle.path() + ": " + e.getMessage());
-            return new WorldSceneData(Map.of(), List.of(), repoBacked, sceneHandle.path());
+            return new WorldSceneData(Map.of(), Map.of(), List.of(), repoBacked, sceneHandle.path());
         }
     }
 }

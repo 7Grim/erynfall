@@ -11,8 +11,11 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Loads the tile map from map.yaml (classpath resource).
+ * Loads gameplay tile semantics from map.yaml (classpath resource).
  * Mirrors server-side TileMap.java — keep in sync when map.yaml format changes.
+ *
+ * This loader remains gameplay-authoritative for walkability/pathing semantics.
+ * Visual terrain appearance may be overridden client-side by artist-owned sources.
  */
 public class MapLoader {
 
@@ -75,7 +78,7 @@ public class MapLoader {
                 }
             }
 
-            LOG.info("Client map loaded: {}x{} tiles, {} walkability types", w, h, walkable.size());
+            LOG.info("Client gameplay map loaded: {}x{} tiles, {} walkability types", w, h, walkable.size());
             return new MapLoader(layout, walkable);
         } catch (Exception e) {
             throw new RuntimeException("Failed to load client map.yaml", e);

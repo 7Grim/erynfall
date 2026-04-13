@@ -101,6 +101,11 @@ public class Renderer3DExperimental {
     private static final float DEFAULT_FEET_ANCHOR_Y = 0.08f;
     private static final float DEFAULT_FEET_ANCHOR_Z = 0f;
     private static final float DEFAULT_TERRAIN_HEIGHT_STEP = 0.6f;
+    private static final int TILE_GRASS = 0;
+    private static final int TILE_WATER = 1;
+    private static final int TILE_PATH = 2;
+    private static final int TILE_WALL = 3;
+    private static final int TILE_SAND = 4;
     private static final float DEBUG_AXIS_LENGTH = 0.35f;
     private static final float DEBUG_ANCHOR_CROSS_SIZE = 0.10f;
     private static final String[] DEBUG_PLAYER_ANCHOR_NAMES = {
@@ -1963,7 +1968,7 @@ public class Renderer3DExperimental {
                 float z1 = y + 1f;
                 float tileTopY = getTileTopY(tileMap, x, y);
 
-                if (type == 3 && !useFallback) {
+                if (type == TILE_WALL && !useFallback) {
                     Material baseTileMaterial = new Material(TextureAttribute.createDiffuse(region.getTexture()));
                     MeshPartBuilder baseTilePart = modelBuilder.part(
                         "wall_tile_base_" + x + "_" + y,
@@ -2169,10 +2174,10 @@ public class Renderer3DExperimental {
     /** OSRS-accurate base colors for each tile type (pre-lighting). */
     private static Color tileBaseColor(int type) {
         return switch (type) {
-            case 1 -> new Color(0.20f, 0.36f, 0.48f, 1f); // water: slate blue
-            case 2 -> new Color(0.40f, 0.36f, 0.28f, 1f); // path: warm gray-brown
-            case 3 -> new Color(0.36f, 0.34f, 0.32f, 1f); // wall top: stone gray
-            case 4 -> new Color(0.56f, 0.48f, 0.28f, 1f); // sand: warm tan
+            case TILE_WATER -> new Color(0.20f, 0.36f, 0.48f, 1f); // water: slate blue
+            case TILE_PATH -> new Color(0.40f, 0.36f, 0.28f, 1f); // path: warm gray-brown
+            case TILE_WALL -> new Color(0.36f, 0.34f, 0.32f, 1f); // wall top: stone gray
+            case TILE_SAND -> new Color(0.56f, 0.48f, 0.28f, 1f); // sand: warm tan
             default -> new Color(0.22f, 0.42f, 0.13f, 1f); // grass: dark natural green
         };
     }
@@ -2274,7 +2279,7 @@ public class Renderer3DExperimental {
         if (x < 0 || y < 0 || x >= MAP_WIDTH || y >= MAP_HEIGHT) {
             return false;
         }
-        return tileMap[x][y] == 3;
+        return tileMap[x][y] == TILE_WALL;
     }
 
     private void updateWallOcclusion(float localPlayerX, float localPlayerY) {
@@ -2385,14 +2390,14 @@ public class Renderer3DExperimental {
             for (int x = minTileX; x <= maxTileX; x++) {
                 overlayTilesProcessedLastFrame++;
                 int type = tileMap[x][y];
-                boolean waterNorth = isTile(tileMap, x, y - 1, 1);
-                boolean waterSouth = isTile(tileMap, x, y + 1, 1);
-                boolean waterEast = isTile(tileMap, x + 1, y, 1);
-                boolean waterWest = isTile(tileMap, x - 1, y, 1);
+                boolean waterNorth = isTile(tileMap, x, y - 1, TILE_WATER);
+                boolean waterSouth = isTile(tileMap, x, y + 1, TILE_WATER);
+                boolean waterEast = isTile(tileMap, x + 1, y, TILE_WATER);
+                boolean waterWest = isTile(tileMap, x - 1, y, TILE_WATER);
                 float tileTopY = getTileTopY(tileMap, x, y);
-                float baseOverlayY = type == 3 ? tileTopY + WALL_TOP_Y + WALL_OVERLAY_Y : tileTopY + OVERLAY_Y;
+                float baseOverlayY = type == TILE_WALL ? tileTopY + WALL_TOP_Y + WALL_OVERLAY_Y : tileTopY + OVERLAY_Y;
 
-                if (type == 1) {
+                if (type == TILE_WATER) {
                     TextureRegion shimmer = resolveAnimatedOverlayRegion("water_shimmer", materialProfile);
                     renderGroundOverlayDecal(x, y, tileTopY + WATER_OVERLAY_Y, shimmer, 0.18f);
 
@@ -2429,26 +2434,26 @@ public class Renderer3DExperimental {
                     }
                 }
 
-                if (type == 2) {
-                    if (isTile(tileMap, x, y - 1, 0)) {
+                if (type == TILE_PATH) {
+                    if (isTile(tileMap, x, y - 1, TILE_GRASS)) {
                         renderGroundOverlayDecal(x, y, baseOverlayY, resolveOverlayRegion("edge_path_grass_n", materialProfile), 1f);
                         renderGroundOverlayDecal(x, y, baseOverlayY + 0.001f, resolveOverlayRegion("ao_path_grass_n", materialProfile), 0.20f);
                     }
-                    if (isTile(tileMap, x, y + 1, 0)) {
+                    if (isTile(tileMap, x, y + 1, TILE_GRASS)) {
                         renderGroundOverlayDecal(x, y, baseOverlayY, resolveOverlayRegion("edge_path_grass_s", materialProfile), 1f);
                         renderGroundOverlayDecal(x, y, baseOverlayY + 0.001f, resolveOverlayRegion("ao_path_grass_s", materialProfile), 0.20f);
                     }
-                    if (isTile(tileMap, x + 1, y, 0)) {
+                    if (isTile(tileMap, x + 1, y, TILE_GRASS)) {
                         renderGroundOverlayDecal(x, y, baseOverlayY, resolveOverlayRegion("edge_path_grass_e", materialProfile), 1f);
                         renderGroundOverlayDecal(x, y, baseOverlayY + 0.001f, resolveOverlayRegion("ao_path_grass_e", materialProfile), 0.20f);
                     }
-                    if (isTile(tileMap, x - 1, y, 0)) {
+                    if (isTile(tileMap, x - 1, y, TILE_GRASS)) {
                         renderGroundOverlayDecal(x, y, baseOverlayY, resolveOverlayRegion("edge_path_grass_w", materialProfile), 1f);
                         renderGroundOverlayDecal(x, y, baseOverlayY + 0.001f, resolveOverlayRegion("ao_path_grass_w", materialProfile), 0.20f);
                     }
                 }
 
-                if (type == 3) {
+                if (type == TILE_WALL) {
                     boolean wallFaded = shouldFadeWall(
                         x + 0.5f,
                         y + 0.5f,
@@ -2465,14 +2470,14 @@ public class Renderer3DExperimental {
                     renderGroundOverlayDecal(x, y, baseOverlayY, resolveOverlayRegion("edge_wall_base", materialProfile), wallAlpha);
                     renderGroundOverlayDecal(x, y, baseOverlayY + 0.001f, resolveOverlayRegion("ao_wall_base", materialProfile), aoAlpha);
 
-                    boolean wallNorth = isTile(tileMap, x, y - 1, 3);
-                    boolean wallSouth = isTile(tileMap, x, y + 1, 3);
-                    boolean wallEast = isTile(tileMap, x + 1, y, 3);
-                    boolean wallWest = isTile(tileMap, x - 1, y, 3);
-                    boolean wallNE = isTile(tileMap, x + 1, y - 1, 3);
-                    boolean wallNW = isTile(tileMap, x - 1, y - 1, 3);
-                    boolean wallSE = isTile(tileMap, x + 1, y + 1, 3);
-                    boolean wallSW = isTile(tileMap, x - 1, y + 1, 3);
+                    boolean wallNorth = isTile(tileMap, x, y - 1, TILE_WALL);
+                    boolean wallSouth = isTile(tileMap, x, y + 1, TILE_WALL);
+                    boolean wallEast = isTile(tileMap, x + 1, y, TILE_WALL);
+                    boolean wallWest = isTile(tileMap, x - 1, y, TILE_WALL);
+                    boolean wallNE = isTile(tileMap, x + 1, y - 1, TILE_WALL);
+                    boolean wallNW = isTile(tileMap, x - 1, y - 1, TILE_WALL);
+                    boolean wallSE = isTile(tileMap, x + 1, y + 1, TILE_WALL);
+                    boolean wallSW = isTile(tileMap, x - 1, y + 1, TILE_WALL);
 
                     if (wallNorth && wallEast && !wallNE) {
                         renderGroundOverlayDecal(x, y, baseOverlayY + 0.002f, resolveOverlayRegion("ao_wall_inner_ne", materialProfile), aoAlpha);
@@ -2490,22 +2495,22 @@ public class Renderer3DExperimental {
 
                 int clutterSeed = clutterSeed(x, y);
                 boolean nearWater = waterNorth || waterSouth || waterEast || waterWest;
-                boolean nearWall = isTile(tileMap, x, y - 1, 3)
-                    || isTile(tileMap, x, y + 1, 3)
-                    || isTile(tileMap, x + 1, y, 3)
-                    || isTile(tileMap, x - 1, y, 3);
+                boolean nearWall = isTile(tileMap, x, y - 1, TILE_WALL)
+                    || isTile(tileMap, x, y + 1, TILE_WALL)
+                    || isTile(tileMap, x + 1, y, TILE_WALL)
+                    || isTile(tileMap, x - 1, y, TILE_WALL);
 
                 TextureRegion clutterRegion = null;
-                if (type == 0 && !nearWall && !nearWater && clutterSeed % 8 == 0) {
+                if (type == TILE_GRASS && !nearWall && !nearWater && clutterSeed % 8 == 0) {
                     int variant = (clutterSeed % 3) + 1;
                     clutterRegion = resolveClutterRegion("clutter_grass_" + variant, materialProfile);
-                } else if (type == 2 && clutterSeed % 14 == 0) {
+                } else if (type == TILE_PATH && clutterSeed % 14 == 0) {
                     int variant = (clutterSeed % 2) + 1;
                     clutterRegion = resolveClutterRegion("clutter_path_" + variant, materialProfile);
-                } else if (type == 4 && clutterSeed % 12 == 0) {
+                } else if (type == TILE_SAND && clutterSeed % 12 == 0) {
                     int variant = (clutterSeed % 2) + 1;
                     clutterRegion = resolveClutterRegion("clutter_sand_" + variant, materialProfile);
-                } else if (type != 1 && type != 3 && nearWater && clutterSeed % 18 == 0) {
+                } else if (type != TILE_WATER && type != TILE_WALL && nearWater && clutterSeed % 18 == 0) {
                     clutterRegion = resolveClutterRegion("clutter_reeds_1", materialProfile);
                 }
                 renderGroundOverlayDecal(x, y, baseOverlayY + 0.004f, clutterRegion, 1f);
@@ -2597,7 +2602,7 @@ public class Renderer3DExperimental {
     }
 
     private boolean isLandTile(int type) {
-        return type == 0 || type == 2 || type == 4;
+        return type == TILE_GRASS || type == TILE_PATH || type == TILE_SAND;
     }
 
     private boolean isTile(int[][] tileMap, int x, int y, int expected) {

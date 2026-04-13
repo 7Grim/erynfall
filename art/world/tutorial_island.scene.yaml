@@ -226,6 +226,50 @@ terrain_height:
       y: 36
       level: 1
 
+terrain_visual:
+  # Optional default_type supported; omitted here to preserve gameplay-map fallback where unpainted.
+  regions:
+    - name: tutorial_paths
+      min_x: 42
+      min_y: 42
+      max_x: 66
+      max_y: 56
+      type: path
+    - name: beach_sand
+      min_x: 44
+      min_y: 30
+      max_x: 56
+      max_y: 38
+      type: sand
+    - name: shoreline_water
+      min_x: 46
+      min_y: 26
+      max_x: 52
+      max_y: 33
+      type: water
+  tile_overrides:
+    - x: 48
+      y: 44
+      type: wall
+    - x: 49
+      y: 44
+      type: wall
+    - x: 50
+      y: 44
+      type: wall
+    - x: 47
+      y: 34
+      type: water
+    - x: 48
+      y: 34
+      type: water
+    - x: 49
+      y: 34
+      type: water
+    - x: 50
+      y: 34
+      type: water
+
 static_props:
   - key: building_shell_small_base
     x: 46

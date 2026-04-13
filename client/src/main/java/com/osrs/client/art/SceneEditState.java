@@ -1,10 +1,13 @@
 package com.osrs.client.art;
 
 import com.osrs.client.world.StaticPropLoader;
+import com.osrs.client.world.TerrainVisualLoader;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public final class SceneEditState {
 
@@ -23,6 +26,9 @@ public final class SceneEditState {
     private String previewVisibilityGroup = "base";
     private VisibilityFilter visibilityFilter = VisibilityFilter.ALL;
     private boolean dirty = false;
+    private final HashMap<Integer, Integer> terrainTileOverrides = new HashMap<>();
+    private int selectedTerrainType = 0;
+    private boolean terrainDirty = false;
 
     public void setPlacements(List<StaticPropLoader.StaticPropPlacement> source) {
         placements.clear();
@@ -321,6 +327,90 @@ public final class SceneEditState {
 
     public void markSaved() {
         dirty = false;
+    }
+
+    public void setTerrainTileOverrides(Map<Integer, Integer> overrides) {
+        terrainTileOverrides.clear();
+        if (overrides != null) {
+            terrainTileOverrides.putAll(overrides);
+        }
+        terrainDirty = false;
+    }
+
+    public Map<Integer, Integer> terrainTileOverrides() {
+        return Collections.unmodifiableMap(terrainTileOverrides);
+    }
+
+    public int selectedTerrainType() {
+        return selectedTerrainType;
+    }
+
+    public String selectedTerrainTypeLabel() {
+        return terrainTypeLabel(selectedTerrainType);
+    }
+
+    public void cycleSelectedTerrainType(int direction) {
+        int[] types = {0, 1, 2, 3, 4};
+        int index = 0;
+        for (int i = 0; i < types.length; i++) {
+            if (types[i] == selectedTerrainType) {
+                index = i;
+                break;
+            }
+        }
+        int next = (index + (direction >= 0 ? 1 : -1) + types.length) % types.length;
+        selectedTerrainType = types[next];
+    }
+
+    public boolean terrainDirty() {
+        return terrainDirty;
+    }
+
+    public void markTerrainSaved() {
+        terrainDirty = false;
+    }
+
+    public boolean paintTerrainOverride(int tileX, int tileY) {
+        if (tileX < 0 || tileY < 0) {
+            return false;
+        }
+        int index = TerrainVisualLoader.tileIndex(tileX, tileY);
+        Integer previous = terrainTileOverrides.put(index, selectedTerrainType);
+        if (previous != null && previous == selectedTerrainType) {
+            return false;
+        }
+        terrainDirty = true;
+        return true;
+    }
+
+    public boolean eraseTerrainOverride(int tileX, int tileY) {
+        if (tileX < 0 || tileY < 0) {
+            return false;
+        }
+        int index = TerrainVisualLoader.tileIndex(tileX, tileY);
+        Integer removed = terrainTileOverrides.remove(index);
+        if (removed == null) {
+            return false;
+        }
+        terrainDirty = true;
+        return true;
+    }
+
+    public Integer terrainOverrideAt(int tileX, int tileY) {
+        if (tileX < 0 || tileY < 0) {
+            return null;
+        }
+        return terrainTileOverrides.get(TerrainVisualLoader.tileIndex(tileX, tileY));
+    }
+
+    public static String terrainTypeLabel(int type) {
+        return switch (type) {
+            case 1 -> "water";
+            case 2 -> "path";
+            case 3 -> "wall";
+            case 4 -> "sand";
+            default -> "grass";
+        };
     }
 
     private String toggleVisibility(String group) {
