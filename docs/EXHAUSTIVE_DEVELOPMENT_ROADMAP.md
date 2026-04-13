@@ -1,9 +1,11 @@
 # EXHAUSTIVE_DEVELOPMENT_ROADMAP.md - Complete MVP Implementation Blueprint
 
 **Classification:** MASTER DEVELOPMENT DOCUMENT  
-**Status:** LOCKED IN - This is the single source of truth for all MVP implementation  
+**Status:** Historical planning/master roadmap - not the sole current implementation source of truth  
 **Approach:** ULTRATHINK - Every feature, system, edge case, data structure, test case, and integration point detailed  
 **Document Structure:** 6 layers (Overview → Systems → Components → Tasks → Edge Cases → Testing)
+
+> Important: this document remains useful as planning reference, but it must be cross-checked against current code and the active docs listed in `docs/README.md`.
 
 ---
 

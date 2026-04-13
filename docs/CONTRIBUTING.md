@@ -1,4 +1,4 @@
-# Contributing to OSRS MMORP
+# Contributing to Erynfall
 
 This document outlines how we work together asynchronously — minimal IDE chat, maximum clarity through documentation.
 

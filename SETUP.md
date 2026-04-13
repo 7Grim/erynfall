@@ -1,4 +1,7 @@
-# Setup Guide - OSRS MMORP
+# Setup Guide
+
+> Note: this file is older than the current art-pipeline docs.
+> For the most current high-level onboarding, prefer `README.md`, `ARTIST_GUIDE.md`, and `docs/README.md`.
 
 This guide will get you running the server and client locally in under 10 minutes.
 
@@ -117,8 +120,7 @@ This will:
 ### From Command Line
 
 ```bash
-cd server
-mvn exec:java -Dexec.mainClass="com.osrs.server.Server"
+mvn -pl server exec:java -Dexec.mainClass="com.osrs.server.Server"
 ```
 
 **Expected output:**
@@ -146,8 +148,7 @@ Server is ready when you see ticks incrementing.
 ### From Command Line
 
 ```bash
-cd client
-mvn exec:java -Dexec.mainClass="com.osrs.client.Client"
+mvn -pl client exec:exec
 ```
 
 **Expected output:**

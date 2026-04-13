@@ -1,6 +1,9 @@
-# OSRS_REFERENCE.md - Canonical OSRS Design & Mechanics
+# OSRS_REFERENCE.md - OSRS Design & Mechanics Reference
 
-**⚠️ CRITICAL:** This is the single source of truth for what we're building.  
+> Historical/reference document.
+> Use this as OSRS design inspiration and mechanics reference, not as the sole current source of truth for the repo.
+> For current implementation context, read `../ARTIST_GUIDE.md`, `README.md`, `ARCHITECTURE.md`, and `PROGRESS.md` first, then cross-check with code.
+
 **Version:** 2007 OSRS (Old School RuneScape), NOT RS3 (modern RuneScape)
 
 ---

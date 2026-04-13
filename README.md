@@ -1,84 +1,106 @@
-# Erynfall MMORP
+# Erynfall
 
-Old School RuneScape-inspired MMORP in Java 21. 
+Old School RuneScape-inspired MMO project in Java 21.
 
-**Status:** Foundation phase (Weeks 1-4) — Tick loop, networking, world state synchronization.
+## Current State
+
+The project is no longer in a pure foundation phase.
+
+Current reality:
+- server-authoritative gameplay architecture is in place
+- client supports both 2D fallback and 3D experimental rendering
+- 3D art workflow is now Blender-first and artist-mode driven
+- artist tooling exists for:
+  - model preview
+  - equipment fit preview and save-back
+  - static prop world placement and save-back
+
+## Project Structure
+
+```text
+client/   LibGDX client, renderer, UI, artist mode, art workbench
+server/   authoritative game loop and gameplay systems
+shared/   protocol and shared data models
+art/      authored 3D source, runtime model assets, world scene source
+docs/     architecture, progress, art pipeline, and project docs
+scripts/  validation, export helpers, artist launch scripts
+```
 
 ## Quick Start
 
-### Prerequisites
-- Java 21+ (JDK)
-- Maven 3.8+
-- Git
-
 ### Build
+
 ```bash
 mvn clean install
 ```
 
 ### Run Server
+
 ```bash
-cd server
-mvn exec:java -Dexec.mainClass="com.osrs.server.Server"
+mvn -pl server exec:java -Dexec.mainClass="com.osrs.server.Server"
 ```
 
 ### Run Client
+
 ```bash
-cd client
-mvn exec:java -Dexec.mainClass="com.osrs.client.Client"
+mvn -pl client exec:exec
 ```
 
-## Project Structure
+### Run Artist Mode
 
-```
-osrs-mmorp/
-├── shared/              # Network protocol (Protocol Buffers) + shared classes
-├── server/              # Game server (256-tick loop, Netty, world state)
-├── client/              # Game client (LibGDX, rendering, UI)
-├── assets/
-│   ├── tilesets/        # Tile spritesheet
-│   ├── sprites/         # NPC/player sprites
-│   ├── ui/              # UI elements (buttons, icons)
-│   └── data/            # YAML/JSON configs (map, quests, NPCs, dialogue)
-├── docs/
-│   ├── ARCHITECTURE.md  # System design, data flow, protocols
-│   ├── CONTRIBUTING.md  # Git workflow, code standards, async collab
-│   └── PROGRESS.md      # Running log of completed + upcoming work
-└── README.md            # This file
+Build the client jar first:
+
+```bash
+mvn -pl client -am -DskipTests package
 ```
 
-## Key Documentation
+Then use a launch script:
 
-- **[ARCHITECTURE.md](docs/ARCHITECTURE.md)** — System design, tick loop, networking, entity synchronization
-- **[PROGRESS.md](docs/PROGRESS.md)** — Sprint tracking, completed tasks, blockers, upcoming work
-- **[CONTRIBUTING.md](docs/CONTRIBUTING.md)** — Git workflow, code style, async collaboration
+Windows PowerShell:
 
-## Development Workflow
+```powershell
+.\scripts\run-artist-client.ps1
+```
 
-1. **Tasks tracked in GitHub Projects** (linked in PROGRESS.md)
-2. **Feature branches** — One feature per branch, clear naming
-3. **Commits** — Short, imperative messages (no author attributions)
-4. **PRs** — Reviewed before merge; see CONTRIBUTING.md
+Windows cmd:
 
-## Technologies
+```cmd
+scripts\run-artist-client.bat
+```
 
-| Layer | Tech |
-|-------|------|
-| **Language** | Java 21+ |
-| **Networking** | Netty 4.1 |
-| **Serialization** | Protocol Buffers 3 |
-| **Server** | Custom tick-based game loop (256 ticks/sec) |
-| **Client Rendering** | LibGDX 1.13 (isometric 2D) |
-| **Config/Data** | YAML/JSON (Jackson) |
-| **Build** | Maven |
+macOS / Linux:
 
-## Contact & Collaboration
+```bash
+./scripts/run-artist-client.sh
+```
 
-- **Lead Dev:** victorystyle
-- **Game Artist:** TBD
-- **Repository:** https://github.com/EarthDeparture/osrs-mmorp (public)
-- **Discord:** #parsundra
+## Read These First
 
----
+For a new engineer or LLM, the active context set is:
 
-**Next:** See [PROGRESS.md](docs/PROGRESS.md) for current sprint and blockers.
+1. `AGENTS.md`
+2. `CLAUDE.md`
+3. `ARTIST_GUIDE.md`
+4. `docs/README.md`
+5. `docs/ARCHITECTURE.md`
+6. `docs/PROGRESS.md`
+7. `docs/ART_PIPELINE_IMPLEMENTATION_CHECKLIST.md`
+8. `docs/ART_PIPELINE_IMPLEMENTATION_ORDER.md`
+9. `docs/CONTRIBUTING.md`
+
+Important:
+- not every markdown file in the repo is equally current
+- older large planning docs should be treated as historical reference unless cross-checked with code and the active docs above
+
+## Key Hotkeys
+
+Global:
+- `F5` hot reload assets
+- `F6` open/close Art Workbench in artist mode
+- `F7` 3D bounds/axes debug
+- `F8` 3D anchor debug
+- `F9` toggle 3D / 2D renderer
+- `F10` 3D pick-volume debug
+- `F11` 3D render-budget debug
+
+For the full current art workflow and workbench controls, see `ARTIST_GUIDE.md`.

@@ -1,6 +1,24 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides concise repository guidance for coding agents and onboarding.
+
+## Active Source Of Truth
+
+When building or reviewing changes, prefer this context set:
+
+1. `AGENTS.md`
+2. `ARTIST_GUIDE.md`
+3. `docs/README.md`
+4. `docs/ARCHITECTURE.md`
+5. `docs/PROGRESS.md`
+6. `docs/ART_PIPELINE_IMPLEMENTATION_CHECKLIST.md`
+7. `docs/ART_PIPELINE_IMPLEMENTATION_ORDER.md`
+8. `docs/CONTRIBUTING.md`
+
+Important:
+- many older docs remain useful as historical design reference
+- they are not all equally current
+- cross-check them against code and the active docs above before treating them as authoritative
 
 ## Commands
 
@@ -18,60 +36,52 @@ mvn clean test
 mvn test -pl server -Dtest=YourTestClass
 
 # Run server
-cd server && mvn exec:java -Dexec.mainClass="com.osrs.server.Server"
+mvn -pl server exec:java -Dexec.mainClass="com.osrs.server.Server"
 
 # Run client
-cd client && mvn exec:java -Dexec.mainClass="com.osrs.client.Client"
+mvn -pl client exec:exec
+
+# Package artist-mode jar
+mvn -pl client -am -DskipTests package
 ```
 
-## Architecture
+## Client / Art Workflow
 
-Three Maven modules with a one-way dependency: `client` → `shared` ← `server`.
+Current client reality:
+- 3D experimental renderer is a primary active path
+- 2D is still a fallback/comparison path
+- artist mode exists
+- the Art Workbench supports:
+  - model preview
+  - equipment fit preview, tuning, snippet export, and manifest save-back
+  - world placement, scene save-back, and lightweight search
 
-### shared (`osrs-shared`)
-- Defines `Entity`, `Player`, `NPC` data models used by both sides
-- Contains the Protocol Buffers schema (`shared/src/main/proto/network.proto`) that generates all packet types
-- All network packet definitions live here — add new packet types to the `.proto` file first
+Current art workflow:
+- `.blend` source under `art/blender/`
+- runtime model assets under `art/models/`
+- default runtime format is `.glb`
+- model metadata in `art/models/manifest.yaml`
+- visual scene source in `art/world/tutorial_island.scene.yaml`
 
-### server (`osrs-server`)
-Single-threaded, tick-based game server (256 ticks/sec, ~3.9ms per tick).
+See `ARTIST_GUIDE.md` for the full current workflow and hotkeys.
 
-**Startup chain:** `Server.main()` → loads `server.yml` → initializes `DatabaseManager` → loads YAML world data → starts `NettyServer` on port 43594 → starts `GameLoop`
+## Architecture Snapshot
 
-**GameLoop.processTick() stages:**
-1. Dequeue input packets (`ServerPacketHandler`)
-2. Update entity positions
-3. `CombatEngine.calculateHit()` — deterministic RNG seeded by tick number
-4. Skill/XP progression
-5. Loot generation
-6. Broadcast deltas to all clients via `NettyServer`
+Repository modules:
+- `client`
+- `server`
+- `shared`
 
-**World state** is held in-memory in `World.java`: players (`HashMap<playerId, Player>`), NPCs, and a `TileMap` (104×104 walkability grid loaded from `assets/data/map.yaml`).
+High-level architecture:
+- server-authoritative gameplay
+- client renders and sends intent
+- networking via Netty + Protocol Buffers
+- shared schema in `shared/src/main/proto/network.proto`
 
-**Database:** `DatabaseManager` uses HikariCP pooling to SQL Server (`jdbc:sqlserver://localhost:1433;databaseName=osrsmmorp`). The schema (14 tables, 2 views, 4 stored procedures) is in `sql/osrs_mmorp_schema.sql`. Currently a placeholder — world state is in-memory only.
+## Documentation Discipline
 
-### client (`osrs-client`)
-LibGDX 1.13 application rendering at 60 FPS with isometric projection (32×16 tile metrics).
+Do not assume all docs are current.
 
-**Flow:** `Client.main()` → LibGDX window → `GameScreen` → `NettyClient` connects → sends Handshake → receives `WorldState` → `IsometricRenderer` draws tiles and entities.
-
-UI components (`CombatUI`, `DialogueUI`, `InventoryUI`, `ContextMenu`) are rendered by `GameScreen`.
-
-### Network Protocol
-TCP via Netty, serialized with Protocol Buffers. Server has authority — client sends intent (e.g., `PlayerMovement`), server validates and broadcasts `EntityUpdate` to all clients. Update rate ~10 packets/sec per client (delta only).
-
-## Game Data (YAML)
-
-All content configuration lives in `assets/data/`:
-- `map.yaml` — 104×104 tile walkability grid
-- `npcs.yaml` — NPC definitions (id, position, stats, dialogue refs)
-- `dialogue.yaml` — Branching dialogue trees
-- `quests.yaml` — Quest definitions with task state machines
-
-The server loads these at startup via Jackson.
-
-## Git Conventions
-
-Branch naming: `<type>/<sprint>-<task-id>-<description>` (e.g., `feature/s2-011-combat-engine`)
-
-Sprint progress is tracked in `docs/PROGRESS.md`. Update it when starting or completing tasks. Commits should be atomic with imperative messages.
+If code and docs disagree:
+- prefer current code plus the active source-of-truth docs listed above
+- treat older planning docs as historical reference unless explicitly refreshed
