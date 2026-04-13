@@ -30,8 +30,11 @@ public class ArtWorkbenchPopup {
         WORLD_PLACEMENT
     }
 
-    private static final int PANEL_W = 580;
-    private static final int PANEL_H = 220;
+    private static final int PANEL_W = 760;
+    private static final int PANEL_H = 320;
+    private static final int HEADER_H = 42;
+    private static final int STATUS_H = 56;
+    private static final int FOOTER_H = 34;
     private static final int[] VISIBLE_SLOTS = {
         EquipmentSlot.HEAD,
         EquipmentSlot.CAPE,
@@ -294,7 +297,6 @@ public class ArtWorkbenchPopup {
             equipmentSelectionIndexBySlot.put(slot, -1);
             return;
         }
-
         int current = equipmentSelectionIndexBySlot.getOrDefault(slot, -1);
         if (direction > 0) {
             current++;
@@ -357,153 +359,268 @@ public class ArtWorkbenchPopup {
 
         int x = (screenW - PANEL_W) / 2;
         int y = screenH - PANEL_H - 18;
+        int headerY = y + PANEL_H - HEADER_H;
+        int statusY = y + FOOTER_H;
+        int bodyY = statusY + STATUS_H;
+        int bodyH = headerY - bodyY;
+        int splitX = x + (PANEL_W / 2);
+        int leftX = x + 14;
+        int rightX = splitX + 12;
+        int leftW = splitX - x - 24;
+        int rightW = x + PANEL_W - splitX - 24;
 
         shapeRenderer.setProjectionMatrix(projection);
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
         shapeRenderer.setColor(new Color(0.03f, 0.04f, 0.06f, 0.86f));
         shapeRenderer.rect(x, y, PANEL_W, PANEL_H);
         shapeRenderer.setColor(new Color(0.10f, 0.13f, 0.18f, 0.95f));
-        shapeRenderer.rect(x + 2, y + PANEL_H - 40, PANEL_W - 4, 38);
+        shapeRenderer.rect(x + 2, headerY + 2, PANEL_W - 4, HEADER_H - 4);
+        shapeRenderer.setColor(new Color(0.07f, 0.09f, 0.13f, 0.95f));
+        shapeRenderer.rect(x + 2, statusY + 2, PANEL_W - 4, STATUS_H - 4);
+        shapeRenderer.setColor(new Color(0.06f, 0.08f, 0.11f, 0.95f));
+        shapeRenderer.rect(x + 2, y + 2, PANEL_W - 4, FOOTER_H - 4);
         shapeRenderer.end();
 
         shapeRenderer.begin(ShapeRenderer.ShapeType.Line);
         shapeRenderer.setColor(new Color(0.74f, 0.80f, 0.92f, 1f));
         shapeRenderer.rect(x, y, PANEL_W, PANEL_H);
-        shapeRenderer.rect(x + 2, y + PANEL_H - 40, PANEL_W - 4, 38);
+        shapeRenderer.rect(x + 2, headerY + 2, PANEL_W - 4, HEADER_H - 4);
+        shapeRenderer.rect(x + 2, statusY + 2, PANEL_W - 4, STATUS_H - 4);
+        shapeRenderer.rect(x + 2, y + 2, PANEL_W - 4, FOOTER_H - 4);
+        shapeRenderer.line(splitX, bodyY + 6, splitX, headerY - 6);
         shapeRenderer.end();
 
         batch.setProjectionMatrix(projection);
         batch.begin();
-        font.setColor(0.92f, 0.95f, 1f, 1f);
         font.getData().setScale(0.90f);
-        font.draw(batch, "Art Workbench", x + 12, y + PANEL_H - 13);
+        font.setColor(0.92f, 0.95f, 1f, 1f);
+        font.draw(batch, "Art Workbench", x + 12, y + PANEL_H - 12);
 
         font.getData().setScale(0.70f);
         font.setColor(0.82f, 0.88f, 0.98f, 1f);
-        font.draw(batch, "Mode:", x + 14, y + PANEL_H - 58);
+        font.draw(batch, "Mode:", x + 230, y + PANEL_H - 16);
         font.setColor(0.99f, 0.96f, 0.72f, 1f);
-        String modeLabel = switch (mode) {
-            case MODEL_PREVIEW -> "MODEL_PREVIEW";
-            case EQUIPMENT_FIT -> "EQUIPMENT_FIT";
-            case WORLD_PLACEMENT -> "WORLD_PLACEMENT";
-        };
-        font.draw(batch, modeLabel, x + 70, y + PANEL_H - 58);
+        font.draw(batch, mode.name(), x + 272, y + PANEL_H - 16);
 
-        font.setColor(0.82f, 0.88f, 0.98f, 1f);
-        font.draw(batch, "Clip:", x + 300, y + PANEL_H - 58);
-        font.setColor(0.96f, 0.96f, 0.96f, 1f);
-        font.draw(batch, clipMode.name(), x + 338, y + PANEL_H - 58);
-
-        if (mode == Mode.MODEL_PREVIEW) {
-            renderModelPreviewText(batch, font, x, y);
-        } else if (mode == Mode.EQUIPMENT_FIT) {
-            renderEquipmentFitText(batch, font, x, y);
+        if (mode != Mode.WORLD_PLACEMENT) {
+            font.setColor(0.82f, 0.88f, 0.98f, 1f);
+            font.draw(batch, "Clip:", x + 520, y + PANEL_H - 16);
+            font.setColor(0.96f, 0.96f, 0.96f, 1f);
+            font.draw(batch, clipMode.name(), x + 558, y + PANEL_H - 16);
         } else {
-            renderWorldPlacementText(batch, font, x, y);
+            boolean dirty = sceneEditState != null && sceneEditState.dirty();
+            font.setColor(dirty ? 1f : 0.72f, dirty ? 0.9f : 0.84f, 0.62f, 1f);
+            font.draw(batch, dirty ? "DIRTY" : "CLEAN", x + PANEL_W - 78, y + PANEL_H - 16);
+        }
+
+        int topY = bodyY + bodyH - 12;
+        if (mode == Mode.MODEL_PREVIEW) {
+            renderModelPreviewText(batch, font, leftX, topY, rightX, topY, leftW, rightW);
+        } else if (mode == Mode.EQUIPMENT_FIT) {
+            renderEquipmentFitText(batch, font, leftX, topY, rightX, topY, leftW, rightW);
+        } else {
+            renderWorldPlacementText(batch, font, leftX, topY, rightX, topY, leftW, rightW);
+        }
+
+        String statusA = "";
+        String statusB = "";
+        if (mode == Mode.EQUIPMENT_FIT) {
+            statusA = exportStatus;
+            statusB = exportSnippet == null ? "" : exportSnippet.replace('\n', ' ').trim();
+        } else if (mode == Mode.WORLD_PLACEMENT) {
+            statusA = worldPlacementStatus;
+        }
+        font.setColor(0.93f, 0.95f, 0.84f, 1f);
+        font.draw(batch, truncateToWidth(font, statusA.isBlank() ? "Status: -" : "Status: " + statusA, PANEL_W - 28), x + 14, statusY + STATUS_H - 16);
+        if (!statusB.isBlank()) {
+            font.setColor(0.72f, 0.78f, 0.90f, 1f);
+            font.draw(batch, truncateToWidth(font, statusB, PANEL_W - 28), x + 14, statusY + STATUS_H - 36);
         }
 
         font.setColor(0.80f, 0.84f, 0.90f, 1f);
-        font.draw(batch, "TAB mode  [ / ] cycle  ; clip  F6 close", x + 14, y + 46);
-        font.draw(batch, "LMB drag orbit  wheel zoom  MMB reset camera", x + 14, y + 26);
-        font.draw(batch, "F7/F8 debug overlays remain active", x + 14, y + 8);
+        font.draw(batch, "F6 close   TAB mode   LMB drag orbit   wheel zoom   MMB reset camera   F7/F8 debug", x + 14, y + 22);
 
         font.getData().setScale(1f);
         font.setColor(Color.WHITE);
         batch.end();
     }
 
-    private void renderModelPreviewText(SpriteBatch batch, BitmapFont font, int x, int y) {
+    private void renderModelPreviewText(SpriteBatch batch,
+                                        BitmapFont font,
+                                        int leftX,
+                                        int leftTopY,
+                                        int rightX,
+                                        int rightTopY,
+                                        int leftWidth,
+                                        int rightWidth) {
+        int y = leftTopY;
         font.setColor(0.82f, 0.88f, 0.98f, 1f);
-        font.draw(batch, "Model key:", x + 14, y + PANEL_H - 86);
-        font.setColor(0.99f, 0.96f, 0.72f, 1f);
-        String key = selectedModelKey();
-        if (key.isBlank()) {
-            key = "(no loaded models)";
-        }
-        font.draw(batch, key, x + 94, y + PANEL_H - 86);
+        font.draw(batch, "Selection", leftX, y);
+        y -= 22;
         font.setColor(0.80f, 0.84f, 0.90f, 1f);
-        font.draw(batch, "Mode: isolated model preview in neutral scene", x + 14, y + 64);
+        font.draw(batch, "Model key:", leftX, y);
+        String key = selectedModelKey();
+        if (key.isBlank()) key = "(no loaded models)";
+        font.setColor(0.99f, 0.96f, 0.72f, 1f);
+        font.draw(batch, truncateToWidth(font, key, leftWidth - 88), leftX + 84, y);
+        y -= 22;
+        font.setColor(0.80f, 0.84f, 0.90f, 1f);
+        font.draw(batch, "Neutral isolated preview", leftX, y);
+
+        y = rightTopY;
+        font.setColor(0.82f, 0.88f, 0.98f, 1f);
+        font.draw(batch, "Actions", rightX, y);
+        y -= 22;
+        font.setColor(0.80f, 0.84f, 0.90f, 1f);
+        font.draw(batch, truncateToWidth(font, "[ / ] previous/next model", rightWidth), rightX, y);
+        y -= 20;
+        font.draw(batch, truncateToWidth(font, "; cycle clip (AUTO/IDLE/WALK)", rightWidth), rightX, y);
     }
 
-    private void renderEquipmentFitText(SpriteBatch batch, BitmapFont font, int x, int y) {
+    private void renderEquipmentFitText(SpriteBatch batch,
+                                        BitmapFont font,
+                                        int leftX,
+                                        int leftTopY,
+                                        int rightX,
+                                        int rightTopY,
+                                        int leftWidth,
+                                        int rightWidth) {
         int slot = activeSlot();
-        String slotLabel = activeSlotLabel();
         ModelLibrary.EquipmentPreviewOption option = selectedOptionForSlot(slot);
-
-        font.setColor(0.82f, 0.88f, 0.98f, 1f);
-        font.draw(batch, "Slot:", x + 14, y + PANEL_H - 86);
-        font.setColor(0.99f, 0.96f, 0.72f, 1f);
-        font.draw(batch, slotLabel, x + 54, y + PANEL_H - 86);
-
-        font.setColor(0.82f, 0.88f, 0.98f, 1f);
-        font.draw(batch, "Selection:", x + 14, y + PANEL_H - 110);
-        font.setColor(0.96f, 0.96f, 0.96f, 1f);
-        if (option == null) {
-            font.draw(batch, "(empty)", x + 94, y + PANEL_H - 110);
-        } else {
-            String name = option.itemName() == null || option.itemName().isBlank()
-                ? "item " + option.itemId()
-                : option.itemName();
-            font.draw(batch, name + " [" + option.modelKey() + "]", x + 94, y + PANEL_H - 110);
-        }
-
+        float[] override = transformOverridesBySlot.getOrDefault(slot, new float[6]);
         List<ModelLibrary.EquipmentPreviewOption> options = equipmentOptionsBySlot.getOrDefault(slot, List.of());
         int optionCount = options.size();
         int selected = equipmentSelectionIndexBySlot.getOrDefault(slot, -1);
         String progress = selected < 0 ? "empty" : (selected + 1) + " / " + optionCount;
-        float[] override = transformOverridesBySlot.getOrDefault(slot, new float[6]);
 
+        int y = leftTopY;
+        font.setColor(0.82f, 0.88f, 0.98f, 1f);
+        font.draw(batch, "Selection", leftX, y);
+        y -= 22;
         font.setColor(0.80f, 0.84f, 0.90f, 1f);
-        font.draw(batch, "< / > slot (comma/period), [ / ] option, backspace clear", x + 14, y + 84);
-        font.draw(batch, "W/S Y  A/D X  Q/E Z  |  I/K RX  J/L RY  U/O RZ  |  R reset", x + 14, y + 64);
-        font.draw(batch, "Shift fine, Ctrl coarse", x + 14, y + 44);
-        font.draw(batch, String.format("OVR off(%.3f, %.3f, %.3f) rot(%.2f, %.2f, %.2f)",
-            override[0], override[1], override[2], override[3], override[4], override[5]), x + 14, y + 24);
-        font.draw(batch, "Slot options: " + optionCount + "  current: " + progress + "  |  C export  P save", x + 14, y + 6);
+        font.draw(batch, "Slot:", leftX, y);
+        font.setColor(0.99f, 0.96f, 0.72f, 1f);
+        font.draw(batch, activeSlotLabel(), leftX + 42, y);
+        y -= 22;
+        font.setColor(0.80f, 0.84f, 0.90f, 1f);
+        font.draw(batch, "Item:", leftX, y);
+        String itemText = "(empty)";
+        if (option != null) {
+            String name = option.itemName() == null || option.itemName().isBlank() ? "item " + option.itemId() : option.itemName();
+            itemText = name + " [" + option.modelKey() + "]";
+        }
+        font.setColor(0.96f, 0.96f, 0.96f, 1f);
+        font.draw(batch, truncateToWidth(font, itemText, leftWidth - 44), leftX + 42, y);
+        y -= 24;
+        font.setColor(0.82f, 0.88f, 0.98f, 1f);
+        font.draw(batch, "Transform", leftX, y);
+        y -= 22;
+        font.setColor(0.80f, 0.84f, 0.90f, 1f);
+        font.draw(batch, String.format("Offset: %.3f, %.3f, %.3f", override[0], override[1], override[2]), leftX, y);
+        y -= 20;
+        font.draw(batch, String.format("Rotate: %.2f, %.2f, %.2f", override[3], override[4], override[5]), leftX, y);
+        y -= 20;
+        font.draw(batch, "Slot options: " + optionCount + "  current: " + progress, leftX, y);
 
-        if (!exportStatus.isBlank()) {
-            font.setColor(0.93f, 0.95f, 0.84f, 1f);
-            font.draw(batch, "Export: " + exportStatus, x + 290, y + PANEL_H - 86);
-        }
-        if (!exportSnippet.isBlank()) {
-            String compact = exportSnippet.replace('\n', ' ').trim();
-            if (compact.length() > 68) {
-                compact = compact.substring(0, 68) + "...";
-            }
-            font.setColor(0.72f, 0.78f, 0.90f, 1f);
-            font.draw(batch, compact, x + 290, y + PANEL_H - 110);
-        }
+        y = rightTopY;
+        font.setColor(0.82f, 0.88f, 0.98f, 1f);
+        font.draw(batch, "Actions", rightX, y);
+        y -= 22;
+        font.setColor(0.80f, 0.84f, 0.90f, 1f);
+        font.draw(batch, truncateToWidth(font, "< / > slot (comma/period)", rightWidth), rightX, y);
+        y -= 20;
+        font.draw(batch, truncateToWidth(font, "[ / ] item option   Backspace clear", rightWidth), rightX, y);
+        y -= 20;
+        font.draw(batch, truncateToWidth(font, "W/S Y  A/D X  Q/E Z", rightWidth), rightX, y);
+        y -= 20;
+        font.draw(batch, truncateToWidth(font, "I/K RX  J/L RY  U/O RZ", rightWidth), rightX, y);
+        y -= 20;
+        font.draw(batch, truncateToWidth(font, "Shift fine   Ctrl coarse   R reset", rightWidth), rightX, y);
+        y -= 20;
+        font.draw(batch, truncateToWidth(font, "C export snippet   P save manifest", rightWidth), rightX, y);
     }
 
-    private void renderWorldPlacementText(SpriteBatch batch, BitmapFont font, int x, int y) {
+    private void renderWorldPlacementText(SpriteBatch batch,
+                                          BitmapFont font,
+                                          int leftX,
+                                          int leftTopY,
+                                          int rightX,
+                                          int rightTopY,
+                                          int leftWidth,
+                                          int rightWidth) {
         String key = sceneEditState == null ? "" : sceneEditState.selectedPlaceableKey();
         float rot = sceneEditState == null ? 0f : sceneEditState.previewRotationYDegrees();
         float scale = sceneEditState == null ? 1f : sceneEditState.previewScale();
-        String visibilityGroup = sceneEditState == null ? "base" : sceneEditState.previewVisibilityGroup();
-        String visibilityFilter = sceneEditState == null ? "ALL" : sceneEditState.visibilityFilter().name();
+        String vis = sceneEditState == null ? "base" : sceneEditState.previewVisibilityGroup();
+        String filter = sceneEditState == null ? "ALL" : sceneEditState.visibilityFilter().name();
         int count = sceneEditState == null ? 0 : sceneEditState.placements().size();
         int selected = sceneEditState == null ? -1 : sceneEditState.selectedPlacementIndex();
-        String selectedVis = "none";
-        if (sceneEditState != null && sceneEditState.selectedPlacement() != null) {
-            selectedVis = sceneEditState.selectedPlacement().visibilityGroup;
-        }
+        String selectedVis = (sceneEditState != null && sceneEditState.selectedPlacement() != null)
+            ? sceneEditState.selectedPlacement().visibilityGroup
+            : "none";
         boolean dirty = sceneEditState != null && sceneEditState.dirty();
 
+        int y = leftTopY;
         font.setColor(0.82f, 0.88f, 0.98f, 1f);
-        font.draw(batch, "Place key:", x + 14, y + PANEL_H - 86);
-        font.setColor(0.99f, 0.96f, 0.72f, 1f);
-        font.draw(batch, key.isBlank() ? "(no placeable keys)" : key, x + 84, y + PANEL_H - 86);
-
+        font.draw(batch, "Selection", leftX, y);
+        y -= 22;
         font.setColor(0.80f, 0.84f, 0.90f, 1f);
-        font.draw(batch, String.format("Preview rot_y: %.1f   scale: %.2f   vis: %s", rot, scale, visibilityGroup), x + 14, y + 64);
-        font.draw(batch, "[ / ] key   , / . rotate   - / = scale   V vis-group", x + 14, y + 44);
-        font.draw(batch, "LMB place/select   D duplicate selected   Backspace delete", x + 14, y + 24);
-        font.draw(batch, "Y filter=" + visibilityFilter + "   selected: " + selected + "(" + selectedVis + ")   dirty: " + dirty + "   count: " + count + "   P save", x + 14, y + 6);
+        font.draw(batch, "Place key:", leftX, y);
+        font.setColor(0.99f, 0.96f, 0.72f, 1f);
+        font.draw(batch, truncateToWidth(font, key.isBlank() ? "(no placeable keys)" : key, leftWidth - 82), leftX + 80, y);
+        y -= 22;
+        font.setColor(0.80f, 0.84f, 0.90f, 1f);
+        font.draw(batch, String.format("Preview rot_y: %.1f", rot), leftX, y);
+        y -= 20;
+        font.draw(batch, String.format("Preview scale: %.2f", scale), leftX, y);
+        y -= 20;
+        font.draw(batch, "Preview vis: " + vis, leftX, y);
+        y -= 20;
+        font.draw(batch, "Selected: " + selected + " (" + selectedVis + ")", leftX, y);
+        y -= 20;
+        font.draw(batch, "Filter: " + filter + "   dirty: " + dirty + "   count: " + count, leftX, y);
 
-        if (!worldPlacementStatus.isBlank()) {
-            font.setColor(0.93f, 0.95f, 0.84f, 1f);
-            font.draw(batch, "Status: " + worldPlacementStatus, x + 300, y + PANEL_H - 86);
+        y = rightTopY;
+        font.setColor(0.82f, 0.88f, 0.98f, 1f);
+        font.draw(batch, "Actions", rightX, y);
+        y -= 22;
+        font.setColor(0.80f, 0.84f, 0.90f, 1f);
+        font.draw(batch, truncateToWidth(font, "[ / ] key", rightWidth), rightX, y);
+        y -= 20;
+        font.draw(batch, truncateToWidth(font, ", / . rotate   - / = scale", rightWidth), rightX, y);
+        y -= 20;
+        font.draw(batch, truncateToWidth(font, "V vis-group toggle   Y filter cycle", rightWidth), rightX, y);
+        y -= 20;
+        font.draw(batch, truncateToWidth(font, "LMB place/select (re-click cycles)", rightWidth), rightX, y);
+        y -= 20;
+        font.draw(batch, truncateToWidth(font, "N cycle hovered   D duplicate->preview", rightWidth), rightX, y);
+        y -= 20;
+        font.draw(batch, truncateToWidth(font, "Backspace delete   R reset preview", rightWidth), rightX, y);
+        y -= 20;
+        font.draw(batch, truncateToWidth(font, "ESC deselect first, then close", rightWidth), rightX, y);
+        y -= 20;
+        font.draw(batch, truncateToWidth(font, "P save scene", rightWidth), rightX, y);
+    }
+
+    private String truncateToWidth(BitmapFont font, String text, float maxWidth) {
+        if (text == null) {
+            return "";
         }
+        glyph.setText(font, text);
+        if (glyph.width <= maxWidth) {
+            return text;
+        }
+        String ellipsis = "...";
+        int end = text.length();
+        while (end > 0) {
+            String candidate = text.substring(0, end) + ellipsis;
+            glyph.setText(font, candidate);
+            if (glyph.width <= maxWidth) {
+                return candidate;
+            }
+            end--;
+        }
+        return ellipsis;
     }
 
     private ModelLibrary.EquipmentPreviewOption selectedOptionForSlot(int slot) {

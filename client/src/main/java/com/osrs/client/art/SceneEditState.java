@@ -144,6 +144,14 @@ public final class SceneEditState {
         }
     }
 
+    public void clearSelection() {
+        selectedPlacementIndex = -1;
+    }
+
+    public boolean hasSelection() {
+        return selectedPlacementIndex >= 0 && selectedPlacementIndex < placements.size();
+    }
+
     public void placeAt(int tileX, int tileY, String visibilityGroup) {
         String key = selectedPlaceableKey();
         if (key.isBlank()) {
@@ -193,7 +201,48 @@ public final class SceneEditState {
         previewRotationYDegrees = selected.rotationYDegrees;
         previewScale = selected.scale;
         previewVisibilityGroup = normalizeVisibilityGroup(selected.visibilityGroup);
+        selectedPlacementIndex = -1;
         return true;
+    }
+
+    public int cycleSelectionOnTile(int tileX, int tileY, String preferredKey) {
+        ArrayList<Integer> matches = new ArrayList<>();
+        for (int i = 0; i < placements.size(); i++) {
+            StaticPropLoader.StaticPropPlacement p = placements.get(i);
+            if (p.x == tileX && p.y == tileY) {
+                matches.add(i);
+            }
+        }
+        if (matches.isEmpty()) {
+            selectedPlacementIndex = -1;
+            return -1;
+        }
+
+        int selectedMatch = -1;
+        for (int i = 0; i < matches.size(); i++) {
+            if (matches.get(i) == selectedPlacementIndex) {
+                selectedMatch = i;
+                break;
+            }
+        }
+
+        int next;
+        if (selectedMatch >= 0) {
+            next = matches.get((selectedMatch + 1) % matches.size());
+        } else {
+            next = matches.get(0);
+            if (preferredKey != null && !preferredKey.isBlank()) {
+                for (int idx : matches) {
+                    if (preferredKey.equals(placements.get(idx).key)) {
+                        next = idx;
+                        break;
+                    }
+                }
+            }
+        }
+
+        selectedPlacementIndex = next;
+        return next;
     }
 
     public boolean shouldRenderByVisibilityFilter(StaticPropLoader.StaticPropPlacement placement) {

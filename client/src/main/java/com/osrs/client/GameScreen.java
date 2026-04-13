@@ -3105,6 +3105,13 @@ public class GameScreen extends ApplicationAdapter {
 
         if (artistMode && artWorkbenchPopup != null && artWorkbenchPopup.isVisible()) {
             if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
+                if (artWorkbenchPopup.mode() == ArtWorkbenchPopup.Mode.WORLD_PLACEMENT
+                    && sceneEditState != null
+                    && sceneEditState.hasSelection()) {
+                    sceneEditState.clearSelection();
+                    artWorkbenchPopup.setWorldPlacementStatus("Selection cleared");
+                    return;
+                }
                 artWorkbenchPopup.dismiss();
                 workbenchPreviewDragging = false;
                 return;
@@ -3197,16 +3204,33 @@ public class GameScreen extends ApplicationAdapter {
                     saveWorldPlacementScene();
                     return;
                 }
+                if (Gdx.input.isKeyJustPressed(Input.Keys.N)) {
+                    if (sceneEditState == null || worldPlacementHoverTileX < 0 || worldPlacementHoverTileY < 0) {
+                        artWorkbenchPopup.setWorldPlacementStatus("No hovered tile for overlap cycle");
+                    } else {
+                        int selectedIndex = sceneEditState.cycleSelectionOnTile(
+                            worldPlacementHoverTileX,
+                            worldPlacementHoverTileY,
+                            sceneEditState.selectedPlaceableKey()
+                        );
+                        if (selectedIndex >= 0) {
+                            artWorkbenchPopup.setWorldPlacementStatus(
+                                "Cycled selection on " + worldPlacementHoverTileX + "," + worldPlacementHoverTileY + " -> " + selectedIndex);
+                        } else {
+                            artWorkbenchPopup.setWorldPlacementStatus("No placement on hovered tile");
+                        }
+                    }
+                    return;
+                }
 
                 int mx = Gdx.input.getX();
                 int my = Gdx.input.getY();
                 if (Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)) {
                     int[] tile = screenToTile(mx, my);
                     if (tile[0] >= 0 && tile[1] >= 0 && sceneEditState != null) {
-                        int existing = sceneEditState.findPlacementIndexOnTile(tile[0], tile[1], sceneEditState.selectedPlaceableKey());
+                        int existing = sceneEditState.cycleSelectionOnTile(tile[0], tile[1], sceneEditState.selectedPlaceableKey());
                         if (existing >= 0) {
-                            sceneEditState.selectPlacement(existing);
-                            artWorkbenchPopup.setWorldPlacementStatus("Selected placement at " + tile[0] + "," + tile[1]);
+                            artWorkbenchPopup.setWorldPlacementStatus("Selected/cycled placement at " + tile[0] + "," + tile[1] + " -> " + existing);
                         } else {
                             sceneEditState.placeAt(tile[0], tile[1], null);
                             artWorkbenchPopup.setWorldPlacementStatus("Placed prop at " + tile[0] + "," + tile[1]);
