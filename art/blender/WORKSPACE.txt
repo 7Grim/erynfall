@@ -1,0 +1,14 @@
+Blender Source Workspace
+
+art/blender/ is the canonical source-of-truth location for authored 3D .blend files.
+
+Conventions:
+- Commit .blend source files here (subfolders are allowed).
+- Runtime exports go to art/models/ and should default to .glb.
+- Manifest entries in art/models/manifest.yaml should map runtime files and include source_blend when available.
+- Use scripts/export-blender-models.py to dry-run export plans or run Blender CLI exports.
+
+Example mapping:
+- Source: art/blender/player/player_base.blend
+- Runtime: art/models/player_base.glb
+- Manifest field: source_blend: player/player_base.blend

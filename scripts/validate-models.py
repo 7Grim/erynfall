@@ -15,6 +15,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_MANIFEST = ROOT / "art" / "models" / "manifest.yaml"
 DEFAULT_MODELS_DIR = ROOT / "art" / "models"
+DEFAULT_BLENDER_DIR = ROOT / "art" / "blender"
 
 
 @dataclass(frozen=True)
@@ -38,6 +39,7 @@ class ModelEntry:
     rot_y: float | None
     rot_z: float | None
     hide_nodes: tuple[str, ...]
+    source_blend: str | None
 
 
 SLOT_NAME_TO_ID = {
@@ -209,6 +211,8 @@ def parse_manifest(manifest_path: Path) -> list[ModelEntry]:
     entries: list[ModelEntry] = []
     seen_keys: set[str] = set()
     seen_files: set[str] = set()
+    seen_keys_lower: set[str] = set()
+    seen_files_lower: set[str] = set()
 
     for item in items:
         missing = sorted(required_fields - set(item.keys()))
@@ -222,8 +226,14 @@ def parse_manifest(manifest_path: Path) -> list[ModelEntry]:
             raise ValueError(f"Duplicate key in manifest: {key}")
         if file_name in seen_files:
             raise ValueError(f"Duplicate file in manifest: {file_name}")
+        key_lower = key.lower()
+        file_lower = file_name.lower()
+        if key_lower in seen_keys_lower:
+            raise ValueError(f"Duplicate key differs only by case: {key}")
+        if file_lower in seen_files_lower:
+            raise ValueError(f"Duplicate file differs only by case: {file_name}")
 
-        if fmt not in {"g3dj", "g3db", "glb"}:
+        if fmt not in {"g3dj", "g3db", "glb", "gltf"}:
             raise ValueError(f"Unsupported format for '{key}': {fmt}")
         if not file_name.lower().endswith(f".{fmt}"):
             raise ValueError(f"File extension does not match format for '{key}': {file_name} vs {fmt}")
@@ -255,6 +265,7 @@ def parse_manifest(manifest_path: Path) -> list[ModelEntry]:
                 for node in hide_nodes_list
                 if str(node).strip()
             ),
+            source_blend=str(item["source_blend"]).strip() if item.get("source_blend") not in (None, "") else None,
         )
         if entry.scale <= 0:
             raise ValueError(f"Scale must be > 0 for key '{key}'")
@@ -270,16 +281,50 @@ def parse_manifest(manifest_path: Path) -> list[ModelEntry]:
 
         seen_keys.add(key)
         seen_files.add(file_name)
+        seen_keys_lower.add(key_lower)
+        seen_files_lower.add(file_lower)
         entries.append(entry)
 
     return entries
 
 
-def validate(entries: list[ModelEntry], models_dir: Path) -> tuple[list[str], list[str]]:
+def inspect_g3dj(model_path: Path) -> tuple[set[str], set[str]]:
+    data = json.loads(model_path.read_text(encoding="utf-8"))
+    node_ids: set[str] = set()
+    clip_ids: set[str] = set()
+
+    def walk_nodes(nodes: object) -> None:
+        if not isinstance(nodes, list):
+            return
+        for node in nodes:
+            if not isinstance(node, dict):
+                continue
+            node_id = node.get("id")
+            if isinstance(node_id, str) and node_id.strip():
+                node_ids.add(node_id.strip())
+            walk_nodes(node.get("children"))
+
+    walk_nodes(data.get("nodes"))
+    animations = data.get("animations")
+    if isinstance(animations, list):
+        for animation in animations:
+            if not isinstance(animation, dict):
+                continue
+            clip_id = animation.get("id")
+            if isinstance(clip_id, str) and clip_id.strip():
+                clip_ids.add(clip_id.strip())
+
+    return node_ids, clip_ids
+
+
+def validate(entries: list[ModelEntry], models_dir: Path, blender_dir: Path) -> tuple[list[str], list[str]]:
     errors: list[str] = []
     warnings: list[str] = []
 
     manifest_files = {entry.file for entry in entries}
+    by_key = {entry.key: entry for entry in entries}
+    g3dj_cache: dict[Path, tuple[set[str], set[str]]] = {}
+    supported_categories = {"prop", "resource", "shell", "actor", "equipment"}
 
     for entry in entries:
         model_path = models_dir / entry.file
@@ -289,8 +334,91 @@ def validate(entries: list[ModelEntry], models_dir: Path) -> tuple[list[str], li
                 errors.append(msg)
             else:
                 warnings.append(msg)
+            continue
 
-    known_extensions = {".g3dj", ".g3db", ".glb"}
+        if entry.category not in supported_categories:
+            warnings.append(f"unknown category '{entry.category}' for key '{entry.key}'")
+
+        if entry.category == "equipment" and not entry.anchor_name:
+            errors.append(f"equipment key '{entry.key}' is missing anchor_name")
+
+        if entry.category == "equipment" and entry.origin != "actor-center":
+            warnings.append(
+                f"equipment key '{entry.key}' uses origin '{entry.origin}' (expected actor-center for attachment workflows)"
+            )
+
+        if entry.category == "actor" and entry.key.endswith("_base"):
+            required_clips = {"idle", "walk"}
+            if entry.format == "g3dj":
+                try:
+                    if model_path not in g3dj_cache:
+                        g3dj_cache[model_path] = inspect_g3dj(model_path)
+                    _, clips = g3dj_cache[model_path]
+                    missing = sorted(required_clips - {clip.lower() for clip in clips})
+                    if missing:
+                        warnings.append(
+                            f"actor base '{entry.key}' missing expected clips: {', '.join(missing)}"
+                        )
+                except Exception as exc:
+                    warnings.append(f"could not inspect clips for actor base '{entry.key}': {exc}")
+            else:
+                warnings.append(
+                    f"actor base '{entry.key}' clip check skipped for non-g3dj format '{entry.format}'"
+                )
+
+        if entry.format in {"glb", "gltf"}:
+            if not entry.source_blend:
+                warnings.append(
+                    f"GLB/GLTF entry '{entry.key}' is missing source_blend (expected path under art/blender/)"
+                )
+
+        if entry.source_blend:
+            source_rel = Path(entry.source_blend)
+            if source_rel.is_absolute() or ".." in source_rel.parts:
+                errors.append(
+                    f"source_blend for key '{entry.key}' must be a relative path under art/blender/: {entry.source_blend}"
+                )
+            else:
+                if source_rel.suffix.lower() != ".blend":
+                    warnings.append(
+                        f"source_blend for key '{entry.key}' should end with .blend: {entry.source_blend}"
+                    )
+                source_path = blender_dir / source_rel
+                if not source_path.exists():
+                    warnings.append(
+                        f"source_blend file missing for key '{entry.key}': {entry.source_blend}"
+                    )
+
+    referenced_anchors = {
+        entry.anchor_name.strip()
+        for entry in entries
+        if entry.category == "equipment" and entry.anchor_name
+    }
+    if referenced_anchors:
+        player_base = by_key.get("player_base")
+        if player_base is None:
+            errors.append("equipment anchor validation requires 'player_base' manifest entry")
+        else:
+            player_base_path = models_dir / player_base.file
+            if player_base.format != "g3dj":
+                warnings.append(
+                    "player_base is not g3dj; anchor node validation skipped for equipment attachment anchors"
+                )
+            elif player_base_path.exists():
+                try:
+                    if player_base_path not in g3dj_cache:
+                        g3dj_cache[player_base_path] = inspect_g3dj(player_base_path)
+                    nodes, _ = g3dj_cache[player_base_path]
+                    missing_anchors = sorted(anchor for anchor in referenced_anchors if anchor not in nodes)
+                    if missing_anchors:
+                        errors.append(
+                            "player_base is missing anchor nodes referenced by equipment entries: "
+                            + ", ".join(missing_anchors)
+                        )
+                except Exception as exc:
+                    warnings.append(f"could not inspect player_base anchors: {exc}")
+
+    known_extensions = {".g3dj", ".g3db", ".glb", ".gltf"}
     for model_path in sorted(models_dir.iterdir()):
         if model_path.is_dir():
             continue
@@ -354,12 +482,14 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Validate static model assets against manifest.yaml")
     parser.add_argument("--manifest", default=str(DEFAULT_MANIFEST), help="Path to model manifest YAML")
     parser.add_argument("--models-dir", default=str(DEFAULT_MODELS_DIR), help="Path to model asset directory")
+    parser.add_argument("--blender-dir", default=str(DEFAULT_BLENDER_DIR), help="Path to Blender source directory")
     parser.add_argument("--write-key-list", help="Optional output path for runtime model key list")
     parser.add_argument("--write-runtime-meta", help="Optional output path for runtime model metadata JSON")
     args = parser.parse_args()
 
     manifest_path = Path(args.manifest).resolve()
     models_dir = Path(args.models_dir).resolve()
+    blender_dir = Path(args.blender_dir).resolve()
 
     if not models_dir.exists():
         print(f"ERROR: model directory does not exist: {models_dir}")
@@ -367,7 +497,7 @@ def main() -> int:
 
     try:
         entries = parse_manifest(manifest_path)
-        errors, warnings = validate(entries, models_dir)
+        errors, warnings = validate(entries, models_dir, blender_dir)
     except ValueError as exc:
         print(f"ERROR: {exc}")
         return 2

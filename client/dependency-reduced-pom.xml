@@ -94,11 +94,35 @@
                   <fileset>
                     <include />
                     <include />
+                    <include />
                   </fileset>
                 </delete>
                 <copy>
                   <fileset>
                     <include />
+                    <include />
+                    <include />
+                  </fileset>
+                </copy>
+              </target>
+            </configuration>
+          </execution>
+          <execution>
+            <id>copy-world-scene</id>
+            <phase>generate-resources</phase>
+            <goals>
+              <goal>run</goal>
+            </goals>
+            <configuration>
+              <target>
+                <mkdir />
+                <delete>
+                  <fileset>
+                    <include />
+                  </fileset>
+                </delete>
+                <copy>
+                  <fileset>
                     <include />
                   </fileset>
                 </copy>
@@ -193,6 +217,8 @@
               <executable>java</executable>
               <arguments>
                 <argument>-XstartOnFirstThread</argument>
+                <argument>-Derynfall.artistMode=${erynfall.artistMode}</argument>
+                <argument>-Derynfall.repoRoot=${erynfall.repoRoot}</argument>
                 <argument>-classpath</argument>
                 <classpath />
                 <argument>com.osrs.client.Client</argument>
@@ -212,6 +238,8 @@
             <configuration>
               <executable>java</executable>
               <arguments>
+                <argument>-Derynfall.artistMode=${erynfall.artistMode}</argument>
+                <argument>-Derynfall.repoRoot=${erynfall.repoRoot}</argument>
                 <argument>-classpath</argument>
                 <classpath />
                 <argument>com.osrs.client.Client</argument>
@@ -222,6 +250,12 @@
       </build>
     </profile>
   </profiles>
+  <repositories>
+    <repository>
+      <id>jitpack.io</id>
+      <url>https://jitpack.io</url>
+    </repository>
+  </repositories>
   <dependencies>
     <dependency>
       <groupId>org.junit.jupiter</groupId>
@@ -248,6 +282,8 @@
     <skipModelValidation>false</skipModelValidation>
     <strictEquipmentCoverage>false</strictEquipmentCoverage>
     <skipModelCopy>false</skipModelCopy>
+    <erynfall.artistMode>false</erynfall.artistMode>
+    <gdxGltf.version>2.2.1</gdxGltf.version>
     <skipEquipmentCoverageAudit>false</skipEquipmentCoverageAudit>
     <skipArtValidation>false</skipArtValidation>
   </properties>
