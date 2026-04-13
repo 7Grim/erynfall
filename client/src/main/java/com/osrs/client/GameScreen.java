@@ -1493,7 +1493,7 @@ public class GameScreen extends ApplicationAdapter {
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
 
         renderHUD();
-        renderRendererModeLabel();
+//        renderRendererModeLabel();
         if (combatTargetId >= 0) renderOpponentInfo();
         sidePanel.update(delta);
         // Convert LibGDX mouse Y (0=top) to screen Y (0=bottom)
