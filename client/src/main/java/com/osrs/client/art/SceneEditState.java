@@ -55,6 +55,21 @@ public final class SceneEditState {
         return placeableKeys.get(selectedPlaceableKeyIndex);
     }
 
+    public List<String> placeableKeys() {
+        return Collections.unmodifiableList(placeableKeys);
+    }
+
+    public int selectedPlaceableKeyIndex() {
+        return selectedPlaceableKeyIndex;
+    }
+
+    public void setSelectedPlaceableKeyIndex(int index) {
+        if (index < 0 || index >= placeableKeys.size()) {
+            return;
+        }
+        selectedPlaceableKeyIndex = index;
+    }
+
     public void cyclePlaceableKey(int direction) {
         if (placeableKeys.isEmpty()) {
             selectedPlaceableKeyIndex = 0;

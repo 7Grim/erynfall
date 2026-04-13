@@ -5,6 +5,7 @@ import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.GlyphLayout;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
+import com.badlogic.gdx.Input;
 import com.badlogic.gdx.math.Matrix4;
 import com.osrs.client.art.SceneEditState;
 import com.osrs.client.renderer.ModelLibrary;
@@ -72,6 +73,10 @@ public class ArtWorkbenchPopup {
     private String exportSnippet = "";
     private String worldPlacementStatus = "";
     private SceneEditState sceneEditState;
+    private String modelSearchQuery = "";
+    private final Map<Integer, String> equipmentSearchBySlot = new HashMap<>();
+    private String worldSearchQuery = "";
+    private boolean selectionSearchActive = false;
 
     public void setModelKeys(List<String> keys) {
         modelKeys.clear();
@@ -82,6 +87,7 @@ public class ArtWorkbenchPopup {
         if (selectedIndex >= modelKeys.size()) {
             selectedIndex = Math.max(0, modelKeys.size() - 1);
         }
+        applySearchSelection();
     }
 
     public void setEquipmentOptions(Map<Integer, List<ModelLibrary.EquipmentPreviewOption>> optionsBySlot) {
@@ -91,12 +97,14 @@ public class ArtWorkbenchPopup {
         }
         for (int slot : VISIBLE_SLOTS) {
             equipmentSelectionIndexBySlot.putIfAbsent(slot, -1);
+            equipmentSearchBySlot.putIfAbsent(slot, "");
             List<ModelLibrary.EquipmentPreviewOption> options = equipmentOptionsBySlot.getOrDefault(slot, List.of());
             int current = equipmentSelectionIndexBySlot.getOrDefault(slot, -1);
             if (current >= options.size()) {
                 equipmentSelectionIndexBySlot.put(slot, -1);
             }
         }
+        applySearchSelection();
     }
 
     public void show() {
@@ -115,16 +123,89 @@ public class ArtWorkbenchPopup {
         visible = !visible;
     }
 
+    public boolean isSelectionSearchActive() {
+        return selectionSearchActive;
+    }
+
+    public void activateSelectionSearch() {
+        selectionSearchActive = true;
+        applySearchSelection();
+    }
+
+    public void cancelSelectionSearch() {
+        selectionSearchActive = false;
+    }
+
+    public void confirmSelectionSearch() {
+        applySearchSelection();
+        selectionSearchActive = false;
+    }
+
+    public String selectionSearchQuery() {
+        return activeSearchQuery();
+    }
+
+    public int selectionSearchMatchCount() {
+        return switch (mode) {
+            case MODEL_PREVIEW -> filteredModelIndices().size();
+            case EQUIPMENT_FIT -> filteredEquipmentIndices(activeSlot()).size();
+            case WORLD_PLACEMENT -> filteredWorldIndices().size();
+        };
+    }
+
+    public boolean handleSelectionSearchKey(int keycode, boolean shiftDown) {
+        String query = activeSearchQuery();
+        if (keycode == Input.Keys.BACKSPACE) {
+            if (!query.isEmpty()) {
+                updateActiveSearchQuery(query.substring(0, query.length() - 1));
+            }
+            return true;
+        }
+        if (keycode == Input.Keys.SPACE) {
+            updateActiveSearchQuery(query + " ");
+            return true;
+        }
+        if (keycode == Input.Keys.APOSTROPHE) {
+            updateActiveSearchQuery(query + '\'');
+            return true;
+        }
+        if (keycode == Input.Keys.MINUS) {
+            updateActiveSearchQuery(query + '-');
+            return true;
+        }
+        if (keycode >= Input.Keys.A && keycode <= Input.Keys.Z) {
+            char c = Input.Keys.toString(keycode).charAt(0);
+            if (!shiftDown) {
+                c = Character.toLowerCase(c);
+            }
+            updateActiveSearchQuery(query + c);
+            return true;
+        }
+        if (keycode >= Input.Keys.NUM_0 && keycode <= Input.Keys.NUM_9) {
+            updateActiveSearchQuery(query + (char) ('0' + (keycode - Input.Keys.NUM_0)));
+            return true;
+        }
+        return false;
+    }
+
     public void selectNext() {
         if (mode == Mode.EQUIPMENT_FIT) {
             cycleEquipmentOption(1);
             return;
         }
-        if (modelKeys.isEmpty()) {
+        if (mode == Mode.WORLD_PLACEMENT) {
+            cycleWorldPlacementProp(1);
+            return;
+        }
+        List<Integer> filtered = filteredModelIndices();
+        if (filtered.isEmpty()) {
             selectedIndex = 0;
             return;
         }
-        selectedIndex = (selectedIndex + 1) % modelKeys.size();
+        int current = filtered.indexOf(selectedIndex);
+        selectedIndex = current < 0
+            ? filtered.get(0)
+            : filtered.get((current + 1) % filtered.size());
     }
 
     public void selectPrevious() {
@@ -132,14 +213,19 @@ public class ArtWorkbenchPopup {
             cycleEquipmentOption(-1);
             return;
         }
-        if (modelKeys.isEmpty()) {
+        if (mode == Mode.WORLD_PLACEMENT) {
+            cycleWorldPlacementProp(-1);
+            return;
+        }
+        List<Integer> filtered = filteredModelIndices();
+        if (filtered.isEmpty()) {
             selectedIndex = 0;
             return;
         }
-        selectedIndex--;
-        if (selectedIndex < 0) {
-            selectedIndex = modelKeys.size() - 1;
-        }
+        int current = filtered.indexOf(selectedIndex);
+        selectedIndex = current < 0
+            ? filtered.get(0)
+            : filtered.get((current - 1 + filtered.size()) % filtered.size());
     }
 
     public void cycleMode() {
@@ -148,6 +234,8 @@ public class ArtWorkbenchPopup {
             case EQUIPMENT_FIT -> Mode.WORLD_PLACEMENT;
             case WORLD_PLACEMENT -> Mode.MODEL_PREVIEW;
         };
+        selectionSearchActive = false;
+        applySearchSelection();
     }
 
     public void cycleClipMode() {
@@ -167,6 +255,7 @@ public class ArtWorkbenchPopup {
             activeSlotIndex += VISIBLE_SLOTS.length;
         }
         activeSlotIndex = activeSlotIndex % VISIBLE_SLOTS.length;
+        applySearchSelection();
     }
 
     public void clearActiveSlot() {
@@ -203,6 +292,7 @@ public class ArtWorkbenchPopup {
 
     public void setSceneEditState(SceneEditState sceneEditState) {
         this.sceneEditState = sceneEditState;
+        applySearchSelection();
     }
 
     public void setWorldPlacementStatus(String status) {
@@ -211,7 +301,17 @@ public class ArtWorkbenchPopup {
 
     public void cycleWorldPlacementProp(int direction) {
         if (mode == Mode.WORLD_PLACEMENT && sceneEditState != null) {
-            sceneEditState.cyclePlaceableKey(direction);
+            List<Integer> filtered = filteredWorldIndices();
+            if (filtered.isEmpty()) {
+                return;
+            }
+            int current = filtered.indexOf(sceneEditState.selectedPlaceableKeyIndex());
+            if (current < 0) {
+                sceneEditState.setSelectedPlaceableKeyIndex(filtered.get(0));
+                return;
+            }
+            int next = (current + (direction >= 0 ? 1 : -1) + filtered.size()) % filtered.size();
+            sceneEditState.setSelectedPlaceableKeyIndex(filtered.get(next));
         }
     }
 
@@ -292,24 +392,137 @@ public class ArtWorkbenchPopup {
 
     private void cycleEquipmentOption(int direction) {
         int slot = activeSlot();
-        List<ModelLibrary.EquipmentPreviewOption> options = equipmentOptionsBySlot.getOrDefault(slot, List.of());
-        if (options.isEmpty()) {
+        List<Integer> filtered = filteredEquipmentIndices(slot);
+        if (filtered.isEmpty()) {
             equipmentSelectionIndexBySlot.put(slot, -1);
             return;
         }
         int current = equipmentSelectionIndexBySlot.getOrDefault(slot, -1);
-        if (direction > 0) {
-            current++;
-            if (current >= options.size()) {
-                current = -1;
+        if (activeSearchQuery().isBlank()) {
+            List<ModelLibrary.EquipmentPreviewOption> options = equipmentOptionsBySlot.getOrDefault(slot, List.of());
+            if (direction > 0) {
+                current++;
+                if (current >= options.size()) {
+                    current = -1;
+                }
+            } else {
+                current--;
+                if (current < -1) {
+                    current = options.size() - 1;
+                }
             }
+            equipmentSelectionIndexBySlot.put(slot, current);
+            return;
+        }
+
+        int pos = filtered.indexOf(current);
+        if (pos < 0) {
+            equipmentSelectionIndexBySlot.put(slot, filtered.get(0));
+            return;
+        }
+        if (direction > 0) {
+            pos = (pos + 1) % filtered.size();
         } else {
-            current--;
-            if (current < -1) {
-                current = options.size() - 1;
+            pos = (pos - 1 + filtered.size()) % filtered.size();
+        }
+        equipmentSelectionIndexBySlot.put(slot, filtered.get(pos));
+    }
+
+    private void applySearchSelection() {
+        switch (mode) {
+            case MODEL_PREVIEW -> {
+                List<Integer> filtered = filteredModelIndices();
+                if (filtered.isEmpty()) {
+                    selectedIndex = 0;
+                } else if (!filtered.contains(selectedIndex)) {
+                    selectedIndex = filtered.get(0);
+                }
+            }
+            case EQUIPMENT_FIT -> {
+                int slot = activeSlot();
+                List<Integer> filtered = filteredEquipmentIndices(slot);
+                if (filtered.isEmpty()) {
+                    equipmentSelectionIndexBySlot.put(slot, -1);
+                } else {
+                    int selected = equipmentSelectionIndexBySlot.getOrDefault(slot, -1);
+                    if (!filtered.contains(selected)) {
+                        equipmentSelectionIndexBySlot.put(slot, filtered.get(0));
+                    }
+                }
+            }
+            case WORLD_PLACEMENT -> {
+                List<Integer> filtered = filteredWorldIndices();
+                if (sceneEditState == null || filtered.isEmpty()) {
+                    return;
+                }
+                if (!filtered.contains(sceneEditState.selectedPlaceableKeyIndex())) {
+                    sceneEditState.setSelectedPlaceableKeyIndex(filtered.get(0));
+                }
             }
         }
-        equipmentSelectionIndexBySlot.put(slot, current);
+    }
+
+    private String activeSearchQuery() {
+        return switch (mode) {
+            case MODEL_PREVIEW -> modelSearchQuery;
+            case EQUIPMENT_FIT -> equipmentSearchBySlot.getOrDefault(activeSlot(), "");
+            case WORLD_PLACEMENT -> worldSearchQuery;
+        };
+    }
+
+    private void updateActiveSearchQuery(String query) {
+        String normalized = query == null ? "" : query;
+        switch (mode) {
+            case MODEL_PREVIEW -> modelSearchQuery = normalized;
+            case EQUIPMENT_FIT -> equipmentSearchBySlot.put(activeSlot(), normalized);
+            case WORLD_PLACEMENT -> worldSearchQuery = normalized;
+        }
+        applySearchSelection();
+    }
+
+    private List<Integer> filteredModelIndices() {
+        ArrayList<Integer> out = new ArrayList<>();
+        String query = modelSearchQuery.trim().toLowerCase();
+        for (int i = 0; i < modelKeys.size(); i++) {
+            if (query.isEmpty() || modelKeys.get(i).toLowerCase().contains(query)) {
+                out.add(i);
+            }
+        }
+        return out;
+    }
+
+    private List<Integer> filteredEquipmentIndices(int slot) {
+        ArrayList<Integer> out = new ArrayList<>();
+        List<ModelLibrary.EquipmentPreviewOption> options = equipmentOptionsBySlot.getOrDefault(slot, List.of());
+        String query = equipmentSearchBySlot.getOrDefault(slot, "").trim().toLowerCase();
+        for (int i = 0; i < options.size(); i++) {
+            ModelLibrary.EquipmentPreviewOption option = options.get(i);
+            if (query.isEmpty()) {
+                out.add(i);
+                continue;
+            }
+            String name = option.itemName() == null ? "" : option.itemName();
+            String haystack = (name + " " + option.modelKey() + " " + option.itemId()).toLowerCase();
+            if (haystack.contains(query)) {
+                out.add(i);
+            }
+        }
+        return out;
+    }
+
+    private List<Integer> filteredWorldIndices() {
+        if (sceneEditState == null) {
+            return List.of();
+        }
+        ArrayList<Integer> out = new ArrayList<>();
+        List<String> keys = sceneEditState.placeableKeys();
+        String query = worldSearchQuery.trim().toLowerCase();
+        for (int i = 0; i < keys.size(); i++) {
+            if (query.isEmpty() || keys.get(i).toLowerCase().contains(query)) {
+                out.add(i);
+            }
+        }
+        return out;
     }
 
     public String selectedModelKey() {
@@ -438,7 +651,7 @@ public class ArtWorkbenchPopup {
         }
 
         font.setColor(0.80f, 0.84f, 0.90f, 1f);
-        font.draw(batch, "F6 close   TAB mode   LMB drag orbit   wheel zoom   MMB reset camera   F7/F8 debug", x + 14, y + 22);
+        font.draw(batch, "F6 close   TAB mode   / search   LMB drag orbit   wheel zoom   MMB reset camera   F7/F8 debug", x + 14, y + 22);
 
         font.getData().setScale(1f);
         font.setColor(Color.WHITE);
@@ -464,6 +677,17 @@ public class ArtWorkbenchPopup {
         font.setColor(0.99f, 0.96f, 0.72f, 1f);
         font.draw(batch, truncateToWidth(font, key, leftWidth - 88), leftX + 84, y);
         y -= 22;
+        String query = modelSearchQuery;
+        int matches = filteredModelIndices().size();
+        font.setColor(0.80f, 0.84f, 0.90f, 1f);
+        font.draw(batch, "Search:", leftX, y);
+        font.setColor(selectionSearchActive && mode == Mode.MODEL_PREVIEW ? 0.99f : 0.94f,
+            selectionSearchActive && mode == Mode.MODEL_PREVIEW ? 0.88f : 0.94f,
+            selectionSearchActive && mode == Mode.MODEL_PREVIEW ? 0.66f : 0.94f,
+            1f);
+        String queryText = query.isBlank() ? "(type to filter)" : query;
+        font.draw(batch, truncateToWidth(font, queryText + "  [" + matches + "]", leftWidth - 60), leftX + 58, y);
+        y -= 22;
         font.setColor(0.80f, 0.84f, 0.90f, 1f);
         font.draw(batch, "Neutral isolated preview", leftX, y);
 
@@ -475,6 +699,8 @@ public class ArtWorkbenchPopup {
         font.draw(batch, truncateToWidth(font, "[ / ] previous/next model", rightWidth), rightX, y);
         y -= 20;
         font.draw(batch, truncateToWidth(font, "; cycle clip (AUTO/IDLE/WALK)", rightWidth), rightX, y);
+        y -= 20;
+        font.draw(batch, truncateToWidth(font, "/ search   Enter apply   Esc exit search", rightWidth), rightX, y);
     }
 
     private void renderEquipmentFitText(SpriteBatch batch,
@@ -512,6 +738,17 @@ public class ArtWorkbenchPopup {
         font.setColor(0.96f, 0.96f, 0.96f, 1f);
         font.draw(batch, truncateToWidth(font, itemText, leftWidth - 44), leftX + 42, y);
         y -= 24;
+        String slotQuery = equipmentSearchBySlot.getOrDefault(slot, "");
+        int matchCount = filteredEquipmentIndices(slot).size();
+        font.setColor(0.80f, 0.84f, 0.90f, 1f);
+        font.draw(batch, "Search:", leftX, y);
+        font.setColor(selectionSearchActive && mode == Mode.EQUIPMENT_FIT ? 0.99f : 0.94f,
+            selectionSearchActive && mode == Mode.EQUIPMENT_FIT ? 0.88f : 0.94f,
+            selectionSearchActive && mode == Mode.EQUIPMENT_FIT ? 0.66f : 0.94f,
+            1f);
+        String slotQueryText = slotQuery.isBlank() ? "(type to filter slot items)" : slotQuery;
+        font.draw(batch, truncateToWidth(font, slotQueryText + "  [" + matchCount + "]", leftWidth - 60), leftX + 58, y);
+        y -= 24;
         font.setColor(0.82f, 0.88f, 0.98f, 1f);
         font.draw(batch, "Transform", leftX, y);
         y -= 22;
@@ -538,6 +775,8 @@ public class ArtWorkbenchPopup {
         font.draw(batch, truncateToWidth(font, "Shift fine   Ctrl coarse   R reset", rightWidth), rightX, y);
         y -= 20;
         font.draw(batch, truncateToWidth(font, "C export snippet   P save manifest", rightWidth), rightX, y);
+        y -= 20;
+        font.draw(batch, truncateToWidth(font, "/ search   Enter apply   Esc exit search", rightWidth), rightX, y);
     }
 
     private void renderWorldPlacementText(SpriteBatch batch,
@@ -568,6 +807,16 @@ public class ArtWorkbenchPopup {
         font.draw(batch, "Place key:", leftX, y);
         font.setColor(0.99f, 0.96f, 0.72f, 1f);
         font.draw(batch, truncateToWidth(font, key.isBlank() ? "(no placeable keys)" : key, leftWidth - 82), leftX + 80, y);
+        y -= 22;
+        int matches = filteredWorldIndices().size();
+        font.setColor(0.80f, 0.84f, 0.90f, 1f);
+        font.draw(batch, "Search:", leftX, y);
+        font.setColor(selectionSearchActive && mode == Mode.WORLD_PLACEMENT ? 0.99f : 0.94f,
+            selectionSearchActive && mode == Mode.WORLD_PLACEMENT ? 0.88f : 0.94f,
+            selectionSearchActive && mode == Mode.WORLD_PLACEMENT ? 0.66f : 0.94f,
+            1f);
+        String worldQueryText = worldSearchQuery.isBlank() ? "(type to filter place keys)" : worldSearchQuery;
+        font.draw(batch, truncateToWidth(font, worldQueryText + "  [" + matches + "]", leftWidth - 60), leftX + 58, y);
         y -= 22;
         font.setColor(0.80f, 0.84f, 0.90f, 1f);
         font.draw(batch, String.format("Preview rot_y: %.1f", rot), leftX, y);
@@ -600,6 +849,8 @@ public class ArtWorkbenchPopup {
         font.draw(batch, truncateToWidth(font, "ESC deselect first, then close", rightWidth), rightX, y);
         y -= 20;
         font.draw(batch, truncateToWidth(font, "P save scene", rightWidth), rightX, y);
+        y -= 20;
+        font.draw(batch, truncateToWidth(font, "/ search   Enter apply   Esc exit search", rightWidth), rightX, y);
     }
 
     private String truncateToWidth(BitmapFont font, String text, float maxWidth) {

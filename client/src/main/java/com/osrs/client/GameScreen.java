@@ -3104,6 +3104,56 @@ public class GameScreen extends ApplicationAdapter {
         if (deathScreenTimer > 0) return;
 
         if (artistMode && artWorkbenchPopup != null && artWorkbenchPopup.isVisible()) {
+            if (Gdx.input.isKeyJustPressed(Input.Keys.SLASH)) {
+                artWorkbenchPopup.activateSelectionSearch();
+                return;
+            }
+            if (artWorkbenchPopup.isSelectionSearchActive()) {
+                if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
+                    artWorkbenchPopup.cancelSelectionSearch();
+                    return;
+                }
+                if (Gdx.input.isKeyJustPressed(Input.Keys.ENTER)
+                    || Gdx.input.isKeyJustPressed(Input.Keys.NUMPAD_ENTER)) {
+                    artWorkbenchPopup.confirmSelectionSearch();
+                    return;
+                }
+                boolean shiftDown = Gdx.input.isKeyPressed(Input.Keys.SHIFT_LEFT)
+                    || Gdx.input.isKeyPressed(Input.Keys.SHIFT_RIGHT);
+                if (Gdx.input.isKeyJustPressed(Input.Keys.BACKSPACE)
+                    && artWorkbenchPopup.handleSelectionSearchKey(Input.Keys.BACKSPACE, shiftDown)) {
+                    return;
+                }
+                if (Gdx.input.isKeyJustPressed(Input.Keys.SPACE)
+                    && artWorkbenchPopup.handleSelectionSearchKey(Input.Keys.SPACE, shiftDown)) {
+                    return;
+                }
+                if (Gdx.input.isKeyJustPressed(Input.Keys.MINUS)
+                    && artWorkbenchPopup.handleSelectionSearchKey(Input.Keys.MINUS, shiftDown)) {
+                    return;
+                }
+                if (Gdx.input.isKeyJustPressed(Input.Keys.APOSTROPHE)
+                    && artWorkbenchPopup.handleSelectionSearchKey(Input.Keys.APOSTROPHE, shiftDown)) {
+                    return;
+                }
+                for (int key = Input.Keys.A; key <= Input.Keys.Z; key++) {
+                    if (Gdx.input.isKeyJustPressed(key)
+                        && artWorkbenchPopup.handleSelectionSearchKey(key, shiftDown)) {
+                        return;
+                    }
+                }
+                int[] numKeys = {
+                    Input.Keys.NUM_0, Input.Keys.NUM_1, Input.Keys.NUM_2, Input.Keys.NUM_3, Input.Keys.NUM_4,
+                    Input.Keys.NUM_5, Input.Keys.NUM_6, Input.Keys.NUM_7, Input.Keys.NUM_8, Input.Keys.NUM_9
+                };
+                for (int key : numKeys) {
+                    if (Gdx.input.isKeyJustPressed(key)
+                        && artWorkbenchPopup.handleSelectionSearchKey(key, shiftDown)) {
+                        return;
+                    }
+                }
+                return;
+            }
             if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
                 if (artWorkbenchPopup.mode() == ArtWorkbenchPopup.Mode.WORLD_PLACEMENT
                     && sceneEditState != null
