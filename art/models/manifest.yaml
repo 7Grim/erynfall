@@ -715,20 +715,21 @@ assets:
     rot_y: 0.0
     rot_z: 0.0
   - key: equip_legs_bronze_platelegs
-    file: equip_legs_bronze_platelegs.g3dj
+    file: equip_legs_bronze_platelegs.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
     notes: Bronze platelegs attachment.
+    source_blend: equipment/equip_legs_bronze_platelegs.blend
     equip_slot: 7
     item_id: 1075
     anchor_name: legs_anchor
     offset_x: 0.0
-    offset_y: 0.36
-    offset_z: -0.002
-    rot_x: 2.0
+    offset_y: 0.365
+    offset_z: 0.0
+    rot_x: 0.0
     rot_y: 0.0
     rot_z: 0.0
     hide_nodes:
@@ -891,22 +892,23 @@ assets:
       - upper_leg_r
       - lower_leg_r
   - key: equip_shield_bronze_sq
-    file: equip_shield_bronze_sq.g3dj
+    file: equip_shield_bronze_sq.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
     notes: Bronze sq shield attachment.
+    source_blend: equipment/equip_shield_bronze_sq.blend
     equip_slot: 5
     item_id: 1175
     anchor_name: shield_anchor
-    offset_x: -0.232
-    offset_y: 0.844
-    offset_z: 0.008
-    rot_x: 12.0
-    rot_y: -22.0
-    rot_z: 24.0
+    offset_x: -0.24
+    offset_y: 0.84
+    offset_z: 0.02
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: 0.0
   - key: equip_shield_iron_sq
     file: equip_shield_iron_sq.g3dj
     category: equipment
@@ -1180,22 +1182,23 @@ assets:
     rot_y: 0.0
     rot_z: -22.0
   - key: equip_weapon_bronze_sword
-    file: equip_weapon_bronze_sword.g3dj
+    file: equip_weapon_bronze_sword.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
     notes: Bronze sword attachment.
+    source_blend: equipment/equip_weapon_bronze_sword.blend
     equip_slot: 4
     item_id: 1277
     anchor_name: weapon_anchor
-    offset_x: 0.226
-    offset_y: 0.834
-    offset_z: -0.024
-    rot_x: 36.0
-    rot_y: 6.0
-    rot_z: -44.0
+    offset_x: 0.24
+    offset_y: 0.84
+    offset_z: -0.02
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: -16.0
   - key: equip_weapon_bronze_longsword
     file: equip_weapon_bronze_longsword.g3dj
     category: equipment
@@ -1452,22 +1455,23 @@ assets:
     rot_y: 0.0
     rot_z: -18.0
   - key: equip_weapon_dragon_axe
-    file: equip_weapon_dragon_axe.g3dj
+    file: equip_weapon_dragon_axe.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
     notes: Dragon axe attachment.
+    source_blend: equipment/equip_weapon_dragon_axe.blend
     equip_slot: 4
     item_id: 6739
     anchor_name: weapon_anchor
-    offset_x: 0.222
-    offset_y: 0.833
-    offset_z: -0.022
-    rot_x: 52.0
-    rot_y: 18.0
-    rot_z: -60.0
+    offset_x: 0.24
+    offset_y: 0.84
+    offset_z: -0.02
+    rot_x: 0.0
+    rot_y: 0.0
+    rot_z: -18.0
   - key: equip_weapon_bronze_pickaxe
     file: equip_weapon_bronze_pickaxe.g3dj
     category: equipment
