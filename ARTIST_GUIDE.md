@@ -15,8 +15,9 @@ Primary workflow:
 2. Keep `.blend` source files under `art/blender/`.
 3. Export runtime assets to `art/models/` as `.glb`.
 4. Describe runtime metadata in `art/models/manifest.yaml`.
-5. Use artist mode and the in-client Art Workbench to preview, fit, and place assets.
-6. Save visual world-scene placement to `art/world/tutorial_island.scene.yaml`.
+5. Use artist mode and the in-client Art Workbench to preview, fit, bind, paint, and place assets.
+6. Save visual world-scene placement and terrain data to `art/world/tutorial_island.scene.yaml`.
+7. Save entity/resource visual bindings to `art/world/entity_visuals.yaml`.
 
 This file is the source of truth for the current art workflow.
 
@@ -28,6 +29,7 @@ This file is the source of truth for the current art workflow.
 - Runtime model exports: `art/models/`
 - Model metadata: `art/models/manifest.yaml`
 - Visual world-scene source: `art/world/tutorial_island.scene.yaml`
+- Entity/resource visual bindings: `art/world/entity_visuals.yaml`
 
 ### Runtime Format
 
@@ -126,6 +128,24 @@ Example:
 Static prop placement and terrain visual scene data belong in:
 - `art/world/tutorial_island.scene.yaml`
 
+This file currently owns:
+- `terrain_height`
+- `terrain_visual`
+- `static_props`
+
+### 5. Entity Visual Binding Source
+
+Entity and resource archetype visual bindings belong in:
+- `art/world/entity_visuals.yaml`
+
+This file maps runtime entity `definition_id` values to visual behavior such as:
+- `sprite_key_2d`
+- `model_key_3d`
+- `animated_3d`
+- optional visual metadata like shadow/occlusion/action flags
+
+This is the canonical artist-owned source for which in-game entity archetype uses which visual model.
+
 Do not hand-author:
 - `client/src/main/resources/static_props.yaml`
 - `client/src/main/resources/terrain_height.yaml`
@@ -180,6 +200,8 @@ Current reload covers:
 - sprites
 - model metadata
 - model assets
+- entity visual bindings
+- terrain visual data
 - static props
 - terrain heights
 
@@ -233,6 +255,8 @@ Current workbench modes:
 - `MODEL_PREVIEW`
 - `EQUIPMENT_FIT`
 - `WORLD_PLACEMENT`
+- `ENTITY_BINDING`
+- `TERRAIN_PAINT`
 
 ## Shared Workbench Controls
 
@@ -265,6 +289,9 @@ Search targets:
 - `MODEL_PREVIEW`: model keys
 - `EQUIPMENT_FIT`: loaded equipment options for the active slot
 - `WORLD_PLACEMENT`: placeable prop keys
+- `ENTITY_BINDING`: loaded model keys for the selected entity archetype
+
+Search is intentionally disabled in `TERRAIN_PAINT`.
 
 ## Mode: MODEL_PREVIEW
 
@@ -408,6 +435,69 @@ Use this mode when:
 - quickly repeating props with duplicate-to-preview
 - isolating roof-only or base-only visibility with `Y`
 
+## Mode: ENTITY_BINDING
+
+Purpose:
+- bind a visible in-world NPC or resource-like archetype to a 3D model key
+- inspect and edit the visual binding for its `definition_id`
+- save the binding back to `art/world/entity_visuals.yaml`
+
+This mode is archetype-based.
+Saving changes all entities that share the selected `definition_id`.
+
+### Selection And Search
+
+- `LMB` select visible NPC/resource-like entity
+- `[` / `]` cycle candidate `model_key_3d`
+- `/` search loaded model keys for the selected archetype
+- `ESC`:
+  - if an entity binding target is selected: deselect
+  - otherwise: close workbench
+
+### Binding Controls
+
+- `V` toggle `animated_3d`
+- `BACKSPACE` clear candidate model key and fall back to legacy/default resolution
+- `P` save binding to `art/world/entity_visuals.yaml`
+
+### Best Use
+
+Use this mode when:
+- a Blender-exported asset should be assigned to a real world entity archetype
+- testing resource/entity model binding without hand-editing YAML
+- checking whether a resource should behave as static 3D or animated 3D
+
+## Mode: TERRAIN_PAINT
+
+Purpose:
+- paint the client-side visual terrain layer used by `terrain_visual`
+- control static ground appearance without changing gameplay walkability
+
+This is visual-only terrain authoring.
+Gameplay map authority remains in `map.yaml`.
+
+### Paint Controls
+
+- `[` / `]` cycle terrain type
+- `LMB` paint hovered tile
+- `E` erase/reset hovered tile override back to fallback
+- `P` save terrain visual changes to `art/world/tutorial_island.scene.yaml`
+- `ESC` close workbench or exit search in other modes
+
+Current terrain visual vocabulary:
+- `grass`
+- `water`
+- `path`
+- `wall`
+- `sand`
+
+### Best Use
+
+Use this mode when:
+- shaping the static ground surface of the map
+- painting paths, beaches, water pockets, and wall/rock visual zones
+- refining the world-of-nature look without touching gameplay tile semantics
+
 ## Debug Overlays
 
 ### F7: Bounds + Axes
@@ -510,6 +600,8 @@ Current validation checks include:
 - equipment entries missing `anchor_name`
 - suspicious equipment origin
 - `source_blend` warnings/errors
+- duplicate keys/files differing only by case
+- anchor integrity against `player_base` where feasible
 - some actor/base clip sanity checks
 - equipment anchor references against `player_base` when feasible
 
@@ -550,17 +642,35 @@ Make sure equipment entries define:
 Prefer including:
 - `source_blend`
 
+### For Entity/Resource Visual Binding
+
+Entity/resource binding is now definition-driven.
+
+The canonical file is:
+- `art/world/entity_visuals.yaml`
+
+Use the workbench `ENTITY_BINDING` mode when possible instead of hand-editing the file.
+
+### For Terrain Visual Authoring
+
+Static visual ground authoring is now owned by:
+- `terrain_visual` inside `art/world/tutorial_island.scene.yaml`
+
+Use `TERRAIN_PAINT` for tile-level edits instead of trying to repurpose gameplay `map.yaml` for visual art.
+
 ## Current Workflow Limitations
 
 These are real current limitations:
 - not every workflow has full automation yet
-- `.glb` runtime plumbing exists, but a real in-repo GLB content path still needs broader use/proof
+- `.glb` runtime plumbing exists and is now partially proven, but broader real asset-family migration is still needed
 - validator clip checks are not yet perfectly trustworthy for all actor assets
 - workbench search is lightweight, not a full asset browser
 - world placement is tile-based and intentionally simple
 - no full undo/redo system yet
-- no terrain sculpting/editor yet
+- terrain painting is tile-based, not a rich terrain brush/sculpt system
 - no full drag-gizmo manipulation yet
+- `entity_visuals.yaml` save-back updates the first matching `definition_id` row, so duplicate-row content should be avoided
+- this guide describes the workflow, not a complete OSRS fidelity art bible
 
 ## What Artists Should Do Right Now
 
@@ -584,6 +694,26 @@ Use:
 - duplicate with `D`
 - roof/base group with `V`
 - visibility filter with `Y`
+- save with `P`
+
+### For Entity / Resource Binding
+
+Use:
+- `F6` -> `ENTITY_BINDING`
+- click visible entity/resource with `LMB`
+- search with `/`
+- cycle candidate model key with `[ / ]`
+- toggle animated state with `V`
+- clear candidate model key with `BACKSPACE`
+- save binding with `P`
+
+### For Terrain Painting
+
+Use:
+- `F6` -> `TERRAIN_PAINT`
+- cycle terrain type with `[ / ]`
+- paint with `LMB`
+- erase override with `E`
 - save with `P`
 
 ### For General Model Inspection
@@ -618,12 +748,47 @@ For a new model:
 7. save-back if needed
 8. review diff before commit
 
+## First Real Asset Test Checklist
+
+For a first end-to-end Blender asset test, use this order:
+
+1. Pick one narrow asset family already used in the game.
+2. Create or update the `.blend` under `art/blender/`.
+3. Export the runtime `.glb` into `art/models/`.
+4. Update manifest entry:
+   - `file: *.glb`
+   - `format: glb`
+   - `source_blend: ...`
+5. Run:
+
+```bash
+python3 scripts/validate-models.py
+python3 scripts/export-blender-models.py --dry-run
+```
+
+6. Build/package if needed:
+
+```bash
+mvn -pl client -am -DskipTests package
+```
+
+7. Launch artist mode.
+8. Press `F5` after re-export if the client is already running.
+9. Verify in the correct workbench mode:
+   - `MODEL_PREVIEW` for raw model inspection
+   - `EQUIPMENT_FIT` for wearable/held assets
+   - `WORLD_PLACEMENT` for static world props/shells
+   - `ENTITY_BINDING` for NPC/resource archetype binding
+   - `TERRAIN_PAINT` for static ground visual edits
+10. Save from the workbench if needed.
+11. Review `git diff` before commit.
+
 ## Final Note
 
 This workflow is now centered on:
 - Blender for source authoring
 - GLB for runtime export
 - repo-backed artist mode for iteration
-- in-client workbench for preview, fit, and placement
+- in-client workbench for preview, fit, binding, terrain paint, and placement
 
 That is the intended path going forward.

@@ -34,21 +34,23 @@ assets:
     required: false
     notes: Static fishing spot marker in 3D mode.
   - key: tree
-    file: tree.g3dj
+    file: tree.glb
     category: resource
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: tile-center
     required: false
     notes: Static tree model used by the experimental 3D renderer.
+    source_blend: nature/tree.blend
   - key: tree_oak
-    file: tree_oak.g3dj
+    file: tree_oak.glb
     category: resource
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: tile-center
     required: false
     notes: Static oak tree model used by the experimental 3D renderer.
+    source_blend: nature/tree_oak.blend
   - key: rock_copper
     file: rock_copper.g3dj
     category: resource
@@ -170,21 +172,23 @@ assets:
     required: false
     notes: Small static building shell for the 3D renderer.
   - key: building_shell_small_base
-    file: building_shell_small_base.g3dj
+    file: building_shell_small_base.glb
     category: shell
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: tile-center
     required: false
     notes: Lower walls/base of the small shell.
+    source_blend: shells/building_shell_small_base.blend
   - key: building_shell_small_roof
-    file: building_shell_small_roof.g3dj
+    file: building_shell_small_roof.glb
     category: shell
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: tile-center
     required: false
     notes: Upper roof/foreground piece of the small shell.
+    source_blend: shells/building_shell_small_roof.blend
   - key: dock_platform
     file: dock_platform.g3dj
     category: prop
