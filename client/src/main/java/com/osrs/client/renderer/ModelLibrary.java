@@ -2,7 +2,12 @@ package com.osrs.client.renderer;
 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.files.FileHandle;
+import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.graphics.g3d.Attribute;
+import com.badlogic.gdx.graphics.g3d.Material;
 import com.badlogic.gdx.graphics.g3d.Model;
+import com.badlogic.gdx.graphics.g3d.attributes.ColorAttribute;
+import com.badlogic.gdx.graphics.g3d.attributes.TextureAttribute;
 import com.badlogic.gdx.graphics.g3d.loader.G3dModelLoader;
 import com.badlogic.gdx.utils.Disposable;
 import com.badlogic.gdx.utils.JsonReader;
@@ -10,11 +15,14 @@ import com.badlogic.gdx.utils.JsonValue;
 import com.badlogic.gdx.utils.UBJsonReader;
 import com.osrs.client.LaunchOptions;
 import net.mgsx.gltf.loaders.glb.GLBLoader;
+import net.mgsx.gltf.scene3d.attributes.PBRColorAttribute;
+import net.mgsx.gltf.scene3d.attributes.PBRTextureAttribute;
 import net.mgsx.gltf.scene3d.scene.SceneAsset;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
@@ -58,10 +66,14 @@ public class ModelLibrary {
 
     private final Map<String, ModelMeta> metaByKey = new HashMap<>();
     private final Map<String, LoadedAsset> loadedAssetByKey = new HashMap<>();
+    private final Map<String, String> failedModelSummaryByKey = new LinkedHashMap<>();
     private final Map<Long, ModelMeta> equipmentMetaBySlotItem = new HashMap<>();
     private final Map<Integer, String> knownItemNamesById = new HashMap<>();
     private final boolean repoBacked;
     private final String repoRoot;
+    private int declaredModelCount;
+    private int loadedModelCount;
+    private int failedModelCount;
 
     private ModelLibrary(boolean repoBacked, String repoRoot) {
         this.repoBacked = repoBacked;
@@ -103,9 +115,37 @@ public class ModelLibrary {
             asset.owner().dispose();
         }
         loadedAssetByKey.clear();
+        failedModelSummaryByKey.clear();
         metaByKey.clear();
         equipmentMetaBySlotItem.clear();
         knownItemNamesById.clear();
+        declaredModelCount = 0;
+        loadedModelCount = 0;
+        failedModelCount = 0;
+    }
+
+    public int getDeclaredModelCount() {
+        return declaredModelCount;
+    }
+
+    public int getLoadedModelCount() {
+        return loadedModelCount;
+    }
+
+    public int getFailedModelCount() {
+        return failedModelCount;
+    }
+
+    public Map<String, String> getFailedModelSummaries() {
+        return Collections.unmodifiableMap(failedModelSummaryByKey);
+    }
+
+    public String getFirstFailedModelSummary() {
+        if (failedModelSummaryByKey.isEmpty()) {
+            return "";
+        }
+        Map.Entry<String, String> entry = failedModelSummaryByKey.entrySet().iterator().next();
+        return entry.getKey() + ": " + entry.getValue();
     }
 
     public boolean hasEquipmentModel(int equipSlot, int itemId) {
@@ -412,13 +452,20 @@ public class ModelLibrary {
     private void loadModels() {
         G3dModelLoader g3djLoader = new G3dModelLoader(new JsonReader());
         G3dModelLoader g3dbLoader = new G3dModelLoader(new UBJsonReader());
-        GLBLoader glbLoader = new GLBLoader();
+
+        loadedAssetByKey.clear();
+        failedModelSummaryByKey.clear();
+        declaredModelCount = metaByKey.size();
 
         for (ModelMeta meta : metaByKey.values()) {
             FileHandle handle = resolveModelHandle(meta.file());
+            String resolvedPath = handle.path();
             if (!handle.exists()) {
                 String level = meta.required() ? "ERROR" : "WARN";
-                Gdx.app.log("ModelLibrary", level + ": missing model file for key '" + meta.key() + "': " + handle.path());
+                String summary = "missing file (format=" + meta.format() + ", path=" + resolvedPath + ")";
+                failedModelSummaryByKey.put(meta.key(), summary);
+                Gdx.app.log("ModelLibrary", level + ": model load failed for key='" + meta.key()
+                    + "' format='" + meta.format() + "' path='" + resolvedPath + "' error='missing file'");
                 continue;
             }
             try {
@@ -428,11 +475,19 @@ public class ModelLibrary {
                     Model model = g3dbLoader.loadModel(handle);
                     loadedAsset = new LoadedAsset(model, model);
                 } else if (lowerFile.endsWith(".glb")) {
+                    GLBLoader glbLoader = new GLBLoader();
                     SceneAsset sceneAsset = glbLoader.load(handle);
                     if (sceneAsset == null || sceneAsset.scene == null || sceneAsset.scene.model == null) {
                         throw new IllegalStateException("GLB scene asset missing root model");
                     }
+                    normalizeGlbMaterials(sceneAsset.scene.model, meta, resolvedPath);
                     loadedAsset = new LoadedAsset(sceneAsset.scene.model, sceneAsset);
+                    Model model = loadedAsset.model();
+                    Gdx.app.log("ModelLibrary", "GLB loaded key='" + meta.key()
+                        + "' path='" + resolvedPath
+                        + "' model_id=" + System.identityHashCode(model)
+                        + " meshes=" + model.meshes.size
+                        + " materials=" + model.materials.size);
                 } else {
                     Model model = g3djLoader.loadModel(handle);
                     loadedAsset = new LoadedAsset(model, model);
@@ -440,8 +495,67 @@ public class ModelLibrary {
                 loadedAssetByKey.put(meta.key(), loadedAsset);
             } catch (Exception e) {
                 String level = meta.required() ? "ERROR" : "WARN";
-                Gdx.app.log("ModelLibrary", level + ": failed to load model for key '" + meta.key() + "': " + e.getMessage());
+                String errorMessage = e.getMessage() == null || e.getMessage().isBlank()
+                    ? e.getClass().getSimpleName()
+                    : e.getMessage();
+                String summary = "load error (format=" + meta.format() + ", path=" + resolvedPath + ", error=" + errorMessage + ")";
+                failedModelSummaryByKey.put(meta.key(), summary);
+                Gdx.app.log("ModelLibrary", level + ": model load failed for key='" + meta.key()
+                    + "' format='" + meta.format() + "' path='" + resolvedPath + "' error='" + errorMessage + "'");
             }
+        }
+
+        loadedModelCount = loadedAssetByKey.size();
+        failedModelCount = failedModelSummaryByKey.size();
+        Gdx.app.log("ModelLibrary", "Model load summary: declared=" + declaredModelCount
+            + " loaded=" + loadedModelCount
+            + " failed=" + failedModelCount);
+    }
+
+    private void normalizeGlbMaterials(Model model, ModelMeta meta, String resolvedPath) {
+        if (model == null || model.materials == null) {
+            return;
+        }
+
+        int normalized = 0;
+        for (Material material : model.materials) {
+            if (material == null) {
+                continue;
+            }
+
+            PBRColorAttribute baseColorFactor = (PBRColorAttribute) material.get(PBRColorAttribute.BaseColorFactor);
+            TextureAttribute diffuseTexture = (TextureAttribute) material.get(TextureAttribute.Diffuse);
+            PBRTextureAttribute baseColorTexture = (PBRTextureAttribute) material.get(PBRTextureAttribute.BaseColorTexture);
+            ColorAttribute diffuseColor = (ColorAttribute) material.get(ColorAttribute.Diffuse);
+
+            boolean touched = false;
+
+            if (baseColorTexture != null && diffuseTexture == null && baseColorTexture.textureDescription != null) {
+                material.set(new TextureAttribute(TextureAttribute.Diffuse, baseColorTexture.textureDescription));
+                touched = true;
+            }
+
+            if (baseColorFactor != null) {
+                Color base = baseColorFactor.color == null ? Color.WHITE : baseColorFactor.color;
+                if (diffuseColor == null) {
+                    material.set(ColorAttribute.createDiffuse(base));
+                } else {
+                    diffuseColor.color.set(base);
+                }
+                touched = true;
+            } else if (diffuseColor == null && diffuseTexture == null && baseColorTexture == null) {
+                material.set(ColorAttribute.createDiffuse(Color.LIGHT_GRAY));
+                touched = true;
+            }
+
+            if (touched) {
+                normalized++;
+            }
+        }
+
+        if (normalized > 0) {
+            Gdx.app.log("ModelLibrary", "GLB material compatibility normalized for key='" + meta.key()
+                + "' path='" + resolvedPath + "' materials=" + normalized);
         }
     }
 

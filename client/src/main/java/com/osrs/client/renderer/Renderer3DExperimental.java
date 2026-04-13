@@ -189,6 +189,8 @@ public class Renderer3DExperimental {
     private final Map<String, ModelInstance> previewInstanceByKey = new HashMap<>();
     private final Map<String, AnimationController> previewAnimationControllerByKey = new HashMap<>();
     private final Map<String, String> previewClipByKey = new HashMap<>();
+    private String previewLoggedModelKey = "";
+    private int previewLoggedModelIdentity = 0;
     private ModelInstance previewEquipmentFitPlayerInstance;
     private AnimationController previewEquipmentFitPlayerController;
     private String previewEquipmentFitPlayerClip = "";
@@ -510,6 +512,16 @@ public class Renderer3DExperimental {
         ModelLibrary.ModelMeta meta = modelLibrary.getMeta(modelKey);
         if (model == null || meta == null) {
             return false;
+        }
+
+        int modelIdentity = System.identityHashCode(model);
+        if (!modelKey.equals(previewLoggedModelKey) || modelIdentity != previewLoggedModelIdentity) {
+            Gdx.app.log("Renderer3DExperimental", "Workbench preview key='" + modelKey
+                + "' model_id=" + modelIdentity
+                + " meshes=" + model.meshes.size
+                + " materials=" + model.materials.size);
+            previewLoggedModelKey = modelKey;
+            previewLoggedModelIdentity = modelIdentity;
         }
 
         ModelInstance instance = previewInstanceByKey.get(modelKey);

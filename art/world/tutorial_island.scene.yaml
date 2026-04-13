@@ -423,3 +423,9 @@ static_props:
   rotation_y_degrees: 0.0
   scale: 1.0
   visibility_group: "roof"
+- key: "anvil"
+  x: 49
+  "y": 53
+  rotation_y_degrees: 0.0
+  scale: 1.0
+  visibility_group: "base"

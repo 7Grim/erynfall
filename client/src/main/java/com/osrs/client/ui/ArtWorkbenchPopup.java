@@ -82,6 +82,10 @@ public class ArtWorkbenchPopup {
     private String worldSearchQuery = "";
     private String entityBindingSearchQuery = "";
     private boolean selectionSearchActive = false;
+    private int declaredModelCount = 0;
+    private int loadedModelCount = 0;
+    private int failedModelCount = 0;
+    private String firstFailedModelSummary = "";
     private int entityBindingSelectedEntityId = -1;
     private int entityBindingSelectedDefinitionId = -1;
     private String entityBindingSelectedName = "";
@@ -98,10 +102,19 @@ public class ArtWorkbenchPopup {
             modelKeys.addAll(keys);
         }
         Collections.sort(modelKeys);
-        if (selectedIndex >= modelKeys.size()) {
-            selectedIndex = Math.max(0, modelKeys.size() - 1);
+        if (modelKeys.isEmpty()) {
+            selectedIndex = -1;
+        } else if (selectedIndex >= modelKeys.size()) {
+            selectedIndex = modelKeys.size() - 1;
         }
         applySearchSelection();
+    }
+
+    public void setModelLoadSummary(int declared, int loaded, int failed, String firstFailureSummary) {
+        declaredModelCount = Math.max(0, declared);
+        loadedModelCount = Math.max(0, loaded);
+        failedModelCount = Math.max(0, failed);
+        firstFailedModelSummary = firstFailureSummary == null ? "" : firstFailureSummary;
     }
 
     public void setEquipmentOptions(Map<Integer, List<ModelLibrary.EquipmentPreviewOption>> optionsBySlot) {
@@ -223,7 +236,7 @@ public class ArtWorkbenchPopup {
         }
         List<Integer> filtered = filteredModelIndices();
         if (filtered.isEmpty()) {
-            selectedIndex = 0;
+            selectedIndex = -1;
             return;
         }
         int current = filtered.indexOf(selectedIndex);
@@ -251,7 +264,7 @@ public class ArtWorkbenchPopup {
         }
         List<Integer> filtered = filteredModelIndices();
         if (filtered.isEmpty()) {
-            selectedIndex = 0;
+            selectedIndex = -1;
             return;
         }
         int current = filtered.indexOf(selectedIndex);
@@ -569,7 +582,7 @@ public class ArtWorkbenchPopup {
             case MODEL_PREVIEW -> {
                 List<Integer> filtered = filteredModelIndices();
                 if (filtered.isEmpty()) {
-                    selectedIndex = 0;
+                    selectedIndex = -1;
                 } else if (!filtered.contains(selectedIndex)) {
                     selectedIndex = filtered.get(0);
                 }
@@ -601,6 +614,8 @@ public class ArtWorkbenchPopup {
                 }
                 List<Integer> filtered = filteredEntityBindingModelIndices();
                 if (filtered.isEmpty()) {
+                    entityBindingCandidateModelIndex = -1;
+                    entityBindingCandidateModelKey = "";
                     return;
                 }
                 if (!filtered.contains(entityBindingCandidateModelIndex)) {
@@ -709,7 +724,7 @@ public class ArtWorkbenchPopup {
     }
 
     public String selectedModelKey() {
-        if (modelKeys.isEmpty()) {
+        if (selectedIndex < 0 || selectedIndex >= modelKeys.size()) {
             return "";
         }
         return modelKeys.get(selectedIndex);
@@ -887,6 +902,27 @@ public class ArtWorkbenchPopup {
         String queryText = query.isBlank() ? "(type to filter)" : query;
         font.draw(batch, truncateToWidth(font, queryText + "  [" + matches + "]", leftWidth - 60), leftX + 58, y);
         y -= 22;
+        font.setColor(0.80f, 0.84f, 0.90f, 1f);
+        font.draw(batch, "Models:", leftX, y);
+        font.setColor(0.96f, 0.96f, 0.96f, 1f);
+        font.draw(batch,
+            "declared " + declaredModelCount + "   loaded " + loadedModelCount + "   failed " + failedModelCount,
+            leftX + 54,
+            y);
+        y -= 22;
+        if (matches == 0) {
+            font.setColor(0.96f, 0.80f, 0.70f, 1f);
+            String noMatch = query.isBlank()
+                ? "No loaded models available for preview"
+                : "No loaded model matches \"" + query + "\"";
+            font.draw(batch, truncateToWidth(font, noMatch, leftWidth), leftX, y);
+            y -= 20;
+        }
+        if (!firstFailedModelSummary.isBlank()) {
+            font.setColor(0.96f, 0.80f, 0.70f, 1f);
+            font.draw(batch, truncateToWidth(font, "First failure: " + firstFailedModelSummary, leftWidth), leftX, y);
+            y -= 20;
+        }
         font.setColor(0.80f, 0.84f, 0.90f, 1f);
         font.draw(batch, "Neutral isolated preview", leftX, y);
 

@@ -635,6 +635,7 @@ public class GameScreen extends ApplicationAdapter {
         artWorkbenchPopup.setSceneEditState(sceneEditState);
         artWorkbenchPopup.setModelKeys(modelLibrary.getModelKeys());
         artWorkbenchPopup.setEquipmentOptions(modelLibrary.getLoadedEquipmentOptionsBySlot());
+        updateWorkbenchModelDiagnostics();
 
         if (!artistMode) {
             Thread t = new Thread(() -> {
@@ -4590,9 +4591,22 @@ public class GameScreen extends ApplicationAdapter {
             artWorkbenchPopup.setSceneEditState(sceneEditState);
             artWorkbenchPopup.setModelKeys(modelLibrary.getModelKeys());
             artWorkbenchPopup.setEquipmentOptions(modelLibrary.getLoadedEquipmentOptionsBySlot());
+            updateWorkbenchModelDiagnostics();
         }
         LOG.info("Hot reload complete (sprites, models, static props, terrain). Model source={}",
             artistMode ? "repo art/models" : "classpath runtime resources");
+    }
+
+    private void updateWorkbenchModelDiagnostics() {
+        if (artWorkbenchPopup == null || modelLibrary == null) {
+            return;
+        }
+        artWorkbenchPopup.setModelLoadSummary(
+            modelLibrary.getDeclaredModelCount(),
+            modelLibrary.getLoadedModelCount(),
+            modelLibrary.getFailedModelCount(),
+            modelLibrary.getFirstFailedModelSummary()
+        );
     }
 
     private void handleDialogueInput() {
