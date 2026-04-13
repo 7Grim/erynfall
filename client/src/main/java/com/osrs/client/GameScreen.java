@@ -6509,25 +6509,25 @@ public class GameScreen extends ApplicationAdapter {
         font.getData().setScale(FontManager.getScale(FontManager.FontContext.BASE_UI));
     }
 
-    private void renderRendererModeLabel() {
-        int w = Gdx.graphics.getWidth();
-        int h = Gdx.graphics.getHeight();
-        String modeLabel = use3DRenderer ? "Renderer: 3D Experimental" : "Renderer: 2D Isometric";
+    // private void renderRendererModeLabel() {
+    //     int w = Gdx.graphics.getWidth();
+    //     int h = Gdx.graphics.getHeight();
+    //     String modeLabel = use3DRenderer ? "Renderer: 3D Experimental" : "Renderer: 2D Isometric";
 
-        screenBatch.setProjectionMatrix(screenProjection);
-        screenBatch.begin();
-        font.getData().setScale(FontManager.getScale(FontManager.FontContext.SMALL_LABEL));
-        gl.setText(font, modeLabel);
-        float x = w - gl.width - 12f;
-        float y = h - 12f;
-        font.setColor(0f, 0f, 0f, 0.75f);
-        font.draw(screenBatch, modeLabel, x + 1f, y - 1f);
-        font.setColor(0.88f, 0.88f, 0.88f, 0.95f);
-        font.draw(screenBatch, modeLabel, x, y);
-        font.getData().setScale(FontManager.getScale(FontManager.FontContext.BASE_UI));
-        font.setColor(COLOR_WHITE);
-        screenBatch.end();
-    }
+    //     screenBatch.setProjectionMatrix(screenProjection);
+    //     screenBatch.begin();
+    //     font.getData().setScale(FontManager.getScale(FontManager.FontContext.SMALL_LABEL));
+    //     gl.setText(font, modeLabel);
+    //     float x = w - gl.width - 12f;
+    //     float y = h - 12f;
+    //     font.setColor(0f, 0f, 0f, 0.75f);
+    //     font.draw(screenBatch, modeLabel, x + 1f, y - 1f);
+    //     font.setColor(0.88f, 0.88f, 0.88f, 0.95f);
+    //     font.draw(screenBatch, modeLabel, x, y);
+    //     font.getData().setScale(FontManager.getScale(FontManager.FontContext.BASE_UI));
+    //     font.setColor(COLOR_WHITE);
+    //     screenBatch.end();
+    // }
 
     // -----------------------------------------------------------------------
     // Lifecycle
