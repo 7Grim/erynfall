@@ -6,6 +6,7 @@ import com.badlogic.gdx.graphics.g2d.GlyphLayout;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.Matrix4;
+import com.osrs.client.art.SceneEditState;
 import com.osrs.client.renderer.ModelLibrary;
 import com.osrs.shared.EquipmentSlot;
 
@@ -25,7 +26,8 @@ public class ArtWorkbenchPopup {
 
     public enum Mode {
         MODEL_PREVIEW,
-        EQUIPMENT_FIT
+        EQUIPMENT_FIT,
+        WORLD_PLACEMENT
     }
 
     private static final int PANEL_W = 580;
@@ -57,11 +59,16 @@ public class ArtWorkbenchPopup {
     private final ArrayList<String> modelKeys = new ArrayList<>();
     private final Map<Integer, List<ModelLibrary.EquipmentPreviewOption>> equipmentOptionsBySlot = new HashMap<>();
     private final Map<Integer, Integer> equipmentSelectionIndexBySlot = new HashMap<>();
+    private final Map<Integer, float[]> transformOverridesBySlot = new HashMap<>();
     private boolean visible = false;
     private int selectedIndex = 0;
     private int activeSlotIndex = 0;
     private ClipMode clipMode = ClipMode.AUTO;
     private Mode mode = Mode.MODEL_PREVIEW;
+    private String exportStatus = "";
+    private String exportSnippet = "";
+    private String worldPlacementStatus = "";
+    private SceneEditState sceneEditState;
 
     public void setModelKeys(List<String> keys) {
         modelKeys.clear();
@@ -133,7 +140,11 @@ public class ArtWorkbenchPopup {
     }
 
     public void cycleMode() {
-        mode = mode == Mode.MODEL_PREVIEW ? Mode.EQUIPMENT_FIT : Mode.MODEL_PREVIEW;
+        mode = switch (mode) {
+            case MODEL_PREVIEW -> Mode.EQUIPMENT_FIT;
+            case EQUIPMENT_FIT -> Mode.WORLD_PLACEMENT;
+            case WORLD_PLACEMENT -> Mode.MODEL_PREVIEW;
+        };
     }
 
     public void cycleClipMode() {
@@ -160,6 +171,102 @@ public class ArtWorkbenchPopup {
             return;
         }
         equipmentSelectionIndexBySlot.put(activeSlot(), -1);
+    }
+
+    public int activeSlot() {
+        return VISIBLE_SLOTS[Math.max(0, Math.min(activeSlotIndex, VISIBLE_SLOTS.length - 1))];
+    }
+
+    public String activeSlotLabel() {
+        return VISIBLE_SLOT_LABELS[Math.max(0, Math.min(activeSlotIndex, VISIBLE_SLOTS.length - 1))];
+    }
+
+    public ModelLibrary.EquipmentPreviewOption activeEquipmentOption() {
+        return selectedOptionForSlot(activeSlot());
+    }
+
+    public float[] activeSlotTransformOverride() {
+        float[] values = transformOverridesBySlot.get(activeSlot());
+        if (values == null || values.length < 6) {
+            return new float[6];
+        }
+        return new float[]{values[0], values[1], values[2], values[3], values[4], values[5]};
+    }
+
+    public void setExportResult(String status, String snippet) {
+        exportStatus = status == null ? "" : status;
+        exportSnippet = snippet == null ? "" : snippet;
+    }
+
+    public void setSceneEditState(SceneEditState sceneEditState) {
+        this.sceneEditState = sceneEditState;
+    }
+
+    public void setWorldPlacementStatus(String status) {
+        this.worldPlacementStatus = status == null ? "" : status;
+    }
+
+    public void cycleWorldPlacementProp(int direction) {
+        if (mode == Mode.WORLD_PLACEMENT && sceneEditState != null) {
+            sceneEditState.cyclePlaceableKey(direction);
+        }
+    }
+
+    public void rotateWorldPlacement(float deltaDegrees) {
+        if (mode == Mode.WORLD_PLACEMENT && sceneEditState != null) {
+            sceneEditState.rotateSelectedOrPreview(deltaDegrees);
+        }
+    }
+
+    public void scaleWorldPlacement(float deltaScale) {
+        if (mode == Mode.WORLD_PLACEMENT && sceneEditState != null) {
+            sceneEditState.scaleSelectedOrPreview(deltaScale);
+        }
+    }
+
+    public void resetWorldPlacementTransform() {
+        if (mode == Mode.WORLD_PLACEMENT && sceneEditState != null) {
+            sceneEditState.resetPreviewTransform();
+        }
+    }
+
+    public void adjustActiveSlotOffset(float dx, float dy, float dz) {
+        if (mode != Mode.EQUIPMENT_FIT) {
+            return;
+        }
+        float[] values = transformOverridesBySlot.computeIfAbsent(activeSlot(), ignored -> new float[6]);
+        values[0] += dx;
+        values[1] += dy;
+        values[2] += dz;
+    }
+
+    public void adjustActiveSlotRotation(float dRx, float dRy, float dRz) {
+        if (mode != Mode.EQUIPMENT_FIT) {
+            return;
+        }
+        float[] values = transformOverridesBySlot.computeIfAbsent(activeSlot(), ignored -> new float[6]);
+        values[3] += dRx;
+        values[4] += dRy;
+        values[5] += dRz;
+    }
+
+    public void resetActiveSlotTransformOverrides() {
+        if (mode != Mode.EQUIPMENT_FIT) {
+            return;
+        }
+        transformOverridesBySlot.remove(activeSlot());
+    }
+
+    public Map<Integer, float[]> equipmentTransformOverrides() {
+        Map<Integer, float[]> copy = new HashMap<>();
+        for (Map.Entry<Integer, float[]> entry : transformOverridesBySlot.entrySet()) {
+            float[] source = entry.getValue();
+            if (source == null || source.length < 6) {
+                continue;
+            }
+            copy.put(entry.getKey(), new float[]{source[0], source[1], source[2], source[3], source[4], source[5]});
+        }
+        return copy;
     }
 
     private void cycleEquipmentOption(int direction) {
@@ -266,8 +373,10 @@ public class ArtWorkbenchPopup {
 
         if (mode == Mode.MODEL_PREVIEW) {
             renderModelPreviewText(batch, font, x, y);
-        } else {
+        } else if (mode == Mode.EQUIPMENT_FIT) {
             renderEquipmentFitText(batch, font, x, y);
+        } else {
+            renderWorldPlacementText(batch, font, x, y);
         }
 
         font.setColor(0.80f, 0.84f, 0.90f, 1f);
@@ -319,19 +428,53 @@ public class ArtWorkbenchPopup {
         int optionCount = options.size();
         int selected = equipmentSelectionIndexBySlot.getOrDefault(slot, -1);
         String progress = selected < 0 ? "empty" : (selected + 1) + " / " + optionCount;
+        float[] override = transformOverridesBySlot.getOrDefault(slot, new float[6]);
 
         font.setColor(0.80f, 0.84f, 0.90f, 1f);
-        font.draw(batch, "< / > slot (comma/period), [ / ] option, backspace clear", x + 14, y + 64);
-        font.draw(batch, "Slot options: " + optionCount + "  current: " + progress, x + 14, y + 44);
-        font.draw(batch, "Mannequin uses player_base + real attachment pipeline", x + 14, y + 24);
+        font.draw(batch, "< / > slot (comma/period), [ / ] option, backspace clear", x + 14, y + 84);
+        font.draw(batch, "W/S Y  A/D X  Q/E Z  |  I/K RX  J/L RY  U/O RZ  |  R reset", x + 14, y + 64);
+        font.draw(batch, "Shift fine, Ctrl coarse", x + 14, y + 44);
+        font.draw(batch, String.format("OVR off(%.3f, %.3f, %.3f) rot(%.2f, %.2f, %.2f)",
+            override[0], override[1], override[2], override[3], override[4], override[5]), x + 14, y + 24);
+        font.draw(batch, "Slot options: " + optionCount + "  current: " + progress + "  |  C export  P save", x + 14, y + 6);
+
+        if (!exportStatus.isBlank()) {
+            font.setColor(0.93f, 0.95f, 0.84f, 1f);
+            font.draw(batch, "Export: " + exportStatus, x + 290, y + PANEL_H - 86);
+        }
+        if (!exportSnippet.isBlank()) {
+            String compact = exportSnippet.replace('\n', ' ').trim();
+            if (compact.length() > 68) {
+                compact = compact.substring(0, 68) + "...";
+            }
+            font.setColor(0.72f, 0.78f, 0.90f, 1f);
+            font.draw(batch, compact, x + 290, y + PANEL_H - 110);
+        }
     }
 
-    private int activeSlot() {
-        return VISIBLE_SLOTS[Math.max(0, Math.min(activeSlotIndex, VISIBLE_SLOTS.length - 1))];
-    }
+    private void renderWorldPlacementText(SpriteBatch batch, BitmapFont font, int x, int y) {
+        String key = sceneEditState == null ? "" : sceneEditState.selectedPlaceableKey();
+        float rot = sceneEditState == null ? 0f : sceneEditState.previewRotationYDegrees();
+        float scale = sceneEditState == null ? 1f : sceneEditState.previewScale();
+        int count = sceneEditState == null ? 0 : sceneEditState.placements().size();
+        int selected = sceneEditState == null ? -1 : sceneEditState.selectedPlacementIndex();
+        boolean dirty = sceneEditState != null && sceneEditState.dirty();
 
-    private String activeSlotLabel() {
-        return VISIBLE_SLOT_LABELS[Math.max(0, Math.min(activeSlotIndex, VISIBLE_SLOTS.length - 1))];
+        font.setColor(0.82f, 0.88f, 0.98f, 1f);
+        font.draw(batch, "Place key:", x + 14, y + PANEL_H - 86);
+        font.setColor(0.99f, 0.96f, 0.72f, 1f);
+        font.draw(batch, key.isBlank() ? "(no placeable keys)" : key, x + 84, y + PANEL_H - 86);
+
+        font.setColor(0.80f, 0.84f, 0.90f, 1f);
+        font.draw(batch, String.format("Preview rot_y: %.1f   scale: %.2f", rot, scale), x + 14, y + 64);
+        font.draw(batch, "[ / ] key   , / . rotate   - / = scale", x + 14, y + 44);
+        font.draw(batch, "LMB place/select   Backspace delete selected   R reset preview", x + 14, y + 24);
+        font.draw(batch, "P save scene   placements: " + count + "   selected: " + selected + "   dirty: " + dirty, x + 14, y + 6);
+
+        if (!worldPlacementStatus.isBlank()) {
+            font.setColor(0.93f, 0.95f, 0.84f, 1f);
+            font.draw(batch, "Status: " + worldPlacementStatus, x + 300, y + PANEL_H - 86);
+        }
     }
 
     private ModelLibrary.EquipmentPreviewOption selectedOptionForSlot(int slot) {

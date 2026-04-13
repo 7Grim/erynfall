@@ -559,7 +559,10 @@ public class Renderer3DExperimental {
         return true;
     }
 
-    public boolean renderWorkbenchEquipmentFitPreview(String requestedClip, int[] equippedItemIds, float delta) {
+    public boolean renderWorkbenchEquipmentFitPreview(String requestedClip,
+                                                      int[] equippedItemIds,
+                                                      Map<Integer, float[]> previewOverridesBySlot,
+                                                      float delta) {
         resetDebugCapture();
         if (modelLibrary == null || !modelLibrary.hasModel("player_base")) {
             return false;
@@ -607,7 +610,14 @@ public class Renderer3DExperimental {
             actorModelsRenderedLastFrame++;
             captureDebugModelMarker("player_base", baseModel, previewEquipmentFitPlayerInstance);
             capturePlayerAnchorMarkers(previewEquipmentFitPlayerInstance);
-            renderPlayerEquipmentAttachments(previewEquipmentFitPlayerInstance, -0.5f, -0.5f, 0f, 0f, baseScale, equippedItemIds);
+            renderPlayerEquipmentAttachments(previewEquipmentFitPlayerInstance,
+                -0.5f,
+                -0.5f,
+                0f,
+                0f,
+                baseScale,
+                equippedItemIds,
+                previewOverridesBySlot);
             modelBatch.end();
             batchOpen = false;
             Gdx.gl.glDisable(GL20.GL_DEPTH_TEST);
@@ -876,7 +886,7 @@ public class Renderer3DExperimental {
             captureDebugModelMarker(baseKey, baseModel, baseInstance);
             capturePlayerAnchorMarkers(baseInstance);
 
-            renderPlayerEquipmentAttachments(baseInstance, tileX, tileY, tileBaseY, rotationYDegrees, baseScale, equippedItemIds);
+            renderPlayerEquipmentAttachments(baseInstance, tileX, tileY, tileBaseY, rotationYDegrees, baseScale, equippedItemIds, null);
         } finally {
             restoreHiddenBaseNodes(previousNodeVisibility);
         }
@@ -943,7 +953,7 @@ public class Renderer3DExperimental {
                 captureDebugModelMarker("player_base", animatedInstance.model, animatedInstance);
                 capturePlayerAnchorMarkers(animatedInstance);
 
-                renderPlayerEquipmentAttachments(animatedInstance, tileX, tileY, tileBaseY, rotationYDegrees, baseScale, equippedItemIds);
+                renderPlayerEquipmentAttachments(animatedInstance, tileX, tileY, tileBaseY, rotationYDegrees, baseScale, equippedItemIds, null);
             } finally {
                 restoreHiddenBaseNodes(previousNodeVisibility);
             }
@@ -1062,7 +1072,8 @@ public class Renderer3DExperimental {
                                                   float tileBaseY,
                                                   float rotationYDegrees,
                                                   float baseScale,
-                                                  int[] equippedItemIds) {
+                                                  int[] equippedItemIds,
+                                                  Map<Integer, float[]> previewOverridesBySlot) {
         if (equippedItemIds == null) {
             return;
         }
@@ -1088,13 +1099,32 @@ public class Renderer3DExperimental {
 
             ModelInstance equipInstance = obtainActorModelInstance(equipMeta.key(), equipModel);
             equipInstance.transform.idt();
+
+            float offsetX = equipMeta.offsetX();
+            float offsetY = equipMeta.offsetY();
+            float offsetZ = equipMeta.offsetZ();
+            float rotX = equipMeta.rotX();
+            float rotY = equipMeta.rotY();
+            float rotZ = equipMeta.rotZ();
+            if (previewOverridesBySlot != null) {
+                float[] override = previewOverridesBySlot.get(slot);
+                if (override != null && override.length >= 6) {
+                    offsetX += override[0];
+                    offsetY += override[1];
+                    offsetZ += override[2];
+                    rotX += override[3];
+                    rotY += override[4];
+                    rotZ += override[5];
+                }
+            }
+
             Matrix4 anchorTransform = findActorAnchorTransform(baseInstance, equipMeta.anchorName());
             if (anchorTransform != null) {
                 equipInstance.transform.set(anchorTransform);
                 equipInstance.transform.translate(
-                    equipMeta.offsetX() - defaultAnchorOffsetXForSlot(slot),
-                    equipMeta.offsetY() - defaultAnchorOffsetYForSlot(slot),
-                    equipMeta.offsetZ() - defaultAnchorOffsetZForSlot(slot)
+                    offsetX - defaultAnchorOffsetXForSlot(slot),
+                    offsetY - defaultAnchorOffsetYForSlot(slot),
+                    offsetZ - defaultAnchorOffsetZForSlot(slot)
                 );
             } else {
                 equipInstance.transform.translate(tileX + 0.5f, tileBaseY, tileY + 0.5f);
@@ -1104,16 +1134,16 @@ public class Renderer3DExperimental {
                 if (Math.abs(baseScale - 1f) > 0.0001f) {
                     equipInstance.transform.scale(baseScale, baseScale, baseScale);
                 }
-                equipInstance.transform.translate(equipMeta.offsetX(), equipMeta.offsetY(), equipMeta.offsetZ());
+                equipInstance.transform.translate(offsetX, offsetY, offsetZ);
             }
-            if (Math.abs(equipMeta.rotX()) > 0.0001f) {
-                equipInstance.transform.rotate(Vector3.X, equipMeta.rotX());
+            if (Math.abs(rotX) > 0.0001f) {
+                equipInstance.transform.rotate(Vector3.X, rotX);
             }
-            if (Math.abs(equipMeta.rotY()) > 0.0001f) {
-                equipInstance.transform.rotate(Vector3.Y, equipMeta.rotY());
+            if (Math.abs(rotY) > 0.0001f) {
+                equipInstance.transform.rotate(Vector3.Y, rotY);
             }
-            if (Math.abs(equipMeta.rotZ()) > 0.0001f) {
-                equipInstance.transform.rotate(Vector3.Z, equipMeta.rotZ());
+            if (Math.abs(rotZ) > 0.0001f) {
+                equipInstance.transform.rotate(Vector3.Z, rotZ);
             }
             if (equipMeta.scale() > 0f && Math.abs(equipMeta.scale() - 1f) > 0.0001f) {
                 equipInstance.transform.scale(equipMeta.scale(), equipMeta.scale(), equipMeta.scale());

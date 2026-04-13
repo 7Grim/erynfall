@@ -18,6 +18,9 @@ import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.math.collision.Ray;
 import com.osrs.protocol.NetworkProto;
 import com.osrs.client.auth.AuthApiClient;
+import com.osrs.client.art.ManifestEquipmentTransformSaver;
+import com.osrs.client.art.SceneEditState;
+import com.osrs.client.art.ScenePersistence;
 import com.osrs.client.network.ClientPacketHandler;
 import com.osrs.client.network.NettyClient;
 import com.osrs.client.renderer.CoordinateConverter;
@@ -57,6 +60,7 @@ import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -170,6 +174,9 @@ public class GameScreen extends ApplicationAdapter {
     private SpriteSheet      spriteSheet;
     private ModelLibrary     modelLibrary;
     private List<StaticPropLoader.StaticPropPlacement> staticPropPlacements = List.of();
+    private SceneEditState sceneEditState;
+    private int worldPlacementHoverTileX = -1;
+    private int worldPlacementHoverTileY = -1;
     private int[][] terrainHeightLevels;
     private float terrainHeightStep = 0.6f;
     private AudioManager     audioManager;
@@ -592,6 +599,9 @@ public class GameScreen extends ApplicationAdapter {
         terrainHeightLevels = terrainHeightData.levels;
         terrainHeightStep = terrainHeightData.heightStep;
         staticPropPlacements = StaticPropLoader.load(launchOptions);
+        sceneEditState = new SceneEditState();
+        sceneEditState.setPlacements(staticPropPlacements);
+        sceneEditState.setPlaceableKeys(collectPlaceableStaticPropKeys());
         renderer3d.setTerrainHeightData(terrainHeightLevels, terrainHeightStep);
         renderer3d.rebuildTerrain(tileMap);
         contextMenu = new ContextMenu();
@@ -611,6 +621,7 @@ public class GameScreen extends ApplicationAdapter {
         skillGuidePopup = new SkillGuidePopup();
         adminToolsPopup = new AdminToolsPopup();
         artWorkbenchPopup = new ArtWorkbenchPopup();
+        artWorkbenchPopup.setSceneEditState(sceneEditState);
         artWorkbenchPopup.setModelKeys(modelLibrary.getModelKeys());
         artWorkbenchPopup.setEquipmentOptions(modelLibrary.getLoadedEquipmentOptionsBySlot());
 
@@ -1330,30 +1341,12 @@ public class GameScreen extends ApplicationAdapter {
 
         // F5: hot-reload sprite atlas (run mvn generate-resources -pl client first)
         if (Gdx.input.isKeyJustPressed(Input.Keys.F5)) {
-            if (spriteSheet != null) spriteSheet.dispose();
-            if (modelLibrary != null) modelLibrary.dispose();
-            spriteSheet = SpriteSheet.load();
-            modelLibrary = ModelLibrary.load(launchOptions);
-            staticPropPlacements = StaticPropLoader.load(launchOptions);
-            TerrainHeightLoader.TerrainHeightData terrainHeightData = TerrainHeightLoader.load(launchOptions);
-            terrainHeightLevels = terrainHeightData.levels;
-            terrainHeightStep = terrainHeightData.heightStep;
-            renderer2d.setSpriteSheet(spriteSheet);
-            renderer3d.setSpriteSheet(spriteSheet);
-            renderer3d.setModelLibrary(modelLibrary);
-            renderer3d.setArtistDebugVisualization(debug3DArtistBoundsAxes, debug3DArtistAnchors);
-            renderer3d.setTerrainHeightData(terrainHeightLevels, terrainHeightStep);
-            renderer3d.rebuildTerrain(tileMap);
-            if (artWorkbenchPopup != null) {
-                artWorkbenchPopup.setModelKeys(modelLibrary.getModelKeys());
-                artWorkbenchPopup.setEquipmentOptions(modelLibrary.getLoadedEquipmentOptionsBySlot());
-            }
-            LOG.info("Hot reload complete (sprites, models, static props, terrain). Model source={}",
-                artistMode ? "repo art/models" : "classpath runtime resources");
+            reloadRuntimeAssets();
         }
 
         if (use3DRenderer) {
-            boolean previewMode = artistMode && artWorkbenchPopup != null && artWorkbenchPopup.isVisible();
+            boolean previewMode = artistMode && artWorkbenchPopup != null && artWorkbenchPopup.isVisible()
+                && artWorkbenchPopup.mode() != ArtWorkbenchPopup.Mode.WORLD_PLACEMENT;
             renderer3d.update(delta);
             if (!previewMode) {
                 updateCameraOrbit(delta);
@@ -1403,12 +1396,19 @@ public class GameScreen extends ApplicationAdapter {
         List<ActorRenderEntry> actorEntries = collectActorRenderEntries(handler);
         List<ShadowRenderEntry> shadowEntries = collectShadowRenderEntries(actorEntries);
         if (use3DRenderer) {
-            boolean previewMode = artistMode && artWorkbenchPopup != null && artWorkbenchPopup.isVisible();
+            boolean previewMode = artistMode && artWorkbenchPopup != null && artWorkbenchPopup.isVisible()
+                && artWorkbenchPopup.mode() != ArtWorkbenchPopup.Mode.WORLD_PLACEMENT;
+            boolean worldPlacementMode = artistMode && artWorkbenchPopup != null && artWorkbenchPopup.isVisible()
+                && artWorkbenchPopup.mode() == ArtWorkbenchPopup.Mode.WORLD_PLACEMENT;
+            if (worldPlacementMode) {
+                updateWorldPlacementHoverTile();
+            }
             if (previewMode) {
                 if (artWorkbenchPopup.mode() == ArtWorkbenchPopup.Mode.EQUIPMENT_FIT) {
                     renderer3d.renderWorkbenchEquipmentFitPreview(
                         artWorkbenchPopup.selectedClipName(),
                         artWorkbenchPopup.selectedEquipmentItemIds(),
+                        artWorkbenchPopup.equipmentTransformOverrides(),
                         delta
                     );
                 } else {
@@ -2021,12 +2021,13 @@ public class GameScreen extends ApplicationAdapter {
     }
 
     private void renderStaticProps3D() {
-        if (renderer3d == null || staticPropPlacements == null || staticPropPlacements.isEmpty()) {
+        List<StaticPropLoader.StaticPropPlacement> renderPlacements = getRenderStaticPropPlacements();
+        if (renderer3d == null || renderPlacements == null || renderPlacements.isEmpty()) {
             return;
         }
 
         renderer3d.beginStaticPropPass();
-        for (StaticPropLoader.StaticPropPlacement prop : staticPropPlacements) {
+        for (StaticPropLoader.StaticPropPlacement prop : renderPlacements) {
             if (shouldCullByDistanceAndFrustum3D(prop.x, prop.y, CULL_DISTANCE_STATIC_PROPS_3D)) {
                 continue;
             }
@@ -2035,7 +2036,7 @@ public class GameScreen extends ApplicationAdapter {
             }
             renderer3d.renderPlacedStaticPropModel(prop.key, prop.x, prop.y, prop.rotationYDegrees, prop.scale, 1f);
         }
-        for (StaticPropLoader.StaticPropPlacement prop : staticPropPlacements) {
+        for (StaticPropLoader.StaticPropPlacement prop : renderPlacements) {
             if (shouldCullByDistanceAndFrustum3D(prop.x, prop.y, CULL_DISTANCE_STATIC_PROPS_3D)) {
                 continue;
             }
@@ -2045,6 +2046,17 @@ public class GameScreen extends ApplicationAdapter {
             float alpha = propOccludesLocalPlayer(prop) ? ROOF_PROP_OCCLUSION_ALPHA : 1f;
             renderer3d.renderPlacedStaticPropModel(prop.key, prop.x, prop.y, prop.rotationYDegrees, prop.scale, alpha);
         }
+        if (isWorldPlacementModeActive() && worldPlacementHoverTileX >= 0 && worldPlacementHoverTileY >= 0
+            && sceneEditState != null && renderer3d.hasStaticPropModel(sceneEditState.selectedPlaceableKey())) {
+            renderer3d.renderPlacedStaticPropModel(
+                sceneEditState.selectedPlaceableKey(),
+                worldPlacementHoverTileX,
+                worldPlacementHoverTileY,
+                sceneEditState.previewRotationYDegrees(),
+                sceneEditState.previewScale(),
+                0.45f
+            );
+        }
         renderer3d.endStaticPropPass();
     }
 
@@ -2052,6 +2064,58 @@ public class GameScreen extends ApplicationAdapter {
         float dx = Math.abs((prop.x + 0.5f) - (visualX + 0.5f));
         float dy = Math.abs((prop.y + 0.5f) - (visualY + 0.5f));
         return dx <= 2.0f && dy <= 2.0f;
+    }
+
+    private boolean isWorldPlacementModeActive() {
+        return artistMode
+            && use3DRenderer
+            && artWorkbenchPopup != null
+            && artWorkbenchPopup.isVisible()
+            && artWorkbenchPopup.mode() == ArtWorkbenchPopup.Mode.WORLD_PLACEMENT
+            && sceneEditState != null;
+    }
+
+    private List<StaticPropLoader.StaticPropPlacement> getRenderStaticPropPlacements() {
+        if (isWorldPlacementModeActive()) {
+            return sceneEditState.placements();
+        }
+        return staticPropPlacements;
+    }
+
+    private void updateWorldPlacementHoverTile() {
+        worldPlacementHoverTileX = -1;
+        worldPlacementHoverTileY = -1;
+        if (!isWorldPlacementModeActive()) {
+            return;
+        }
+        int[] tile = screenToTile(Gdx.input.getX(), Gdx.input.getY());
+        if (tile[0] >= 0 && tile[1] >= 0) {
+            worldPlacementHoverTileX = tile[0];
+            worldPlacementHoverTileY = tile[1];
+        }
+    }
+
+    private List<String> collectPlaceableStaticPropKeys() {
+        if (modelLibrary == null) {
+            return List.of();
+        }
+        ArrayList<String> keys = new ArrayList<>();
+        for (String key : modelLibrary.getModelKeys()) {
+            ModelLibrary.ModelMeta meta = modelLibrary.getMeta(key);
+            if (meta == null) {
+                continue;
+            }
+            String category = meta.category() == null ? "" : meta.category().toLowerCase(Locale.ROOT);
+            if ("equipment".equals(category) || "player_base".equals(key) || key.startsWith("npc_")) {
+                continue;
+            }
+            if (category.contains("terrain") || category.contains("actor") || category.contains("player")) {
+                continue;
+            }
+            keys.add(key);
+        }
+        keys.sort(String::compareToIgnoreCase);
+        return keys;
     }
 
     private TextureRegion resolveGroundItemSpriteRegion3D(int itemId) {
@@ -3034,7 +3098,7 @@ public class GameScreen extends ApplicationAdapter {
         if (deathScreenTimer > 0) return;
 
         if (artistMode && artWorkbenchPopup != null && artWorkbenchPopup.isVisible()) {
-            if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE) || Gdx.input.isKeyJustPressed(Input.Keys.F6)) {
+            if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
                 artWorkbenchPopup.dismiss();
                 workbenchPreviewDragging = false;
                 return;
@@ -3044,11 +3108,19 @@ public class GameScreen extends ApplicationAdapter {
                 return;
             }
             if (Gdx.input.isKeyJustPressed(Input.Keys.LEFT_BRACKET)) {
-                artWorkbenchPopup.selectPrevious();
+                if (artWorkbenchPopup.mode() == ArtWorkbenchPopup.Mode.WORLD_PLACEMENT) {
+                    artWorkbenchPopup.cycleWorldPlacementProp(-1);
+                } else {
+                    artWorkbenchPopup.selectPrevious();
+                }
                 return;
             }
             if (Gdx.input.isKeyJustPressed(Input.Keys.RIGHT_BRACKET)) {
-                artWorkbenchPopup.selectNext();
+                if (artWorkbenchPopup.mode() == ArtWorkbenchPopup.Mode.WORLD_PLACEMENT) {
+                    artWorkbenchPopup.cycleWorldPlacementProp(1);
+                } else {
+                    artWorkbenchPopup.selectNext();
+                }
                 return;
             }
             if (Gdx.input.isKeyJustPressed(Input.Keys.SEMICOLON)) {
@@ -3064,8 +3136,133 @@ public class GameScreen extends ApplicationAdapter {
                 return;
             }
             if (Gdx.input.isKeyJustPressed(Input.Keys.BACKSPACE)) {
-                artWorkbenchPopup.clearActiveSlot();
+                if (artWorkbenchPopup.mode() == ArtWorkbenchPopup.Mode.WORLD_PLACEMENT) {
+                    if (sceneEditState != null && sceneEditState.deleteSelected()) {
+                        artWorkbenchPopup.setWorldPlacementStatus("Deleted selected placement");
+                    } else {
+                        artWorkbenchPopup.setWorldPlacementStatus("No placement selected");
+                    }
+                } else {
+                    artWorkbenchPopup.clearActiveSlot();
+                }
                 return;
+            }
+            if (artWorkbenchPopup.mode() == ArtWorkbenchPopup.Mode.WORLD_PLACEMENT) {
+                if (Gdx.input.isKeyJustPressed(Input.Keys.COMMA)) {
+                    artWorkbenchPopup.rotateWorldPlacement(-15f);
+                    return;
+                }
+                if (Gdx.input.isKeyJustPressed(Input.Keys.PERIOD)) {
+                    artWorkbenchPopup.rotateWorldPlacement(15f);
+                    return;
+                }
+                if (Gdx.input.isKeyJustPressed(Input.Keys.MINUS)) {
+                    artWorkbenchPopup.scaleWorldPlacement(-0.1f);
+                    return;
+                }
+                if (Gdx.input.isKeyJustPressed(Input.Keys.EQUALS)) {
+                    artWorkbenchPopup.scaleWorldPlacement(0.1f);
+                    return;
+                }
+                if (Gdx.input.isKeyJustPressed(Input.Keys.R)) {
+                    artWorkbenchPopup.resetWorldPlacementTransform();
+                    return;
+                }
+                if (Gdx.input.isKeyJustPressed(Input.Keys.P)) {
+                    saveWorldPlacementScene();
+                    return;
+                }
+
+                int mx = Gdx.input.getX();
+                int my = Gdx.input.getY();
+                if (Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)) {
+                    int[] tile = screenToTile(mx, my);
+                    if (tile[0] >= 0 && tile[1] >= 0 && sceneEditState != null) {
+                        int existing = sceneEditState.findPlacementIndexOnTile(tile[0], tile[1], sceneEditState.selectedPlaceableKey());
+                        if (existing >= 0) {
+                            sceneEditState.selectPlacement(existing);
+                            artWorkbenchPopup.setWorldPlacementStatus("Selected placement at " + tile[0] + "," + tile[1]);
+                        } else {
+                            sceneEditState.placeAt(tile[0], tile[1], "base");
+                            artWorkbenchPopup.setWorldPlacementStatus("Placed prop at " + tile[0] + "," + tile[1]);
+                        }
+                    }
+                    return;
+                }
+                if (Gdx.input.isButtonJustPressed(Input.Buttons.RIGHT)
+                    || Gdx.input.isButtonJustPressed(Input.Buttons.MIDDLE)) {
+                    return;
+                }
+                return;
+            }
+            if (artWorkbenchPopup.mode() == ArtWorkbenchPopup.Mode.EQUIPMENT_FIT) {
+                boolean shiftDown = Gdx.input.isKeyPressed(Input.Keys.SHIFT_LEFT)
+                    || Gdx.input.isKeyPressed(Input.Keys.SHIFT_RIGHT);
+                boolean ctrlDown = Gdx.input.isKeyPressed(Input.Keys.CONTROL_LEFT)
+                    || Gdx.input.isKeyPressed(Input.Keys.CONTROL_RIGHT);
+                float offsetStep = ctrlDown ? 0.05f : (shiftDown ? 0.005f : 0.02f);
+                float rotStep = ctrlDown ? 5f : (shiftDown ? 0.5f : 2f);
+
+                if (Gdx.input.isKeyJustPressed(Input.Keys.A)) {
+                    artWorkbenchPopup.adjustActiveSlotOffset(-offsetStep, 0f, 0f);
+                    return;
+                }
+                if (Gdx.input.isKeyJustPressed(Input.Keys.D)) {
+                    artWorkbenchPopup.adjustActiveSlotOffset(offsetStep, 0f, 0f);
+                    return;
+                }
+                if (Gdx.input.isKeyJustPressed(Input.Keys.W)) {
+                    artWorkbenchPopup.adjustActiveSlotOffset(0f, offsetStep, 0f);
+                    return;
+                }
+                if (Gdx.input.isKeyJustPressed(Input.Keys.S)) {
+                    artWorkbenchPopup.adjustActiveSlotOffset(0f, -offsetStep, 0f);
+                    return;
+                }
+                if (Gdx.input.isKeyJustPressed(Input.Keys.Q)) {
+                    artWorkbenchPopup.adjustActiveSlotOffset(0f, 0f, -offsetStep);
+                    return;
+                }
+                if (Gdx.input.isKeyJustPressed(Input.Keys.E)) {
+                    artWorkbenchPopup.adjustActiveSlotOffset(0f, 0f, offsetStep);
+                    return;
+                }
+                if (Gdx.input.isKeyJustPressed(Input.Keys.I)) {
+                    artWorkbenchPopup.adjustActiveSlotRotation(-rotStep, 0f, 0f);
+                    return;
+                }
+                if (Gdx.input.isKeyJustPressed(Input.Keys.K)) {
+                    artWorkbenchPopup.adjustActiveSlotRotation(rotStep, 0f, 0f);
+                    return;
+                }
+                if (Gdx.input.isKeyJustPressed(Input.Keys.J)) {
+                    artWorkbenchPopup.adjustActiveSlotRotation(0f, -rotStep, 0f);
+                    return;
+                }
+                if (Gdx.input.isKeyJustPressed(Input.Keys.L)) {
+                    artWorkbenchPopup.adjustActiveSlotRotation(0f, rotStep, 0f);
+                    return;
+                }
+                if (Gdx.input.isKeyJustPressed(Input.Keys.U)) {
+                    artWorkbenchPopup.adjustActiveSlotRotation(0f, 0f, -rotStep);
+                    return;
+                }
+                if (Gdx.input.isKeyJustPressed(Input.Keys.O)) {
+                    artWorkbenchPopup.adjustActiveSlotRotation(0f, 0f, rotStep);
+                    return;
+                }
+                if (Gdx.input.isKeyJustPressed(Input.Keys.R)) {
+                    artWorkbenchPopup.resetActiveSlotTransformOverrides();
+                    return;
+                }
+                if (Gdx.input.isKeyJustPressed(Input.Keys.C)) {
+                    exportActiveEquipmentPreviewSnippet();
+                    return;
+                }
+                if (Gdx.input.isKeyJustPressed(Input.Keys.P)) {
+                    persistActiveEquipmentPreviewToManifest();
+                    return;
+                }
             }
 
             int mx = Gdx.input.getX();
@@ -3727,6 +3924,170 @@ public class GameScreen extends ApplicationAdapter {
                 }
             }
         }
+    }
+
+    private void exportActiveEquipmentPreviewSnippet() {
+        if (!artistMode || artWorkbenchPopup == null || modelLibrary == null) {
+            return;
+        }
+        if (artWorkbenchPopup.mode() != ArtWorkbenchPopup.Mode.EQUIPMENT_FIT) {
+            artWorkbenchPopup.setExportResult("Not in equipment-fit mode", "");
+            return;
+        }
+
+        int slot = artWorkbenchPopup.activeSlot();
+        ModelLibrary.EquipmentPreviewOption option = artWorkbenchPopup.activeEquipmentOption();
+        if (option == null) {
+            artWorkbenchPopup.setExportResult("No equipment selected for active slot", "");
+            return;
+        }
+
+        ModelLibrary.ModelMeta meta = modelLibrary.getEquipmentMeta(slot, option.itemId());
+        if (meta == null) {
+            artWorkbenchPopup.setExportResult("Missing equipment metadata for selected item", "");
+            return;
+        }
+
+        float[] override = artWorkbenchPopup.activeSlotTransformOverride();
+        float offsetX = meta.offsetX() + override[0];
+        float offsetY = meta.offsetY() + override[1];
+        float offsetZ = meta.offsetZ() + override[2];
+        float rotX = meta.rotX() + override[3];
+        float rotY = meta.rotY() + override[4];
+        float rotZ = meta.rotZ() + override[5];
+
+        String snippet = String.format(Locale.US,
+            "- key: %s\n" +
+                "  item_id: %d\n" +
+                "  equip_slot: %s\n" +
+                "  anchor_name: %s\n" +
+                "  offset_x: %.3f\n" +
+                "  offset_y: %.3f\n" +
+                "  offset_z: %.3f\n" +
+                "  rot_x: %.2f\n" +
+                "  rot_y: %.2f\n" +
+                "  rot_z: %.2f",
+            meta.key(),
+            meta.itemId(),
+            modelLibrary.equipSlotName(meta.equipSlot()),
+            meta.anchorName() == null ? "" : meta.anchorName(),
+            offsetX,
+            offsetY,
+            offsetZ,
+            rotX,
+            rotY,
+            rotZ
+        );
+
+        String exportStatus = "Snippet generated (see log)";
+        try {
+            Gdx.app.getClipboard().setContents(snippet);
+            exportStatus = "Snippet copied to clipboard and logged";
+        } catch (Exception ignored) {
+            // Clipboard not available in some environments.
+        }
+        LOG.info("Workbench equipment snippet export:\n{}", snippet);
+        artWorkbenchPopup.setExportResult(exportStatus, snippet);
+    }
+
+    private void persistActiveEquipmentPreviewToManifest() {
+        if (!artistMode || artWorkbenchPopup == null || modelLibrary == null) {
+            return;
+        }
+        if (artWorkbenchPopup.mode() != ArtWorkbenchPopup.Mode.EQUIPMENT_FIT) {
+            artWorkbenchPopup.setExportResult("Not in equipment-fit mode", "");
+            return;
+        }
+
+        ModelLibrary.EquipmentPreviewOption option = artWorkbenchPopup.activeEquipmentOption();
+        int slot = artWorkbenchPopup.activeSlot();
+        if (option == null) {
+            artWorkbenchPopup.setExportResult("No equipment selected for active slot", "");
+            return;
+        }
+
+        ModelLibrary.ModelMeta meta = modelLibrary.getEquipmentMeta(slot, option.itemId());
+        if (meta == null) {
+            artWorkbenchPopup.setExportResult("Missing equipment metadata for selected item", "");
+            return;
+        }
+
+        java.nio.file.Path manifestPath = launchOptions.repoRootPath().resolve("art/models/manifest.yaml");
+        float[] override = artWorkbenchPopup.activeSlotTransformOverride();
+        ManifestEquipmentTransformSaver.EffectiveTransform effective = new ManifestEquipmentTransformSaver.EffectiveTransform(
+            meta.offsetX() + override[0],
+            meta.offsetY() + override[1],
+            meta.offsetZ() + override[2],
+            meta.rotX() + override[3],
+            meta.rotY() + override[4],
+            meta.rotZ() + override[5]
+        );
+
+        ManifestEquipmentTransformSaver.SaveResult result = ManifestEquipmentTransformSaver.save(manifestPath, meta.key(), effective);
+        if (!result.success()) {
+            artWorkbenchPopup.setExportResult(result.message(), "");
+            LOG.warn("Workbench manifest save failed: {}", result.message());
+            return;
+        }
+
+        artWorkbenchPopup.resetActiveSlotTransformOverrides();
+        reloadRuntimeAssets();
+        artWorkbenchPopup.setExportResult("Saved to manifest and reloaded", "");
+        LOG.info("Workbench manifest save succeeded for key {}", meta.key());
+    }
+
+    private void saveWorldPlacementScene() {
+        if (!isWorldPlacementModeActive()) {
+            if (artWorkbenchPopup != null) {
+                artWorkbenchPopup.setWorldPlacementStatus("World placement save unavailable in current mode");
+            }
+            return;
+        }
+        if (sceneEditState == null) {
+            artWorkbenchPopup.setWorldPlacementStatus("No scene edit state available");
+            return;
+        }
+
+        java.nio.file.Path scenePath = launchOptions.repoRootPath().resolve("art/world/tutorial_island.scene.yaml");
+        ScenePersistence.SaveResult result = ScenePersistence.saveStaticProps(scenePath, sceneEditState.placements());
+        if (!result.success()) {
+            artWorkbenchPopup.setWorldPlacementStatus(result.message());
+            LOG.warn("World placement save failed: {}", result.message());
+            return;
+        }
+
+        sceneEditState.markSaved();
+        reloadRuntimeAssets();
+        artWorkbenchPopup.setWorldPlacementStatus("Scene saved and reloaded");
+        LOG.info("World placement save succeeded: {}", scenePath);
+    }
+
+    private void reloadRuntimeAssets() {
+        if (spriteSheet != null) spriteSheet.dispose();
+        if (modelLibrary != null) modelLibrary.dispose();
+        spriteSheet = SpriteSheet.load();
+        modelLibrary = ModelLibrary.load(launchOptions);
+        staticPropPlacements = StaticPropLoader.load(launchOptions);
+        if (sceneEditState != null) {
+            sceneEditState.setPlacements(staticPropPlacements);
+            sceneEditState.setPlaceableKeys(collectPlaceableStaticPropKeys());
+        }
+        TerrainHeightLoader.TerrainHeightData terrainHeightData = TerrainHeightLoader.load(launchOptions);
+        terrainHeightLevels = terrainHeightData.levels;
+        terrainHeightStep = terrainHeightData.heightStep;
+        renderer2d.setSpriteSheet(spriteSheet);
+        renderer3d.setSpriteSheet(spriteSheet);
+        renderer3d.setModelLibrary(modelLibrary);
+        renderer3d.setArtistDebugVisualization(debug3DArtistBoundsAxes, debug3DArtistAnchors);
+        renderer3d.setTerrainHeightData(terrainHeightLevels, terrainHeightStep);
+        renderer3d.rebuildTerrain(tileMap);
+        if (artWorkbenchPopup != null) {
+            artWorkbenchPopup.setSceneEditState(sceneEditState);
+            artWorkbenchPopup.setModelKeys(modelLibrary.getModelKeys());
+            artWorkbenchPopup.setEquipmentOptions(modelLibrary.getLoadedEquipmentOptionsBySlot());
+        }
+        LOG.info("Hot reload complete (sprites, models, static props, terrain). Model source={}",
+            artistMode ? "repo art/models" : "classpath runtime resources");
     }
 
     private void handleDialogueInput() {

@@ -183,6 +183,23 @@ public class ModelLibrary {
         return result;
     }
 
+    public String equipSlotName(int slot) {
+        return switch (slot) {
+            case 0 -> "HEAD";
+            case 1 -> "CAPE";
+            case 2 -> "NECK";
+            case 3 -> "AMMO";
+            case 4 -> "WEAPON";
+            case 5 -> "SHIELD";
+            case 6 -> "BODY";
+            case 7 -> "LEGS";
+            case 8 -> "HANDS";
+            case 9 -> "FEET";
+            case 10 -> "RING";
+            default -> "UNKNOWN";
+        };
+    }
+
     private void loadRuntimeMetadata() {
         if (!Gdx.files.internal(RUNTIME_META_RESOURCE).exists()) {
             Gdx.app.log("ModelLibrary", "WARN: runtime metadata missing: " + RUNTIME_META_RESOURCE);
