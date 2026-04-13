@@ -16,4 +16,10 @@ if [ ! -f "$JAR_PATH" ]; then
   exit 1
 fi
 
-exec java -jar "$JAR_PATH" --artist "--repo-root=$REPO_ROOT"
+if [ "$(uname -s)" = "Darwin" ]; then
+  set -- java -XstartOnFirstThread -jar "$JAR_PATH" --artist "--repo-root=$REPO_ROOT"
+else
+  set -- java -jar "$JAR_PATH" --artist "--repo-root=$REPO_ROOT"
+fi
+
+exec "$@"

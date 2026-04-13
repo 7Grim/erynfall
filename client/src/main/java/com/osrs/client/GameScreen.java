@@ -18,6 +18,7 @@ import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.math.collision.Ray;
 import com.osrs.protocol.NetworkProto;
 import com.osrs.client.auth.AuthApiClient;
+import com.osrs.client.art.EntityVisualPersistence;
 import com.osrs.client.art.ManifestEquipmentTransformSaver;
 import com.osrs.client.art.SceneEditState;
 import com.osrs.client.art.ScenePersistence;
@@ -1421,6 +1422,7 @@ public class GameScreen extends ApplicationAdapter {
         if (use3DRenderer) {
             boolean previewMode = artistMode && artWorkbenchPopup != null && artWorkbenchPopup.isVisible()
                 && artWorkbenchPopup.mode() != ArtWorkbenchPopup.Mode.WORLD_PLACEMENT
+                && artWorkbenchPopup.mode() != ArtWorkbenchPopup.Mode.ENTITY_BINDING
                 && artWorkbenchPopup.mode() != ArtWorkbenchPopup.Mode.TERRAIN_PAINT;
             renderer3d.update(delta);
             if (!previewMode) {
@@ -1473,6 +1475,7 @@ public class GameScreen extends ApplicationAdapter {
         if (use3DRenderer) {
             boolean previewMode = artistMode && artWorkbenchPopup != null && artWorkbenchPopup.isVisible()
                 && artWorkbenchPopup.mode() != ArtWorkbenchPopup.Mode.WORLD_PLACEMENT
+                && artWorkbenchPopup.mode() != ArtWorkbenchPopup.Mode.ENTITY_BINDING
                 && artWorkbenchPopup.mode() != ArtWorkbenchPopup.Mode.TERRAIN_PAINT;
             boolean worldPlacementMode = artistMode && artWorkbenchPopup != null && artWorkbenchPopup.isVisible()
                 && artWorkbenchPopup.mode() == ArtWorkbenchPopup.Mode.WORLD_PLACEMENT;
@@ -2225,6 +2228,13 @@ public class GameScreen extends ApplicationAdapter {
             && artWorkbenchPopup.isVisible()
             && artWorkbenchPopup.mode() == ArtWorkbenchPopup.Mode.TERRAIN_PAINT
             && sceneEditState != null;
+    }
+
+    private boolean isEntityBindingModeActive() {
+        return artistMode
+            && artWorkbenchPopup != null
+            && artWorkbenchPopup.isVisible()
+            && artWorkbenchPopup.mode() == ArtWorkbenchPopup.Mode.ENTITY_BINDING;
     }
 
     private List<StaticPropLoader.StaticPropPlacement> getRenderStaticPropPlacements() {
@@ -3366,6 +3376,12 @@ public class GameScreen extends ApplicationAdapter {
                     artWorkbenchPopup.setWorldPlacementStatus("Selection cleared");
                     return;
                 }
+                if (artWorkbenchPopup.mode() == ArtWorkbenchPopup.Mode.ENTITY_BINDING
+                    && artWorkbenchPopup.hasEntityBindingSelection()) {
+                    artWorkbenchPopup.clearEntityBindingSelection();
+                    artWorkbenchPopup.setEntityBindingStatus("Selection cleared");
+                    return;
+                }
                 artWorkbenchPopup.dismiss();
                 workbenchPreviewDragging = false;
                 return;
@@ -3411,10 +3427,42 @@ public class GameScreen extends ApplicationAdapter {
                     } else {
                         artWorkbenchPopup.setWorldPlacementStatus("No placement selected");
                     }
+                } else if (artWorkbenchPopup.mode() == ArtWorkbenchPopup.Mode.ENTITY_BINDING) {
+                    artWorkbenchPopup.clearEntityBindingCandidateModelKey();
+                    artWorkbenchPopup.setEntityBindingStatus("Cleared candidate model key (fallback path)");
                 } else if (artWorkbenchPopup.mode() == ArtWorkbenchPopup.Mode.TERRAIN_PAINT) {
                     // no-op: terrain erase uses E
                 } else {
                     artWorkbenchPopup.clearActiveSlot();
+                }
+                return;
+            }
+            if (artWorkbenchPopup.mode() == ArtWorkbenchPopup.Mode.ENTITY_BINDING) {
+                if (Gdx.input.isKeyJustPressed(Input.Keys.V)) {
+                    if (!artWorkbenchPopup.hasEntityBindingSelection()) {
+                        artWorkbenchPopup.setEntityBindingStatus("No selected entity to toggle animated_3d");
+                    } else {
+                        artWorkbenchPopup.toggleEntityBindingAnimated3d();
+                        artWorkbenchPopup.setEntityBindingStatus(
+                            "Candidate animated_3d=" + artWorkbenchPopup.entityBindingCandidateAnimated3d()
+                        );
+                    }
+                    return;
+                }
+                if (Gdx.input.isKeyJustPressed(Input.Keys.P)) {
+                    saveEntityBindingScene();
+                    return;
+                }
+
+                int mx = Gdx.input.getX();
+                int my = Gdx.input.getY();
+                if (Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)) {
+                    selectEntityBindingEntityFromScreen(mx, my);
+                    return;
+                }
+                if (Gdx.input.isButtonJustPressed(Input.Buttons.RIGHT)
+                    || Gdx.input.isButtonJustPressed(Input.Buttons.MIDDLE)) {
+                    return;
                 }
                 return;
             }
@@ -4433,6 +4481,85 @@ public class GameScreen extends ApplicationAdapter {
         reloadRuntimeAssets();
         artWorkbenchPopup.setTerrainPaintStatus("Terrain visuals saved and reloaded");
         LOG.info("Terrain visual save succeeded: {}", scenePath);
+    }
+
+    private void selectEntityBindingEntityFromScreen(int screenX, int screenY) {
+        if (!isEntityBindingModeActive()) {
+            return;
+        }
+        ClientPacketHandler h = handler();
+        if (h == null) {
+            artWorkbenchPopup.setEntityBindingStatus("No world entity data available");
+            return;
+        }
+
+        Integer entityId = use3DRenderer ? pick3DEntityId(screenX, screenY) : null;
+        if (entityId == null) {
+            int[] tile = screenToTile(screenX, screenY);
+            Integer resourceNpc = h.getResourceNpcAt(tile[0], tile[1]);
+            entityId = resourceNpc != null ? resourceNpc : h.getNpcAt(tile[0], tile[1]);
+        }
+        if (entityId == null) {
+            artWorkbenchPopup.setEntityBindingStatus("No entity selected");
+            return;
+        }
+        if (h.isPlayer(entityId)) {
+            artWorkbenchPopup.setEntityBindingStatus("Player entities are not bindable here");
+            return;
+        }
+
+        int definitionId = h.getNpcDefinitionId(entityId);
+        if (definitionId <= 0) {
+            artWorkbenchPopup.setEntityBindingStatus("Entity has no valid definition_id");
+            return;
+        }
+        String entityName = h.getEntityName(entityId);
+        EntityVisualRegistry.EntityVisual visual = resolveEntityVisual(definitionId, entityName);
+        String currentModelKey = visual == null || visual.modelKey3d() == null ? "" : visual.modelKey3d();
+        boolean currentAnimated = visual != null && Boolean.TRUE.equals(visual.animated3d());
+        artWorkbenchPopup.setEntityBindingSelection(
+            entityId,
+            definitionId,
+            entityName,
+            currentModelKey,
+            currentAnimated
+        );
+        artWorkbenchPopup.setEntityBindingStatus(
+            "Selected " + (entityName == null || entityName.isBlank() ? "entity" : entityName)
+                + " (definition_id=" + definitionId + ")"
+        );
+    }
+
+    private void saveEntityBindingScene() {
+        if (!isEntityBindingModeActive()) {
+            if (artWorkbenchPopup != null) {
+                artWorkbenchPopup.setEntityBindingStatus("Entity binding save unavailable in current mode");
+            }
+            return;
+        }
+        if (artWorkbenchPopup == null || !artWorkbenchPopup.hasEntityBindingSelection()) {
+            artWorkbenchPopup.setEntityBindingStatus("No entity selected for binding");
+            return;
+        }
+
+        java.nio.file.Path visualsPath = launchOptions.repoRootPath().resolve("art/world/entity_visuals.yaml");
+        EntityVisualPersistence.SaveResult result = EntityVisualPersistence.saveModelBinding(
+            visualsPath,
+            artWorkbenchPopup.selectedEntityBindingDefinitionId(),
+            artWorkbenchPopup.selectedEntityBindingName(),
+            artWorkbenchPopup.entityBindingCandidateModelKey(),
+            artWorkbenchPopup.entityBindingCandidateAnimated3d()
+        );
+        if (!result.success()) {
+            artWorkbenchPopup.setEntityBindingStatus(result.message());
+            LOG.warn("Entity binding save failed: {}", result.message());
+            return;
+        }
+
+        entityVisualRegistry = EntityVisualRegistry.load(launchOptions);
+        artWorkbenchPopup.markEntityBindingSaved();
+        artWorkbenchPopup.setEntityBindingStatus("Entity binding saved and reloaded");
+        LOG.info("Entity binding save succeeded: {}", visualsPath);
     }
 
     private void reloadRuntimeAssets() {

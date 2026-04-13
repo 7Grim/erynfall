@@ -29,6 +29,7 @@ public class ArtWorkbenchPopup {
         MODEL_PREVIEW,
         EQUIPMENT_FIT,
         WORLD_PLACEMENT,
+        ENTITY_BINDING,
         TERRAIN_PAINT
     }
 
@@ -73,12 +74,23 @@ public class ArtWorkbenchPopup {
     private String exportStatus = "";
     private String exportSnippet = "";
     private String worldPlacementStatus = "";
+    private String entityBindingStatus = "";
     private String terrainPaintStatus = "";
     private SceneEditState sceneEditState;
     private String modelSearchQuery = "";
     private final Map<Integer, String> equipmentSearchBySlot = new HashMap<>();
     private String worldSearchQuery = "";
+    private String entityBindingSearchQuery = "";
     private boolean selectionSearchActive = false;
+    private int entityBindingSelectedEntityId = -1;
+    private int entityBindingSelectedDefinitionId = -1;
+    private String entityBindingSelectedName = "";
+    private String entityBindingCurrentModelKey = "";
+    private boolean entityBindingCurrentAnimated3d = false;
+    private String entityBindingCandidateModelKey = "";
+    private int entityBindingCandidateModelIndex = -1;
+    private boolean entityBindingCandidateAnimated3d = false;
+    private boolean entityBindingDirty = false;
 
     public void setModelKeys(List<String> keys) {
         modelKeys.clear();
@@ -152,6 +164,7 @@ public class ArtWorkbenchPopup {
             case MODEL_PREVIEW -> filteredModelIndices().size();
             case EQUIPMENT_FIT -> filteredEquipmentIndices(activeSlot()).size();
             case WORLD_PLACEMENT -> filteredWorldIndices().size();
+            case ENTITY_BINDING -> filteredEntityBindingModelIndices().size();
             case TERRAIN_PAINT -> 0;
         };
     }
@@ -200,6 +213,10 @@ public class ArtWorkbenchPopup {
             cycleWorldPlacementProp(1);
             return;
         }
+        if (mode == Mode.ENTITY_BINDING) {
+            cycleEntityBindingModel(1);
+            return;
+        }
         if (mode == Mode.TERRAIN_PAINT) {
             cycleTerrainPaintType(1);
             return;
@@ -224,6 +241,10 @@ public class ArtWorkbenchPopup {
             cycleWorldPlacementProp(-1);
             return;
         }
+        if (mode == Mode.ENTITY_BINDING) {
+            cycleEntityBindingModel(-1);
+            return;
+        }
         if (mode == Mode.TERRAIN_PAINT) {
             cycleTerrainPaintType(-1);
             return;
@@ -243,7 +264,8 @@ public class ArtWorkbenchPopup {
         mode = switch (mode) {
             case MODEL_PREVIEW -> Mode.EQUIPMENT_FIT;
             case EQUIPMENT_FIT -> Mode.WORLD_PLACEMENT;
-            case WORLD_PLACEMENT -> Mode.TERRAIN_PAINT;
+            case WORLD_PLACEMENT -> Mode.ENTITY_BINDING;
+            case ENTITY_BINDING -> Mode.TERRAIN_PAINT;
             case TERRAIN_PAINT -> Mode.MODEL_PREVIEW;
         };
         selectionSearchActive = false;
@@ -311,6 +333,81 @@ public class ArtWorkbenchPopup {
         this.worldPlacementStatus = status == null ? "" : status;
     }
 
+    public void setEntityBindingStatus(String status) {
+        this.entityBindingStatus = status == null ? "" : status;
+    }
+
+    public void setEntityBindingSelection(int entityId,
+                                          int definitionId,
+                                          String entityName,
+                                          String currentModelKey,
+                                          boolean currentAnimated3d) {
+        entityBindingSelectedEntityId = entityId;
+        entityBindingSelectedDefinitionId = definitionId;
+        entityBindingSelectedName = entityName == null ? "" : entityName;
+        entityBindingCurrentModelKey = currentModelKey == null ? "" : currentModelKey;
+        entityBindingCurrentAnimated3d = currentAnimated3d;
+        entityBindingCandidateAnimated3d = currentAnimated3d;
+        setEntityBindingCandidateModelKey(entityBindingCurrentModelKey);
+        entityBindingDirty = false;
+        applySearchSelection();
+    }
+
+    public void clearEntityBindingSelection() {
+        entityBindingSelectedEntityId = -1;
+        entityBindingSelectedDefinitionId = -1;
+        entityBindingSelectedName = "";
+        entityBindingCurrentModelKey = "";
+        entityBindingCurrentAnimated3d = false;
+        entityBindingCandidateModelKey = "";
+        entityBindingCandidateModelIndex = -1;
+        entityBindingCandidateAnimated3d = false;
+        entityBindingDirty = false;
+    }
+
+    public boolean hasEntityBindingSelection() {
+        return entityBindingSelectedEntityId >= 0 && entityBindingSelectedDefinitionId > 0;
+    }
+
+    public int selectedEntityBindingDefinitionId() {
+        return entityBindingSelectedDefinitionId;
+    }
+
+    public String selectedEntityBindingName() {
+        return entityBindingSelectedName;
+    }
+
+    public String entityBindingCandidateModelKey() {
+        return entityBindingCandidateModelKey;
+    }
+
+    public boolean entityBindingCandidateAnimated3d() {
+        return entityBindingCandidateAnimated3d;
+    }
+
+    public void toggleEntityBindingAnimated3d() {
+        if (!hasEntityBindingSelection()) {
+            return;
+        }
+        entityBindingCandidateAnimated3d = !entityBindingCandidateAnimated3d;
+        entityBindingDirty = true;
+    }
+
+    public void clearEntityBindingCandidateModelKey() {
+        if (!hasEntityBindingSelection()) {
+            return;
+        }
+        entityBindingCandidateModelKey = "";
+        entityBindingCandidateModelIndex = -1;
+        entityBindingDirty = true;
+    }
+
+    public void markEntityBindingSaved() {
+        entityBindingCurrentModelKey = entityBindingCandidateModelKey;
+        entityBindingCurrentAnimated3d = entityBindingCandidateAnimated3d;
+        entityBindingDirty = false;
+    }
+
     public void setTerrainPaintStatus(String status) {
         this.terrainPaintStatus = status == null ? "" : status;
     }
@@ -319,6 +416,23 @@ public class ArtWorkbenchPopup {
         if (mode == Mode.TERRAIN_PAINT && sceneEditState != null) {
             sceneEditState.cycleSelectedTerrainType(direction);
         }
+    }
+
+    public void cycleEntityBindingModel(int direction) {
+        if (mode != Mode.ENTITY_BINDING || !hasEntityBindingSelection()) {
+            return;
+        }
+        List<Integer> filtered = filteredEntityBindingModelIndices();
+        if (filtered.isEmpty()) {
+            return;
+        }
+        int current = filtered.indexOf(entityBindingCandidateModelIndex);
+        int next = current < 0
+            ? filtered.get(0)
+            : filtered.get((current + (direction >= 0 ? 1 : -1) + filtered.size()) % filtered.size());
+        entityBindingCandidateModelIndex = next;
+        entityBindingCandidateModelKey = modelKeys.get(next);
+        entityBindingDirty = true;
     }
 
     public void cycleWorldPlacementProp(int direction) {
@@ -481,6 +595,19 @@ public class ArtWorkbenchPopup {
                     sceneEditState.setSelectedPlaceableKeyIndex(filtered.get(0));
                 }
             }
+            case ENTITY_BINDING -> {
+                if (!hasEntityBindingSelection()) {
+                    return;
+                }
+                List<Integer> filtered = filteredEntityBindingModelIndices();
+                if (filtered.isEmpty()) {
+                    return;
+                }
+                if (!filtered.contains(entityBindingCandidateModelIndex)) {
+                    entityBindingCandidateModelIndex = filtered.get(0);
+                    entityBindingCandidateModelKey = modelKeys.get(entityBindingCandidateModelIndex);
+                }
+            }
             case TERRAIN_PAINT -> {
                 // no searchable list in terrain paint mode
             }
@@ -492,6 +619,7 @@ public class ArtWorkbenchPopup {
             case MODEL_PREVIEW -> modelSearchQuery;
             case EQUIPMENT_FIT -> equipmentSearchBySlot.getOrDefault(activeSlot(), "");
             case WORLD_PLACEMENT -> worldSearchQuery;
+            case ENTITY_BINDING -> entityBindingSearchQuery;
             case TERRAIN_PAINT -> "";
         };
     }
@@ -502,6 +630,7 @@ public class ArtWorkbenchPopup {
             case MODEL_PREVIEW -> modelSearchQuery = normalized;
             case EQUIPMENT_FIT -> equipmentSearchBySlot.put(activeSlot(), normalized);
             case WORLD_PLACEMENT -> worldSearchQuery = normalized;
+            case ENTITY_BINDING -> entityBindingSearchQuery = normalized;
             case TERRAIN_PAINT -> {
             }
         }
@@ -551,6 +680,32 @@ public class ArtWorkbenchPopup {
             }
         }
         return out;
+    }
+
+    private List<Integer> filteredEntityBindingModelIndices() {
+        ArrayList<Integer> out = new ArrayList<>();
+        String query = entityBindingSearchQuery.trim().toLowerCase();
+        for (int i = 0; i < modelKeys.size(); i++) {
+            if (query.isEmpty() || modelKeys.get(i).toLowerCase().contains(query)) {
+                out.add(i);
+            }
+        }
+        return out;
+    }
+
+    private void setEntityBindingCandidateModelKey(String modelKey) {
+        String normalized = modelKey == null ? "" : modelKey.trim();
+        entityBindingCandidateModelKey = normalized;
+        entityBindingCandidateModelIndex = -1;
+        if (normalized.isBlank()) {
+            return;
+        }
+        for (int i = 0; i < modelKeys.size(); i++) {
+            if (normalized.equals(modelKeys.get(i))) {
+                entityBindingCandidateModelIndex = i;
+                break;
+            }
+        }
     }
 
     public String selectedModelKey() {
@@ -649,9 +804,12 @@ public class ArtWorkbenchPopup {
             font.setColor(0.96f, 0.96f, 0.96f, 1f);
             font.draw(batch, clipMode.name(), x + 558, y + PANEL_H - 16);
         } else {
-            boolean dirty = mode == Mode.WORLD_PLACEMENT
-                ? (sceneEditState != null && sceneEditState.dirty())
-                : (sceneEditState != null && sceneEditState.terrainDirty());
+            boolean dirty = switch (mode) {
+                case WORLD_PLACEMENT -> sceneEditState != null && sceneEditState.dirty();
+                case ENTITY_BINDING -> entityBindingDirty;
+                case TERRAIN_PAINT -> sceneEditState != null && sceneEditState.terrainDirty();
+                default -> false;
+            };
             font.setColor(dirty ? 1f : 0.72f, dirty ? 0.9f : 0.84f, 0.62f, 1f);
             font.draw(batch, dirty ? "DIRTY" : "CLEAN", x + PANEL_W - 78, y + PANEL_H - 16);
         }
@@ -663,6 +821,8 @@ public class ArtWorkbenchPopup {
             renderEquipmentFitText(batch, font, leftX, topY, rightX, topY, leftW, rightW);
         } else if (mode == Mode.WORLD_PLACEMENT) {
             renderWorldPlacementText(batch, font, leftX, topY, rightX, topY, leftW, rightW);
+        } else if (mode == Mode.ENTITY_BINDING) {
+            renderEntityBindingText(batch, font, leftX, topY, rightX, topY, leftW, rightW);
         } else {
             renderTerrainPaintText(batch, font, leftX, topY, rightX, topY, leftW, rightW);
         }
@@ -674,6 +834,8 @@ public class ArtWorkbenchPopup {
             statusB = exportSnippet == null ? "" : exportSnippet.replace('\n', ' ').trim();
         } else if (mode == Mode.WORLD_PLACEMENT) {
             statusA = worldPlacementStatus;
+        } else if (mode == Mode.ENTITY_BINDING) {
+            statusA = entityBindingStatus;
         } else if (mode == Mode.TERRAIN_PAINT) {
             statusA = terrainPaintStatus;
         }
@@ -935,6 +1097,101 @@ public class ArtWorkbenchPopup {
         font.draw(batch, truncateToWidth(font, "P save scene terrain visuals", rightWidth), rightX, y);
         y -= 20;
         font.draw(batch, truncateToWidth(font, "ESC closes (or exits search)", rightWidth), rightX, y);
+    }
+
+    private void renderEntityBindingText(SpriteBatch batch,
+                                         BitmapFont font,
+                                         int leftX,
+                                         int leftTopY,
+                                         int rightX,
+                                         int rightTopY,
+                                         int leftWidth,
+                                         int rightWidth) {
+        int y = leftTopY;
+        font.setColor(0.82f, 0.88f, 0.98f, 1f);
+        font.draw(batch, "Selection", leftX, y);
+        y -= 22;
+
+        if (!hasEntityBindingSelection()) {
+            font.setColor(0.80f, 0.84f, 0.90f, 1f);
+            font.draw(batch, "LMB a visible entity/resource to bind", leftX, y);
+            y -= 22;
+            font.draw(batch, "Binding is saved by definition_id archetype", leftX, y);
+        } else {
+            font.setColor(0.80f, 0.84f, 0.90f, 1f);
+            font.draw(batch, "Entity:", leftX, y);
+            font.setColor(0.99f, 0.96f, 0.72f, 1f);
+            String name = entityBindingSelectedName.isBlank() ? "(unnamed)" : entityBindingSelectedName;
+            font.draw(batch, truncateToWidth(font, name, leftWidth - 54), leftX + 52, y);
+            y -= 22;
+
+            font.setColor(0.80f, 0.84f, 0.90f, 1f);
+            font.draw(batch, "Entity ID:", leftX, y);
+            font.setColor(0.96f, 0.96f, 0.96f, 1f);
+            font.draw(batch, String.valueOf(entityBindingSelectedEntityId), leftX + 66, y);
+            y -= 20;
+
+            font.setColor(0.80f, 0.84f, 0.90f, 1f);
+            font.draw(batch, "Definition ID:", leftX, y);
+            font.setColor(0.96f, 0.96f, 0.96f, 1f);
+            font.draw(batch, String.valueOf(entityBindingSelectedDefinitionId), leftX + 88, y);
+            y -= 20;
+
+            font.setColor(0.80f, 0.84f, 0.90f, 1f);
+            font.draw(batch, "Current 3D:", leftX, y);
+            font.setColor(0.96f, 0.96f, 0.96f, 1f);
+            String currentModel = entityBindingCurrentModelKey.isBlank() ? "(fallback)" : entityBindingCurrentModelKey;
+            font.draw(batch, truncateToWidth(font, currentModel, leftWidth - 74), leftX + 70, y);
+            y -= 20;
+
+            font.setColor(0.80f, 0.84f, 0.90f, 1f);
+            font.draw(batch, "Current anim:", leftX, y);
+            font.setColor(0.96f, 0.96f, 0.96f, 1f);
+            font.draw(batch, entityBindingCurrentAnimated3d ? "true" : "false", leftX + 78, y);
+            y -= 22;
+
+            int matches = filteredEntityBindingModelIndices().size();
+            font.setColor(0.80f, 0.84f, 0.90f, 1f);
+            font.draw(batch, "Search:", leftX, y);
+            font.setColor(selectionSearchActive && mode == Mode.ENTITY_BINDING ? 0.99f : 0.94f,
+                selectionSearchActive && mode == Mode.ENTITY_BINDING ? 0.88f : 0.94f,
+                selectionSearchActive && mode == Mode.ENTITY_BINDING ? 0.66f : 0.94f,
+                1f);
+            String queryText = entityBindingSearchQuery.isBlank() ? "(type to filter model keys)" : entityBindingSearchQuery;
+            font.draw(batch, truncateToWidth(font, queryText + "  [" + matches + "]", leftWidth - 60), leftX + 58, y);
+            y -= 22;
+
+            font.setColor(0.80f, 0.84f, 0.90f, 1f);
+            font.draw(batch, "Candidate 3D:", leftX, y);
+            font.setColor(0.99f, 0.96f, 0.72f, 1f);
+            String candidateModel = entityBindingCandidateModelKey.isBlank() ? "(fallback)" : entityBindingCandidateModelKey;
+            font.draw(batch, truncateToWidth(font, candidateModel, leftWidth - 86), leftX + 82, y);
+            y -= 20;
+
+            font.setColor(0.80f, 0.84f, 0.90f, 1f);
+            font.draw(batch, "Candidate anim:", leftX, y);
+            font.setColor(0.99f, 0.96f, 0.72f, 1f);
+            font.draw(batch, entityBindingCandidateAnimated3d ? "true" : "false", leftX + 92, y);
+        }
+
+        y = rightTopY;
+        font.setColor(0.82f, 0.88f, 0.98f, 1f);
+        font.draw(batch, "Actions", rightX, y);
+        y -= 22;
+        font.setColor(0.80f, 0.84f, 0.90f, 1f);
+        font.draw(batch, truncateToWidth(font, "LMB select visible entity/resource", rightWidth), rightX, y);
+        y -= 20;
+        font.draw(batch, truncateToWidth(font, "[ / ] cycle candidate model key", rightWidth), rightX, y);
+        y -= 20;
+        font.draw(batch, truncateToWidth(font, "/ search   Enter apply   Esc exit search", rightWidth), rightX, y);
+        y -= 20;
+        font.draw(batch, truncateToWidth(font, "V toggle animated_3d", rightWidth), rightX, y);
+        y -= 20;
+        font.draw(batch, truncateToWidth(font, "Backspace clear model key (fallback)", rightWidth), rightX, y);
+        y -= 20;
+        font.draw(batch, truncateToWidth(font, "P save binding to entity_visuals.yaml", rightWidth), rightX, y);
+        y -= 20;
+        font.draw(batch, truncateToWidth(font, "ESC deselect first, then close", rightWidth), rightX, y);
     }
 
     private String truncateToWidth(BitmapFont font, String text, float maxWidth) {

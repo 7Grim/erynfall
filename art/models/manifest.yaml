@@ -9,13 +9,14 @@ assets:
     required: false
     notes: Static furnace prop for the 3D renderer.
   - key: anvil
-    file: anvil.g3dj
+    file: anvil.glb
     category: prop
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: tile-center
     required: false
     notes: Static anvil prop for smithing services.
+    source_blend: props/anvil.blend
   - key: cooking_range
     file: cooking_range.g3dj
     category: prop
