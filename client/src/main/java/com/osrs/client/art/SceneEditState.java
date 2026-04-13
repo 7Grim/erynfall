@@ -8,12 +8,20 @@ import java.util.List;
 
 public final class SceneEditState {
 
+    public enum VisibilityFilter {
+        ALL,
+        BASE_ONLY,
+        ROOF_ONLY
+    }
+
     private final ArrayList<StaticPropLoader.StaticPropPlacement> placements = new ArrayList<>();
     private final ArrayList<String> placeableKeys = new ArrayList<>();
     private int selectedPlaceableKeyIndex = 0;
     private int selectedPlacementIndex = -1;
     private float previewRotationYDegrees = 0f;
     private float previewScale = 1f;
+    private String previewVisibilityGroup = "base";
+    private VisibilityFilter visibilityFilter = VisibilityFilter.ALL;
     private boolean dirty = false;
 
     public void setPlacements(List<StaticPropLoader.StaticPropPlacement> source) {
@@ -80,6 +88,22 @@ public final class SceneEditState {
         previewScale = 1f;
     }
 
+    public String previewVisibilityGroup() {
+        return previewVisibilityGroup;
+    }
+
+    public VisibilityFilter visibilityFilter() {
+        return visibilityFilter;
+    }
+
+    public void cycleVisibilityFilter() {
+        visibilityFilter = switch (visibilityFilter) {
+            case ALL -> VisibilityFilter.BASE_ONLY;
+            case BASE_ONLY -> VisibilityFilter.ROOF_ONLY;
+            case ROOF_ONLY -> VisibilityFilter.ALL;
+        };
+    }
+
     public boolean dirty() {
         return dirty;
     }
@@ -131,11 +155,57 @@ public final class SceneEditState {
             tileY,
             previewRotationYDegrees,
             previewScale,
-            visibilityGroup == null || visibilityGroup.isBlank() ? "base" : visibilityGroup
+            visibilityGroup == null || visibilityGroup.isBlank() ? previewVisibilityGroup : normalizeVisibilityGroup(visibilityGroup)
         );
         placements.add(placement);
         selectedPlacementIndex = placements.size() - 1;
         dirty = true;
+    }
+
+    public void toggleVisibilityGroupSelectedOrPreview() {
+        StaticPropLoader.StaticPropPlacement selected = selectedPlacement();
+        if (selected == null) {
+            previewVisibilityGroup = toggleVisibility(previewVisibilityGroup);
+            return;
+        }
+        String next = toggleVisibility(selected.visibilityGroup);
+        StaticPropLoader.StaticPropPlacement updated = new StaticPropLoader.StaticPropPlacement(
+            selected.key,
+            selected.x,
+            selected.y,
+            selected.rotationYDegrees,
+            selected.scale,
+            next
+        );
+        placements.set(selectedPlacementIndex, updated);
+        dirty = true;
+    }
+
+    public boolean duplicateSelectedToPreviewState() {
+        StaticPropLoader.StaticPropPlacement selected = selectedPlacement();
+        if (selected == null) {
+            return false;
+        }
+        int idx = placeableKeys.indexOf(selected.key);
+        if (idx >= 0) {
+            selectedPlaceableKeyIndex = idx;
+        }
+        previewRotationYDegrees = selected.rotationYDegrees;
+        previewScale = selected.scale;
+        previewVisibilityGroup = normalizeVisibilityGroup(selected.visibilityGroup);
+        return true;
+    }
+
+    public boolean shouldRenderByVisibilityFilter(StaticPropLoader.StaticPropPlacement placement) {
+        if (placement == null) {
+            return false;
+        }
+        String group = normalizeVisibilityGroup(placement.visibilityGroup);
+        return switch (visibilityFilter) {
+            case ALL -> true;
+            case BASE_ONLY -> "base".equals(group);
+            case ROOF_ONLY -> "roof".equals(group);
+        };
     }
 
     public void rotateSelectedOrPreview(float deltaDegrees) {
@@ -187,5 +257,17 @@ public final class SceneEditState {
 
     public void markSaved() {
         dirty = false;
+    }
+
+    private String toggleVisibility(String group) {
+        return "roof".equals(normalizeVisibilityGroup(group)) ? "base" : "roof";
+    }
+
+    private String normalizeVisibilityGroup(String group) {
+        String normalized = group == null ? "base" : group.trim().toLowerCase();
+        if ("roof".equals(normalized)) {
+            return "roof";
+        }
+        return "base";
     }
 }

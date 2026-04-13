@@ -230,6 +230,24 @@ public class ArtWorkbenchPopup {
         }
     }
 
+    public void toggleWorldPlacementVisibilityGroup() {
+        if (mode == Mode.WORLD_PLACEMENT && sceneEditState != null) {
+            sceneEditState.toggleVisibilityGroupSelectedOrPreview();
+        }
+    }
+
+    public void cycleWorldPlacementVisibilityFilter() {
+        if (mode == Mode.WORLD_PLACEMENT && sceneEditState != null) {
+            sceneEditState.cycleVisibilityFilter();
+        }
+    }
+
+    public boolean duplicateWorldPlacementSelectedToPreview() {
+        return mode == Mode.WORLD_PLACEMENT
+            && sceneEditState != null
+            && sceneEditState.duplicateSelectedToPreviewState();
+    }
+
     public void adjustActiveSlotOffset(float dx, float dy, float dz) {
         if (mode != Mode.EQUIPMENT_FIT) {
             return;
@@ -461,8 +479,14 @@ public class ArtWorkbenchPopup {
         String key = sceneEditState == null ? "" : sceneEditState.selectedPlaceableKey();
         float rot = sceneEditState == null ? 0f : sceneEditState.previewRotationYDegrees();
         float scale = sceneEditState == null ? 1f : sceneEditState.previewScale();
+        String visibilityGroup = sceneEditState == null ? "base" : sceneEditState.previewVisibilityGroup();
+        String visibilityFilter = sceneEditState == null ? "ALL" : sceneEditState.visibilityFilter().name();
         int count = sceneEditState == null ? 0 : sceneEditState.placements().size();
         int selected = sceneEditState == null ? -1 : sceneEditState.selectedPlacementIndex();
+        String selectedVis = "none";
+        if (sceneEditState != null && sceneEditState.selectedPlacement() != null) {
+            selectedVis = sceneEditState.selectedPlacement().visibilityGroup;
+        }
         boolean dirty = sceneEditState != null && sceneEditState.dirty();
 
         font.setColor(0.82f, 0.88f, 0.98f, 1f);
@@ -471,10 +495,10 @@ public class ArtWorkbenchPopup {
         font.draw(batch, key.isBlank() ? "(no placeable keys)" : key, x + 84, y + PANEL_H - 86);
 
         font.setColor(0.80f, 0.84f, 0.90f, 1f);
-        font.draw(batch, String.format("Preview rot_y: %.1f   scale: %.2f", rot, scale), x + 14, y + 64);
-        font.draw(batch, "[ / ] key   , / . rotate   - / = scale", x + 14, y + 44);
-        font.draw(batch, "LMB place/select   Backspace delete selected   R reset preview", x + 14, y + 24);
-        font.draw(batch, "P save scene   placements: " + count + "   selected: " + selected + "   dirty: " + dirty, x + 14, y + 6);
+        font.draw(batch, String.format("Preview rot_y: %.1f   scale: %.2f   vis: %s", rot, scale, visibilityGroup), x + 14, y + 64);
+        font.draw(batch, "[ / ] key   , / . rotate   - / = scale   V vis-group", x + 14, y + 44);
+        font.draw(batch, "LMB place/select   D duplicate selected   Backspace delete", x + 14, y + 24);
+        font.draw(batch, "Y filter=" + visibilityFilter + "   selected: " + selected + "(" + selectedVis + ")   dirty: " + dirty + "   count: " + count + "   P save", x + 14, y + 6);
 
         if (!worldPlacementStatus.isBlank()) {
             font.setColor(0.93f, 0.95f, 0.84f, 1f);

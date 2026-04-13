@@ -2028,6 +2028,9 @@ public class GameScreen extends ApplicationAdapter {
 
         renderer3d.beginStaticPropPass();
         for (StaticPropLoader.StaticPropPlacement prop : renderPlacements) {
+            if (isWorldPlacementModeActive() && !sceneEditState.shouldRenderByVisibilityFilter(prop)) {
+                continue;
+            }
             if (shouldCullByDistanceAndFrustum3D(prop.x, prop.y, CULL_DISTANCE_STATIC_PROPS_3D)) {
                 continue;
             }
@@ -2037,6 +2040,9 @@ public class GameScreen extends ApplicationAdapter {
             renderer3d.renderPlacedStaticPropModel(prop.key, prop.x, prop.y, prop.rotationYDegrees, prop.scale, 1f);
         }
         for (StaticPropLoader.StaticPropPlacement prop : renderPlacements) {
+            if (isWorldPlacementModeActive() && !sceneEditState.shouldRenderByVisibilityFilter(prop)) {
+                continue;
+            }
             if (shouldCullByDistanceAndFrustum3D(prop.x, prop.y, CULL_DISTANCE_STATIC_PROPS_3D)) {
                 continue;
             }
@@ -3170,6 +3176,23 @@ public class GameScreen extends ApplicationAdapter {
                     artWorkbenchPopup.resetWorldPlacementTransform();
                     return;
                 }
+                if (Gdx.input.isKeyJustPressed(Input.Keys.V)) {
+                    artWorkbenchPopup.toggleWorldPlacementVisibilityGroup();
+                    artWorkbenchPopup.setWorldPlacementStatus("Toggled visibility group");
+                    return;
+                }
+                if (Gdx.input.isKeyJustPressed(Input.Keys.Y)) {
+                    artWorkbenchPopup.cycleWorldPlacementVisibilityFilter();
+                    artWorkbenchPopup.setWorldPlacementStatus("Cycled visibility filter");
+                    return;
+                }
+                if (Gdx.input.isKeyJustPressed(Input.Keys.D)) {
+                    boolean duplicated = artWorkbenchPopup.duplicateWorldPlacementSelectedToPreview();
+                    artWorkbenchPopup.setWorldPlacementStatus(duplicated
+                        ? "Duplicated selected placement into preview"
+                        : "No placement selected to duplicate");
+                    return;
+                }
                 if (Gdx.input.isKeyJustPressed(Input.Keys.P)) {
                     saveWorldPlacementScene();
                     return;
@@ -3185,7 +3208,7 @@ public class GameScreen extends ApplicationAdapter {
                             sceneEditState.selectPlacement(existing);
                             artWorkbenchPopup.setWorldPlacementStatus("Selected placement at " + tile[0] + "," + tile[1]);
                         } else {
-                            sceneEditState.placeAt(tile[0], tile[1], "base");
+                            sceneEditState.placeAt(tile[0], tile[1], null);
                             artWorkbenchPopup.setWorldPlacementStatus("Placed prop at " + tile[0] + "," + tile[1]);
                         }
                     }
