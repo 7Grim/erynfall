@@ -105,7 +105,7 @@ public class GameScreen extends ApplicationAdapter {
     private static final int MAX_GROUND_ITEM_LABELS_3D = 24;
 
     /** Displayed in the top-right HUD. Update this string each release. */
-    private static final String GAME_VERSION = "Alpha 0.0.1";
+    private static final String GAME_VERSION = "Pre-Alpha 0.0.1";
 
     /** OSRS walk speed: 1 tile per 0.6 s. */
     private static final float TILES_PER_SECOND = 1.0f / 0.6f;
@@ -3127,11 +3127,13 @@ public class GameScreen extends ApplicationAdapter {
                 artWorkbenchPopup.cycleClipMode();
                 return;
             }
-            if (Gdx.input.isKeyJustPressed(Input.Keys.COMMA)) {
+            if (artWorkbenchPopup.mode() == ArtWorkbenchPopup.Mode.EQUIPMENT_FIT
+                && Gdx.input.isKeyJustPressed(Input.Keys.COMMA)) {
                 artWorkbenchPopup.cycleActiveSlot(-1);
                 return;
             }
-            if (Gdx.input.isKeyJustPressed(Input.Keys.PERIOD)) {
+            if (artWorkbenchPopup.mode() == ArtWorkbenchPopup.Mode.EQUIPMENT_FIT
+                && Gdx.input.isKeyJustPressed(Input.Keys.PERIOD)) {
                 artWorkbenchPopup.cycleActiveSlot(1);
                 return;
             }

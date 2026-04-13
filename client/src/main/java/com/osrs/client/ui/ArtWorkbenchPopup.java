@@ -364,7 +364,12 @@ public class ArtWorkbenchPopup {
         font.setColor(0.82f, 0.88f, 0.98f, 1f);
         font.draw(batch, "Mode:", x + 14, y + PANEL_H - 58);
         font.setColor(0.99f, 0.96f, 0.72f, 1f);
-        font.draw(batch, mode == Mode.MODEL_PREVIEW ? "MODEL_PREVIEW" : "EQUIPMENT_FIT", x + 70, y + PANEL_H - 58);
+        String modeLabel = switch (mode) {
+            case MODEL_PREVIEW -> "MODEL_PREVIEW";
+            case EQUIPMENT_FIT -> "EQUIPMENT_FIT";
+            case WORLD_PLACEMENT -> "WORLD_PLACEMENT";
+        };
+        font.draw(batch, modeLabel, x + 70, y + PANEL_H - 58);
 
         font.setColor(0.82f, 0.88f, 0.98f, 1f);
         font.draw(batch, "Clip:", x + 300, y + PANEL_H - 58);
