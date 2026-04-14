@@ -46,6 +46,10 @@ public class CoordinateConverter {
      * Check if world coordinates are valid (within map bounds).
      */
     public static boolean isValidTile(int x, int y) {
-        return x >= 0 && x < 104 && y >= 0 && y < 104;
+        return isValidTile(x, y, 104, 104);
+    }
+
+    public static boolean isValidTile(int x, int y, int mapWidth, int mapHeight) {
+        return x >= 0 && x < mapWidth && y >= 0 && y < mapHeight;
     }
 }

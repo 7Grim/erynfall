@@ -47,8 +47,6 @@ import java.util.Set;
 public class Renderer3DExperimental {
     public record PickHit(int entityId, float distance) {}
 
-    private static final int MAP_WIDTH = 104;
-    private static final int MAP_HEIGHT = 104;
     private static final int CHUNK_SIZE = 16;
     private static final float GROUND_Y = 0f;
     private static final float WALL_TOP_Y = 1.2f;
@@ -207,6 +205,8 @@ public class Renderer3DExperimental {
     private int[][] terrainHeightLevels;
     private float terrainHeightStep = DEFAULT_TERRAIN_HEIGHT_STEP;
     private int[][] lastTileMap;
+    private int mapWidth = 0;
+    private int mapHeight = 0;
 
     private static final class WallMaterialBinding {
         private final Material material;
@@ -344,11 +344,18 @@ public class Renderer3DExperimental {
         wallMaterialsByChunk.clear();
 
         if (tileMap == null || spriteSheet == null) {
+            mapWidth = 0;
+            mapHeight = 0;
             return;
         }
 
-        int chunksX = (MAP_WIDTH + CHUNK_SIZE - 1) / CHUNK_SIZE;
-        int chunksY = (MAP_HEIGHT + CHUNK_SIZE - 1) / CHUNK_SIZE;
+        updateMapBounds(tileMap);
+        if (mapWidth <= 0 || mapHeight <= 0) {
+            return;
+        }
+
+        int chunksX = (mapWidth + CHUNK_SIZE - 1) / CHUNK_SIZE;
+        int chunksY = (mapHeight + CHUNK_SIZE - 1) / CHUNK_SIZE;
         for (int chunkY = 0; chunkY < chunksY; chunkY++) {
             for (int chunkX = 0; chunkX < chunksX; chunkX++) {
                 ArrayList<WallMaterialBinding> wallBindings = new ArrayList<>();
@@ -381,6 +388,10 @@ public class Renderer3DExperimental {
 
         String normalizedProfile = normalizeMaterialProfile(materialProfile);
         lastTileMap = tileMap;
+        updateMapBounds(tileMap);
+        if (mapWidth <= 0 || mapHeight <= 0) {
+            return;
+        }
         if (!normalizedProfile.equals(activeMaterialProfile)) {
             rebuildTerrain(tileMap, normalizedProfile);
         } else if (terrainChunks.isEmpty() && tileMap != null) {
@@ -392,13 +403,13 @@ public class Renderer3DExperimental {
 
         updateWallOcclusion(localPlayerX, localPlayerY);
 
-        int centerTileX = clampTile((int) Math.floor(localPlayerX));
-        int centerTileY = clampTile((int) Math.floor(localPlayerY));
+        int centerTileX = clampTileX((int) Math.floor(localPlayerX));
+        int centerTileY = clampTileY((int) Math.floor(localPlayerY));
         int overlayRadius = computeOverlayRadius();
         int minTileX = Math.max(0, centerTileX - overlayRadius);
-        int maxTileX = Math.min(MAP_WIDTH - 1, centerTileX + overlayRadius);
+        int maxTileX = Math.min(mapWidth - 1, centerTileX + overlayRadius);
         int minTileY = Math.max(0, centerTileY - overlayRadius);
-        int maxTileY = Math.min(MAP_HEIGHT - 1, centerTileY + overlayRadius);
+        int maxTileY = Math.min(mapHeight - 1, centerTileY + overlayRadius);
 
         Gdx.gl.glEnable(GL20.GL_DEPTH_TEST);
         Gdx.gl.glDepthMask(true);
@@ -1750,14 +1761,14 @@ public class Renderer3DExperimental {
 
     public int[] pickTile(int screenX, int screenY) {
         Ray ray = camera.getPickRay(screenX, screenY);
-        int centerTileX = clampTile((int) Math.floor(camera.position.x));
-        int centerTileY = clampTile((int) Math.floor(camera.position.z));
+        int centerTileX = clampTileX((int) Math.floor(camera.position.x));
+        int centerTileY = clampTileY((int) Math.floor(camera.position.z));
         int radius = Math.min(40, Math.max(20, (int) Math.ceil(camera.position.y * 2f + 10f)));
 
         int minTileX = Math.max(0, centerTileX - radius);
-        int maxTileX = Math.min(MAP_WIDTH - 1, centerTileX + radius);
+        int maxTileX = Math.min(mapWidth - 1, centerTileX + radius);
         int minTileY = Math.max(0, centerTileY - radius);
-        int maxTileY = Math.min(MAP_HEIGHT - 1, centerTileY + radius);
+        int maxTileY = Math.min(mapHeight - 1, centerTileY + radius);
 
         float bestT = Float.POSITIVE_INFINITY;
         int bestX = -1;
@@ -1791,7 +1802,7 @@ public class Renderer3DExperimental {
         }
         int fallbackX = (int) Math.floor(intersection.x);
         int fallbackY = (int) Math.floor(intersection.z);
-        if (fallbackX < 0 || fallbackY < 0 || fallbackX >= MAP_WIDTH || fallbackY >= MAP_HEIGHT) {
+        if (fallbackX < 0 || fallbackY < 0 || fallbackX >= mapWidth || fallbackY >= mapHeight) {
             return new int[]{-1, -1};
         }
         return new int[]{fallbackX, fallbackY};
@@ -1953,8 +1964,8 @@ public class Renderer3DExperimental {
                                   ArrayList<WallMaterialBinding> wallBindings) {
         int startX = chunkX * CHUNK_SIZE;
         int startY = chunkY * CHUNK_SIZE;
-        int endX = Math.min(MAP_WIDTH, startX + CHUNK_SIZE);
-        int endY = Math.min(MAP_HEIGHT, startY + CHUNK_SIZE);
+        int endX = Math.min(mapWidth, startX + CHUNK_SIZE);
+        int endY = Math.min(mapHeight, startY + CHUNK_SIZE);
 
         modelBuilder.begin();
         boolean hasGeometry = false;
@@ -2288,7 +2299,7 @@ public class Renderer3DExperimental {
         if (tileMap == null) {
             return false;
         }
-        if (x < 0 || y < 0 || x >= MAP_WIDTH || y >= MAP_HEIGHT) {
+        if (!isInBounds(x, y)) {
             return false;
         }
         return tileMap[x][y] == TILE_WALL;
@@ -2387,8 +2398,8 @@ public class Renderer3DExperimental {
         float cameraX = camera.position.x;
         float cameraZ = camera.position.z;
 
-        int playerTileX = clampTile((int) Math.floor(localPlayerX));
-        int playerTileY = clampTile((int) Math.floor(localPlayerY));
+        int playerTileX = clampTileX((int) Math.floor(localPlayerX));
+        int playerTileY = clampTileY((int) Math.floor(localPlayerY));
         float playerCenterX = playerTileX + 0.5f;
         float playerCenterZ = playerTileY + 0.5f;
         float dirX = playerCenterX - cameraX;
@@ -2621,7 +2632,7 @@ public class Renderer3DExperimental {
         if (tileMap == null) {
             return expected == 0;
         }
-        if (x < 0 || y < 0 || x >= MAP_WIDTH || y >= MAP_HEIGHT) {
+        if (!isInBounds(x, y)) {
             return false;
         }
         return tileMap[x][y] == expected;
@@ -2721,7 +2732,7 @@ public class Renderer3DExperimental {
     }
 
     private int getHeightLevel(int[][] tileMap, int tileX, int tileY) {
-        if (tileX < 0 || tileX >= MAP_WIDTH || tileY < 0 || tileY >= MAP_HEIGHT) {
+        if (!isInBounds(tileX, tileY)) {
             return 0;
         }
         if (tileMap != null && isTile(tileMap, tileX, tileY, 1)) {
@@ -2763,14 +2774,38 @@ public class Renderer3DExperimental {
         addVerticalFace(part, x0, y0, z0, x1, y1, z1, x2, y2, z2, x3, y3, z3, region, nx, ny, nz);
     }
 
-    private int clampTile(int value) {
+    private int clampTileX(int value) {
         if (value < 0) {
             return 0;
         }
-        if (value >= MAP_WIDTH) {
-            return MAP_WIDTH - 1;
+        if (value >= mapWidth) {
+            return mapWidth - 1;
         }
         return value;
+    }
+
+    private int clampTileY(int value) {
+        if (value < 0) {
+            return 0;
+        }
+        if (value >= mapHeight) {
+            return mapHeight - 1;
+        }
+        return value;
+    }
+
+    private void updateMapBounds(int[][] tileMap) {
+        if (tileMap == null || tileMap.length == 0) {
+            mapWidth = 0;
+            mapHeight = 0;
+            return;
+        }
+        mapWidth = tileMap.length;
+        mapHeight = tileMap[0] == null ? 0 : tileMap[0].length;
+    }
+
+    private boolean isInBounds(int x, int y) {
+        return x >= 0 && y >= 0 && x < mapWidth && y < mapHeight;
     }
 
     private Color tileTypeFallbackColor(int type) {

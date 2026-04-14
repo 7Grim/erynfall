@@ -21,8 +21,7 @@ import java.util.Set;
 import java.util.Locale;
 
 /**
- * Game content initialization (quests, dialogues, etc.).
- * Loads Tutorial Island content.
+ * Game content initialization (shops, dialogues, quests).
  */
 public class GameContent {
     
@@ -42,18 +41,39 @@ public class GameContent {
         this.shopDefinitionsByNpcName = new LinkedHashMap<>();
     }
     
-    /**
-     * Initialize Tutorial Island quests and dialogues.
-     */
-    public void initializeTutorialIsland() {
-        LOG.info("Initializing Tutorial Island content");
+    public void initializeForWorld(String worldId) {
+        String normalizedWorldId = normalizeWorldId(worldId);
+        boolean tutorialContentEnabled = shouldEnableTutorialContent(normalizedWorldId);
 
-        int dialogueCount = loadDialoguesFromYaml();
-        int questCount = loadQuestsFromYaml();
+        LOG.info("Initializing game content for world '{}' (tutorialContentEnabled={})",
+            normalizedWorldId, tutorialContentEnabled);
+
+        npcInitialDialogueIds.clear();
+        questDefinitions.clear();
+
         int shopCount = loadShopsFromYaml();
+        int dialogueCount = 0;
+        int questCount = 0;
+        if (tutorialContentEnabled) {
+            dialogueCount = loadDialoguesFromYaml();
+            questCount = loadQuestsFromYaml();
+        } else {
+            LOG.info("Skipping tutorial-specific dialogue and quest bootstrap for world '{}'", normalizedWorldId);
+        }
 
         LOG.info("Loaded {} dialogues, {} quest definitions, {} shops, {} NPC dialogue entry points",
             dialogueCount, questCount, shopCount, npcInitialDialogueIds.size());
+    }
+
+    private String normalizeWorldId(String worldId) {
+        if (worldId == null || worldId.isBlank()) {
+            return "sandbox";
+        }
+        return worldId.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private boolean shouldEnableTutorialContent(String worldId) {
+        return "tutorial_island".equals(worldId) || "main_world".equals(worldId);
     }
 
     @SuppressWarnings("unchecked")

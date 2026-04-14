@@ -22,15 +22,21 @@ public class MapLoader {
 
     private static final Logger LOG = LoggerFactory.getLogger(MapLoader.class);
 
-    public static final int WIDTH = 104;
-    public static final int HEIGHT = 104;
+    public static final int DEFAULT_WIDTH = 104;
+    public static final int DEFAULT_HEIGHT = 104;
+    public static final int WIDTH = DEFAULT_WIDTH;
+    public static final int HEIGHT = DEFAULT_HEIGHT;
 
     private final int[][] layout;
     private final Map<Integer, Boolean> walkableById;
+    private final int width;
+    private final int height;
 
-    private MapLoader(int[][] layout, Map<Integer, Boolean> walkableById) {
+    private MapLoader(int[][] layout, Map<Integer, Boolean> walkableById, int width, int height) {
         this.layout = layout;
         this.walkableById = walkableById;
+        this.width = width;
+        this.height = height;
     }
 
     /** Load world-specific map from the classpath. Throws RuntimeException on failure. */
@@ -62,8 +68,11 @@ public class MapLoader {
             }
             walkable.putIfAbsent(0, true); // grass default
 
-            int w = ((Number) data.getOrDefault("width", WIDTH)).intValue();
-            int h = ((Number) data.getOrDefault("height", HEIGHT)).intValue();
+            int w = ((Number) data.getOrDefault("width", DEFAULT_WIDTH)).intValue();
+            int h = ((Number) data.getOrDefault("height", DEFAULT_HEIGHT)).intValue();
+            if (w <= 0 || h <= 0) {
+                throw new IllegalStateException("Invalid map dimensions: " + w + "x" + h);
+            }
             int[][] layout = new int[w][h];
 
             Object layoutObj = data.get("layout");
@@ -87,20 +96,22 @@ public class MapLoader {
             }
 
             LOG.info("Client gameplay map loaded for world '{}': {}x{} tiles, {} walkability types", worldId, w, h, walkable.size());
-            return new MapLoader(layout, walkable);
+            return new MapLoader(layout, walkable, w, h);
         } catch (Exception e) {
             throw new RuntimeException("Failed to load client map for world '" + worldId + "'", e);
         }
     }
 
     public int[][] getLayout() { return layout; }
+    public int getWidth() { return width; }
+    public int getHeight() { return height; }
 
     public boolean isWalkableTile(int tileId) {
         return walkableById.getOrDefault(tileId, false);
     }
 
     public boolean isWalkable(int x, int y) {
-        if (x < 0 || x >= WIDTH || y < 0 || y >= HEIGHT) return false;
+        if (x < 0 || x >= width || y < 0 || y >= height) return false;
         return isWalkableTile(layout[x][y]);
     }
 }

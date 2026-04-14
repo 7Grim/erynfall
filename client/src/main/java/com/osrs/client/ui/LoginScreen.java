@@ -260,7 +260,7 @@ public class LoginScreen extends ScreenAdapter {
         savedPassword = prefs.getString(PREF_KEY_SAVED_PASSWORD, "");
         hasSavedCredentials = !savedEmail.isBlank() && !savedPassword.isBlank();
         showSavedAccountView = hasSavedCredentials;
-        String preferredWorldId = prefs.getString(PREF_KEY_SELECTED_WORLD_ID, game.getLaunchOptions().worldId());
+        String preferredWorldId = prefs.getString(PREF_KEY_SELECTED_WORLD_ID, LaunchOptions.defaultLoginWorldId());
         selectedWorldIndex = indexForWorldId(preferredWorldId);
 
         String lastEmail = prefs.getString(PREF_KEY_LAST_EMAIL, "");

@@ -37,13 +37,58 @@ mvn clean install
 ### Run Server
 
 ```bash
-mvn -pl server exec:java -Dexec.mainClass="com.osrs.server.Server"
+mvn -pl shared,server -am -DskipTests package
+./run-server.sh --world sandbox
 ```
+
+Other local world targets:
+
+```bash
+./run-server.sh --world main_world
+```
+
+Recommended workflow:
+- `sandbox` for local/dev system and content testing
+- `main_world` for testing the real live-world layout, including Tutorial Island as a region inside it
+
+The launcher also accepts the JVM property form if you prefer:
+
+```bash
+./run-server.sh -Derynfall.worldId=main_world
+```
+
+For a local server that still uses the shared Azure auth/database stack, create:
+
+```bash
+.env.server.local
+```
+
+with at minimum:
+
+```bash
+DB_PASSWORD=...
+JWT_SIGNING_KEY=...
+JWT_ISSUER=...
+JWT_AUDIENCE=erynfall-game
+```
+
+Then launch normally with `./run-server.sh --world main_world` or `./run-server.sh --world sandbox`.
+
+If these values are missing, the local server will still start, but:
+- DB persistence will fall back to in-memory mode if `DB_PASSWORD` is missing
+- token-auth login from the Azure auth service will be rejected if `JWT_SIGNING_KEY` is missing
 
 ### Run Client
 
 ```bash
-mvn -pl client exec:exec
+mvn -pl shared,client -am -DskipTests package
+./run-client.sh
+```
+
+Connect to a remote server explicitly:
+
+```bash
+GAME_SERVER_HOST=165.22.37.200 ./run-client.sh
 ```
 
 ### Run Artist Mode

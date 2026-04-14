@@ -104,6 +104,14 @@ public class AdminToolsPopup {
     private int travelBtnY4;
     private int travelBtnW4;
     private int travelBtnH4;
+    private int travelBtnX5;
+    private int travelBtnY5;
+    private int travelBtnW5;
+    private int travelBtnH5;
+    private int travelBtnX6;
+    private int travelBtnY6;
+    private int travelBtnW6;
+    private int travelBtnH6;
 
     public static final class AdminSkillAction {
         public final boolean setLevel;
@@ -426,6 +434,16 @@ public class AdminToolsPopup {
         if (mouseX >= travelBtnX4 && mouseX <= travelBtnX4 + travelBtnW4
             && mouseY >= travelBtnY4 && mouseY <= travelBtnY4 + travelBtnH4) {
             pendingTravelAction = new AdminTravelAction(NetworkProto.AdminTravelDestination.ADMIN_TRAVEL_SANDBOX_MINING_COVE);
+            return true;
+        }
+        if (mouseX >= travelBtnX5 && mouseX <= travelBtnX5 + travelBtnW5
+            && mouseY >= travelBtnY5 && mouseY <= travelBtnY5 + travelBtnH5) {
+            pendingTravelAction = new AdminTravelAction(NetworkProto.AdminTravelDestination.ADMIN_TRAVEL_MAIN_WORLD_TUTORIAL);
+            return true;
+        }
+        if (mouseX >= travelBtnX6 && mouseX <= travelBtnX6 + travelBtnW6
+            && mouseY >= travelBtnY6 && mouseY <= travelBtnY6 + travelBtnH6) {
+            pendingTravelAction = new AdminTravelAction(NetworkProto.AdminTravelDestination.ADMIN_TRAVEL_MAIN_WORLD_MAINLAND);
             return true;
         }
         return true;
@@ -951,33 +969,45 @@ public class AdminToolsPopup {
         shapeRenderer.setColor(0.90f, 0.82f, 0.66f, 1f);
         shapeRenderer.rect(innerX, innerY, innerW, innerH);
 
-        int btnW = Math.min(260, innerW - 24);
+        int gapX = 12;
+        int btnW = (innerW - 24 - gapX) / 2;
         int btnH = 26;
         int startX = innerX + 12;
+        int secondColX = startX + btnW + gapX;
         int startY = innerY + innerH - 68;
 
         travelBtnX1 = startX;
         travelBtnY1 = startY;
         travelBtnW1 = btnW;
         travelBtnH1 = btnH;
-        travelBtnX2 = startX;
-        travelBtnY2 = startY - 38;
+        travelBtnX2 = secondColX;
+        travelBtnY2 = startY;
         travelBtnW2 = btnW;
         travelBtnH2 = btnH;
         travelBtnX3 = startX;
-        travelBtnY3 = startY - 76;
+        travelBtnY3 = startY - 38;
         travelBtnW3 = btnW;
         travelBtnH3 = btnH;
-        travelBtnX4 = startX;
-        travelBtnY4 = startY - 114;
+        travelBtnX4 = secondColX;
+        travelBtnY4 = startY - 38;
         travelBtnW4 = btnW;
         travelBtnH4 = btnH;
+        travelBtnX5 = startX;
+        travelBtnY5 = startY - 76;
+        travelBtnW5 = btnW;
+        travelBtnH5 = btnH;
+        travelBtnX6 = secondColX;
+        travelBtnY6 = startY - 76;
+        travelBtnW6 = btnW;
+        travelBtnH6 = btnH;
 
         shapeRenderer.setColor(0.80f, 0.73f, 0.58f, 1f);
         shapeRenderer.rect(travelBtnX1, travelBtnY1, travelBtnW1, travelBtnH1);
         shapeRenderer.rect(travelBtnX2, travelBtnY2, travelBtnW2, travelBtnH2);
         shapeRenderer.rect(travelBtnX3, travelBtnY3, travelBtnW3, travelBtnH3);
         shapeRenderer.rect(travelBtnX4, travelBtnY4, travelBtnW4, travelBtnH4);
+        shapeRenderer.rect(travelBtnX5, travelBtnY5, travelBtnW5, travelBtnH5);
+        shapeRenderer.rect(travelBtnX6, travelBtnY6, travelBtnW6, travelBtnH6);
     }
 
     private void renderTravelBorders(ShapeRenderer shapeRenderer) {
@@ -991,6 +1021,8 @@ public class AdminToolsPopup {
         shapeRenderer.rect(travelBtnX2, travelBtnY2, travelBtnW2, travelBtnH2);
         shapeRenderer.rect(travelBtnX3, travelBtnY3, travelBtnW3, travelBtnH3);
         shapeRenderer.rect(travelBtnX4, travelBtnY4, travelBtnW4, travelBtnH4);
+        shapeRenderer.rect(travelBtnX5, travelBtnY5, travelBtnW5, travelBtnH5);
+        shapeRenderer.rect(travelBtnX6, travelBtnY6, travelBtnW6, travelBtnH6);
     }
 
     private void renderTravelText(SpriteBatch batch, BitmapFont font, ClientPacketHandler handler) {
@@ -1007,6 +1039,8 @@ public class AdminToolsPopup {
         font.draw(batch, "Sandbox Grove", travelBtnX2 + 10, travelBtnY2 + 18);
         font.draw(batch, "Fishing Cove", travelBtnX3 + 10, travelBtnY3 + 18);
         font.draw(batch, "Mining Cove", travelBtnX4 + 10, travelBtnY4 + 18);
+        font.draw(batch, "Main: Tutorial", travelBtnX5 + 10, travelBtnY5 + 18);
+        font.draw(batch, "Main: Mainland", travelBtnX6 + 10, travelBtnY6 + 18);
 
         if (handler != null) {
             String msg = handler.getLastAdminActionMessage();

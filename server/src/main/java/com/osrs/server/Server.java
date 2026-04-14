@@ -6,6 +6,7 @@ import com.osrs.server.database.PlayerRepository;
 import com.osrs.server.network.NettyServer;
 import com.osrs.server.network.PlayerSession;
 import com.osrs.server.world.World;
+import com.osrs.server.world.WorldLoader;
 import com.osrs.shared.Player;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -62,8 +63,10 @@ public class Server {
         
         // Stage 4: Initialize game content
         LOG.info("Stage 4: Loading game content");
+        String worldId = WorldLoader.getConfiguredWorldId();
+        LOG.info("  Content world target: {}", worldId);
         gameContent = new GameContent();
-        gameContent.initializeTutorialIsland();
+        gameContent.initializeForWorld(worldId);
         LOG.info("✓ Game content loaded");
         
         // Stage 5: Spawn NPCs

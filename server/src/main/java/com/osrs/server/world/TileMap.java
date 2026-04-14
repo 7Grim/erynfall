@@ -14,8 +14,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Tutorial Island tile map (104x104).
- * Loads from YAML, provides collision queries.
+ * Tile map loaded from YAML with dynamic dimensions.
  */
 public class TileMap {
     
@@ -37,8 +36,12 @@ public class TileMap {
         @SuppressWarnings("unchecked")
         Map<String, Object> data = mapper.readValue(file, Map.class);
         
-        width = ((Number) data.getOrDefault("width", 104)).intValue();
-        height = ((Number) data.getOrDefault("height", 104)).intValue();
+        int[] dimensions = resolveDimensions(data);
+        width = dimensions[0];
+        height = dimensions[1];
+        if (width <= 0 || height <= 0) {
+            throw new IllegalArgumentException("Invalid map dimensions: " + width + "x" + height);
+        }
 
         walkableCache.clear();
         Object tilesObj = data.get("tiles");
@@ -133,6 +136,42 @@ public class TileMap {
             y++;
         }
         return y;
+    }
+
+    private int[] resolveDimensions(Map<String, Object> data) {
+        int widthFromYaml = data.get("width") instanceof Number n ? n.intValue() : -1;
+        int heightFromYaml = data.get("height") instanceof Number n ? n.intValue() : -1;
+        if (widthFromYaml > 0 && heightFromYaml > 0) {
+            return new int[]{widthFromYaml, heightFromYaml};
+        }
+
+        int inferredWidth = 0;
+        int inferredHeight = 0;
+        Object layoutObj = data.get("layout");
+        if (layoutObj instanceof String layoutText) {
+            String[] rows = layoutText.split("\\R");
+            for (String row : rows) {
+                String trimmed = row.trim();
+                if (trimmed.isEmpty()) {
+                    continue;
+                }
+                inferredHeight++;
+                int rowWidth = trimmed.split("\\s+").length;
+                if (rowWidth > inferredWidth) {
+                    inferredWidth = rowWidth;
+                }
+            }
+        }
+
+        int resolvedWidth = widthFromYaml > 0 ? widthFromYaml : inferredWidth;
+        int resolvedHeight = heightFromYaml > 0 ? heightFromYaml : inferredHeight;
+        if (resolvedWidth <= 0) {
+            resolvedWidth = 1;
+        }
+        if (resolvedHeight <= 0) {
+            resolvedHeight = 1;
+        }
+        return new int[]{resolvedWidth, resolvedHeight};
     }
 
     private File resolveMapFile(String filePath) {

@@ -4,6 +4,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.Files;
 import java.util.List;
+import java.util.Set;
 
 public record LaunchOptions(boolean artistMode, String repoRoot, String worldId) {
 
@@ -13,9 +14,14 @@ public record LaunchOptions(boolean artistMode, String repoRoot, String worldId)
     private static final String REPO_ROOT_PROPERTY = "erynfall.repoRoot";
     private static final String WORLD_ID_PROPERTY = "erynfall.worldId";
     private static final String DEFAULT_WORLD_ID = "sandbox";
-    private static final List<WorldOption> SUPPORTED_WORLDS = List.of(
+    private static final String DEFAULT_LOGIN_WORLD_ID = "main_world";
+    private static final Set<String> SUPPORTED_WORLD_IDS = Set.of(
+        "sandbox",
+        "tutorial_island",
+        "main_world"
+    );
+    private static final List<WorldOption> SELECTABLE_WORLDS = List.of(
         new WorldOption("sandbox", "Sandbox"),
-        new WorldOption("tutorial_island", "Tutorial Island"),
         new WorldOption("main_world", "Erynfall_001")
     );
 
@@ -65,11 +71,15 @@ public record LaunchOptions(boolean artistMode, String repoRoot, String worldId)
     }
 
     public static List<WorldOption> supportedWorlds() {
-        return SUPPORTED_WORLDS;
+        return SELECTABLE_WORLDS;
     }
 
     public static String defaultWorldId() {
         return DEFAULT_WORLD_ID;
+    }
+
+    public static String defaultLoginWorldId() {
+        return DEFAULT_LOGIN_WORLD_ID;
     }
 
     public static String normalizeWorldId(String raw, String fallback) {
@@ -96,12 +106,7 @@ public record LaunchOptions(boolean artistMode, String repoRoot, String worldId)
         if (candidate.isEmpty()) {
             return false;
         }
-        for (WorldOption option : SUPPORTED_WORLDS) {
-            if (option.worldId().equals(candidate)) {
-                return true;
-            }
-        }
-        return false;
+        return SUPPORTED_WORLD_IDS.contains(candidate);
     }
 
     private static String sanitizeWorldId(String raw) {

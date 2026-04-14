@@ -77,6 +77,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
     private static final int TANNING_COST_PER_HIDE = 1;
     private static final int  TINDERBOX_ITEM_ID   = 590;
     private static final long BONES_PRAYER_XP = 45L;  // 4.5 XP stored as tenths
+    private static final int[] MAIN_WORLD_TUTORIAL_QUEST_COMPLETE_SPAWN = new int[]{252, 98};
     
     private final NettyServer server;
     private final AuthTokenSettings authTokenSettings;
@@ -257,6 +258,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
         session.setPlayer(player);
         session.setAuthenticated(true);
         initializeQuestsForSession();
+        applyMainWorldTutorialSpawnGate(player);
         server.getWorld().getPlayers().put(player.getId(), player);
         LOG.info("Player {} (id={}) entered world at ({},{})", username, player.getId(), player.getX(), player.getY());
 
@@ -378,6 +380,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
         session.setPlayer(player);
         session.setAuthenticated(true);
         initializeQuestsForSession();
+        applyMainWorldTutorialSpawnGate(player);
         server.getWorld().getPlayers().put(player.getId(), player);
 
         LOG.info("Token login successful for account {} character {} (entityId={})",
@@ -2204,6 +2207,8 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             case ADMIN_TRAVEL_SANDBOX_GROVE -> new int[]{44, 21};
             case ADMIN_TRAVEL_SANDBOX_FISHING_COVE -> new int[]{54, 21};
             case ADMIN_TRAVEL_SANDBOX_MINING_COVE -> new int[]{32, 18};
+            case ADMIN_TRAVEL_MAIN_WORLD_TUTORIAL -> new int[]{56, 96};
+            case ADMIN_TRAVEL_MAIN_WORLD_MAINLAND -> new int[]{252, 98};
             default -> null;
         };
     }
@@ -2621,6 +2626,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
                         sendChatMessageToPlayer(ctx.channel(),
                             "You have completed: " + updatedQuest.name + "! You earned "
                                 + updatedQuest.totalRewardXp + " XP.", 3);
+                        handleMainWorldTutorialCompletionTransition(ctx.channel(), updatedQuest);
                         PlayerRepository.saveQuestProgress(
                             session.getPlayer(), session.getQuestManager());
                     }
@@ -2660,6 +2666,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
                         sendChatMessageToPlayer(ctx.channel(),
                             "You have completed: " + updatedQuest.name
                                 + "! You earned " + updatedQuest.totalRewardXp + " XP.", 3);
+                        handleMainWorldTutorialCompletionTransition(ctx.channel(), updatedQuest);
                         PlayerRepository.saveQuestProgress(
                             session.getPlayer(), session.getQuestManager());
                     }
@@ -2694,6 +2701,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
                     sendChatMessageToPlayer(session.getChannel(),
                         "You have completed: " + updatedQuest.name + "! You earned "
                             + updatedQuest.totalRewardXp + " XP.", 3);
+                    handleMainWorldTutorialCompletionTransition(session.getChannel(), updatedQuest);
                     PlayerRepository.saveQuestProgress(
                         session.getPlayer(), session.getQuestManager());
                 }
@@ -2707,6 +2715,68 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
 
     private void sendQuestUpdate(ChannelHandlerContext ctx, Quest quest) {
         sendQuestUpdate(session, quest);
+    }
+
+    private void applyMainWorldTutorialSpawnGate(Player player) {
+        if (player == null || session == null || session.getQuestManager() == null) {
+            return;
+        }
+        if (!"main_world".equals(server.getWorld().getWorldId())) {
+            return;
+        }
+
+        boolean tutorialComplete = session.getQuestManager().isTutorialComplete();
+        int[] spawn = server.getWorld().getMainWorldSpawnForTutorialState(tutorialComplete);
+        if (!server.getWorld().canWalkTo(spawn[0], spawn[1])) {
+            LOG.warn("main_world gated spawn tile ({},{}) is not walkable; skipping gate for {}",
+                spawn[0], spawn[1], player.getName());
+            return;
+        }
+        if (player.getX() == spawn[0] && player.getY() == spawn[1]) {
+            return;
+        }
+
+        player.setPosition(spawn[0], spawn[1]);
+        LOG.info("Applied main_world spawn gate for {}: tutorialComplete={} -> ({},{})",
+            player.getName(), tutorialComplete, spawn[0], spawn[1]);
+    }
+
+    private void handleMainWorldTutorialCompletionTransition(io.netty.channel.Channel channel, Quest quest) {
+        if (channel == null || session == null || quest == null || session.getPlayer() == null) {
+            return;
+        }
+        if (!"main_world".equals(server.getWorld().getWorldId())) {
+            return;
+        }
+        if (quest.id != QuestManager.TUTORIAL_ISLAND_QUEST_ID) {
+            return;
+        }
+
+        Player player = session.getPlayer();
+        int[] mainlandSpawn = server.getWorld().getMainWorldSpawnForTutorialState(true);
+        if (mainlandSpawn[0] <= 0 || mainlandSpawn[1] <= 0) {
+            mainlandSpawn = MAIN_WORLD_TUTORIAL_QUEST_COMPLETE_SPAWN;
+        }
+        if (!server.getWorld().canWalkTo(mainlandSpawn[0], mainlandSpawn[1])) {
+            LOG.warn("Cannot move {} to mainland spawn ({},{}): tile not walkable",
+                player.getName(), mainlandSpawn[0], mainlandSpawn[1]);
+            return;
+        }
+        if (player.getX() == mainlandSpawn[0] && player.getY() == mainlandSpawn[1]) {
+            return;
+        }
+
+        player.setPosition(mainlandSpawn[0], mainlandSpawn[1]);
+        server.broadcastToAll(NetworkProto.ServerMessage.newBuilder()
+            .setEntityUpdate(NetworkProto.EntityUpdate.newBuilder()
+                .setEntityId(player.getId())
+                .setX(mainlandSpawn[0])
+                .setY(mainlandSpawn[1]))
+            .build());
+        sendChatMessageToPlayer(channel,
+            "You sail to the mainland and begin your journey in Erynfall.", 3);
+        LOG.info("Moved {} to main_world mainland spawn after tutorial completion at ({},{})",
+            player.getName(), mainlandSpawn[0], mainlandSpawn[1]);
     }
 
     private void sendQuestUpdate(PlayerSession session, Quest quest) {

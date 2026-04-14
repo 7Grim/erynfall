@@ -3288,7 +3288,7 @@ public class GameScreen extends ApplicationAdapter {
             float[] vis = npcVisual.get(entityId);
             int tileX = vis != null ? Math.round(vis[0]) : entry.getValue()[0];
             int tileY = vis != null ? Math.round(vis[1]) : entry.getValue()[1];
-            if (!CoordinateConverter.isValidTile(tileX, tileY)) {
+            if (!isValidMapTile(tileX, tileY)) {
                 continue;
             }
 
@@ -4347,7 +4347,7 @@ public class GameScreen extends ApplicationAdapter {
                     }
                 } else {
                     int[] tile = screenToTile(mx, my);
-                    if (CoordinateConverter.isValidTile(tile[0], tile[1])) {
+                    if (isValidMapTile(tile[0], tile[1])) {
                         boolean didAction = handleWorldLeftClick(tile[0], tile[1]);
                         if (!didAction) {
                             walkTo(tile[0], tile[1]);
@@ -4783,7 +4783,7 @@ public class GameScreen extends ApplicationAdapter {
                     if (sidePanel.consumeLogoutRequested()) requestLogout();
                 } else {
                     int[] tile = screenToTile(mx, rawMy);
-                    if (CoordinateConverter.isValidTile(tile[0], tile[1])) {
+                    if (isValidMapTile(tile[0], tile[1])) {
                         walkTo(tile[0], tile[1]);
                     }
                 }
@@ -5663,7 +5663,7 @@ public class GameScreen extends ApplicationAdapter {
      * Non-walkable tiles are derived from map.yaml walkability definitions.
      */
     private boolean canReachTile(int fromX, int fromY, int toX, int toY) {
-        if (!CoordinateConverter.isValidTile(toX, toY)) return false;
+        if (!isValidMapTile(toX, toY)) return false;
         // Item tile itself must not be a hard blocker
         int destType = tileMap[toX][toY];
         if (!mapLoader.isWalkableTile(destType)) return false;
@@ -5684,7 +5684,7 @@ public class GameScreen extends ApplicationAdapter {
 
             for (int i = 0; i < 8; i++) {
                 int nx = cur[0] + dx[i], ny = cur[1] + dy[i];
-                if (!CoordinateConverter.isValidTile(nx, ny)) continue;
+                if (!isValidMapTile(nx, ny)) continue;
                 if (visited[nx][ny]) continue;
                 int t = tileMap[nx][ny];
                 if (!mapLoader.isWalkableTile(t)) continue;
@@ -5695,8 +5695,26 @@ public class GameScreen extends ApplicationAdapter {
         return false;
     }
 
+    private int mapWidth() {
+        if (tileMap == null) {
+            return 0;
+        }
+        return tileMap.length;
+    }
+
+    private int mapHeight() {
+        if (tileMap == null || tileMap.length == 0 || tileMap[0] == null) {
+            return 0;
+        }
+        return tileMap[0].length;
+    }
+
+    private boolean isValidMapTile(int x, int y) {
+        return CoordinateConverter.isValidTile(x, y, mapWidth(), mapHeight());
+    }
+
     private List<int[]> findPath(int fromX, int fromY, int toX, int toY) {
-        if (!CoordinateConverter.isValidTile(fromX, fromY) || !CoordinateConverter.isValidTile(toX, toY)) {
+        if (!isValidMapTile(fromX, fromY) || !isValidMapTile(toX, toY)) {
             return List.of();
         }
         if (!isWalkableClientTile(toX, toY)) {
@@ -5706,8 +5724,8 @@ public class GameScreen extends ApplicationAdapter {
             return List.of();
         }
 
-        int width = MapLoader.WIDTH;
-        int height = MapLoader.HEIGHT;
+        int width = mapWidth();
+        int height = mapHeight();
         boolean[][] visited = new boolean[width][height];
         int[][] prevX = new int[width][height];
         int[][] prevY = new int[width][height];
@@ -5735,7 +5753,7 @@ public class GameScreen extends ApplicationAdapter {
             for (int i = 0; i < 8; i++) {
                 int nx = cur[0] + dx[i];
                 int ny = cur[1] + dy[i];
-                if (!CoordinateConverter.isValidTile(nx, ny)) continue;
+                if (!isValidMapTile(nx, ny)) continue;
                 if (visited[nx][ny]) continue;
                 if (!isWalkableClientTile(nx, ny)) continue;
 
@@ -5774,7 +5792,7 @@ public class GameScreen extends ApplicationAdapter {
             for (int dy = -1; dy <= 1; dy++) {
                 if (dx == 0 && dy == 0) continue;
                 int tx = nx + dx, ty = ny + dy;
-                if (!CoordinateConverter.isValidTile(tx, ty)) continue;
+                if (!isValidMapTile(tx, ty)) continue;
                 if (!isWalkableClientTile(tx, ty)) continue;
                 if (isNpcOccupying(tx, ty, pendingNpcId)) continue;
                 double d = Math.hypot(px - tx, py - ty);
@@ -5799,7 +5817,7 @@ public class GameScreen extends ApplicationAdapter {
                 int tx = nx + dx, ty = ny + dy;
                 int cheby = Math.max(Math.abs(dx), Math.abs(dy));
                 if (cheby > range) continue;
-                if (!CoordinateConverter.isValidTile(tx, ty)) continue;
+                if (!isValidMapTile(tx, ty)) continue;
                 if (!isWalkableClientTile(tx, ty)) continue;
                 double d = Math.hypot(px - tx, py - ty);
                 if (d < bestDist) { bestDist = d; best = new int[]{tx, ty}; }
@@ -5847,7 +5865,7 @@ public class GameScreen extends ApplicationAdapter {
         }
 
         int[] tile = entityLogicalPosition(entityId);
-        if (tile != null && CoordinateConverter.isValidTile(tile[0], tile[1])) {
+        if (tile != null && isValidMapTile(tile[0], tile[1])) {
             opts.add(new ContextMenu.MenuItem(ContextMenu.Action.WALK_HERE, null, new int[]{tile[0], tile[1]}));
         }
 
@@ -5878,7 +5896,7 @@ public class GameScreen extends ApplicationAdapter {
 
     private List<ContextMenu.MenuItem> generateContextMenu(int tileX, int tileY) {
         List<ContextMenu.MenuItem> opts = new ArrayList<>();
-        if (!CoordinateConverter.isValidTile(tileX, tileY)) return opts;
+        if (!isValidMapTile(tileX, tileY)) return opts;
 
         opts.add(new ContextMenu.MenuItem(ContextMenu.Action.WALK_HERE, null, new int[]{tileX, tileY}));
 

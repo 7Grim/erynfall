@@ -4,18 +4,67 @@ id: "main_world"
 terrain_height:
   height_step: 0.6
   regions:
-    - name: "main_world_foundation"
-      min_x: 8
-      min_y: 8
-      max_x: 96
-      max_y: 95
+    - name: "tutorial_island_core"
+      min_x: 26
+      min_y: 68
+      max_x: 86
+      max_y: 124
+      level: 1
+    - name: "tutorial_island_hub"
+      min_x: 46
+      min_y: 88
+      max_x: 66
+      max_y: 106
+      level: 2
+    - name: "mainland_core"
+      min_x: 206
+      min_y: 62
+      max_x: 298
+      max_y: 136
+      level: 1
+    - name: "mainland_hub"
+      min_x: 238
+      min_y: 86
+      max_x: 270
+      max_y: 110
       level: 1
 terrain_visual:
+  default_type: "water"
   regions:
-    - name: "main_world_path_stub"
-      min_x: 48
-      min_y: 46
-      max_x: 56
-      max_y: 54
+    - name: "tutorial_island_grass"
+      min_x: 24
+      min_y: 66
+      max_x: 88
+      max_y: 126
+      type: "grass"
+    - name: "tutorial_island_shore"
+      min_x: 20
+      min_y: 62
+      max_x: 92
+      max_y: 130
+      type: "sand"
+    - name: "tutorial_path_hub"
+      min_x: 50
+      min_y: 90
+      max_x: 62
+      max_y: 102
+      type: "path"
+    - name: "mainland_grass"
+      min_x: 202
+      min_y: 58
+      max_x: 302
+      max_y: 140
+      type: "grass"
+    - name: "mainland_shore"
+      min_x: 196
+      min_y: 56
+      max_x: 308
+      max_y: 142
+      type: "sand"
+    - name: "mainland_path_hub"
+      min_x: 244
+      min_y: 90
+      max_x: 262
+      max_y: 106
       type: "path"
 static_props: []

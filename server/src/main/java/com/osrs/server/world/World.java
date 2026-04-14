@@ -28,6 +28,7 @@ public class World {
     private final Map<Integer, String> npcExamineTexts = new HashMap<>();
     private final Map<String, WorldData.LootTable> lootTables;
     private final WorldData worldData;
+    private final String worldId;
     private int nextEntityId = 1;
 
     // Ground items
@@ -83,7 +84,7 @@ public class World {
 
     public World() throws Exception {
         LOG.info("Initializing World...");
-        String worldId = WorldLoader.getConfiguredWorldId();
+        this.worldId = WorldLoader.getConfiguredWorldId();
         String mapPath = "worlds/" + worldId + "/map.yaml";
         LOG.info("Configured world ID: {}", worldId);
 
@@ -101,6 +102,8 @@ public class World {
         this.worldData = WorldLoader.loadWorld();
         LOG.info("World configuration loaded");
         LOG.info("  Spawn: ({}, {})", worldData.spawnX, worldData.spawnY);
+        LOG.info("  Tutorial spawn: ({}, {})", worldData.tutorialSpawnX, worldData.tutorialSpawnY);
+        LOG.info("  Mainland spawn: ({}, {})", worldData.mainlandSpawnX, worldData.mainlandSpawnY);
         LOG.info("  Maps: {}", worldData.maps.keySet());
         
         // Initialize tile map
@@ -109,7 +112,8 @@ public class World {
             tileMap.load(mapPath);
         } catch (Exception e) {
             LOG.warn("Failed to load {}; using default walkable map: {}", mapPath, e.getMessage());
-            tileMap.initializeDefaultMap(104, 104);  // OSRS default size
+            int[] fallbackSize = resolveFallbackMapSize();
+            tileMap.initializeDefaultMap(fallbackSize[0], fallbackSize[1]);
         }
         this.pathfinding = new Pathfinding(tileMap);
         LOG.info("Tile map initialized: {} x {} tiles", tileMap.getWidth(), tileMap.getHeight());
@@ -122,6 +126,21 @@ public class World {
         spawnConfiguredNPCs();
         
         LOG.info("✓ World initialized successfully with {} NPCs", npcs.size());
+    }
+
+    private int[] resolveFallbackMapSize() {
+        int maxX = worldData.spawnX;
+        int maxY = worldData.spawnY;
+        if (worldData.maps != null) {
+            for (WorldData.MapInfo mapInfo : worldData.maps.values()) {
+                if (mapInfo == null) {
+                    continue;
+                }
+                maxX = Math.max(maxX, mapInfo.maxX);
+                maxY = Math.max(maxY, mapInfo.maxY);
+            }
+        }
+        return new int[]{Math.max(1, maxX + 1), Math.max(1, maxY + 1)};
     }
     
     /**
@@ -268,6 +287,21 @@ public class World {
 
     public int getSpawnX() { return worldData.spawnX; }
     public int getSpawnY() { return worldData.spawnY; }
+    public int getTutorialSpawnX() { return worldData.tutorialSpawnX; }
+    public int getTutorialSpawnY() { return worldData.tutorialSpawnY; }
+    public int getMainlandSpawnX() { return worldData.mainlandSpawnX; }
+    public int getMainlandSpawnY() { return worldData.mainlandSpawnY; }
+    public String getWorldId() { return worldId; }
+
+    public int[] getMainWorldSpawnForTutorialState(boolean tutorialCompleted) {
+        if (!"main_world".equals(worldId)) {
+            return new int[]{worldData.spawnX, worldData.spawnY};
+        }
+        if (tutorialCompleted) {
+            return new int[]{worldData.mainlandSpawnX, worldData.mainlandSpawnY};
+        }
+        return new int[]{worldData.tutorialSpawnX, worldData.tutorialSpawnY};
+    }
     
     /**
      * Get loot table by ID
