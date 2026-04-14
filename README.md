@@ -163,6 +163,26 @@ set GAME_SERVER_HOST=165.22.37.200 && run-client.bat
 Then on the login screen choose:
 - `Erynfall_001`
 
+### Production Server World Selection
+
+The deployed live server should explicitly launch:
+
+```bash
+java -Derynfall.worldId=main_world -jar /opt/erynfall/server.jar
+```
+
+Do not rely on the server's default world selection for production.
+
+Recommended `systemd` service command:
+
+```ini
+ExecStart=/usr/bin/java -Derynfall.worldId=main_world -jar /opt/erynfall/server.jar
+```
+
+This keeps:
+- `main_world` = live deployed world
+- `sandbox` = local/dev testing world only
+
 ### Run Artist Mode
 
 Build the client jar first:

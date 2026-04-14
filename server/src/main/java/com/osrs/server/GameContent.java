@@ -67,7 +67,7 @@ public class GameContent {
 
     private String normalizeWorldId(String worldId) {
         if (worldId == null || worldId.isBlank()) {
-            return "sandbox";
+            return "main_world";
         }
         return worldId.trim().toLowerCase(Locale.ROOT);
     }

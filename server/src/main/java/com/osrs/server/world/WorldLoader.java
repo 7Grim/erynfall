@@ -18,7 +18,7 @@ public class WorldLoader {
     
     private static final Logger LOG = LoggerFactory.getLogger(WorldLoader.class);
     private static final String WORLD_ID_PROPERTY = "erynfall.worldId";
-    private static final String DEFAULT_WORLD_ID = "sandbox";
+    private static final String DEFAULT_WORLD_ID = "main_world";
     private static final Set<String> VISUAL_ARCHETYPE_NAMES = Set.of(
         "rat",
         "giant rat",
