@@ -10,6 +10,7 @@ message Handshake {
     string username = 1;
     string password = 2;
     string access_token = 3;
+    string requested_world_id = 4;
 }
 
 // HandshakeResponse: Server → Client

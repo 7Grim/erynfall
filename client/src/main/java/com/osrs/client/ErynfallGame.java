@@ -30,7 +30,7 @@ public class ErynfallGame extends Game {
     public void create() {
         audioManager = new AudioManager();
         if (launchOptions.artistMode()) {
-            startGame("artist@local", "");
+            startGame("artist@local", "", launchOptions.worldId());
         } else {
             showLoginScreen();
         }
@@ -52,7 +52,12 @@ public class ErynfallGame extends Game {
 
     /** Called by LoginScreen once credentials are confirmed. */
     public void startGame(String username, String password) {
-        GameScreen gs = new GameScreen(this, username, password, launchOptions);
+        startGame(username, password, launchOptions.worldId());
+    }
+
+    public void startGame(String username, String password, String selectedWorldId) {
+        LaunchOptions sessionOptions = launchOptions.withWorldId(selectedWorldId);
+        GameScreen gs = new GameScreen(this, username, password, sessionOptions);
         setScreen(new ScreenAdapter() {
             @Override public void show()                   { gs.create(); }
             @Override public void render(float delta)      { gs.render(); }
@@ -69,7 +74,7 @@ public class ErynfallGame extends Game {
 
     public void showLoginScreen(String errorMessage) {
         if (launchOptions.artistMode()) {
-            startGame("artist@local", "");
+            startGame("artist@local", "", launchOptions.worldId());
             return;
         }
         setScreen(new LoginScreen(this, errorMessage));

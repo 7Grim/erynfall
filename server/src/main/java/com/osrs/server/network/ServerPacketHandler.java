@@ -11,6 +11,7 @@ import com.osrs.server.quest.Quest;
 import com.osrs.server.quest.QuestManager;
 import com.osrs.server.world.GroundItem;
 import com.osrs.server.world.World;
+import com.osrs.server.world.WorldLoader;
 import com.osrs.shared.CombatStyle;
 import com.osrs.shared.CraftingRegistry;
 import com.osrs.shared.CookingRegistry;
@@ -35,6 +36,8 @@ import io.jsonwebtoken.JwtException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Locale;
+
 /**
  * Handles incoming packets from clients.
  */
@@ -46,6 +49,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
     private static final int MAX_FRIENDS = 200;
     private static final int BRONZE_AXE_ITEM_ID = 1351;
     private static final int BRONZE_PICKAXE_ITEM_ID = 1265;
+    private static final String WORLD_MISMATCH_MESSAGE = "Selected world is not available on this server.";
     private static final int SMALL_FISHING_NET_ITEM_ID = 303;
     private static final int FISHING_BAIT_ITEM_ID = 313;
     private static final int HAMMER_ITEM_ID = 2347;
@@ -185,6 +189,10 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
     }
     
     private void handleHandshake(ChannelHandlerContext ctx, NetworkProto.Handshake handshake) {
+        if (!validateRequestedWorld(ctx, handshake)) {
+            return;
+        }
+
         String accessToken = handshake.getAccessToken().trim();
         if (!accessToken.isEmpty()) {
             handleTokenHandshake(ctx, accessToken);
@@ -283,6 +291,31 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
                 ps.getChannel().writeAndFlush(buildRemotePlayerEquipmentUpdateMessage(newPlayer));
             }
         }
+    }
+
+    private boolean validateRequestedWorld(ChannelHandlerContext ctx, NetworkProto.Handshake handshake) {
+        String requestedWorldId = sanitizeRequestedWorldId(handshake.getRequestedWorldId());
+        String configuredWorldId = WorldLoader.getConfiguredWorldId();
+        if (requestedWorldId.isEmpty()) {
+            LOG.warn("Handshake rejected for session {}: missing requested world id (server world={})",
+                session.getSessionId(), configuredWorldId);
+            sendHandshakeResponse(ctx, false, WORLD_MISMATCH_MESSAGE, 0);
+            return false;
+        }
+        if (!requestedWorldId.equals(configuredWorldId)) {
+            LOG.warn("Handshake rejected for session {}: requested world '{}' does not match server world '{}'",
+                session.getSessionId(), requestedWorldId, configuredWorldId);
+            sendHandshakeResponse(ctx, false, WORLD_MISMATCH_MESSAGE, 0);
+            return false;
+        }
+        return true;
+    }
+
+    private String sanitizeRequestedWorldId(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return "";
+        }
+        return raw.trim().toLowerCase(Locale.ROOT);
     }
 
     private void handleTokenHandshake(ChannelHandlerContext ctx, String accessToken) {

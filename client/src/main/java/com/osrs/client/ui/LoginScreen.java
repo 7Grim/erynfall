@@ -14,8 +14,10 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.Matrix4;
 import com.osrs.client.ErynfallGame;
+import com.osrs.client.LaunchOptions;
 
 import java.nio.file.Path;
+import java.util.List;
 
 /**
  * Login / registration screen shown before GameScreen.
@@ -32,6 +34,7 @@ public class LoginScreen extends ScreenAdapter {
     private static final String PREF_KEY_LAST_EMAIL = "email";
     private static final String PREF_KEY_SAVED_EMAIL = "saved_email";
     private static final String PREF_KEY_SAVED_PASSWORD = "saved_password";
+    private static final String PREF_KEY_SELECTED_WORLD_ID = "selected_world_id";
 
     private static final int PANEL_W          = 400;
     private static final int PANEL_H          = 360;
@@ -40,6 +43,8 @@ public class LoginScreen extends ScreenAdapter {
     private static final int PAD              = 16;
     private static final int EMAIL_MAX_LEN    = 254;
     private static final int PASSWORD_MAX_LEN = 128;
+    private static final int WORLD_SELECTOR_BTN_W = 26;
+    private static final int WORLD_SELECTOR_GAP = 8;
     private static final float BACKSPACE_INITIAL_DELAY = 0.35f;
     private static final float BACKSPACE_REPEAT_INTERVAL = 0.045f;
 
@@ -71,6 +76,8 @@ public class LoginScreen extends ScreenAdapter {
     private boolean showSavedAccountView = false;
     private String savedEmail = "";
     private String savedPassword = "";
+    private final List<LaunchOptions.WorldOption> worldOptions = LaunchOptions.supportedWorlds();
+    private int selectedWorldIndex = 0;
 
     public LoginScreen(ErynfallGame game) {
         this(game, "");
@@ -185,9 +192,23 @@ public class LoginScreen extends ScreenAdapter {
                 int saveBtnY  = pY + 68;
                 int savedPrimaryBtnY = pY + 104;
                 int savedSecondaryBtnY = pY + 58;
+                int worldSelectorY = pY + PANEL_H - 70;
                 int efBottom = pY + PANEL_H - 100;    // email field rect bottom -- must match render()
                 int pfBottom = pY + PANEL_H - 160;    // password field rect bottom -- must match render()
                 boolean inX  = screenX >= pX + PAD && screenX <= pX + PAD + fieldW;
+                int leftBtnX = pX + PAD;
+                int rightBtnX = pX + PAD + fieldW - WORLD_SELECTOR_BTN_W;
+
+                if (flippedY >= worldSelectorY && flippedY <= worldSelectorY + BUTTON_H) {
+                    if (screenX >= leftBtnX && screenX <= leftBtnX + WORLD_SELECTOR_BTN_W) {
+                        cycleWorldSelection(-1);
+                        return true;
+                    }
+                    if (screenX >= rightBtnX && screenX <= rightBtnX + WORLD_SELECTOR_BTN_W) {
+                        cycleWorldSelection(1);
+                        return true;
+                    }
+                }
 
                 // Mute toggle button (bottom-right corner)
                 int muteX = w - MUTE_BTN_SZ - MUTE_BTN_MARGIN;
@@ -239,6 +260,8 @@ public class LoginScreen extends ScreenAdapter {
         savedPassword = prefs.getString(PREF_KEY_SAVED_PASSWORD, "");
         hasSavedCredentials = !savedEmail.isBlank() && !savedPassword.isBlank();
         showSavedAccountView = hasSavedCredentials;
+        String preferredWorldId = prefs.getString(PREF_KEY_SELECTED_WORLD_ID, game.getLaunchOptions().worldId());
+        selectedWorldIndex = indexForWorldId(preferredWorldId);
 
         String lastEmail = prefs.getString(PREF_KEY_LAST_EMAIL, "");
         if (hasSavedCredentials) {
@@ -294,6 +317,7 @@ public class LoginScreen extends ScreenAdapter {
         int saveBtnY = panelY + 68;
         int savedPrimaryBtnY = panelY + 104;
         int savedSecondaryBtnY = panelY + 58;
+        int worldSelectorY = panelY + PANEL_H - 70;
 
         sr.setProjectionMatrix(proj);
 
@@ -371,6 +395,11 @@ public class LoginScreen extends ScreenAdapter {
             renderButton(sr, fx, savedSecondaryBtnY, fieldW, BUTTON_H, true);
         }
 
+        int worldLabelX = fx + WORLD_SELECTOR_BTN_W + WORLD_SELECTOR_GAP;
+        int worldLabelW = fieldW - (WORLD_SELECTOR_BTN_W + WORLD_SELECTOR_GAP) * 2;
+        renderButton(sr, fx, worldSelectorY, WORLD_SELECTOR_BTN_W, BUTTON_H, true);
+        renderButton(sr, fx + fieldW - WORLD_SELECTOR_BTN_W, worldSelectorY, WORLD_SELECTOR_BTN_W, BUTTON_H, true);
+
         // -- Text --
         batch.setProjectionMatrix(proj);
         batch.begin();
@@ -389,6 +418,20 @@ public class LoginScreen extends ScreenAdapter {
         font.draw(batch, subtitle,
             panelX + (PANEL_W - subLayout.width) / 2f,
             panelY + PANEL_H - 28);
+
+        font.setColor(0.78f, 0.72f, 0.58f, 1f);
+        font.draw(batch, "World:", fx, worldSelectorY + BUTTON_H + 14);
+        font.setColor(0.98f, 0.94f, 0.80f, 1f);
+        String selectedWorldLabel = selectedWorldOption().displayLabel();
+        GlyphLayout selectedWorldLayout = new GlyphLayout(font, truncateToWidth(selectedWorldLabel, worldLabelW - 10));
+        font.draw(batch, "<", fx + 9f, worldSelectorY + (BUTTON_H + selectedWorldLayout.height) / 2f);
+        font.draw(batch, ">",
+            fx + fieldW - WORLD_SELECTOR_BTN_W + 9f,
+            worldSelectorY + (BUTTON_H + selectedWorldLayout.height) / 2f);
+        font.draw(batch,
+            truncateToWidth(selectedWorldLabel, worldLabelW - 10),
+            worldLabelX + (worldLabelW - selectedWorldLayout.width) / 2f,
+            worldSelectorY + (BUTTON_H + selectedWorldLayout.height) / 2f);
 
         if (!showSavedAccountView) {
             font.setColor(0.78f, 0.72f, 0.58f, 1f);
@@ -656,8 +699,9 @@ public class LoginScreen extends ScreenAdapter {
         transitioning = true;
         Preferences prefs = Gdx.app.getPreferences(PREFS_NAME);
         prefs.putString(PREF_KEY_LAST_EMAIL, email);
+        prefs.putString(PREF_KEY_SELECTED_WORLD_ID, selectedWorldOption().worldId());
         prefs.flush();
-        game.startGame(email, password);
+        game.startGame(email, password, selectedWorldOption().worldId());
         // Do NOT touch any fields after this line — hide()/dispose() has already run.
     }
 
@@ -710,6 +754,37 @@ public class LoginScreen extends ScreenAdapter {
         passwordBuffer = "";
         focusEmail = true;
         errorMessage = "Saved account details cleared.";
+    }
+
+    private int indexForWorldId(String worldId) {
+        String normalized = LaunchOptions.normalizeWorldId(worldId, LaunchOptions.defaultWorldId());
+        for (int i = 0; i < worldOptions.size(); i++) {
+            if (worldOptions.get(i).worldId().equals(normalized)) {
+                return i;
+            }
+        }
+        return 0;
+    }
+
+    private LaunchOptions.WorldOption selectedWorldOption() {
+        if (worldOptions.isEmpty()) {
+            return new LaunchOptions.WorldOption(LaunchOptions.defaultWorldId(), "Sandbox");
+        }
+        if (selectedWorldIndex < 0 || selectedWorldIndex >= worldOptions.size()) {
+            selectedWorldIndex = 0;
+        }
+        return worldOptions.get(selectedWorldIndex);
+    }
+
+    private void cycleWorldSelection(int delta) {
+        if (worldOptions.isEmpty()) {
+            return;
+        }
+        selectedWorldIndex = (selectedWorldIndex + delta + worldOptions.size()) % worldOptions.size();
+        Preferences prefs = Gdx.app.getPreferences(PREFS_NAME);
+        prefs.putString(PREF_KEY_SELECTED_WORLD_ID, selectedWorldOption().worldId());
+        prefs.flush();
+        errorMessage = "";
     }
 
     @Override

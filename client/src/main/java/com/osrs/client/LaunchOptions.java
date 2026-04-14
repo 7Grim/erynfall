@@ -3,13 +3,21 @@ package com.osrs.client;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.Files;
+import java.util.List;
 
 public record LaunchOptions(boolean artistMode, String repoRoot, String worldId) {
+
+    public record WorldOption(String worldId, String displayLabel) {}
 
     private static final String ARTIST_MODE_PROPERTY = "erynfall.artistMode";
     private static final String REPO_ROOT_PROPERTY = "erynfall.repoRoot";
     private static final String WORLD_ID_PROPERTY = "erynfall.worldId";
     private static final String DEFAULT_WORLD_ID = "sandbox";
+    private static final List<WorldOption> SUPPORTED_WORLDS = List.of(
+        new WorldOption("sandbox", "Sandbox"),
+        new WorldOption("tutorial_island", "Tutorial Island"),
+        new WorldOption("main_world", "Erynfall_001")
+    );
 
     public static LaunchOptions normal() {
         return new LaunchOptions(false, detectDefaultRepoRoot().toString(), DEFAULT_WORLD_ID);
@@ -36,7 +44,7 @@ public record LaunchOptions(boolean artistMode, String repoRoot, String worldId)
                 } else if (arg.startsWith("--world-id=")) {
                     String value = arg.substring("--world-id=".length()).trim();
                     if (!value.isEmpty()) {
-                        worldId = sanitizeWorldId(value);
+                        worldId = normalizeWorldId(value, defaults.worldId());
                     }
                 }
             }
@@ -52,13 +60,53 @@ public record LaunchOptions(boolean artistMode, String repoRoot, String worldId)
         String repoRoot = configuredRepoRoot.isEmpty()
             ? defaultRepoRoot
             : Paths.get(configuredRepoRoot).toAbsolutePath().normalize().toString();
-        String worldId = sanitizeWorldId(System.getProperty(WORLD_ID_PROPERTY, DEFAULT_WORLD_ID));
+        String worldId = normalizeWorldId(System.getProperty(WORLD_ID_PROPERTY, DEFAULT_WORLD_ID), DEFAULT_WORLD_ID);
         return new LaunchOptions(artistMode, repoRoot, worldId);
+    }
+
+    public static List<WorldOption> supportedWorlds() {
+        return SUPPORTED_WORLDS;
+    }
+
+    public static String defaultWorldId() {
+        return DEFAULT_WORLD_ID;
+    }
+
+    public static String normalizeWorldId(String raw, String fallback) {
+        String sanitized = sanitizeWorldId(raw);
+        if (sanitized.isEmpty()) {
+            return normalizeFallback(fallback);
+        }
+        if (isSupportedWorldId(sanitized)) {
+            return sanitized;
+        }
+        return normalizeFallback(fallback);
+    }
+
+    private static String normalizeFallback(String fallback) {
+        String fallbackSanitized = sanitizeWorldId(fallback);
+        if (fallbackSanitized.isEmpty() || !isSupportedWorldId(fallbackSanitized)) {
+            return DEFAULT_WORLD_ID;
+        }
+        return fallbackSanitized;
+    }
+
+    public static boolean isSupportedWorldId(String worldId) {
+        String candidate = sanitizeWorldId(worldId);
+        if (candidate.isEmpty()) {
+            return false;
+        }
+        for (WorldOption option : SUPPORTED_WORLDS) {
+            if (option.worldId().equals(candidate)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static String sanitizeWorldId(String raw) {
         if (raw == null || raw.isBlank()) {
-            return DEFAULT_WORLD_ID;
+            return "";
         }
         return raw.trim().toLowerCase();
     }
@@ -77,5 +125,9 @@ public record LaunchOptions(boolean artistMode, String repoRoot, String worldId)
 
     public Path repoRootPath() {
         return Paths.get(repoRoot).toAbsolutePath().normalize();
+    }
+
+    public LaunchOptions withWorldId(String selectedWorldId) {
+        return new LaunchOptions(artistMode, repoRoot, normalizeWorldId(selectedWorldId, worldId));
     }
 }

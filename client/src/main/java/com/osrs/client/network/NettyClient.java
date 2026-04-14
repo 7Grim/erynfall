@@ -49,6 +49,13 @@ public class NettyClient {
     private volatile CountDownLatch handshakeLatch = new CountDownLatch(1);
     private volatile NetworkProto.HandshakeResponse lastHandshakeResponse;
     private final AtomicLong friendActionSequence = new AtomicLong(1);
+
+    private static String sanitizeRequestedWorldId(String worldId) {
+        if (worldId == null || worldId.isBlank()) {
+            return "sandbox";
+        }
+        return worldId.trim().toLowerCase();
+    }
     
     public void connect() throws Exception {
         group = new NioEventLoopGroup();
@@ -91,29 +98,31 @@ public class NettyClient {
         group.shutdownGracefully();
     }
     
-    public void sendHandshake(String username, String password) {
+    public void sendHandshake(String username, String password, String requestedWorldId) {
         lastHandshakeResponse = null;
         handshakeLatch = new CountDownLatch(1);
 
         NetworkProto.ClientMessage msg = NetworkProto.ClientMessage.newBuilder()
             .setHandshake(NetworkProto.Handshake.newBuilder()
                 .setUsername(username)
-                .setPassword(password))
+                .setPassword(password)
+                .setRequestedWorldId(sanitizeRequestedWorldId(requestedWorldId)))
             .build();
         channel.writeAndFlush(msg);
-        LOG.debug("Sent handshake: {}", username);
+        LOG.debug("Sent handshake: {} world={}", username, sanitizeRequestedWorldId(requestedWorldId));
     }
 
-    public void sendTokenHandshake(String accessToken) {
+    public void sendTokenHandshake(String accessToken, String requestedWorldId) {
         lastHandshakeResponse = null;
         handshakeLatch = new CountDownLatch(1);
 
         NetworkProto.ClientMessage msg = NetworkProto.ClientMessage.newBuilder()
             .setHandshake(NetworkProto.Handshake.newBuilder()
-                .setAccessToken(accessToken))
+                .setAccessToken(accessToken)
+                .setRequestedWorldId(sanitizeRequestedWorldId(requestedWorldId)))
             .build();
         channel.writeAndFlush(msg);
-        LOG.debug("Sent token handshake");
+        LOG.debug("Sent token handshake for world {}", sanitizeRequestedWorldId(requestedWorldId));
     }
 
     public NetworkProto.HandshakeResponse awaitHandshakeResponse(long timeoutMs) throws InterruptedException {

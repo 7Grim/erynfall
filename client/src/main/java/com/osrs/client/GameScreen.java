@@ -660,7 +660,7 @@ public class GameScreen extends ApplicationAdapter {
 
                 nettyClient = new NettyClient();
                 nettyClient.connect();
-                nettyClient.sendTokenHandshake(loginResult.accessToken());
+                nettyClient.sendTokenHandshake(loginResult.accessToken(), launchOptions.worldId());
 
                 NetworkProto.HandshakeResponse handshake = nettyClient.awaitHandshakeResponse(5000);
                 if (handshake == null) {
