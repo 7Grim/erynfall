@@ -28,6 +28,12 @@ terrain_height:
       max_x: 76
       max_y: 94
       level: 1
+    - name: "tutorial_service_pad"
+      min_x: 60
+      min_y: 84
+      max_x: 74
+      max_y: 92
+      level: 2
     - name: "tutorial_grove"
       min_x: 34
       min_y: 102
@@ -40,6 +46,12 @@ terrain_height:
       max_x: 82
       max_y: 122
       level: 2
+    - name: "tutorial_combat_lane"
+      min_x: 72
+      min_y: 104
+      max_x: 80
+      max_y: 120
+      level: 1
     - name: "mainland_core"
       min_x: 206
       min_y: 62
@@ -67,11 +79,23 @@ terrain_visual:
       max_x: 88
       max_y: 126
       type: "grass"
+    - name: "tutorial_dock_approach"
+      min_x: 34
+      min_y: 84
+      max_x: 46
+      max_y: 92
+      type: "path"
     - name: "tutorial_arrival_path"
-      min_x: 42
+      min_x: 44
       min_y: 88
       max_x: 58
       max_y: 96
+      type: "path"
+    - name: "tutorial_bank_square"
+      min_x: 54
+      min_y: 92
+      max_x: 62
+      max_y: 98
       type: "path"
     - name: "tutorial_cross_path"
       min_x: 56
@@ -79,11 +103,23 @@ terrain_visual:
       max_x: 74
       max_y: 100
       type: "path"
+    - name: "tutorial_instructor_lane"
+      min_x: 70
+      min_y: 100
+      max_x: 76
+      max_y: 114
+      type: "path"
     - name: "tutorial_north_path"
-      min_x: 68
+      min_x: 69
       min_y: 100
       max_x: 74
       max_y: 116
+      type: "path"
+    - name: "tutorial_grove_entry"
+      min_x: 50
+      min_y: 98
+      max_x: 56
+      max_y: 108
       type: "path"
     - name: "tutorial_west_grove_path"
       min_x: 50
@@ -98,7 +134,7 @@ terrain_visual:
       max_y: 94
       type: "path"
     - name: "tutorial_training_yard"
-      min_x: 70
+      min_x: 72
       min_y: 108
       max_x: 82
       max_y: 120
@@ -134,6 +170,18 @@ terrain_visual:
       max_y: 106
       type: "path"
   tile_overrides:
+    - x: 38
+      y: 87
+      type: "path"
+    - x: 39
+      y: 88
+      type: "path"
+    - x: 40
+      y: 88
+      type: "path"
+    - x: 41
+      y: 89
+      type: "path"
     - x: 30
       y: 83
       type: "water"
@@ -161,6 +209,30 @@ terrain_visual:
     - x: 70
       y: 95
       type: "wall"
+    - x: 71
+      y: 95
+      type: "wall"
+    - x: 72
+      y: 95
+      type: "wall"
+    - x: 68
+      y: 102
+      type: "path"
+    - x: 69
+      y: 102
+      type: "path"
+    - x: 70
+      y: 102
+      type: "path"
+    - x: 71
+      y: 102
+      type: "path"
+    - x: 72
+      y: 102
+      type: "path"
+    - x: 73
+      y: 102
+      type: "path"
 static_props:
   - key: "dock_pier_small"
     x: 30
@@ -190,6 +262,18 @@ static_props:
     x: 56
     y: 96
     rotation_y_degrees: 0.0
+    scale: 1.0
+    visibility_group: "roof"
+  - key: "building_shell_small_base"
+    x: 74
+    y: 111
+    rotation_y_degrees: 180.0
+    scale: 1.0
+    visibility_group: "base"
+  - key: "building_shell_small_roof"
+    x: 74
+    y: 111
+    rotation_y_degrees: 180.0
     scale: 1.0
     visibility_group: "roof"
   - key: "building_shell_service_base"
@@ -228,8 +312,20 @@ static_props:
     rotation_y_degrees: 0.0
     scale: 1.0
     visibility_group: "base"
+  - key: "signpost_small"
+    x: 52
+    y: 102
+    rotation_y_degrees: 270.0
+    scale: 1.0
+    visibility_group: "base"
   - key: "bench_small"
     x: 54
+    y: 94
+    rotation_y_degrees: 90.0
+    scale: 1.0
+    visibility_group: "base"
+  - key: "bench_small"
+    x: 60
     y: 94
     rotation_y_degrees: 90.0
     scale: 1.0
@@ -265,27 +361,63 @@ static_props:
     scale: 1.0
     visibility_group: "base"
   - key: "fence_post_small"
-    x: 67
+    x: 69
     y: 104
     rotation_y_degrees: 0.0
     scale: 1.0
     visibility_group: "base"
   - key: "fence_post_small"
-    x: 67
+    x: 69
     y: 108
     rotation_y_degrees: 0.0
     scale: 1.0
     visibility_group: "base"
   - key: "fence_post_small"
-    x: 67
+    x: 69
     y: 112
     rotation_y_degrees: 0.0
     scale: 1.0
     visibility_group: "base"
   - key: "fence_post_small"
-    x: 67
+    x: 69
     y: 116
     rotation_y_degrees: 0.0
+    scale: 1.0
+    visibility_group: "base"
+  - key: "fence_post_small"
+    x: 81
+    y: 106
+    rotation_y_degrees: 0.0
+    scale: 1.0
+    visibility_group: "base"
+  - key: "fence_post_small"
+    x: 81
+    y: 110
+    rotation_y_degrees: 0.0
+    scale: 1.0
+    visibility_group: "base"
+  - key: "fence_post_small"
+    x: 81
+    y: 114
+    rotation_y_degrees: 0.0
+    scale: 1.0
+    visibility_group: "base"
+  - key: "fence_post_small"
+    x: 81
+    y: 118
+    rotation_y_degrees: 0.0
+    scale: 1.0
+    visibility_group: "base"
+  - key: "fence_post_small"
+    x: 76
+    y: 88
+    rotation_y_degrees: 90.0
+    scale: 1.0
+    visibility_group: "base"
+  - key: "fence_post_small"
+    x: 76
+    y: 92
+    rotation_y_degrees: 90.0
     scale: 1.0
     visibility_group: "base"
   - key: "anvil"

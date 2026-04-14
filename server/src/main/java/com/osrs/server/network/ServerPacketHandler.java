@@ -77,7 +77,6 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
     private static final int TANNING_COST_PER_HIDE = 1;
     private static final int  TINDERBOX_ITEM_ID   = 590;
     private static final long BONES_PRAYER_XP = 45L;  // 4.5 XP stored as tenths
-    private static final int[] MAIN_WORLD_TUTORIAL_QUEST_COMPLETE_SPAWN = new int[]{252, 98};
     
     private final NettyServer server;
     private final AuthTokenSettings authTokenSettings;
@@ -2732,6 +2731,16 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
                 spawn[0], spawn[1], player.getName());
             return;
         }
+
+        boolean inTutorialRegion = server.getWorld().isInMainWorldTutorialRegion(player.getX(), player.getY());
+        boolean inMainlandRegion = server.getWorld().isInMainWorldMainlandRegion(player.getX(), player.getY());
+        if (tutorialComplete && inMainlandRegion) {
+            return;
+        }
+        if (!tutorialComplete && inTutorialRegion) {
+            return;
+        }
+
         if (player.getX() == spawn[0] && player.getY() == spawn[1]) {
             return;
         }
@@ -2754,13 +2763,16 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
 
         Player player = session.getPlayer();
         int[] mainlandSpawn = server.getWorld().getMainWorldSpawnForTutorialState(true);
-        if (mainlandSpawn[0] <= 0 || mainlandSpawn[1] <= 0) {
-            mainlandSpawn = MAIN_WORLD_TUTORIAL_QUEST_COMPLETE_SPAWN;
-        }
         if (!server.getWorld().canWalkTo(mainlandSpawn[0], mainlandSpawn[1])) {
-            LOG.warn("Cannot move {} to mainland spawn ({},{}): tile not walkable",
-                player.getName(), mainlandSpawn[0], mainlandSpawn[1]);
-            return;
+            LOG.warn("Configured mainland spawn ({},{}) is not walkable for {}; falling back to world spawn ({},{})",
+                mainlandSpawn[0], mainlandSpawn[1], player.getName(),
+                server.getWorld().getSpawnX(), server.getWorld().getSpawnY());
+            mainlandSpawn = new int[]{server.getWorld().getSpawnX(), server.getWorld().getSpawnY()};
+            if (!server.getWorld().canWalkTo(mainlandSpawn[0], mainlandSpawn[1])) {
+                LOG.warn("Cannot move {} after tutorial completion; fallback spawn ({},{}) is not walkable",
+                    player.getName(), mainlandSpawn[0], mainlandSpawn[1]);
+                return;
+            }
         }
         if (player.getX() == mainlandSpawn[0] && player.getY() == mainlandSpawn[1]) {
             return;
@@ -2775,6 +2787,9 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             .build());
         sendChatMessageToPlayer(channel,
             "You sail to the mainland and begin your journey in Erynfall.", 3);
+        if (DatabaseManager.isHealthy()) {
+            PlayerRepository.savePlayer(player);
+        }
         LOG.info("Moved {} to main_world mainland spawn after tutorial completion at ({},{})",
             player.getName(), mainlandSpawn[0], mainlandSpawn[1]);
     }

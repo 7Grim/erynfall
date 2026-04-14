@@ -29,6 +29,8 @@ public class World {
     private final Map<String, WorldData.LootTable> lootTables;
     private final WorldData worldData;
     private final String worldId;
+    private static final String MAIN_WORLD_TUTORIAL_REGION_ID = "tutorial_island_region";
+    private static final String MAIN_WORLD_MAINLAND_REGION_ID = "mainland_region";
     private int nextEntityId = 1;
 
     // Ground items
@@ -301,6 +303,32 @@ public class World {
             return new int[]{worldData.mainlandSpawnX, worldData.mainlandSpawnY};
         }
         return new int[]{worldData.tutorialSpawnX, worldData.tutorialSpawnY};
+    }
+
+    public boolean isPointInMapRegion(String regionId, int x, int y) {
+        if (regionId == null || regionId.isBlank() || worldData.maps == null) {
+            return false;
+        }
+        WorldData.MapInfo mapInfo = worldData.maps.get(regionId);
+        if (mapInfo == null) {
+            return false;
+        }
+        return x >= mapInfo.minX && x <= mapInfo.maxX
+            && y >= mapInfo.minY && y <= mapInfo.maxY;
+    }
+
+    public boolean isInMainWorldTutorialRegion(int x, int y) {
+        if (!"main_world".equals(worldId)) {
+            return false;
+        }
+        return isPointInMapRegion(MAIN_WORLD_TUTORIAL_REGION_ID, x, y);
+    }
+
+    public boolean isInMainWorldMainlandRegion(int x, int y) {
+        if (!"main_world".equals(worldId)) {
+            return false;
+        }
+        return isPointInMapRegion(MAIN_WORLD_MAINLAND_REGION_ID, x, y);
     }
     
     /**
