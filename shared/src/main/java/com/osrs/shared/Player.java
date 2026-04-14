@@ -84,10 +84,6 @@ public class Player extends Entity {
     private boolean skillingActiveAnnounced = false;
     private String skillingMetadata = "";
 
-    // Server-authoritative destination walking state
-    private volatile int walkDestinationX = -1;
-    private volatile int walkDestinationY = -1;
-    private volatile long nextWalkStepTick = 0L;
 
     // -----------------------------------------------------------------------
     // Skill indices: 0=Attack 1=Strength 2=Defence 3=Hitpoints 4=Ranged 5=Magic
@@ -417,34 +413,6 @@ public class Player extends Entity {
         this.skillingNextMoveTick = 0L;
         this.skillingActiveAnnounced = false;
         this.skillingMetadata = "";
-    }
-
-    // -----------------------------------------------------------------------
-    // Destination walking state
-    // -----------------------------------------------------------------------
-
-    public int getWalkDestinationX() { return walkDestinationX; }
-    public int getWalkDestinationY() { return walkDestinationY; }
-    public long getNextWalkStepTick() { return nextWalkStepTick; }
-
-    public boolean hasWalkDestination() {
-        return walkDestinationX >= 0 && walkDestinationY >= 0;
-    }
-
-    public void setWalkDestination(int x, int y, long nextStepTick) {
-        this.walkDestinationX = x;
-        this.walkDestinationY = y;
-        this.nextWalkStepTick = Math.max(0L, nextStepTick);
-    }
-
-    public void setNextWalkStepTick(long tick) {
-        this.nextWalkStepTick = Math.max(0L, tick);
-    }
-
-    public void clearWalkDestination() {
-        this.walkDestinationX = -1;
-        this.walkDestinationY = -1;
-        this.nextWalkStepTick = 0L;
     }
 
     public void markSkillingActiveAnnounced() {

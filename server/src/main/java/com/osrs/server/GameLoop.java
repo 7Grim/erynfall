@@ -75,8 +75,6 @@ public class GameLoop {
 
     // NPC combat movement: 1 tile per ~0.6s = 154 ticks at 256 Hz
     private static final int NPC_MOVE_SPEED   = 154;
-    // Player walk movement: 1 tile per OSRS tick (~0.6s)
-    private static final int PLAYER_WALK_STEP_TICKS = 154;
     // NPC attack speed: 4 OSRS ticks = 2.4s = 615 server ticks
     private static final int NPC_ATTACK_SPEED = 615;
 
@@ -199,7 +197,6 @@ public class GameLoop {
             }
 
             // Stage 2: Movement — NPC wander + player pathfinding
-            processPlayerWalking();
             updateNPCWander();
             processNPCCombat();  // NPC follow & retaliate when aggroed
 
@@ -353,90 +350,6 @@ public class GameLoop {
         // In a full implementation, we'd dequeue command packets here
     }
 
-    private void processPlayerWalking() {
-        for (Player player : world.getPlayers().values()) {
-            if (!player.hasWalkDestination()) {
-                continue;
-            }
-
-            int destX = player.getWalkDestinationX();
-            int destY = player.getWalkDestinationY();
-            LOG.debug("Walk tick for player {}: pos=({},{}) dest=({},{}) tick={} nextStepTick={}",
-                player.getId(), player.getX(), player.getY(), destX, destY, tickCount, player.getNextWalkStepTick());
-            if (player.getX() == destX && player.getY() == destY) {
-                player.clearWalkDestination();
-                LOG.debug("Walk complete for player {} at destination ({},{})", player.getId(), destX, destY);
-                continue;
-            }
-
-            if (tickCount < player.getNextWalkStepTick()) {
-                LOG.debug("Walk skip for player {}: waiting for next step tick (now={} < next={})",
-                    player.getId(), tickCount, player.getNextWalkStepTick());
-                continue;
-            }
-
-            List<com.osrs.server.world.Pathfinding.Tile> path = world.findPath(
-                player.getX(), player.getY(), destX, destY);
-            if (path.isEmpty()) {
-                player.clearWalkDestination();
-                LOG.debug("Walk cleared for player {}: no path from ({},{}) to ({},{})",
-                    player.getId(), player.getX(), player.getY(), destX, destY);
-                PlayerSession session = getSessionForPlayer(player.getId());
-                if (session != null && session.getChannel() != null && session.getChannel().isActive()) {
-                    sendChatMessageToPlayer(session.getChannel(), "I can't reach that!", 1);
-                }
-                continue;
-            }
-
-            com.osrs.server.world.Pathfinding.Tile step = path.get(0);
-            if (step.x == player.getX() && step.y == player.getY()) {
-                if (path.size() > 1) {
-                    step = path.get(1);
-                } else {
-                    player.clearWalkDestination();
-                    LOG.debug("Walk cleared for player {}: first step stayed on current tile at ({},{})",
-                        player.getId(), player.getX(), player.getY());
-                    continue;
-                }
-            }
-            int nextX = step.x;
-            int nextY = step.y;
-            if (!world.canWalkTo(nextX, nextY)) {
-                player.clearWalkDestination();
-                LOG.debug("Walk cleared for player {}: next step ({},{}) not walkable",
-                    player.getId(), nextX, nextY);
-                continue;
-            }
-
-            PlayerSession session = getSessionForPlayer(player.getId());
-            if (session != null) {
-                closeBankIfOpen(session, "moved");
-            }
-            if (player.isSkilling()) {
-                stopSkilling(player, session, "interrupted");
-            }
-
-            int fromX = player.getX();
-            int fromY = player.getY();
-            player.setPosition(nextX, nextY);
-            player.setNextWalkStepTick(tickCount + PLAYER_WALK_STEP_TICKS);
-            LOG.debug("Walk step for player {}: ({},{}) -> ({},{}) toward ({},{}) pathLen={}",
-                player.getId(), fromX, fromY, nextX, nextY, destX, destY, path.size());
-
-            if (nextX == destX && nextY == destY) {
-                player.clearWalkDestination();
-                LOG.debug("Walk destination reached for player {} at ({},{})", player.getId(), destX, destY);
-            }
-
-            nettyServer.broadcastToAll(NetworkProto.ServerMessage.newBuilder()
-                .setEntityUpdate(NetworkProto.EntityUpdate.newBuilder()
-                    .setEntityId(player.getId())
-                    .setX(nextX)
-                    .setY(nextY))
-                .build());
-        }
-    }
-    
     /**
      * NPC wander: each NPC with wanderRadius > 0 takes one random step per
      * WANDER_MIN..WANDER_MAX ticks (≈0.8–1.8 s), staying within their radius

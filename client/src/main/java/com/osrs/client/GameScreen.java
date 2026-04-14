@@ -2770,12 +2770,7 @@ public class GameScreen extends ApplicationAdapter {
                 int sy = serverPos[1];
                 int dx = Math.abs(sx - playerX);
                 int dy = Math.abs(sy - playerY);
-                boolean locallySteering = pendingNpcId >= 0 || pendingGroundItemId >= 0;
-
-                if (walkDestX >= 0 && walkDestY >= 0 && sx == walkDestX && sy == walkDestY) {
-                    walkDestX = -1;
-                    walkDestY = -1;
-                }
+                boolean locallySteering = walkDestX >= 0 || pendingNpcId >= 0 || pendingGroundItemId >= 0;
 
                 if (!locallySteering) {
                     playerX = sx;
@@ -5285,11 +5280,6 @@ public class GameScreen extends ApplicationAdapter {
             chatBox.addSystemMessage("I can't reach that!");
             return;
         }
-        if (walkDestX == x && walkDestY == y) {
-            return;
-        }
-        walkDestX = x;
-        walkDestY = y;
         if (nettyClient != null) nettyClient.sendWalkTo(x, y);
     }
 
@@ -5298,18 +5288,39 @@ public class GameScreen extends ApplicationAdapter {
         if (!planWalkPath(x, y)) {
             return;
         }
-        if (walkDestX == x && walkDestY == y && pendingWalkTargX == x && pendingWalkTargY == y) {
-            return;
-        }
-        walkDestX = x;
-        walkDestY = y;
         pendingWalkTargX = x; pendingWalkTargY = y;
         if (nettyClient != null) nettyClient.sendWalkTo(x, y);
     }
 
     private boolean planWalkPath(int targetX, int targetY) {
-        List<int[]> path = findPath(playerX, playerY, targetX, targetY);
-        return !path.isEmpty();
+        // If a speculative step is already in-flight, plan from the server's current
+        // position (lastStepSentX/Y) rather than playerX/playerY, which lags one tile
+        // behind. Prepend the in-flight tile so ongoing visual animation is not disrupted.
+        boolean speculativeInFlight = lastStepSentX != Integer.MIN_VALUE;
+        int fromX = speculativeInFlight ? lastStepSentX : playerX;
+        int fromY = speculativeInFlight ? lastStepSentY : playerY;
+
+        List<int[]> path = findPath(fromX, fromY, targetX, targetY);
+        if (path.isEmpty()) {
+            walkDestX = -1;
+            walkDestY = -1;
+            walkPath.clear();
+            lastStepSentX = Integer.MIN_VALUE;
+            lastStepSentY = Integer.MIN_VALUE;
+            return false;
+        }
+        walkDestX = targetX;
+        walkDestY = targetY;
+        walkPath.clear();
+        // Keep the in-flight step at the head so the running visual animation
+        // finishes naturally before the newly planned steps begin.
+        if (speculativeInFlight) {
+            walkPath.add(new int[]{lastStepSentX, lastStepSentY});
+        }
+        walkPath.addAll(path);
+        lastStepSentX = Integer.MIN_VALUE;
+        lastStepSentY = Integer.MIN_VALUE;
+        return true;
     }
 
     // -----------------------------------------------------------------------
@@ -5317,20 +5328,61 @@ public class GameScreen extends ApplicationAdapter {
     // -----------------------------------------------------------------------
 
     private void updateMovement(float delta) {
-        float targetX = playerX;
-        float targetY = playerY;
+        int[] nextStep = walkPath.peekFirst();
+        float targetX = (nextStep != null) ? nextStep[0] : playerX;
+        float targetY = (nextStep != null) ? nextStep[1] : playerY;
+
+        // Send the intended adjacent step as soon as we start moving toward it,
+        // so server-authoritative position advances even if render interpolation
+        // gets corrected or interrupted.
+        if (nextStep != null && nettyClient != null) {
+            int sx = nextStep[0];
+            int sy = nextStep[1];
+            if (sx != lastStepSentX || sy != lastStepSentY) {
+                nettyClient.sendPlayerMovement(sx, sy, 0);
+                lastStepSentX = sx;
+                lastStepSentY = sy;
+            }
+        }
+
         float dx = targetX - visualX, dy = targetY - visualY;
         float dist = (float) Math.sqrt(dx * dx + dy * dy);
 
         if (dist < 0.01f) {
             visualX = targetX; visualY = targetY;
+            if (nextStep != null) {
+                playerX = nextStep[0];
+                playerY = nextStep[1];
+                walkPath.pollFirst();
+                if (isRunning) consumeRunEnergyStep();
+                if (nettyClient != null) nettyClient.sendPlayerMovement(playerX, playerY, 0);
+                if (walkPath.isEmpty()) {
+                    walkDestX = -1;
+                    walkDestY = -1;
+                    lastStepSentX = Integer.MIN_VALUE;
+                    lastStepSentY = Integer.MIN_VALUE;
+                }
+            }
             return;
         }
 
-        float tps   = TILES_PER_SECOND;
+        float tps   = (isRunning && playerRunEnergy > 0) ? TILES_PER_SECOND * 2f : TILES_PER_SECOND;
         float step  = tps * delta;
         if (step >= dist) {
             visualX = targetX; visualY = targetY;
+            if (nextStep != null) {
+                playerX = nextStep[0];
+                playerY = nextStep[1];
+                walkPath.pollFirst();
+                if (isRunning) consumeRunEnergyStep();
+                if (nettyClient != null) nettyClient.sendPlayerMovement(playerX, playerY, 0);
+                if (walkPath.isEmpty()) {
+                    walkDestX = -1;
+                    walkDestY = -1;
+                    lastStepSentX = Integer.MIN_VALUE;
+                    lastStepSentY = Integer.MIN_VALUE;
+                }
+            }
         } else {
             visualX += (dx / dist) * step;
             visualY += (dy / dist) * step;
