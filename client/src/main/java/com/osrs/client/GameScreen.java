@@ -5952,14 +5952,17 @@ public class GameScreen extends ApplicationAdapter {
         boolean isFishingSpot = "Fishing Spot".equalsIgnoreCase(rawName);
         boolean isCookingStation = "Cooking Fire".equalsIgnoreCase(rawName)
             || "Cooking Range".equalsIgnoreCase(rawName);
-        boolean isAltar = "Altar".equalsIgnoreCase(rawName);
+        boolean isAltar = rawName.toLowerCase().endsWith("altar");
         boolean isFurnace = "Furnace".equalsIgnoreCase(rawName);
         boolean isBanker = "Banker".equalsIgnoreCase(rawName);
         boolean isFishingSupplier = "Fishing Supplier".equalsIgnoreCase(rawName);
         boolean isSmithingSupplier = "Smithing Supplier".equalsIgnoreCase(rawName);
         boolean isMagicSupplier = "Magic Supplier".equalsIgnoreCase(rawName);
         boolean isRangedSupplier = "Ranged Supplier".equalsIgnoreCase(rawName);
-        boolean isShopkeeper = isFishingSupplier || isSmithingSupplier || isMagicSupplier || isRangedSupplier;
+        boolean isCraftingSupplier = "Crafting Supplier".equalsIgnoreCase(rawName);
+        boolean isRunecraftSupplier = "Runecraft Supplier".equalsIgnoreCase(rawName);
+        boolean isShopkeeper = isFishingSupplier || isSmithingSupplier || isMagicSupplier
+            || isRangedSupplier || isCraftingSupplier || isRunecraftSupplier;
 
         if (level > 0) {
             opts.add(new ContextMenu.MenuItem(

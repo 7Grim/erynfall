@@ -49,6 +49,22 @@ items:
     equipable: false
     consumable: false
 
+  - id: 1733
+    name: "Needle"
+    examine: "Useful for sewing leather."
+    stackable: false
+    store_value: 1
+    equipable: false
+    consumable: false
+
+  - id: 1734
+    name: "Thread"
+    examine: "Used with a needle to stitch leather."
+    stackable: true
+    store_value: 1
+    equipable: false
+    consumable: false
+
   - id: 1000
     name: "Rat tail"
     examine: "The tail of a rat. Used in the Witch's Potion recipe."
@@ -2057,6 +2073,62 @@ items:
   # ── Runes ──────────────────────────────────────────────────────────────────
   # All rune stats from https://oldschool.runescape.wiki/w/Rune
 
+  - id: 1436
+    name: "Rune essence"
+    examine: "A mysterious stone used for Runecrafting."
+    stackable: false
+    store_value: 5
+    equipable: false
+    consumable: false
+
+  - id: 1438
+    name: "Air talisman"
+    examine: "Allows use of the Air altar."
+    stackable: false
+    store_value: 15
+    equipable: false
+    consumable: false
+
+  - id: 1448
+    name: "Mind talisman"
+    examine: "Allows use of the Mind altar."
+    stackable: false
+    store_value: 18
+    equipable: false
+    consumable: false
+
+  - id: 1452
+    name: "Water talisman"
+    examine: "Allows use of the Water altar."
+    stackable: false
+    store_value: 20
+    equipable: false
+    consumable: false
+
+  - id: 1440
+    name: "Earth talisman"
+    examine: "Allows use of the Earth altar."
+    stackable: false
+    store_value: 20
+    equipable: false
+    consumable: false
+
+  - id: 1442
+    name: "Fire talisman"
+    examine: "Allows use of the Fire altar."
+    stackable: false
+    store_value: 22
+    equipable: false
+    consumable: false
+
+  - id: 1446
+    name: "Body talisman"
+    examine: "Allows use of the Body altar."
+    stackable: false
+    store_value: 24
+    equipable: false
+    consumable: false
+
   - id: 556
     name: "Air rune"
     examine: "One of the four basic elemental runes."
@@ -2094,6 +2166,14 @@ items:
     examine: "A slightly magical rune."
     stackable: true
     store_value: 2
+    equipable: false
+    consumable: false
+
+  - id: 559
+    name: "Body rune"
+    examine: "Used for body and support spells."
+    stackable: true
+    store_value: 3
     equipable: false
     consumable: false
 

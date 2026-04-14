@@ -7,12 +7,14 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.Matrix4;
 import com.badlogic.gdx.utils.Align;
+import com.osrs.shared.CraftingRegistry;
 import com.osrs.shared.CookingRegistry;
 import com.osrs.shared.FiremakingRegistry;
 import com.osrs.shared.FishingRegistry;
 import com.osrs.shared.MiningRegistry;
 import com.osrs.shared.PrayerRegistry;
 import com.osrs.shared.RangedRegistry;
+import com.osrs.shared.RunecraftRegistry;
 import com.osrs.shared.SmithingRegistry;
 import com.osrs.shared.SpellRegistry;
 import com.osrs.shared.WeaponRegistry;
@@ -37,6 +39,8 @@ public final class SkillGuideRegistry {
     private static final int SKILL_MINING = 10;
     private static final int SKILL_SMITHING = 11;
     private static final int SKILL_FIREMAKING = 12;
+    private static final int SKILL_CRAFTING = 13;
+    private static final int SKILL_RUNECRAFTING = 14;
     private static final Map<Integer, SkillGuidePopup.SkillGuideProvider> PROVIDERS = new HashMap<>();
 
     private static final class GuideLayout {
@@ -91,6 +95,8 @@ public final class SkillGuideRegistry {
         register(SKILL_MINING, new MiningGuideProvider());
         register(SKILL_SMITHING, new SmithingGuideProvider());
         register(SKILL_FIREMAKING, new FiremakingGuideProvider());
+        register(SKILL_CRAFTING, new CraftingGuideProvider());
+        register(SKILL_RUNECRAFTING, new RunecraftGuideProvider());
     }
 
     private SkillGuideRegistry() {
@@ -1845,6 +1851,474 @@ public final class SkillGuideRegistry {
             sr.rect(x + 11, y + 11, 5, 9);
             sr.setColor(1.00f, 0.92f, 0.58f, 1f);
             sr.rect(x + 12, y + 14, 3, 6);
+        }
+    }
+
+    private static final class CraftingGuideProvider implements SkillGuidePopup.SkillGuideProvider {
+
+        private static final List<SkillGuidePopup.GuideSection> SECTIONS = List.of(
+            new SkillGuidePopup.GuideSection("Introduction"),
+            new SkillGuidePopup.GuideSection("Tanning"),
+            new SkillGuidePopup.GuideSection("Leather Items")
+        );
+
+        private static final Color TEXT_MAIN = new Color(0.24f, 0.16f, 0.06f, 1f);
+        private static final Color TEXT_LOCKED = new Color(0.45f, 0.36f, 0.24f, 1f);
+        private static final Color TEXT_UNLOCKED = new Color(0.22f, 0.14f, 0.06f, 1f);
+        private static final Color TEXT_NEXT = new Color(0.48f, 0.28f, 0.04f, 1f);
+        private static final Color ROW_UNLOCKED = new Color(0.88f, 0.81f, 0.67f, 1f);
+        private static final Color ROW_LOCKED = new Color(0.78f, 0.71f, 0.57f, 1f);
+        private static final Color ROW_NEXT = new Color(0.94f, 0.82f, 0.50f, 1f);
+
+        @Override
+        public String getTitle(int skillIdx) {
+            return "Crafting";
+        }
+
+        @Override
+        public List<SkillGuidePopup.GuideSection> getSections(int skillIdx) {
+            return SECTIONS;
+        }
+
+        @Override
+        public void renderSectionContent(ShapeRenderer shapeRenderer,
+                                         SpriteBatch batch,
+                                         BitmapFont font,
+                                         Matrix4 projection,
+                                         int skillIdx,
+                                         int level,
+                                         long totalXp,
+                                         int sectionIdx,
+                                         float contentX,
+                                         float contentY,
+                                         float contentW,
+                                         float contentH,
+                                         float scrollOffset) {
+            if (sectionIdx == 0) {
+                renderIntroduction(shapeRenderer, batch, font, projection, contentX, contentY, contentW, contentH);
+            } else if (sectionIdx == 1) {
+                renderTanning(shapeRenderer, batch, font, projection, contentX, contentY, contentW, contentH);
+            } else if (sectionIdx == 2) {
+                renderLeatherItems(shapeRenderer, batch, font, projection, level, contentX, contentY, contentW, contentH, scrollOffset);
+            }
+        }
+
+        @Override
+        public float getSectionContentHeight(int skillIdx, int level, int sectionIdx, float contentW) {
+            if (sectionIdx == 2) {
+                return 18f + CraftingRegistry.leatherRecipes().size() * 36f + 12f;
+            }
+            return 236f;
+        }
+
+        private void renderIntroduction(ShapeRenderer shapeRenderer,
+                                        SpriteBatch batch,
+                                        BitmapFont font,
+                                        Matrix4 projection,
+                                        float x,
+                                        float y,
+                                        float w,
+                                        float h) {
+            final float blockH = 82f;
+            final float top = y + h - 14f;
+            final float blockX = x + 8f;
+            final float blockW = w - 16f;
+            final float dividerX = x + 10f;
+            final float dividerW = w - 20f;
+            final float iconX = x + 20f;
+            final float textX = x + 62f;
+            final float textW = w - 86f;
+            final float textTopPad = 16f;
+            final String[] texts = {
+                "Crafting starts with cowhide and leather. Kill cows for hides, then visit a Tanner to convert hide into leather.",
+                "Use a needle on leather while carrying thread to stitch leather armour. Thread is consumed each time you craft.",
+                "Leather gear gives useful early ranged defence and trains Crafting with each successful item made."
+            };
+
+            shapeRenderer.setProjectionMatrix(projection);
+            shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+            for (int i = 0; i < 3; i++) {
+                float by = top - (i + 1) * blockH;
+                shapeRenderer.setColor(0.92f, 0.84f, 0.69f, 1f);
+                shapeRenderer.rect(blockX, by, blockW, blockH - 8f);
+                shapeRenderer.setColor(0.64f, 0.50f, 0.30f, 1f);
+                shapeRenderer.rect(dividerX, by + blockH - 16f, dividerW, 2f);
+            }
+            ItemIconRenderer.drawItemIcon(shapeRenderer, iconX, top - blockH + 12f, CraftingRegistry.COWHIDE_ITEM_ID);
+            ItemIconRenderer.drawItemIcon(shapeRenderer, iconX, top - blockH * 2 + 12f, CraftingRegistry.LEATHER_ITEM_ID);
+            ItemIconRenderer.drawItemIcon(shapeRenderer, iconX, top - blockH * 3 + 12f, CraftingRegistry.NEEDLE_ITEM_ID);
+            shapeRenderer.end();
+
+            GlyphLayout wrapped = new GlyphLayout();
+            batch.setProjectionMatrix(projection);
+            batch.begin();
+            font.getData().setScale(0.68f);
+            font.setColor(TEXT_MAIN);
+            for (int i = 0; i < 3; i++) {
+                float by = top - (i + 1) * blockH;
+                float blockInnerTop = by + blockH - 8f;
+                wrapped.setText(font, texts[i], TEXT_MAIN, textW, Align.left, true);
+                font.draw(batch, wrapped, textX, blockInnerTop - textTopPad);
+            }
+            font.getData().setScale(1f);
+            font.setColor(Color.WHITE);
+            batch.end();
+        }
+
+        private void renderTanning(ShapeRenderer shapeRenderer,
+                                   SpriteBatch batch,
+                                   BitmapFont font,
+                                   Matrix4 projection,
+                                   float x,
+                                   float y,
+                                   float w,
+                                   float h) {
+            final float blockH = 82f;
+            final float top = y + h - 14f;
+            final float blockX = x + 8f;
+            final float blockW = w - 16f;
+            final float dividerX = x + 10f;
+            final float dividerW = w - 20f;
+            final float iconX = x + 20f;
+            final float textX = x + 62f;
+            final float textW = w - 86f;
+            final float textTopPad = 16f;
+            final String[] texts = {
+                "Talk to the Tanner to process all cowhide in your inventory into leather.",
+                "Tanning costs 1 coin per cowhide, so bring enough coins for the hides you want to convert.",
+                "Crafting Supplier sells needles and thread so you can begin stitching leather immediately."
+            };
+
+            shapeRenderer.setProjectionMatrix(projection);
+            shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+            for (int i = 0; i < 3; i++) {
+                float by = top - (i + 1) * blockH;
+                shapeRenderer.setColor(0.92f, 0.84f, 0.69f, 1f);
+                shapeRenderer.rect(blockX, by, blockW, blockH - 8f);
+                shapeRenderer.setColor(0.64f, 0.50f, 0.30f, 1f);
+                shapeRenderer.rect(dividerX, by + blockH - 16f, dividerW, 2f);
+            }
+            ItemIconRenderer.drawItemIcon(shapeRenderer, iconX, top - blockH + 12f, 995);
+            ItemIconRenderer.drawItemIcon(shapeRenderer, iconX, top - blockH * 2 + 12f, CraftingRegistry.COWHIDE_ITEM_ID);
+            ItemIconRenderer.drawItemIcon(shapeRenderer, iconX, top - blockH * 3 + 12f, CraftingRegistry.LEATHER_ITEM_ID);
+            shapeRenderer.end();
+
+            GlyphLayout wrapped = new GlyphLayout();
+            batch.setProjectionMatrix(projection);
+            batch.begin();
+            font.getData().setScale(0.68f);
+            font.setColor(TEXT_MAIN);
+            for (int i = 0; i < 3; i++) {
+                float by = top - (i + 1) * blockH;
+                float blockInnerTop = by + blockH - 8f;
+                wrapped.setText(font, texts[i], TEXT_MAIN, textW, Align.left, true);
+                font.draw(batch, wrapped, textX, blockInnerTop - textTopPad);
+            }
+            font.getData().setScale(1f);
+            font.setColor(Color.WHITE);
+            batch.end();
+        }
+
+        private void renderLeatherItems(ShapeRenderer shapeRenderer,
+                                        SpriteBatch batch,
+                                        BitmapFont font,
+                                        Matrix4 projection,
+                                        int level,
+                                        float x,
+                                        float y,
+                                        float w,
+                                        float h,
+                                        float scrollOffset) {
+            float rowH = 36f;
+            int nextReq = findNextLeatherLevel(level);
+            float rowTop = GuideLayout.rowTop(y, h, scrollOffset);
+
+            shapeRenderer.setProjectionMatrix(projection);
+            shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+            int rowIndex = 0;
+            for (CraftingRegistry.LeatherRecipe recipe : CraftingRegistry.leatherRecipes()) {
+                float rowY = GuideLayout.rowY(rowTop, rowH, rowIndex);
+                boolean visible = rowY + rowH >= y && rowY <= y + h;
+                if (visible) {
+                    boolean unlocked = level >= recipe.levelRequirement();
+                    boolean next = !unlocked && recipe.levelRequirement() == nextReq;
+                    shapeRenderer.setColor(next ? ROW_NEXT : unlocked ? ROW_UNLOCKED : ROW_LOCKED);
+                    shapeRenderer.rect(GuideLayout.rowRectX(x), GuideLayout.rowRectY(rowY), GuideLayout.rowRectW(w), GuideLayout.rowRectH(rowH));
+                    ItemIconRenderer.drawItemIcon(shapeRenderer, x + 72, rowY + 3, recipe.productItemId());
+                }
+                rowIndex++;
+            }
+            shapeRenderer.end();
+
+            batch.setProjectionMatrix(projection);
+            batch.begin();
+            font.getData().setScale(0.68f);
+            rowIndex = 0;
+            for (CraftingRegistry.LeatherRecipe recipe : CraftingRegistry.leatherRecipes()) {
+                float rowY = GuideLayout.rowY(rowTop, rowH, rowIndex);
+                boolean visible = rowY + rowH >= y && rowY <= y + h;
+                if (visible) {
+                    boolean unlocked = level >= recipe.levelRequirement();
+                    boolean next = !unlocked && recipe.levelRequirement() == nextReq;
+                    font.setColor(next ? TEXT_NEXT : unlocked ? TEXT_UNLOCKED : TEXT_LOCKED);
+                    float textY = GuideLayout.rowTextY(rowY, rowH);
+                    font.draw(batch, "Lv " + recipe.levelRequirement(), x + 16, textY);
+                    font.draw(batch, recipe.productName(), x + 116, textY);
+                    font.getData().setScale(0.60f);
+                    Color sub = next ? TEXT_NEXT : TEXT_LOCKED;
+                    font.setColor(sub.r, sub.g, sub.b, 0.8f);
+                    font.draw(batch, recipe.leatherRequired() + " leather", x + w - 94, textY);
+                    font.draw(batch, formatXpTenths(recipe.xpTenths()) + " xp", x + w - 94, textY - 9f);
+                    font.getData().setScale(0.68f);
+                }
+                rowIndex++;
+            }
+            font.getData().setScale(1f);
+            font.setColor(Color.WHITE);
+            batch.end();
+        }
+
+        private int findNextLeatherLevel(int level) {
+            for (CraftingRegistry.LeatherRecipe recipe : CraftingRegistry.leatherRecipes()) {
+                if (recipe.levelRequirement() > level) {
+                    return recipe.levelRequirement();
+                }
+            }
+            return -1;
+        }
+    }
+
+    private static final class RunecraftGuideProvider implements SkillGuidePopup.SkillGuideProvider {
+
+        private static final List<SkillGuidePopup.GuideSection> SECTIONS = List.of(
+            new SkillGuidePopup.GuideSection("Introduction"),
+            new SkillGuidePopup.GuideSection("Essence"),
+            new SkillGuidePopup.GuideSection("Altars")
+        );
+
+        private static final Color TEXT_MAIN = new Color(0.24f, 0.16f, 0.06f, 1f);
+        private static final Color TEXT_LOCKED = new Color(0.45f, 0.36f, 0.24f, 1f);
+        private static final Color TEXT_UNLOCKED = new Color(0.22f, 0.14f, 0.06f, 1f);
+        private static final Color TEXT_NEXT = new Color(0.48f, 0.28f, 0.04f, 1f);
+        private static final Color ROW_UNLOCKED = new Color(0.88f, 0.81f, 0.67f, 1f);
+        private static final Color ROW_LOCKED = new Color(0.78f, 0.71f, 0.57f, 1f);
+        private static final Color ROW_NEXT = new Color(0.94f, 0.82f, 0.50f, 1f);
+
+        @Override
+        public String getTitle(int skillIdx) {
+            return "Runecrafting";
+        }
+
+        @Override
+        public List<SkillGuidePopup.GuideSection> getSections(int skillIdx) {
+            return SECTIONS;
+        }
+
+        @Override
+        public void renderSectionContent(ShapeRenderer shapeRenderer,
+                                         SpriteBatch batch,
+                                         BitmapFont font,
+                                         Matrix4 projection,
+                                         int skillIdx,
+                                         int level,
+                                         long totalXp,
+                                         int sectionIdx,
+                                         float contentX,
+                                         float contentY,
+                                         float contentW,
+                                         float contentH,
+                                         float scrollOffset) {
+            if (sectionIdx == 0) {
+                renderIntroduction(shapeRenderer, batch, font, projection, contentX, contentY, contentW, contentH);
+            } else if (sectionIdx == 1) {
+                renderEssence(shapeRenderer, batch, font, projection, contentX, contentY, contentW, contentH);
+            } else if (sectionIdx == 2) {
+                renderAltars(shapeRenderer, batch, font, projection, level, contentX, contentY, contentW, contentH, scrollOffset);
+            }
+        }
+
+        @Override
+        public float getSectionContentHeight(int skillIdx, int level, int sectionIdx, float contentW) {
+            if (sectionIdx == 2) {
+                return 18f + RunecraftRegistry.f2pAltars().size() * 36f + 12f;
+            }
+            return 236f;
+        }
+
+        private void renderIntroduction(ShapeRenderer shapeRenderer,
+                                        SpriteBatch batch,
+                                        BitmapFont font,
+                                        Matrix4 projection,
+                                        float x,
+                                        float y,
+                                        float w,
+                                        float h) {
+            final float blockH = 82f;
+            final float top = y + h - 14f;
+            final float blockX = x + 8f;
+            final float blockW = w - 16f;
+            final float dividerX = x + 10f;
+            final float dividerW = w - 20f;
+            final float iconX = x + 20f;
+            final float textX = x + 62f;
+            final float textW = w - 86f;
+            final float textTopPad = 16f;
+            final String[] texts = {
+                "Runecrafting converts rune essence into runes at elemental and mind/body altars.",
+                "Bring the matching talisman for the altar you want to use, plus rune essence in your inventory.",
+                "Each altar converts all carried essence in one action and awards Runecrafting XP per essence used."
+            };
+
+            shapeRenderer.setProjectionMatrix(projection);
+            shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+            for (int i = 0; i < 3; i++) {
+                float by = top - (i + 1) * blockH;
+                shapeRenderer.setColor(0.92f, 0.84f, 0.69f, 1f);
+                shapeRenderer.rect(blockX, by, blockW, blockH - 8f);
+                shapeRenderer.setColor(0.64f, 0.50f, 0.30f, 1f);
+                shapeRenderer.rect(dividerX, by + blockH - 16f, dividerW, 2f);
+            }
+            ItemIconRenderer.drawItemIcon(shapeRenderer, iconX, top - blockH + 12f, RunecraftRegistry.RUNE_ESSENCE_ITEM_ID);
+            ItemIconRenderer.drawItemIcon(shapeRenderer, iconX, top - blockH * 2 + 12f, 1438);
+            ItemIconRenderer.drawItemIcon(shapeRenderer, iconX, top - blockH * 3 + 12f, 556);
+            shapeRenderer.end();
+
+            GlyphLayout wrapped = new GlyphLayout();
+            batch.setProjectionMatrix(projection);
+            batch.begin();
+            font.getData().setScale(0.68f);
+            font.setColor(TEXT_MAIN);
+            for (int i = 0; i < 3; i++) {
+                float by = top - (i + 1) * blockH;
+                float blockInnerTop = by + blockH - 8f;
+                wrapped.setText(font, texts[i], TEXT_MAIN, textW, Align.left, true);
+                font.draw(batch, wrapped, textX, blockInnerTop - textTopPad);
+            }
+            font.getData().setScale(1f);
+            font.setColor(Color.WHITE);
+            batch.end();
+        }
+
+        private void renderEssence(ShapeRenderer shapeRenderer,
+                                   SpriteBatch batch,
+                                   BitmapFont font,
+                                   Matrix4 projection,
+                                   float x,
+                                   float y,
+                                   float w,
+                                   float h) {
+            final float blockH = 82f;
+            final float top = y + h - 14f;
+            final float blockX = x + 8f;
+            final float blockW = w - 16f;
+            final float dividerX = x + 10f;
+            final float dividerW = w - 20f;
+            final float iconX = x + 20f;
+            final float textX = x + 62f;
+            final float textW = w - 86f;
+            final float textTopPad = 16f;
+            final String[] texts = {
+                "Runecraft Supplier sells rune essence and the basic F2P talismans.",
+                "Keep essence unnoted and in your inventory when interacting with an altar.",
+                "No quest gate is required in this first-pass training loop, so you can train immediately."
+            };
+
+            shapeRenderer.setProjectionMatrix(projection);
+            shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+            for (int i = 0; i < 3; i++) {
+                float by = top - (i + 1) * blockH;
+                shapeRenderer.setColor(0.92f, 0.84f, 0.69f, 1f);
+                shapeRenderer.rect(blockX, by, blockW, blockH - 8f);
+                shapeRenderer.setColor(0.64f, 0.50f, 0.30f, 1f);
+                shapeRenderer.rect(dividerX, by + blockH - 16f, dividerW, 2f);
+            }
+            ItemIconRenderer.drawItemIcon(shapeRenderer, iconX, top - blockH + 12f, RunecraftRegistry.RUNE_ESSENCE_ITEM_ID);
+            ItemIconRenderer.drawItemIcon(shapeRenderer, iconX, top - blockH * 2 + 12f, 1448);
+            ItemIconRenderer.drawItemIcon(shapeRenderer, iconX, top - blockH * 3 + 12f, 1442);
+            shapeRenderer.end();
+
+            GlyphLayout wrapped = new GlyphLayout();
+            batch.setProjectionMatrix(projection);
+            batch.begin();
+            font.getData().setScale(0.68f);
+            font.setColor(TEXT_MAIN);
+            for (int i = 0; i < 3; i++) {
+                float by = top - (i + 1) * blockH;
+                float blockInnerTop = by + blockH - 8f;
+                wrapped.setText(font, texts[i], TEXT_MAIN, textW, Align.left, true);
+                font.draw(batch, wrapped, textX, blockInnerTop - textTopPad);
+            }
+            font.getData().setScale(1f);
+            font.setColor(Color.WHITE);
+            batch.end();
+        }
+
+        private void renderAltars(ShapeRenderer shapeRenderer,
+                                  SpriteBatch batch,
+                                  BitmapFont font,
+                                  Matrix4 projection,
+                                  int level,
+                                  float x,
+                                  float y,
+                                  float w,
+                                  float h,
+                                  float scrollOffset) {
+            float rowH = 36f;
+            int nextReq = findNextAltarLevel(level);
+            float rowTop = GuideLayout.rowTop(y, h, scrollOffset);
+
+            shapeRenderer.setProjectionMatrix(projection);
+            shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+            int rowIndex = 0;
+            for (RunecraftRegistry.AltarDef altar : RunecraftRegistry.f2pAltars()) {
+                float rowY = GuideLayout.rowY(rowTop, rowH, rowIndex);
+                boolean visible = rowY + rowH >= y && rowY <= y + h;
+                if (visible) {
+                    boolean unlocked = level >= altar.levelRequirement();
+                    boolean next = !unlocked && altar.levelRequirement() == nextReq;
+                    shapeRenderer.setColor(next ? ROW_NEXT : unlocked ? ROW_UNLOCKED : ROW_LOCKED);
+                    shapeRenderer.rect(GuideLayout.rowRectX(x), GuideLayout.rowRectY(rowY), GuideLayout.rowRectW(w), GuideLayout.rowRectH(rowH));
+                    ItemIconRenderer.drawItemIcon(shapeRenderer, x + 72, rowY + 3, altar.runeItemId());
+                }
+                rowIndex++;
+            }
+            shapeRenderer.end();
+
+            batch.setProjectionMatrix(projection);
+            batch.begin();
+            font.getData().setScale(0.68f);
+            rowIndex = 0;
+            for (RunecraftRegistry.AltarDef altar : RunecraftRegistry.f2pAltars()) {
+                float rowY = GuideLayout.rowY(rowTop, rowH, rowIndex);
+                boolean visible = rowY + rowH >= y && rowY <= y + h;
+                if (visible) {
+                    boolean unlocked = level >= altar.levelRequirement();
+                    boolean next = !unlocked && altar.levelRequirement() == nextReq;
+                    font.setColor(next ? TEXT_NEXT : unlocked ? TEXT_UNLOCKED : TEXT_LOCKED);
+                    float textY = GuideLayout.rowTextY(rowY, rowH);
+                    font.draw(batch, "Lv " + altar.levelRequirement(), x + 16, textY);
+                    font.draw(batch, altar.altarName(), x + 116, textY);
+                    font.getData().setScale(0.60f);
+                    Color sub = next ? TEXT_NEXT : TEXT_LOCKED;
+                    font.setColor(sub.r, sub.g, sub.b, 0.8f);
+                    font.draw(batch, altar.talismanName(), x + w - 120, textY);
+                    font.draw(batch, formatXpTenths(altar.xpTenthsPerEssence()) + " xp/ess", x + w - 120, textY - 9f);
+                    font.getData().setScale(0.68f);
+                }
+                rowIndex++;
+            }
+            font.getData().setScale(1f);
+            font.setColor(Color.WHITE);
+            batch.end();
+        }
+
+        private int findNextAltarLevel(int level) {
+            for (RunecraftRegistry.AltarDef altar : RunecraftRegistry.f2pAltars()) {
+                if (altar.levelRequirement() > level) {
+                    return altar.levelRequirement();
+                }
+            }
+            return -1;
         }
     }
 

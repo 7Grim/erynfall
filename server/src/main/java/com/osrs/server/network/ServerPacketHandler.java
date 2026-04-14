@@ -12,6 +12,7 @@ import com.osrs.server.quest.QuestManager;
 import com.osrs.server.world.GroundItem;
 import com.osrs.server.world.World;
 import com.osrs.shared.CombatStyle;
+import com.osrs.shared.CraftingRegistry;
 import com.osrs.shared.CookingRegistry;
 import com.osrs.shared.EquipmentSlot;
 import com.osrs.shared.FiremakingRegistry;
@@ -19,6 +20,7 @@ import com.osrs.shared.ItemDefinition;
 import com.osrs.shared.NPC;
 import com.osrs.shared.Player;
 import com.osrs.shared.PrayerRegistry;
+import com.osrs.shared.RunecraftRegistry;
 import com.osrs.shared.ShopDefinition;
 import com.osrs.shared.SmithingRegistry;
 import com.osrs.shared.SkillingAction;
@@ -62,6 +64,12 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
     private static final int COAL_ITEM_ID = 453;
     private static final int BONES_ITEM_ID = 526;
     private static final int COINS_ITEM_ID = 995;
+    private static final int COWHIDE_ITEM_ID = CraftingRegistry.COWHIDE_ITEM_ID;
+    private static final int LEATHER_ITEM_ID = CraftingRegistry.LEATHER_ITEM_ID;
+    private static final int NEEDLE_ITEM_ID = CraftingRegistry.NEEDLE_ITEM_ID;
+    private static final int THREAD_ITEM_ID = CraftingRegistry.THREAD_ITEM_ID;
+    private static final int RUNE_ESSENCE_ITEM_ID = RunecraftRegistry.RUNE_ESSENCE_ITEM_ID;
+    private static final int TANNING_COST_PER_HIDE = 1;
     private static final int  TINDERBOX_ITEM_ID   = 590;
     private static final long BONES_PRAYER_XP = 45L;  // 4.5 XP stored as tenths
     
@@ -819,6 +827,11 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             return;
         }
 
+        if (isTanner(npc)) {
+            handleTanningService(ctx, player, npc);
+            return;
+        }
+
         // If already in dialogue with someone else, ignore
         if (npc.isInDialogue() && npc.getDialoguePlayer() != player.getId()) {
             LOG.debug("NPC {} already in dialogue with another player", npc.getId());
@@ -847,6 +860,51 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
         updateDialogueQuestObjectives(ctx, npc.getId());
         updateHandInQuestObjectives(ctx, npc.getId());
         sendDialoguePrompt(ctx, dialogue);
+    }
+
+    private boolean isTanner(NPC npc) {
+        return npc != null && "Tanner".equalsIgnoreCase(npc.getName());
+    }
+
+    private void handleTanningService(ChannelHandlerContext ctx, Player player, NPC tanner) {
+        int cowhideCount = countInventoryItem(player, COWHIDE_ITEM_ID);
+        if (cowhideCount <= 0) {
+            sendChatMessage(ctx, "You have no cowhide to tan.", 1);
+            return;
+        }
+
+        int coins = countInventoryItem(player, COINS_ITEM_ID);
+        int maxAffordable = coins / TANNING_COST_PER_HIDE;
+        if (maxAffordable <= 0) {
+            sendChatMessage(ctx, "You need coins to pay for tanning.", 1);
+            return;
+        }
+
+        int hidesToTan = Math.min(cowhideCount, maxAffordable);
+        if (!removeInventoryItem(player, COWHIDE_ITEM_ID, hidesToTan)
+            || !removeInventoryItem(player, COINS_ITEM_ID, hidesToTan * TANNING_COST_PER_HIDE)) {
+            sendChatMessage(ctx, "Something went wrong while tanning.", 1);
+            return;
+        }
+
+        ItemDefinition leatherDef = server.getWorld().getItemDef(LEATHER_ITEM_ID);
+        int grantedLeather = giveItemToInventory(player, leatherDef, hidesToTan);
+        if (grantedLeather <= 0) {
+            sendChatMessage(ctx, "You don't have enough inventory space.", 1);
+            return;
+        }
+
+        sendFullInventory(ctx, player);
+        if (DatabaseManager.isHealthy()) {
+            PlayerRepository.saveInventory(player);
+        }
+
+        if (grantedLeather < hidesToTan) {
+            sendChatMessage(ctx, "The tanner works on some hides, but your inventory is too full for the rest.", 2);
+        } else {
+            sendChatMessage(ctx, "The tanner turns your cowhide into leather.", 0);
+        }
+        LOG.info("Player {} tanned {} cowhide at Tanner NPC {}", player.getId(), grantedLeather, tanner.getId());
     }
 
     private void handleStartSkilling(ChannelHandlerContext ctx, NetworkProto.StartSkillingRequest request) {
@@ -2355,6 +2413,82 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             return true;
         }
 
+        RunecraftRegistry.AltarDef runecraftAltar = RunecraftRegistry.getByAltarName(npcName);
+        if (runecraftAltar != null) {
+            if (player.isInCombat()) {
+                sendChatMessage(ctx, "You are too busy fighting.", 1);
+                return true;
+            }
+            if (!canReachAnyAdjacentTile(player, npc)) {
+                sendChatMessage(ctx, "I can't reach that!", 1);
+                return true;
+            }
+
+            int runecraftingLevel = Math.max(1, player.getSkillLevel(Player.SKILL_RUNECRAFTING));
+            if (runecraftingLevel < runecraftAltar.levelRequirement()) {
+                sendChatMessage(ctx,
+                    "You need a Runecrafting level of " + runecraftAltar.levelRequirement()
+                        + " to use this altar.",
+                    1);
+                return true;
+            }
+
+            if (!hasItemInInventory(player, runecraftAltar.talismanItemId())) {
+                sendChatMessage(ctx,
+                    "You need a " + runecraftAltar.talismanName().toLowerCase() + " to use this altar.",
+                    1);
+                return true;
+            }
+
+            int essenceCount = countInventoryItem(player, RUNE_ESSENCE_ITEM_ID);
+            if (essenceCount <= 0) {
+                sendChatMessage(ctx, "You have no rune essence to bind.", 1);
+                return true;
+            }
+
+            if (!removeInventoryItem(player, RUNE_ESSENCE_ITEM_ID, essenceCount)) {
+                sendChatMessage(ctx, "You fail to bind any rune essence.", 1);
+                return true;
+            }
+
+            ItemDefinition runeDef = server.getWorld().getItemDef(runecraftAltar.runeItemId());
+            if (runeDef == null || runeDef.id <= 0) {
+                sendChatMessage(ctx, "This altar is unstable right now.", 1);
+                return true;
+            }
+            int craftedRunes = giveItemToInventory(player, runeDef, essenceCount);
+            if (craftedRunes <= 0) {
+                sendChatMessage(ctx, "You don't have enough inventory space.", 1);
+                return true;
+            }
+
+            sendFullInventory(ctx, player);
+            if (DatabaseManager.isHealthy()) {
+                PlayerRepository.saveInventory(player);
+            }
+
+            int xpTenths = craftedRunes * runecraftAltar.xpTenthsPerEssence();
+            boolean leveledUp = player.addSkillXp(Player.SKILL_RUNECRAFTING, xpTenths);
+            int newLevel = player.getSkillLevel(Player.SKILL_RUNECRAFTING);
+            long totalXp = player.getSkillXp(Player.SKILL_RUNECRAFTING);
+            ctx.writeAndFlush(NetworkProto.ServerMessage.newBuilder()
+                .setSkillUpdate(NetworkProto.SkillUpdate.newBuilder()
+                    .setSkillIndex(Player.SKILL_RUNECRAFTING)
+                    .setNewLevel(newLevel)
+                    .setTotalXp(totalXp / 10)
+                    .setLeveledUp(leveledUp))
+                .build());
+
+            sendChatMessage(ctx,
+                "You bind " + craftedRunes + " essence into " + runecraftAltar.runeName().toLowerCase() + ".",
+                0);
+            if (leveledUp) {
+                sendChatMessage(ctx, "Congratulations, you just advanced a Runecrafting level.", 2);
+            }
+            updateGenericQuestObjectives(session, Quest.TaskType.ACTION, runecraftAltar.runeItemId());
+            return true;
+        }
+
         if ("Altar".equalsIgnoreCase(npcName)) {
             if (player.isInCombat()) {
                 sendChatMessage(ctx, "You are too busy fighting.", 1);
@@ -3165,6 +3299,15 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
         int srcItem = player.getInventoryItemId(srcSlot);
         int tgtItem = player.getInventoryItemId(tgtSlot);
 
+        boolean isLeatherCrafting = (srcItem == NEEDLE_ITEM_ID && tgtItem == LEATHER_ITEM_ID)
+            || (srcItem == LEATHER_ITEM_ID && tgtItem == NEEDLE_ITEM_ID)
+            || (srcItem == THREAD_ITEM_ID && tgtItem == LEATHER_ITEM_ID)
+            || (srcItem == LEATHER_ITEM_ID && tgtItem == THREAD_ITEM_ID);
+        if (isLeatherCrafting) {
+            handleLeatherCrafting(ctx, player);
+            return;
+        }
+
         FiremakingRegistry.LogTier srcLogTier = FiremakingRegistry.getByItemId(srcItem);
         FiremakingRegistry.LogTier tgtLogTier = FiremakingRegistry.getByItemId(tgtItem);
 
@@ -3225,6 +3368,72 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
         }
 
         sendChatMessage(ctx, "Nothing interesting happens.", 0);
+    }
+
+    private void handleLeatherCrafting(ChannelHandlerContext ctx, Player player) {
+        if (!hasItemInInventory(player, NEEDLE_ITEM_ID)) {
+            sendChatMessage(ctx, "You need a needle to craft leather.", 1);
+            return;
+        }
+        if (!hasItemInInventory(player, THREAD_ITEM_ID)) {
+            sendChatMessage(ctx, "You need some thread to stitch leather.", 1);
+            return;
+        }
+
+        int leatherCount = countInventoryItem(player, LEATHER_ITEM_ID);
+        if (leatherCount <= 0) {
+            sendChatMessage(ctx, "You need some leather to craft.", 1);
+            return;
+        }
+
+        int craftingLevel = Math.max(1, player.getSkillLevel(Player.SKILL_CRAFTING));
+        CraftingRegistry.LeatherRecipe recipe = CraftingRegistry.bestCraftableLeatherRecipe(craftingLevel, leatherCount);
+        if (recipe == null) {
+            sendChatMessage(ctx, "You need a higher Crafting level to make anything from this leather.", 1);
+            return;
+        }
+
+        if (!removeInventoryItem(player, LEATHER_ITEM_ID, recipe.leatherRequired())
+            || !removeInventoryItem(player, THREAD_ITEM_ID, 1)) {
+            sendChatMessage(ctx, "You don't have the materials required.", 1);
+            return;
+        }
+
+        ItemDefinition productDef = server.getWorld().getItemDef(recipe.productItemId());
+        if (productDef == null || productDef.id <= 0) {
+            sendChatMessage(ctx, "You can't craft that item right now.", 1);
+            return;
+        }
+
+        int crafted = giveItemToInventory(player, productDef, 1);
+        if (crafted <= 0) {
+            sendChatMessage(ctx, "You don't have enough inventory space.", 1);
+            return;
+        }
+
+        sendFullInventory(ctx, player);
+
+        boolean leveledUp = player.addSkillXp(Player.SKILL_CRAFTING, recipe.xpTenths());
+        int newLevel = player.getSkillLevel(Player.SKILL_CRAFTING);
+        long totalXp = player.getSkillXp(Player.SKILL_CRAFTING);
+        ctx.writeAndFlush(NetworkProto.ServerMessage.newBuilder()
+            .setSkillUpdate(NetworkProto.SkillUpdate.newBuilder()
+                .setSkillIndex(Player.SKILL_CRAFTING)
+                .setNewLevel(newLevel)
+                .setTotalXp(totalXp / 10)
+                .setLeveledUp(leveledUp))
+            .build());
+
+        if (DatabaseManager.isHealthy()) {
+            PlayerRepository.saveInventory(player);
+        }
+
+        sendChatMessage(ctx, "You craft the leather into " + recipe.productName().toLowerCase() + ".", 0);
+        if (leveledUp) {
+            sendChatMessage(ctx, "Congratulations, you just advanced a Crafting level.", 2);
+        }
+        updateGenericQuestObjectives(session, Quest.TaskType.ACTION, recipe.productItemId());
+        LOG.info("Player {} crafted {} (+{} crafting xp)", player.getId(), recipe.productName(), recipe.xpTenths());
     }
 
     /**

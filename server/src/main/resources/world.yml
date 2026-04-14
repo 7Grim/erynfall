@@ -489,6 +489,129 @@ npcs:
     wander_radius: 0
     is_aggressive: false
 
+  - id: 44
+    name: "Crafting Supplier"
+    combat_level: 0
+    max_hp: 10
+    max_hit: 0
+    respawn_delay_ticks: 0
+    location: "tutorial_island"
+    x: 42
+    y: 25
+    examine: "A supplier of basic crafting tools."
+    wander_radius: 0
+    is_aggressive: false
+
+  - id: 45
+    name: "Tanner"
+    combat_level: 0
+    max_hp: 10
+    max_hit: 0
+    respawn_delay_ticks: 0
+    location: "tutorial_island"
+    x: 46
+    y: 25
+    examine: "Can tan your cowhides into leather."
+    wander_radius: 0
+    is_aggressive: false
+
+  - id: 46
+    name: "Runecraft Supplier"
+    combat_level: 0
+    max_hp: 10
+    max_hit: 0
+    respawn_delay_ticks: 0
+    location: "tutorial_island"
+    x: 50
+    y: 25
+    examine: "A supplier of rune essence and talismans."
+    wander_radius: 0
+    is_aggressive: false
+
+  - id: 47
+    definition_id: 402
+    name: "Air Altar"
+    combat_level: 0
+    max_hp: 1
+    max_hit: 0
+    respawn_delay_ticks: 0
+    location: "tutorial_island"
+    x: 54
+    y: 25
+    examine: "A runecrafting altar attuned to air."
+    wander_radius: 0
+    is_aggressive: false
+
+  - id: 48
+    definition_id: 402
+    name: "Mind Altar"
+    combat_level: 0
+    max_hp: 1
+    max_hit: 0
+    respawn_delay_ticks: 0
+    location: "tutorial_island"
+    x: 58
+    y: 25
+    examine: "A runecrafting altar attuned to mind."
+    wander_radius: 0
+    is_aggressive: false
+
+  - id: 49
+    definition_id: 402
+    name: "Water Altar"
+    combat_level: 0
+    max_hp: 1
+    max_hit: 0
+    respawn_delay_ticks: 0
+    location: "tutorial_island"
+    x: 62
+    y: 25
+    examine: "A runecrafting altar attuned to water."
+    wander_radius: 0
+    is_aggressive: false
+
+  - id: 56
+    definition_id: 402
+    name: "Earth Altar"
+    combat_level: 0
+    max_hp: 1
+    max_hit: 0
+    respawn_delay_ticks: 0
+    location: "tutorial_island"
+    x: 66
+    y: 25
+    examine: "A runecrafting altar attuned to earth."
+    wander_radius: 0
+    is_aggressive: false
+
+  - id: 57
+    definition_id: 402
+    name: "Fire Altar"
+    combat_level: 0
+    max_hp: 1
+    max_hit: 0
+    respawn_delay_ticks: 0
+    location: "tutorial_island"
+    x: 70
+    y: 25
+    examine: "A runecrafting altar attuned to fire."
+    wander_radius: 0
+    is_aggressive: false
+
+  - id: 58
+    definition_id: 402
+    name: "Body Altar"
+    combat_level: 0
+    max_hp: 1
+    max_hit: 0
+    respawn_delay_ticks: 0
+    location: "tutorial_island"
+    x: 74
+    y: 25
+    examine: "A runecrafting altar attuned to body."
+    wander_radius: 0
+    is_aggressive: false
+
   - id: 40
     definition_id: 500
     name: "Furnace"

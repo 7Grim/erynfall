@@ -43,3 +43,29 @@ shops:
         quantity: 25
       - item_id: 884
         quantity: 7000
+  - id: "crafting_supplier"
+    name: "Crafting Supplier"
+    npc_name: "Crafting Supplier"
+    stock:
+      - item_id: 1733
+        quantity: 60
+      - item_id: 1734
+        quantity: 2000
+  - id: "runecraft_supplier"
+    name: "Runecraft Supplier"
+    npc_name: "Runecraft Supplier"
+    stock:
+      - item_id: 1436
+        quantity: 5000
+      - item_id: 1438
+        quantity: 100
+      - item_id: 1448
+        quantity: 100
+      - item_id: 1452
+        quantity: 100
+      - item_id: 1440
+        quantity: 100
+      - item_id: 1442
+        quantity: 100
+      - item_id: 1446
+        quantity: 100

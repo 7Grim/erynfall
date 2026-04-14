@@ -16,7 +16,8 @@ For current engineering and art workflow context, start here:
 4. `PROGRESS.md`
 5. `ART_PIPELINE_IMPLEMENTATION_CHECKLIST.md`
 6. `ART_PIPELINE_IMPLEMENTATION_ORDER.md`
-7. `CONTRIBUTING.md`
+7. `SKILL_IMPLEMENTATION_BASELINE.md`
+8. `CONTRIBUTING.md`
 
 For general repo onboarding, also read:
 - `../README.md`
@@ -30,6 +31,7 @@ These are the most useful current docs for implementation work:
 - `PROGRESS.md`
 - `ART_PIPELINE_IMPLEMENTATION_CHECKLIST.md`
 - `ART_PIPELINE_IMPLEMENTATION_ORDER.md`
+- `SKILL_IMPLEMENTATION_BASELINE.md`
 - `CONTRIBUTING.md`
 - `../ARTIST_GUIDE.md`
 
@@ -66,7 +68,8 @@ Use this order:
 5. `PROGRESS.md`
 6. `ART_PIPELINE_IMPLEMENTATION_CHECKLIST.md`
 7. `ART_PIPELINE_IMPLEMENTATION_ORDER.md`
-8. `CONTRIBUTING.md`
+8. `SKILL_IMPLEMENTATION_BASELINE.md`
+9. `CONTRIBUTING.md`
 
 Then inspect code.
 
