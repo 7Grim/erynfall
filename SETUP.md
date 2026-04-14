@@ -1,26 +1,22 @@
 # Setup Guide
 
-> Note: this file is older than the current art-pipeline docs.
-> For the most current high-level onboarding, prefer `README.md`, `ARTIST_GUIDE.md`, and `docs/README.md`.
+For the current art workflow and hotkeys, see `ARTIST_GUIDE.md`.
+For architecture and code conventions, see `AGENTS.md` and `docs/ARCHITECTURE.md`.
 
-This guide will get you running the server and client locally in under 10 minutes.
+---
 
 ## Prerequisites
 
-### System Requirements
-- **OS:** Windows, macOS, or Linux
-- **Java:** Java 21+ (LTS)
-- **Maven:** 3.8+
-- **Git:** Latest
+- **Java 21+** (LTS)
+- **Maven 3.8+**
+- **Git**
 
 ### Install Java 21
 
 **Windows:**
-```bash
-# Using choco
+```powershell
 choco install openjdk21
-
-# Or download from https://jdk.java.net/21
+# or download from https://jdk.java.net/21
 ```
 
 **macOS:**
@@ -33,23 +29,13 @@ brew install openjdk@21
 sudo apt install openjdk-21-jdk
 ```
 
-**Verify:**
-```bash
-java -version
-# Output should show "openjdk version 21"
-```
+Verify: `java -version` — should show `openjdk version 21`.
 
-### Install Maven (Option 1: Recommended for Windows)
+### Install Maven
 
-**Windows (using Chocolatey):**
+**Windows:**
 ```powershell
 choco install maven
-```
-
-Then **restart PowerShell/CMD** and verify:
-```powershell
-mvn -v
-# Output should show "Apache Maven 3.8+"
 ```
 
 **macOS:**
@@ -57,173 +43,123 @@ mvn -v
 brew install maven
 ```
 
-**Linux (Ubuntu/Debian):**
+**Linux:**
 ```bash
 sudo apt install maven
 ```
 
-### Alternative: Use Maven Wrapper (No Installation Needed)
-
-If you don't want to install Maven, use the wrapper included in the repo:
-
-**Windows (PowerShell):**
-```powershell
-./mvnw.cmd clean install
-```
-
-**macOS/Linux:**
-```bash
-./mvnw clean install
-```
-
-The wrapper will auto-download Maven on first run (~100 MB).
-
-### Install Git
-
-Download from https://git-scm.com or use your package manager.
+Verify: `mvn -v` — should show `Apache Maven 3.8+`.
 
 ---
 
-## Clone the Repository
+## Clone and Build
 
 ```bash
-git clone https://github.com/EarthDeparture/osrs-mmorp.git
-cd osrs-mmorp
-```
-
----
-
-## Build the Project
-
-```bash
+git clone https://github.com/EarthDeparture/erynfall.git
+cd erynfall
 mvn clean install
 ```
 
-This will:
-1. Download all dependencies (~500 MB, first time only)
-2. Compile server, client, and shared modules
-3. Run unit tests
-4. Create JAR files in `target/` directories
-
-**First build takes 3-5 minutes. Subsequent builds take <1 minute.**
+First build downloads ~500 MB of dependencies. Subsequent builds are under a minute.
 
 ---
 
 ## Run the Server
 
-### From IDE (IntelliJ IDEA)
-
-1. Open `server/src/main/java/com/osrs/server/Server.java`
-2. Right-click → "Run Server.main()"
-3. Server starts on localhost:43594
-
-### From Command Line
-
 ```bash
 mvn -pl server exec:java -Dexec.mainClass="com.osrs.server.Server"
 ```
 
-**Expected output:**
-```
-[INFO] OSRS MMORP Server starting...
-[INFO] Server tick rate: 256 Hz (3.90625ms per tick)
-[INFO] Starting game loop (interval: 3906250 ns)
-[INFO] Tick 256 (uptime: 1 sec)
-[INFO] Tick 512 (uptime: 2 sec)
-...
-```
-
-Server is ready when you see ticks incrementing.
+Server starts on port 43594. Ready when you see ticks incrementing in the log.
 
 ---
 
 ## Run the Client
 
-### From IDE (IntelliJ IDEA)
-
-1. Open `client/src/main/java/com/osrs/client/Client.java`
-2. Right-click → "Run Client.main()"
-3. Window appears (dark background with placeholder UI)
-
-### From Command Line
-
 ```bash
 mvn -pl client exec:exec
 ```
 
-**Expected output:**
-```
-[INFO] OSRS MMORP Client starting...
-[INFO] Creating LibGDX application
+**macOS note:** The client exec config already includes `-XstartOnFirstThread`. If running directly with `java -jar`, add that flag manually:
+```bash
+java -XstartOnFirstThread -jar client/target/osrs-client-0.1.0-SNAPSHOT.jar
 ```
 
-A window should appear with a gray background.
+---
+
+## Run Artist Mode
+
+Build the client jar first:
+
+```bash
+mvn -pl client -am -DskipTests package
+```
+
+Then launch with the appropriate script:
+
+**macOS / Linux:**
+```bash
+./scripts/run-artist-client.sh
+```
+
+**Windows (PowerShell):**
+```powershell
+.\scripts\run-artist-client.ps1
+```
+
+**Windows (cmd):**
+```cmd
+scripts\run-artist-client.bat
+```
+
+In artist mode, press `F6` to open the Art Workbench.
+
+---
+
+## Run the Auth Service (optional — for full login flow)
+
+```bash
+mvn -pl auth spring-boot:run
+```
+
+Configure DB and JWT env vars — see `docs/ARCHITECTURE.md` for details.
+
+---
+
+## Module Structure
+
+```
+erynfall/
+├── shared/      Protocol Buffers schema + shared models/registries
+├── auth/        Spring Boot JWT auth service (Azure App Service deployment)
+├── server/      Authoritative game loop, gameplay systems, Netty networking
+├── client/      LibGDX renderer, UI, artist mode, Art Workbench
+├── art/         Blender source (.blend), runtime models (.glb/.g3dj), sprites, world scene
+├── scripts/     Art validation, model generation, Blender export, artist launch scripts
+├── sql/         SQL Server schema and setup docs
+└── docs/        Architecture, progress, art pipeline, contributing
+```
 
 ---
 
 ## IDE Setup (IntelliJ IDEA)
 
-### Import Project
+1. **File → Open** → select the `erynfall` folder
+2. Trust the project — IntelliJ auto-detects the Maven multi-module structure
 
-1. **File** → **Open** → Select `osrs-mmorp` folder
-2. **Trust Project** (if prompted)
-3. IntelliJ auto-detects Maven structure
+### Run Configurations
 
-### Configure Run Configurations
+**Server:**
+- Main class: `com.osrs.server.Server`
+- Working directory: `$ProjectFileDir$/server`
 
-**For Server:**
-1. Top-right, **Edit Configurations**
-2. Click **+** → **Application**
-3. Name: `Server`
-4. Main class: `com.osrs.server.Server`
-5. Working directory: `$ProjectFileDir$/server`
-6. Save
+**Client:**
+- Main class: `com.osrs.client.Client`
+- Working directory: `$ProjectFileDir$/client`
+- VM options (macOS only): `-XstartOnFirstThread`
 
-**For Client:**
-1. **+** → **Application**
-2. Name: `Client`
-3. Main class: `com.osrs.client.Client`
-4. Working directory: `$ProjectFileDir$/client`
-5. Save
-
-Now you can press **Shift+F10** to run (or use the green play button).
-
----
-
-## Project Structure
-
-```
-osrs-mmorp/
-├── server/              # Game server (port 43594)
-│   ├── pom.xml
-│   └── src/main/java/com/osrs/server/
-│       ├── Server.java          ← Main entry point
-│       └── GameLoop.java        ← 256-tick loop
-├── client/              # Game client (LibGDX)
-│   ├── pom.xml
-│   └── src/main/java/com/osrs/client/
-│       ├── Client.java          ← Main entry point
-│       └── GameScreen.java      ← Rendering
-├── shared/              # Shared code + network protocol
-│   ├── pom.xml
-│   ├── src/main/java/com/osrs/shared/
-│   │   ├── Entity.java
-│   │   ├── Player.java
-│   │   └── NPC.java
-│   └── src/main/proto/
-│       └── network.proto        ← Protocol Buffers schema
-├── assets/              # Game data (YAML configs, sprites)
-│   └── data/
-│       ├── map.yaml
-│       ├── npcs.yaml
-│       ├── quests.yaml
-│       └── dialogue.yaml
-├── docs/
-│   ├── ARCHITECTURE.md  ← System design
-│   ├── CONTRIBUTING.md  ← Git workflow
-│   └── PROGRESS.md      ← Sprint tracking
-└── README.md
-```
+**Auth service:**
+- Use the Maven run configuration: `spring-boot:run` in the `auth` module
 
 ---
 
@@ -231,104 +167,34 @@ osrs-mmorp/
 
 ### "Maven not found"
 ```bash
-# Check Maven is installed
 mvn -v
-
-# If not, install:
-# macOS: brew install maven
-# Windows: choco install maven
-# Linux: sudo apt install maven
+# Install: brew install maven (macOS) / choco install maven (Windows)
 ```
 
 ### "Java 21 not found"
 ```bash
-# Check Java version
 java -version
-
-# If Java < 21, upgrade:
-# macOS: brew install openjdk@21
-# Windows: choco install openjdk21
-# Linux: sudo apt install openjdk-21-jdk
+# Install: brew install openjdk@21 (macOS) / choco install openjdk21 (Windows)
 ```
 
-### "Cannot find symbol: class Entity"
+### Client window doesn't open (macOS)
+Ensure you're using `-XstartOnFirstThread`. Without it the LWJGL3 OpenGL context will fail silently on macOS.
+
+### "Cannot find symbol: class ..."
+Rebuild the shared module first:
 ```bash
-# Rebuild shared module first
-cd shared
-mvn clean install
-cd ../server
-mvn clean compile
+mvn clean install -pl shared -am
 ```
 
-### "LibGDX window doesn't open"
+### Art validation fails on Windows
+Art validation is auto-skipped on Windows (Maven profile). If you want to run it manually:
 ```bash
-# Check you have graphics drivers installed (not in VM)
-# If on VM, you may need to skip client for now
-
-# Test with a simple console output instead
-cd client
-mvn exec:java -Dexec.mainClass="com.osrs.client.Client" 2>&1 | grep -i "gdx\|error"
+python3 scripts/validate-art.py
+python3 scripts/validate-models.py
 ```
 
-### Build takes forever
+### Build takes a long time
+First build downloads all Maven dependencies (~500 MB). After that, targeted builds are fast:
 ```bash
-# First build downloads 500 MB of dependencies
-# Subsequent builds are much faster
-# If stuck, check internet connection and try:
-mvn clean install -o  # Offline mode (if deps cached)
+mvn -pl client -am -DskipTests package  # client only, no tests
 ```
-
----
-
-## Next Steps
-
-1. **Read [PROGRESS.md](docs/PROGRESS.md)** — See sprint tasks
-2. **Read [CONTRIBUTING.md](docs/CONTRIBUTING.md)** — Git workflow + code standards
-3. **Check [ARCHITECTURE.md](docs/ARCHITECTURE.md)** — System design
-4. **Start S1-002** — Implement the tick loop properly (see PROGRESS.md)
-
----
-
-## Quick Commands
-
-```bash
-# Build everything
-mvn clean install
-
-# Build + run tests
-mvn clean test
-
-# Run server
-cd server && mvn exec:java -Dexec.mainClass="com.osrs.server.Server"
-
-# Run client
-cd client && mvn exec:java -Dexec.mainClass="com.osrs.client.Client"
-
-# Skip tests (faster)
-mvn clean install -DskipTests
-
-# Compile only (no tests)
-mvn clean compile
-
-# Check for issues
-mvn spotbugs:check  # (after spotbugs plugin added)
-```
-
----
-
-## IDE Keyboard Shortcuts (IntelliJ)
-
-| Action | Shortcut |
-|--------|----------|
-| Run | Shift+F10 |
-| Debug | Shift+F9 |
-| Stop | Ctrl+F2 |
-| Open file | Ctrl+N |
-| Build | Ctrl+F9 |
-| Find in files | Ctrl+Shift+F |
-| Git commit | Ctrl+K |
-| Git push | Ctrl+Shift+K |
-
----
-
-Still stuck? Check Discord (#parsundra) or see [CONTRIBUTING.md](docs/CONTRIBUTING.md) for blockers.

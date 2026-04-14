@@ -315,31 +315,27 @@ mvn clean install
 
 ## Assets (Art & Data)
 
-### Sprite Contributions (Game Artist)
+### 3D Models (Blender workflow)
+
+When adding a new 3D model:
+
+1. **Author** the model in Blender, save `.blend` source under `art/blender/<category>/`
+2. **Export** to `.glb` under `art/models/` (use `scripts/export-blender-models.py` or headless Blender export)
+3. **Register** in `art/models/manifest.yaml` with key, file, format, category, scale, anchor metadata
+4. **Validate** with `python3 scripts/validate-models.py` — must pass before committing
+5. **Build** with `mvn generate-resources -pl client -am` to copy the GLB into client resources
+
+See `ARTIST_GUIDE.md` for the full workflow including Art Workbench equipment fit tuning.
+
+### 2D Sprites (Aseprite workflow)
 
 When adding new sprites:
 
-1. **Coordinate format:** Isometric tiles, 32×32 pixels per tile (width), 16×16 pixels per half-height
-2. **Save as:** PNG, indexed color (256 colors max)
-3. **Organize in:** `assets/sprites/<category>/<name>.png`
-4. **Document in:** `assets/data/sprites.yaml`
-
-Example `sprites.yaml`:
-```yaml
-sprites:
-  - id: 1000
-    name: PlayerHead
-    file: "sprites/player/head_male.png"
-    frames: 4              # Animation frames
-    width: 32
-    height: 32
-  - id: 1001
-    name: NPCGuide
-    file: "sprites/npc/tutorial_guide.png"
-    frames: 2
-    width: 32
-    height: 32
-```
+1. **Author** in Aseprite, save `.aseprite` source under `art/aseprite/`
+2. **Export** frames to PNG under `art/sprites/` (use `scripts/export-art.sh` or `export-art.bat`)
+3. **Register** in `art/sprites/manifest.yaml` with key, file, canvas dimensions, pivot, animated flag
+4. **Pack** textures: `mvn generate-resources -pl client -am` runs TexturePacker automatically
+5. Tiles are 32×16 isometric diamonds. Player/NPC sprites are 16×24 bottom-center pivot.
 
 ### Data Files (Dev)
 

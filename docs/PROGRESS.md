@@ -33,13 +33,24 @@ Completed major work:
 - searchable selection added to the workbench
 - workbench readability/layout improved
 
+### S5 Skilling and Systems (Complete)
+
+- Full skilling suite implemented with guides: woodcutting, fishing, cooking, smithing, crafting, runecrafting, magic, ranged, firemaking
+- Combat expanded to cover melee, ranged, magic with OSRS-accurate formulas
+- Quest system, dialogue, NPC roster — all Tutorial Island content in place
+- Bronze GLB reference set complete: helm, platebody, platelegs, sword, shield via Blender
+- ArtWorkbench: 5 modes (Model Preview, Equipment Fit, World Placement, Entity Binding, Terrain Paint)
+- Equipment hide_nodes corrected across all metal tiers
+- Walking system: server-authoritative click-to-walk + client prediction
+- Azure JWT auth deployed end-to-end; DigitalOcean VM + GitHub Actions CI/CD wired
+
 ### Current Major Gaps
 
-- broader real-world `.blend -> .glb` usage still needs more proof assets
-- validation/export tooling exists but is still early-stage
-- docs still need continued pruning and lock-in
-- world placement remains intentionally simple and tile-based
-- no full undo/redo or terrain editing yet
+- Prayer system (points, activation, drain) — not yet implemented
+- Post-Tutorial Island content (mainland map, bank, follow-on quests)
+- SQL persistence gaps: XP/inventory can reset on server restart (schema wired, integration incomplete)
+- Weight stat: placeholder 0, not synced to client
+- Bronze scimitar still G3DJ (only bronze GLB piece not yet Blender-authored)
 
 ## Recommended Active Docs
 

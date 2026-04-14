@@ -46,18 +46,8 @@ These remain useful reference material, but are not automatically current implem
 
 ## Historical / Milestone Docs
 
-These are mostly historical planning or milestone records:
-
-- `IMPLEMENTATION_ROADMAP.md`
-- `EXHAUSTIVE_DEVELOPMENT_ROADMAP.md`
-- `S0_IMPLEMENTATION_SUMMARY.md`
-- `S1.5_DATABASE_INTEGRATION.md`
-- `S1-002-TICK-LOOP-GUIDE.md`
-- `S2-COMBAT-IMPLEMENTATION.md`
-- `DATABASE_IMPLEMENTATION_LOG.md`
-- `DATABASE_SCHEMA_FINAL.md`
-- `PROJECT_SUMMARY.md`
-- `sessions/`
+Sprint implementation records and early roadmap docs have been removed.
+For historical context, use `git log` and the commit history.
 
 ## Rule Of Thumb
 
