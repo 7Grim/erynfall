@@ -575,6 +575,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
 
         player.setPosition(toX, toY);
         player.setFacing(movement.getFacing());
+        player.clearWalkDestination();
 
         // Broadcast authoritative player movement so all clients (including self)
         // keep entity position state in sync and do not snap back to stale tiles.
@@ -604,7 +605,8 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
 
         if (!server.getWorld().canReach(player.getX(), player.getY(), tx, ty)) {
             sendChatMessage(ctx, "I can't reach that!", 1);
-            LOG.debug("Rejected walk-to for player {}: no path to ({},{})", player.getId(), tx, ty);
+            LOG.debug("Rejected walk-to for player {}: no path from ({},{}) to ({},{})",
+                player.getId(), player.getX(), player.getY(), tx, ty);
             return;
         }
 
@@ -612,10 +614,29 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             interruptSkilling("interrupted");
         }
 
-        // Walk destination noted. Actual position is updated tile-by-tile via
-        // PlayerMovement packets as the client crosses each tile boundary.
-        LOG.debug("Player {} walk-to destination: ({}, {})",
-            session.getSessionId(), walkTo.getTargetX(), walkTo.getTargetY());
+        if (player.isInDialogue()) {
+            closeDialogue(player);
+        }
+
+        if (session.isBankOpen()) {
+            flushDirtyBankContainers();
+            clearBankSessionState();
+            sendBankClose(ctx, "moved");
+        }
+
+        if (player.hasWalkDestination()
+            && player.getWalkDestinationX() == tx
+            && player.getWalkDestinationY() == ty) {
+            LOG.debug("Ignored duplicate walk-to for player {} at ({},{}): destination already ({},{})",
+                player.getId(), player.getX(), player.getY(), tx, ty);
+            return;
+        }
+
+        player.setWalkDestination(tx, ty, server.getCurrentTick());
+
+        LOG.debug("Accepted walk-to for player {}: pos=({},{}) dest=({},{}) serverTick={} nextStepTick={}",
+            player.getId(), player.getX(), player.getY(), tx, ty,
+            server.getCurrentTick(), player.getNextWalkStepTick());
     }
     
     private Player requireAdminTools(ChannelHandlerContext ctx, long sequence) {

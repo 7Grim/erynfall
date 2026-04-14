@@ -196,8 +196,8 @@
       <id>windows-skip-art-validation</id>
       <properties>
         <skipModelValidation>true</skipModelValidation>
-        <skipArtValidation>true</skipArtValidation>
         <skipEquipmentCoverageAudit>true</skipEquipmentCoverageAudit>
+        <skipArtValidation>true</skipArtValidation>
       </properties>
     </profile>
     <profile>
@@ -280,11 +280,11 @@
   </dependencies>
   <properties>
     <skipModelValidation>false</skipModelValidation>
-    <gdxGltf.version>2.2.1</gdxGltf.version>
     <strictEquipmentCoverage>false</strictEquipmentCoverage>
     <skipModelCopy>false</skipModelCopy>
+    <erynfall.artistMode>false</erynfall.artistMode>
+    <gdxGltf.version>2.2.1</gdxGltf.version>
     <skipEquipmentCoverageAudit>false</skipEquipmentCoverageAudit>
     <skipArtValidation>false</skipArtValidation>
-    <erynfall.artistMode>false</erynfall.artistMode>
   </properties>
 </project>

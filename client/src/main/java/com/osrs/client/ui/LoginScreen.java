@@ -7,12 +7,15 @@ import com.badlogic.gdx.Preferences;
 import com.badlogic.gdx.ScreenAdapter;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
+import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.GlyphLayout;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.Matrix4;
 import com.osrs.client.ErynfallGame;
+
+import java.nio.file.Path;
 
 /**
  * Login / registration screen shown before GameScreen.
@@ -25,13 +28,20 @@ import com.osrs.client.ErynfallGame;
  */
 public class LoginScreen extends ScreenAdapter {
 
+    private static final String PREFS_NAME = "erynfall-login";
+    private static final String PREF_KEY_LAST_EMAIL = "email";
+    private static final String PREF_KEY_SAVED_EMAIL = "saved_email";
+    private static final String PREF_KEY_SAVED_PASSWORD = "saved_password";
+
     private static final int PANEL_W          = 400;
-    private static final int PANEL_H          = 290;
+    private static final int PANEL_H          = 360;
     private static final int FIELD_H          = 28;
     private static final int BUTTON_H         = 34;
     private static final int PAD              = 16;
     private static final int EMAIL_MAX_LEN    = 254;
     private static final int PASSWORD_MAX_LEN = 128;
+    private static final float BACKSPACE_INITIAL_DELAY = 0.35f;
+    private static final float BACKSPACE_REPEAT_INTERVAL = 0.045f;
 
     /** Mute button: fixed to bottom-right corner of the screen. */
     private static final int MUTE_BTN_SZ     = 30;
@@ -43,6 +53,7 @@ public class LoginScreen extends ScreenAdapter {
     private SpriteBatch   batch;
     private ShapeRenderer sr;
     private Matrix4       proj;
+    private Texture       backgroundTexture;
 
     // Input state
     private String emailBuffer = "";
@@ -53,6 +64,13 @@ public class LoginScreen extends ScreenAdapter {
     private float   cursorBlink  = 0f;
     private boolean transitioning = false;  // set true when screen switch is in flight
     private InputAdapter inputProcessor;
+    private boolean backspaceHeld = false;
+    private float backspaceHeldTime = 0f;
+    private float backspaceRepeatAccumulator = 0f;
+    private boolean hasSavedCredentials = false;
+    private boolean showSavedAccountView = false;
+    private String savedEmail = "";
+    private String savedPassword = "";
 
     public LoginScreen(ErynfallGame game) {
         this(game, "");
@@ -76,6 +94,11 @@ public class LoginScreen extends ScreenAdapter {
         sr    = new ShapeRenderer();
         proj  = new Matrix4().setToOrtho2D(0, 0, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
 
+        Path loginBgPath = game.getLaunchOptions().repoRootPath().resolve("art/assets/login-bg.png");
+        if (loginBgPath.toFile().exists()) {
+            backgroundTexture = new Texture(Gdx.files.absolute(loginBgPath.toString()));
+        }
+
         inputProcessor = new InputAdapter() {
             @Override
             public boolean keyDown(int keycode) {
@@ -84,7 +107,11 @@ public class LoginScreen extends ScreenAdapter {
                 }
 
                 if (keycode == Input.Keys.ENTER) {
-                    submit();
+                    if (showSavedAccountView) {
+                        loginSavedAccount();
+                    } else {
+                        submit();
+                    }
                     return true;
                 }
 
@@ -94,20 +121,21 @@ public class LoginScreen extends ScreenAdapter {
                 }
 
                 if (keycode == Input.Keys.TAB) {
+                    if (showSavedAccountView) {
+                        return true;
+                    }
                     focusEmail = !focusEmail;
                     return true;
                 }
 
                 if (keycode == Input.Keys.BACKSPACE) {
-                    if (focusEmail) {
-                        if (!emailBuffer.isEmpty()) {
-                            emailBuffer = emailBuffer.substring(0, emailBuffer.length() - 1);
-                        }
-                    } else {
-                        if (!passwordBuffer.isEmpty()) {
-                            passwordBuffer = passwordBuffer.substring(0, passwordBuffer.length() - 1);
-                        }
+                    if (showSavedAccountView) {
+                        return true;
                     }
+                    deleteActiveFieldChar();
+                    backspaceHeld = true;
+                    backspaceHeldTime = 0f;
+                    backspaceRepeatAccumulator = 0f;
                     return true;
                 }
 
@@ -124,11 +152,25 @@ public class LoginScreen extends ScreenAdapter {
                 if (transitioning) {
                     return true;
                 }
+                if (showSavedAccountView) {
+                    return true;
+                }
                 if (character < 32 || character == 127) {
                     return false;
                 }
                 appendChar(character);
                 return true;
+            }
+
+            @Override
+            public boolean keyUp(int keycode) {
+                if (keycode == Input.Keys.BACKSPACE) {
+                    backspaceHeld = false;
+                    backspaceHeldTime = 0f;
+                    backspaceRepeatAccumulator = 0f;
+                    return true;
+                }
+                return false;
             }
 
             @Override
@@ -139,7 +181,10 @@ public class LoginScreen extends ScreenAdapter {
                 int pY = (h - PANEL_H) / 2;
                 int flippedY = h - screenY;           // LibGDX Y=0 is at bottom
                 int fieldW   = PANEL_W - PAD * 2;
-                int btnY     = pY + 70;               // login button rect bottom -- must match render()
+                int loginBtnY = pY + 112;             // must match render()
+                int saveBtnY  = pY + 68;
+                int savedPrimaryBtnY = pY + 104;
+                int savedSecondaryBtnY = pY + 58;
                 int efBottom = pY + PANEL_H - 100;    // email field rect bottom -- must match render()
                 int pfBottom = pY + PANEL_H - 160;    // password field rect bottom -- must match render()
                 boolean inX  = screenX >= pX + PAD && screenX <= pX + PAD + fieldW;
@@ -153,9 +198,26 @@ public class LoginScreen extends ScreenAdapter {
                     return true;
                 }
 
+                if (showSavedAccountView) {
+                    if (inX && flippedY >= savedPrimaryBtnY && flippedY <= savedPrimaryBtnY + BUTTON_H) {
+                        loginSavedAccount();
+                        return true;
+                    }
+                    if (inX && flippedY >= savedSecondaryBtnY && flippedY <= savedSecondaryBtnY + BUTTON_H) {
+                        clearSavedCredentials();
+                        return true;
+                    }
+                    return false;
+                }
+
                 // Click login button
-                if (inX && flippedY >= btnY && flippedY <= btnY + BUTTON_H) {
+                if (inX && flippedY >= loginBtnY && flippedY <= loginBtnY + BUTTON_H) {
                     submit();
+                    return true;
+                }
+
+                if (inX && flippedY >= saveBtnY && flippedY <= saveBtnY + BUTTON_H) {
+                    saveAccountDetails();
                     return true;
                 }
 
@@ -171,11 +233,20 @@ public class LoginScreen extends ScreenAdapter {
             }
         };
 
-        // Pre-fill email from last successful login
-        Preferences prefs = Gdx.app.getPreferences("erynfall-login");
-        String savedEmail = prefs.getString("email", "");
-        if (!savedEmail.isBlank()) {
+        // Pre-fill email and any saved credentials
+        Preferences prefs = Gdx.app.getPreferences(PREFS_NAME);
+        savedEmail = prefs.getString(PREF_KEY_SAVED_EMAIL, "");
+        savedPassword = prefs.getString(PREF_KEY_SAVED_PASSWORD, "");
+        hasSavedCredentials = !savedEmail.isBlank() && !savedPassword.isBlank();
+        showSavedAccountView = hasSavedCredentials;
+
+        String lastEmail = prefs.getString(PREF_KEY_LAST_EMAIL, "");
+        if (hasSavedCredentials) {
             emailBuffer = savedEmail;
+            passwordBuffer = savedPassword;
+            focusEmail = false;
+        } else if (!lastEmail.isBlank()) {
+            emailBuffer = lastEmail;
             focusEmail  = false;  // saved email pre-filled -- jump cursor to password field
         }
 
@@ -194,6 +265,7 @@ public class LoginScreen extends ScreenAdapter {
         int w = Gdx.graphics.getWidth();
         int h = Gdx.graphics.getHeight();
         cursorBlink = (cursorBlink + delta) % 1.0f;
+        updateHeldBackspace(delta);
 
         // Update projection for current size
         proj.setToOrtho2D(0, 0, w, h);
@@ -201,6 +273,14 @@ public class LoginScreen extends ScreenAdapter {
         // -- Background --
         Gdx.gl.glClearColor(0.06f, 0.05f, 0.05f, 1f);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
+
+        if (backgroundTexture != null) {
+            batch.setProjectionMatrix(proj);
+            batch.begin();
+            batch.setColor(Color.WHITE);
+            batch.draw(backgroundTexture, 0, 0, w, h);
+            batch.end();
+        }
 
         int panelX = (w - PANEL_W) / 2;
         int panelY = (h - PANEL_H) / 2;
@@ -210,7 +290,10 @@ public class LoginScreen extends ScreenAdapter {
         // Field rect bottoms (Y of the bottom-left corner of each field rect)
         int efBottom = panelY + PANEL_H - 100;   // email field
         int pfBottom = panelY + PANEL_H - 160;   // password field
-        int btnY     = panelY + 70;              // login button
+        int loginBtnY = panelY + 112;
+        int saveBtnY = panelY + 68;
+        int savedPrimaryBtnY = panelY + 104;
+        int savedSecondaryBtnY = panelY + 58;
 
         sr.setProjectionMatrix(proj);
 
@@ -242,60 +325,51 @@ public class LoginScreen extends ScreenAdapter {
         sr.rect(panelX + PAD, panelY + PANEL_H - 40, PANEL_W - PAD * 2, 1);
         sr.end();
 
-        // -- Input field backgrounds with inset bevel --
-        sr.begin(ShapeRenderer.ShapeType.Filled);
-        // Email field
-        float[] emailBg = focusEmail
-            ? new float[]{0.16f, 0.13f, 0.08f}
-            : new float[]{0.09f, 0.07f, 0.04f};
-        sr.setColor(emailBg[0], emailBg[1], emailBg[2], 1f);
-        sr.rect(fx, efBottom, fieldW, FIELD_H);
-        // Password field
-        float[] passBg = !focusEmail
-            ? new float[]{0.16f, 0.13f, 0.08f}
-            : new float[]{0.09f, 0.07f, 0.04f};
-        sr.setColor(passBg[0], passBg[1], passBg[2], 1f);
-        sr.rect(fx, pfBottom, fieldW, FIELD_H);
-        sr.end();
+        if (!showSavedAccountView) {
+            // -- Input field backgrounds with inset bevel --
+            sr.begin(ShapeRenderer.ShapeType.Filled);
+            float[] emailBg = focusEmail
+                ? new float[]{0.16f, 0.13f, 0.08f}
+                : new float[]{0.09f, 0.07f, 0.04f};
+            sr.setColor(emailBg[0], emailBg[1], emailBg[2], 1f);
+            sr.rect(fx, efBottom, fieldW, FIELD_H);
+            float[] passBg = !focusEmail
+                ? new float[]{0.16f, 0.13f, 0.08f}
+                : new float[]{0.09f, 0.07f, 0.04f};
+            sr.setColor(passBg[0], passBg[1], passBg[2], 1f);
+            sr.rect(fx, pfBottom, fieldW, FIELD_H);
+            sr.end();
 
-        // -- Field inset bevel borders --
-        sr.begin(ShapeRenderer.ShapeType.Filled);
-        // Email inset: dark top+left edges (shadow), lighter bottom+right (highlight)
-        sr.setColor(0.05f, 0.04f, 0.02f, 1f);
-        sr.rect(fx, efBottom + FIELD_H - 1, fieldW, 1);  // top
-        sr.rect(fx, efBottom,               1,      FIELD_H); // left
-        sr.setColor(0.36f, 0.30f, 0.16f, 1f);
-        sr.rect(fx, efBottom, fieldW, 1);                 // bottom
-        sr.rect(fx + fieldW - 1, efBottom, 1, FIELD_H);  // right
-        // Email active glow (gold top edge when focused)
-        if (focusEmail) {
-            sr.setColor(0.72f, 0.62f, 0.26f, 1f);
-            sr.rect(fx + 1, efBottom + FIELD_H - 1, fieldW - 2, 1);
-        }
-        // Password inset
-        sr.setColor(0.05f, 0.04f, 0.02f, 1f);
-        sr.rect(fx, pfBottom + FIELD_H - 1, fieldW, 1);
-        sr.rect(fx, pfBottom,               1,      FIELD_H);
-        sr.setColor(0.36f, 0.30f, 0.16f, 1f);
-        sr.rect(fx, pfBottom, fieldW, 1);
-        sr.rect(fx + fieldW - 1, pfBottom, 1, FIELD_H);
-        if (!focusEmail) {
-            sr.setColor(0.72f, 0.62f, 0.26f, 1f);
-            sr.rect(fx + 1, pfBottom + FIELD_H - 1, fieldW - 2, 1);
-        }
-        sr.end();
+            // -- Field inset bevel borders --
+            sr.begin(ShapeRenderer.ShapeType.Filled);
+            sr.setColor(0.05f, 0.04f, 0.02f, 1f);
+            sr.rect(fx, efBottom + FIELD_H - 1, fieldW, 1);
+            sr.rect(fx, efBottom, 1, FIELD_H);
+            sr.setColor(0.36f, 0.30f, 0.16f, 1f);
+            sr.rect(fx, efBottom, fieldW, 1);
+            sr.rect(fx + fieldW - 1, efBottom, 1, FIELD_H);
+            if (focusEmail) {
+                sr.setColor(0.72f, 0.62f, 0.26f, 1f);
+                sr.rect(fx + 1, efBottom + FIELD_H - 1, fieldW - 2, 1);
+            }
+            sr.setColor(0.05f, 0.04f, 0.02f, 1f);
+            sr.rect(fx, pfBottom + FIELD_H - 1, fieldW, 1);
+            sr.rect(fx, pfBottom, 1, FIELD_H);
+            sr.setColor(0.36f, 0.30f, 0.16f, 1f);
+            sr.rect(fx, pfBottom, fieldW, 1);
+            sr.rect(fx + fieldW - 1, pfBottom, 1, FIELD_H);
+            if (!focusEmail) {
+                sr.setColor(0.72f, 0.62f, 0.26f, 1f);
+                sr.rect(fx + 1, pfBottom + FIELD_H - 1, fieldW - 2, 1);
+            }
+            sr.end();
 
-        // -- Login button (OSRS raised brown) --
-        sr.begin(ShapeRenderer.ShapeType.Filled);
-        sr.setColor(0.42f, 0.35f, 0.20f, 1f);          // button body
-        sr.rect(fx, btnY, fieldW, BUTTON_H);
-        sr.setColor(0.60f, 0.52f, 0.30f, 1f);          // top highlight
-        sr.rect(fx, btnY + BUTTON_H - 1, fieldW, 1);
-        sr.rect(fx, btnY, 1, BUTTON_H);                // left highlight
-        sr.setColor(0.22f, 0.18f, 0.10f, 1f);          // bottom shadow
-        sr.rect(fx, btnY, fieldW, 1);
-        sr.rect(fx + fieldW - 1, btnY, 1, BUTTON_H);   // right shadow
-        sr.end();
+            renderButton(sr, fx, loginBtnY, fieldW, BUTTON_H, true);
+            renderButton(sr, fx, saveBtnY, fieldW, BUTTON_H, true);
+        } else {
+            renderButton(sr, fx, savedPrimaryBtnY, fieldW, BUTTON_H, true);
+            renderButton(sr, fx, savedSecondaryBtnY, fieldW, BUTTON_H, true);
+        }
 
         // -- Text --
         batch.setProjectionMatrix(proj);
@@ -310,40 +384,65 @@ public class LoginScreen extends ScreenAdapter {
 
         // Subtitle inside panel
         font.setColor(0.55f, 0.50f, 0.38f, 1f);
-        GlyphLayout subLayout = new GlyphLayout(font, "Login to your account");
-        font.draw(batch, "Login to your account",
+        String subtitle = showSavedAccountView ? "Saved account" : "Login to your account";
+        GlyphLayout subLayout = new GlyphLayout(font, subtitle);
+        font.draw(batch, subtitle,
             panelX + (PANEL_W - subLayout.width) / 2f,
             panelY + PANEL_H - 28);
 
-        // Field labels (above each field)
-        font.setColor(0.78f, 0.72f, 0.58f, 1f);
-        font.draw(batch, "Email address:", fx, efBottom + FIELD_H + 14);
-        font.draw(batch, "Password:", fx, pfBottom + FIELD_H + 14);
+        if (!showSavedAccountView) {
+            font.setColor(0.78f, 0.72f, 0.58f, 1f);
+            font.draw(batch, "Email address:", fx, efBottom + FIELD_H + 14);
+            font.draw(batch, "Password:", fx, pfBottom + FIELD_H + 14);
 
-        // Field text contents
-        String cursor = cursorBlink < 0.5f ? "|" : " ";
-        font.setColor(1f, 1f, 1f, 1f);
-        String emailDisplay = emailBuffer + (focusEmail ? cursor : "");
-        font.draw(batch, emailDisplay, fx + 6, efBottom + FIELD_H - 8);
-        String passDisplay  = "*".repeat(passwordBuffer.length()) + (!focusEmail ? cursor : "");
-        font.draw(batch, passDisplay, fx + 6, pfBottom + FIELD_H - 8);
+            String cursor = cursorBlink < 0.5f ? "|" : " ";
+            font.setColor(1f, 1f, 1f, 1f);
+            String emailDisplay = emailBuffer + (focusEmail ? cursor : "");
+            font.draw(batch, emailDisplay, fx + 6, efBottom + FIELD_H - 8);
+            String passDisplay = "*".repeat(passwordBuffer.length()) + (!focusEmail ? cursor : "");
+            font.draw(batch, passDisplay, fx + 6, pfBottom + FIELD_H - 8);
 
-        // Login button label -- centred
-        font.setColor(0.98f, 0.94f, 0.80f, 1f);
-        GlyphLayout btnLayout = new GlyphLayout(font, "Login");
-        font.draw(batch, "Login",
-            fx + (fieldW - btnLayout.width) / 2f,
-            btnY + (BUTTON_H + btnLayout.height) / 2f);
+            font.setColor(0.98f, 0.94f, 0.80f, 1f);
+            GlyphLayout btnLayout = new GlyphLayout(font, "Login");
+            font.draw(batch, "Login",
+                fx + (fieldW - btnLayout.width) / 2f,
+                loginBtnY + (BUTTON_H + btnLayout.height) / 2f);
+
+            GlyphLayout saveLayout = new GlyphLayout(font, "Save account details");
+            font.draw(batch, "Save account details",
+                fx + (fieldW - saveLayout.width) / 2f,
+                saveBtnY + (BUTTON_H + saveLayout.height) / 2f);
+        } else {
+            font.setColor(0.78f, 0.72f, 0.58f, 1f);
+            font.draw(batch, "Saved locally on this device:", fx, panelY + PANEL_H - 84);
+            font.setColor(1f, 1f, 1f, 1f);
+            font.draw(batch, truncateToWidth(savedEmail, fieldW - 12), fx + 6, panelY + PANEL_H - 108);
+
+            font.setColor(0.98f, 0.94f, 0.80f, 1f);
+            String loginAsLabel = "Login as " + savedEmail;
+            GlyphLayout savedLoginLayout = new GlyphLayout(font, truncateToWidth(loginAsLabel, fieldW - 12));
+            font.draw(batch, truncateToWidth(loginAsLabel, fieldW - 12),
+                fx + (fieldW - savedLoginLayout.width) / 2f,
+                savedPrimaryBtnY + (BUTTON_H + savedLoginLayout.height) / 2f);
+
+            GlyphLayout useDifferentLayout = new GlyphLayout(font, "Use different account");
+            font.draw(batch, "Use different account",
+                fx + (fieldW - useDifferentLayout.width) / 2f,
+                savedSecondaryBtnY + (BUTTON_H + useDifferentLayout.height) / 2f);
+        }
 
         // Error message
         if (!errorMessage.isEmpty()) {
             font.setColor(0.95f, 0.28f, 0.22f, 1f);
-            font.draw(batch, errorMessage, fx, panelY + 48);
+            font.draw(batch, truncateToWidth(errorMessage, fieldW), fx, panelY + 48);
         }
 
         // Hint -- muted, at bottom of panel
         font.setColor(0.40f, 0.37f, 0.28f, 1f);
-        font.draw(batch, "Tab  |  Click to focus  |  Enter to login", fx, panelY + 22);
+        String hint = showSavedAccountView
+            ? "Enter to login   |   Click below to switch account"
+            : "Tab  |  Click to focus  |  Enter to login";
+        font.draw(batch, truncateToWidth(hint, fieldW), fx, panelY + 8);
 
         batch.end();
         font.setColor(Color.WHITE);
@@ -437,6 +536,78 @@ public class LoginScreen extends ScreenAdapter {
         }
     }
 
+    private void deleteActiveFieldChar() {
+        if (focusEmail) {
+            if (!emailBuffer.isEmpty()) {
+                emailBuffer = emailBuffer.substring(0, emailBuffer.length() - 1);
+            }
+        } else if (!passwordBuffer.isEmpty()) {
+            passwordBuffer = passwordBuffer.substring(0, passwordBuffer.length() - 1);
+        }
+    }
+
+    private void updateHeldBackspace(float delta) {
+        if (!backspaceHeld || transitioning || showSavedAccountView) {
+            return;
+        }
+        if (!Gdx.input.isKeyPressed(Input.Keys.BACKSPACE)) {
+            backspaceHeld = false;
+            backspaceHeldTime = 0f;
+            backspaceRepeatAccumulator = 0f;
+            return;
+        }
+        backspaceHeldTime += delta;
+        if (backspaceHeldTime < BACKSPACE_INITIAL_DELAY) {
+            return;
+        }
+        backspaceRepeatAccumulator += delta;
+        while (backspaceRepeatAccumulator >= BACKSPACE_REPEAT_INTERVAL) {
+            deleteActiveFieldChar();
+            backspaceRepeatAccumulator -= BACKSPACE_REPEAT_INTERVAL;
+        }
+    }
+
+    private void renderButton(ShapeRenderer shapeRenderer, int x, int y, int width, int height, boolean enabled) {
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+        if (enabled) {
+            shapeRenderer.setColor(0.42f, 0.35f, 0.20f, 1f);
+        } else {
+            shapeRenderer.setColor(0.22f, 0.22f, 0.22f, 1f);
+        }
+        shapeRenderer.rect(x, y, width, height);
+        if (enabled) {
+            shapeRenderer.setColor(0.60f, 0.52f, 0.30f, 1f);
+        } else {
+            shapeRenderer.setColor(0.36f, 0.36f, 0.36f, 1f);
+        }
+        shapeRenderer.rect(x, y + height - 1, width, 1);
+        shapeRenderer.rect(x, y, 1, height);
+        shapeRenderer.setColor(enabled ? 0.22f : 0.12f, enabled ? 0.18f : 0.12f, enabled ? 0.10f : 0.12f, 1f);
+        shapeRenderer.rect(x, y, width, 1);
+        shapeRenderer.rect(x + width - 1, y, 1, height);
+        shapeRenderer.end();
+    }
+
+    private String truncateToWidth(String text, float maxWidth) {
+        if (text == null || text.isEmpty()) {
+            return "";
+        }
+        GlyphLayout layout = new GlyphLayout(font, text);
+        if (layout.width <= maxWidth) {
+            return text;
+        }
+        String ellipsis = "...";
+        String candidate = text;
+        while (!candidate.isEmpty()) {
+            candidate = candidate.substring(0, candidate.length() - 1);
+            layout.setText(font, candidate + ellipsis);
+            if (layout.width <= maxWidth) {
+                return candidate + ellipsis;
+            }
+        }
+        return ellipsis;
+    }
+
     private boolean isPasteShortcut(int keycode) {
         boolean modifierPressed = Gdx.input.isKeyPressed(Input.Keys.CONTROL_LEFT)
             || Gdx.input.isKeyPressed(Input.Keys.CONTROL_RIGHT)
@@ -483,12 +654,62 @@ public class LoginScreen extends ScreenAdapter {
 
         errorMessage  = "";
         transitioning = true;
-        // Persist email for next login; never persist password
-        Preferences prefs = Gdx.app.getPreferences("erynfall-login");
-        prefs.putString("email", email);
+        Preferences prefs = Gdx.app.getPreferences(PREFS_NAME);
+        prefs.putString(PREF_KEY_LAST_EMAIL, email);
         prefs.flush();
         game.startGame(email, password);
         // Do NOT touch any fields after this line — hide()/dispose() has already run.
+    }
+
+    private void saveAccountDetails() {
+        String email = emailBuffer.trim();
+        String password = passwordBuffer;
+        if (email.isEmpty()) {
+            errorMessage = "Please enter an email before saving.";
+            return;
+        }
+        if (!email.matches("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")) {
+            errorMessage = "Please enter a valid email address before saving.";
+            return;
+        }
+        if (password.isEmpty()) {
+            errorMessage = "Please enter a password before saving.";
+            return;
+        }
+        Preferences prefs = Gdx.app.getPreferences(PREFS_NAME);
+        prefs.putString(PREF_KEY_LAST_EMAIL, email);
+        prefs.putString(PREF_KEY_SAVED_EMAIL, email);
+        prefs.putString(PREF_KEY_SAVED_PASSWORD, password);
+        prefs.flush();
+        savedEmail = email;
+        savedPassword = password;
+        hasSavedCredentials = true;
+        showSavedAccountView = true;
+        errorMessage = "Account details saved locally.";
+    }
+
+    private void loginSavedAccount() {
+        if (!hasSavedCredentials || savedEmail.isBlank() || savedPassword.isBlank()) {
+            errorMessage = "No saved account details available.";
+            return;
+        }
+        emailBuffer = savedEmail;
+        passwordBuffer = savedPassword;
+        submit();
+    }
+
+    private void clearSavedCredentials() {
+        Preferences prefs = Gdx.app.getPreferences(PREFS_NAME);
+        prefs.remove(PREF_KEY_SAVED_EMAIL);
+        prefs.remove(PREF_KEY_SAVED_PASSWORD);
+        prefs.flush();
+        savedEmail = "";
+        savedPassword = "";
+        hasSavedCredentials = false;
+        showSavedAccountView = false;
+        passwordBuffer = "";
+        focusEmail = true;
+        errorMessage = "Saved account details cleared.";
     }
 
     @Override
@@ -502,6 +723,7 @@ public class LoginScreen extends ScreenAdapter {
     @Override
     public void dispose() {
         font = null; // FontManager owns shared font lifecycle.
+        if (backgroundTexture != null) { backgroundTexture.dispose(); backgroundTexture = null; }
         if (batch != null) { batch.dispose(); batch = null; }
         if (sr    != null) { sr.dispose();    sr    = null; }
     }
