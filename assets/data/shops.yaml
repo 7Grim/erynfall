@@ -21,3 +21,25 @@ shops:
     stock:
       - item_id: 2347
         quantity: 100
+  - id: "magic_supplier"
+    name: "Magic Supplier"
+    npc_name: "Magic Supplier"
+    stock:
+      - item_id: 1381
+        quantity: 20
+      - item_id: 556
+        quantity: 4000
+      - item_id: 558
+        quantity: 2500
+  - id: "ranged_supplier"
+    name: "Ranged Supplier"
+    npc_name: "Ranged Supplier"
+    stock:
+      - item_id: 841
+        quantity: 40
+      - item_id: 882
+        quantity: 12000
+      - item_id: 843
+        quantity: 25
+      - item_id: 884
+        quantity: 7000

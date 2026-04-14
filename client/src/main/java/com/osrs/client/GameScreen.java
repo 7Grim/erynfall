@@ -5957,7 +5957,9 @@ public class GameScreen extends ApplicationAdapter {
         boolean isBanker = "Banker".equalsIgnoreCase(rawName);
         boolean isFishingSupplier = "Fishing Supplier".equalsIgnoreCase(rawName);
         boolean isSmithingSupplier = "Smithing Supplier".equalsIgnoreCase(rawName);
-        boolean isShopkeeper = isFishingSupplier || isSmithingSupplier;
+        boolean isMagicSupplier = "Magic Supplier".equalsIgnoreCase(rawName);
+        boolean isRangedSupplier = "Ranged Supplier".equalsIgnoreCase(rawName);
+        boolean isShopkeeper = isFishingSupplier || isSmithingSupplier || isMagicSupplier || isRangedSupplier;
 
         if (level > 0) {
             opts.add(new ContextMenu.MenuItem(
@@ -5995,7 +5997,9 @@ public class GameScreen extends ApplicationAdapter {
             opts.add(new ContextMenu.MenuItem(ContextMenu.Action.TALK_TO, yellowName, npcId));
         } else if (isShopkeeper) {
             opts.add(new ContextMenu.MenuItem(ContextMenu.Action.SHOP, yellowName, npcId));
-            opts.add(new ContextMenu.MenuItem(ContextMenu.Action.SUPPLIES, yellowName, npcId));
+            if (isFishingSupplier || isSmithingSupplier) {
+                opts.add(new ContextMenu.MenuItem(ContextMenu.Action.SUPPLIES, yellowName, npcId));
+            }
             opts.add(new ContextMenu.MenuItem(ContextMenu.Action.TALK_TO, yellowName, npcId));
         } else {
             opts.add(new ContextMenu.MenuItem(ContextMenu.Action.TALK_TO, yellowName, npcId));

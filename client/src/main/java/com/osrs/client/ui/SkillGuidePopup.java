@@ -256,7 +256,7 @@ public class SkillGuidePopup {
             lastContentHeight = provider.getSectionContentHeight(skillIdx, level, selectedSectionIdx, contentW);
             clampScroll();
             Gdx.gl.glEnable(GL20.GL_SCISSOR_TEST);
-            Gdx.gl.glScissor(contentX + 1, contentY + 1, contentW - 2, contentH - 2);
+            applyContentScissor();
             try {
                 provider.renderSectionContent(shapeRenderer, batch, font, projection, skillIdx, level, totalXp,
                     selectedSectionIdx, contentX, contentY, contentW, contentH, scrollOffset);
@@ -265,7 +265,7 @@ public class SkillGuidePopup {
             }
         } else {
             Gdx.gl.glEnable(GL20.GL_SCISSOR_TEST);
-            Gdx.gl.glScissor(contentX + 1, contentY + 1, contentW - 2, contentH - 2);
+            applyContentScissor();
             try {
                 renderFallbackContent(batch, font, projection);
             } finally {
@@ -296,6 +296,16 @@ public class SkillGuidePopup {
         if (scrollOffset > maxScroll) {
             scrollOffset = maxScroll;
         }
+    }
+
+    private void applyContentScissor() {
+        float sx = (float) Gdx.graphics.getBackBufferWidth() / (float) Gdx.graphics.getWidth();
+        float sy = (float) Gdx.graphics.getBackBufferHeight() / (float) Gdx.graphics.getHeight();
+        int scissorX = Math.round((contentX + 1) * sx);
+        int scissorY = Math.round((contentY + 1) * sy);
+        int scissorW = Math.max(1, Math.round((contentW - 2) * sx));
+        int scissorH = Math.max(1, Math.round((contentH - 2) * sy));
+        Gdx.gl.glScissor(scissorX, scissorY, scissorW, scissorH);
     }
 
     private static String formatXp(long xp) {

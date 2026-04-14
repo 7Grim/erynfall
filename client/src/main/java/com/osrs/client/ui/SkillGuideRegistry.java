@@ -39,6 +39,44 @@ public final class SkillGuideRegistry {
     private static final int SKILL_FIREMAKING = 12;
     private static final Map<Integer, SkillGuidePopup.SkillGuideProvider> PROVIDERS = new HashMap<>();
 
+    private static final class GuideLayout {
+        private static final float TOP_INSET = 14f;
+        private static final float ROW_INSET_X = 8f;
+        private static final float ROW_INSET_Y = 2f;
+        private static final float ROW_TEXT_OFFSET = 10f;
+
+        private GuideLayout() {
+        }
+
+        private static float rowTop(float contentY, float contentH, float scrollOffset) {
+            return contentY + contentH - TOP_INSET + scrollOffset;
+        }
+
+        private static float rowY(float rowTop, float rowH, int rowIndex) {
+            return rowTop - (rowIndex + 1) * rowH;
+        }
+
+        private static float rowRectX(float contentX) {
+            return contentX + ROW_INSET_X;
+        }
+
+        private static float rowRectY(float rowY) {
+            return rowY + ROW_INSET_Y;
+        }
+
+        private static float rowRectW(float contentW) {
+            return contentW - ROW_INSET_X * 2f;
+        }
+
+        private static float rowRectH(float rowH) {
+            return rowH - ROW_INSET_Y * 2f;
+        }
+
+        private static float rowTextY(float rowY, float rowH) {
+            return rowY + rowH - ROW_TEXT_OFFSET;
+        }
+    }
+
     static {
         register(SKILL_ATTACK, new AttackGuideProvider());
         register(SKILL_STRENGTH, new StrengthGuideProvider());
@@ -203,12 +241,13 @@ public final class SkillGuideRegistry {
                                  float scrollOffset) {
             float rowH = 32f;
             int nextReq = findNextTreeLevel(level);
+            float rowTop = GuideLayout.rowTop(y, h, scrollOffset);
 
             shapeRenderer.setProjectionMatrix(projection);
             shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
-            float yCursor = y + h - 14f + scrollOffset;
+            int rowIndex = 0;
             for (WoodcuttingRegistry.TreeTier tree : WoodcuttingRegistry.trees()) {
-                float rowY = yCursor - rowH;
+                float rowY = GuideLayout.rowY(rowTop, rowH, rowIndex);
                 boolean visible = rowY + rowH >= y && rowY <= y + h;
                 if (visible) {
                     boolean unlocked = level >= tree.levelRequirement();
@@ -220,19 +259,19 @@ public final class SkillGuideRegistry {
                     } else {
                         shapeRenderer.setColor(ROW_LOCKED);
                     }
-                    shapeRenderer.rect(x + 8, rowY + 2, w - 16, rowH - 4);
+                    shapeRenderer.rect(GuideLayout.rowRectX(x), GuideLayout.rowRectY(rowY), GuideLayout.rowRectW(w), GuideLayout.rowRectH(rowH));
                     ItemIconRenderer.drawItemIcon(shapeRenderer, x + 72, rowY + 1, tree.logItemId());
                 }
-                yCursor -= rowH;
+                rowIndex++;
             }
             shapeRenderer.end();
 
             batch.setProjectionMatrix(projection);
             batch.begin();
             font.getData().setScale(0.68f);
-            yCursor = y + h - 14f + scrollOffset;
+            rowIndex = 0;
             for (WoodcuttingRegistry.TreeTier tree : WoodcuttingRegistry.trees()) {
-                float rowY = yCursor - rowH;
+                float rowY = GuideLayout.rowY(rowTop, rowH, rowIndex);
                 boolean visible = rowY + rowH >= y && rowY <= y + h;
                 if (visible) {
                     boolean unlocked = level >= tree.levelRequirement();
@@ -244,11 +283,12 @@ public final class SkillGuideRegistry {
                     } else {
                         font.setColor(TEXT_LOCKED);
                     }
-                    font.draw(batch, "Lv " + tree.levelRequirement(), x + 16, rowY + 21);
-                    font.draw(batch, tree.name(), x + 116, rowY + 21);
-                    font.draw(batch, formatXpTenths(tree.xpTenths()) + " xp", x + w - 88, rowY + 21);
+                    float textY = GuideLayout.rowTextY(rowY, rowH) - 1f;
+                    font.draw(batch, "Lv " + tree.levelRequirement(), x + 16, textY);
+                    font.draw(batch, tree.name(), x + 116, textY);
+                    font.draw(batch, formatXpTenths(tree.xpTenths()) + " xp", x + w - 88, textY);
                 }
-                yCursor -= rowH;
+                rowIndex++;
             }
             batch.end();
         }
@@ -1424,43 +1464,45 @@ public final class SkillGuideRegistry {
                                    float scrollOffset) {
             float rowH = 32f;
             int nextReq = findNextPrayerLevel(level);
+            float rowTop = GuideLayout.rowTop(y, h, scrollOffset);
 
             shapeRenderer.setProjectionMatrix(projection);
             shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
-            float yCursor = y + h - 14f + scrollOffset;
+            int rowIndex = 0;
             for (PrayerRegistry.PrayerDef prayer : PrayerRegistry.f2pPrayers()) {
-                float rowY = yCursor - rowH;
+                float rowY = GuideLayout.rowY(rowTop, rowH, rowIndex);
                 boolean visible = rowY + rowH >= y && rowY <= y + h;
                 if (visible) {
                     boolean unlocked = level >= prayer.levelRequirement();
                     boolean next = !unlocked && prayer.levelRequirement() == nextReq;
                     shapeRenderer.setColor(next ? ROW_NEXT : unlocked ? ROW_UNLOCKED : ROW_LOCKED);
-                    shapeRenderer.rect(x + 8, rowY + 2, w - 16, rowH - 4);
+                    shapeRenderer.rect(GuideLayout.rowRectX(x), GuideLayout.rowRectY(rowY), GuideLayout.rowRectW(w), GuideLayout.rowRectH(rowH));
                 }
-                yCursor -= rowH;
+                rowIndex++;
             }
             shapeRenderer.end();
 
             batch.setProjectionMatrix(projection);
             batch.begin();
             font.getData().setScale(0.68f);
-            yCursor = y + h - 14f + scrollOffset;
+            rowIndex = 0;
             for (PrayerRegistry.PrayerDef prayer : PrayerRegistry.f2pPrayers()) {
-                float rowY = yCursor - rowH;
+                float rowY = GuideLayout.rowY(rowTop, rowH, rowIndex);
                 boolean visible = rowY + rowH >= y && rowY <= y + h;
                 if (visible) {
                     boolean unlocked = level >= prayer.levelRequirement();
                     boolean next = !unlocked && prayer.levelRequirement() == nextReq;
                     font.setColor(next ? TEXT_NEXT : unlocked ? TEXT_UNLOCKED : TEXT_LOCKED);
-                    font.draw(batch, "Lv " + prayer.levelRequirement(), x + 16, rowY + 22);
-                    font.draw(batch, prayer.name(), x + 74, rowY + 22);
+                    float textY = GuideLayout.rowTextY(rowY, rowH);
+                    font.draw(batch, "Lv " + prayer.levelRequirement(), x + 16, textY);
+                    font.draw(batch, prayer.name(), x + 74, textY);
                     font.getData().setScale(0.60f);
                     Color sub = next ? TEXT_NEXT : TEXT_LOCKED;
                     font.setColor(sub.r, sub.g, sub.b, 0.75f);
-                    font.draw(batch, prayer.effectSummary(), x + w - 96, rowY + 14);
+                    font.draw(batch, prayer.effectSummary(), x + w - 96, textY - 8f);
                     font.getData().setScale(0.68f);
                 }
-                yCursor -= rowH;
+                rowIndex++;
             }
             font.getData().setScale(1f);
             font.setColor(Color.WHITE);
@@ -1686,40 +1728,42 @@ public final class SkillGuideRegistry {
                                 float scrollOffset) {
             float rowH = 36f;
             int nextReq = findNextLogLevel(level);
+            float rowTop = GuideLayout.rowTop(y, h, scrollOffset);
 
             shapeRenderer.setProjectionMatrix(projection);
             shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
-            float yCursor = y + h - 14f + scrollOffset;
+            int rowIndex = 0;
             for (FiremakingRegistry.LogTier log : FiremakingRegistry.f2pLogs()) {
-                float rowY = yCursor - rowH;
+                float rowY = GuideLayout.rowY(rowTop, rowH, rowIndex);
                 boolean visible = rowY + rowH >= y && rowY <= y + h;
                 if (visible) {
                     boolean unlocked = level >= log.levelRequirement();
                     boolean next = !unlocked && log.levelRequirement() == nextReq;
                     shapeRenderer.setColor(next ? ROW_NEXT : unlocked ? ROW_UNLOCKED : ROW_LOCKED);
-                    shapeRenderer.rect(x + 8, rowY + 2, w - 16, rowH - 4);
+                    shapeRenderer.rect(GuideLayout.rowRectX(x), GuideLayout.rowRectY(rowY), GuideLayout.rowRectW(w), GuideLayout.rowRectH(rowH));
                     ItemIconRenderer.drawItemIcon(shapeRenderer, x + 72, rowY + 3, log.itemId());
                 }
-                yCursor -= rowH;
+                rowIndex++;
             }
             shapeRenderer.end();
 
             batch.setProjectionMatrix(projection);
             batch.begin();
             font.getData().setScale(0.68f);
-            yCursor = y + h - 14f + scrollOffset;
+            rowIndex = 0;
             for (FiremakingRegistry.LogTier log : FiremakingRegistry.f2pLogs()) {
-                float rowY = yCursor - rowH;
+                float rowY = GuideLayout.rowY(rowTop, rowH, rowIndex);
                 boolean visible = rowY + rowH >= y && rowY <= y + h;
                 if (visible) {
                     boolean unlocked = level >= log.levelRequirement();
                     boolean next = !unlocked && log.levelRequirement() == nextReq;
                     font.setColor(next ? TEXT_NEXT : unlocked ? TEXT_UNLOCKED : TEXT_LOCKED);
-                    font.draw(batch, "Lv " + log.levelRequirement(), x + 16, rowY + 26);
-                    font.draw(batch, log.name(), x + 116, rowY + 26);
-                    font.draw(batch, formatXpTenths(log.xpTenths()) + " xp", x + w - 88, rowY + 26);
+                    float textY = GuideLayout.rowTextY(rowY, rowH);
+                    font.draw(batch, "Lv " + log.levelRequirement(), x + 16, textY);
+                    font.draw(batch, log.name(), x + 116, textY);
+                    font.draw(batch, formatXpTenths(log.xpTenths()) + " xp", x + w - 88, textY);
                 }
-                yCursor -= rowH;
+                rowIndex++;
             }
             font.getData().setScale(1f);
             font.setColor(Color.WHITE);
@@ -2796,7 +2840,7 @@ public final class SkillGuideRegistry {
             final float textTopPad = 16f;
             final String[] texts = {
                 "Cast spells to deal elemental damage from up to 7 tiles away. Magic is especially effective against enemies wearing metal armour.",
-                "Elemental staves provide unlimited runes of their element, eliminating that rune cost entirely. A Staff of Fire gives free Fire runes.",
+                "Starter supplies are sold by the Magic Supplier: Air staff plus Air and Mind runes for early combat spell training.",
                 "Base cast XP is awarded on every spell attempt. Bonus damage XP is awarded only on a successful hit. Accuracy scales with Magic level."
             };
 
@@ -3026,6 +3070,7 @@ public final class SkillGuideRegistry {
             final float textTopPad = 16f;
             final String[] texts = {
                 "Shoot enemies from a distance using bows and arrows. Shortbows attack every 5 ticks (3t on Rapid) at 7 tile range; longbows reach 10 tiles.",
+                "Starter supplies are sold by the Ranged Supplier: shortbows and bronze arrows, with oak shortbows and iron arrows as the next step.",
                 "Arrow Ranged strength determines your max hit. Always equip the highest-tier arrows available to maximise damage output.",
                 "Use the Rapid attack style at all times for best XP and DPS. Shortbows outperform longbows for training due to their faster attack speed."
             };
