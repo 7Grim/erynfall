@@ -487,7 +487,128 @@
     }
   ],
   "deferred": [],
-  "missing": [],
+  "missing": [
+    {
+      "item_id": 1137,
+      "name": "Iron med helm",
+      "slot": "HEAD"
+    },
+    {
+      "item_id": 1139,
+      "name": "Bronze med helm",
+      "slot": "HEAD"
+    },
+    {
+      "item_id": 1141,
+      "name": "Steel med helm",
+      "slot": "HEAD"
+    },
+    {
+      "item_id": 1143,
+      "name": "Mithril med helm",
+      "slot": "HEAD"
+    },
+    {
+      "item_id": 1145,
+      "name": "Adamant med helm",
+      "slot": "HEAD"
+    },
+    {
+      "item_id": 1147,
+      "name": "Rune med helm",
+      "slot": "HEAD"
+    },
+    {
+      "item_id": 1203,
+      "name": "Iron dagger",
+      "slot": "WEAPON"
+    },
+    {
+      "item_id": 1205,
+      "name": "Bronze dagger",
+      "slot": "WEAPON"
+    },
+    {
+      "item_id": 1207,
+      "name": "Steel dagger",
+      "slot": "WEAPON"
+    },
+    {
+      "item_id": 1209,
+      "name": "Mithril dagger",
+      "slot": "WEAPON"
+    },
+    {
+      "item_id": 1211,
+      "name": "Adamant dagger",
+      "slot": "WEAPON"
+    },
+    {
+      "item_id": 1213,
+      "name": "Rune dagger",
+      "slot": "WEAPON"
+    },
+    {
+      "item_id": 1420,
+      "name": "Iron mace",
+      "slot": "WEAPON"
+    },
+    {
+      "item_id": 1422,
+      "name": "Bronze mace",
+      "slot": "WEAPON"
+    },
+    {
+      "item_id": 1424,
+      "name": "Steel mace",
+      "slot": "WEAPON"
+    },
+    {
+      "item_id": 1428,
+      "name": "Mithril mace",
+      "slot": "WEAPON"
+    },
+    {
+      "item_id": 1430,
+      "name": "Adamant mace",
+      "slot": "WEAPON"
+    },
+    {
+      "item_id": 1432,
+      "name": "Rune mace",
+      "slot": "WEAPON"
+    },
+    {
+      "item_id": 1101,
+      "name": "Iron chainbody",
+      "slot": "BODY"
+    },
+    {
+      "item_id": 1103,
+      "name": "Bronze chainbody",
+      "slot": "BODY"
+    },
+    {
+      "item_id": 1105,
+      "name": "Steel chainbody",
+      "slot": "BODY"
+    },
+    {
+      "item_id": 1109,
+      "name": "Mithril chainbody",
+      "slot": "BODY"
+    },
+    {
+      "item_id": 1111,
+      "name": "Adamant chainbody",
+      "slot": "BODY"
+    },
+    {
+      "item_id": 1113,
+      "name": "Rune chainbody",
+      "slot": "BODY"
+    }
+  ],
   "item_names": {
     "579": "Blue wizard hat",
     "1115": "Bronze full helm",
@@ -585,13 +706,37 @@
     "1095": "Leather chaps",
     "4087": "Dragon platelegs",
     "1059": "Leather gloves",
-    "1061": "Leather boots"
+    "1061": "Leather boots",
+    "1137": "Iron med helm",
+    "1139": "Bronze med helm",
+    "1141": "Steel med helm",
+    "1143": "Mithril med helm",
+    "1145": "Adamant med helm",
+    "1147": "Rune med helm",
+    "1203": "Iron dagger",
+    "1205": "Bronze dagger",
+    "1207": "Steel dagger",
+    "1209": "Mithril dagger",
+    "1211": "Adamant dagger",
+    "1213": "Rune dagger",
+    "1420": "Iron mace",
+    "1422": "Bronze mace",
+    "1424": "Steel mace",
+    "1428": "Mithril mace",
+    "1430": "Adamant mace",
+    "1432": "Rune mace",
+    "1101": "Iron chainbody",
+    "1103": "Bronze chainbody",
+    "1105": "Steel chainbody",
+    "1109": "Mithril chainbody",
+    "1111": "Adamant chainbody",
+    "1113": "Rune chainbody"
   },
   "summary": {
-    "equipable_total": 97,
-    "visible_total": 97,
+    "equipable_total": 121,
+    "visible_total": 121,
     "covered": 97,
     "deferred": 0,
-    "missing": 0
+    "missing": 24
   }
 }

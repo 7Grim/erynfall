@@ -2,6 +2,8 @@ package com.osrs.shared;
 
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 public final class SmithingRegistry {
 
@@ -127,40 +129,73 @@ public final class SmithingRegistry {
         new ProductTier(1355, "Mithril axe", 51, 2359, 1, ProductCategory.TOOL),
         new ProductTier(1357, "Adamant axe", 71, 2361, 1, ProductCategory.TOOL),
         new ProductTier(1359, "Rune axe", 86, 2363, 1, ProductCategory.TOOL),
+
+        new ProductTier(1205, "Bronze dagger", 1, 2349, 1, ProductCategory.WEAPON),
+        new ProductTier(1203, "Iron dagger", 15, 2351, 1, ProductCategory.WEAPON),
+        new ProductTier(1207, "Steel dagger", 30, 2353, 1, ProductCategory.WEAPON),
+        new ProductTier(1209, "Mithril dagger", 50, 2359, 1, ProductCategory.WEAPON),
+        new ProductTier(1211, "Adamant dagger", 70, 2361, 1, ProductCategory.WEAPON),
+        new ProductTier(1213, "Rune dagger", 85, 2363, 1, ProductCategory.WEAPON),
+
+        new ProductTier(1422, "Bronze mace", 4, 2349, 1, ProductCategory.WEAPON),
+        new ProductTier(1420, "Iron mace", 19, 2351, 1, ProductCategory.WEAPON),
+        new ProductTier(1424, "Steel mace", 34, 2353, 1, ProductCategory.WEAPON),
+        new ProductTier(1428, "Mithril mace", 54, 2359, 1, ProductCategory.WEAPON),
+        new ProductTier(1430, "Adamant mace", 74, 2361, 1, ProductCategory.WEAPON),
+        new ProductTier(1432, "Rune mace", 89, 2363, 1, ProductCategory.WEAPON),
+
         new ProductTier(1321, "Bronze scimitar", 5, 2349, 2, ProductCategory.WEAPON),
         new ProductTier(1323, "Iron scimitar", 20, 2351, 2, ProductCategory.WEAPON),
         new ProductTier(1325, "Steel scimitar", 35, 2353, 2, ProductCategory.WEAPON),
         new ProductTier(1329, "Mithril scimitar", 55, 2359, 2, ProductCategory.WEAPON),
         new ProductTier(1331, "Adamant scimitar", 75, 2361, 2, ProductCategory.WEAPON),
         new ProductTier(1333, "Rune scimitar", 90, 2363, 2, ProductCategory.WEAPON),
+
+        new ProductTier(1139, "Bronze med helm", 3, 2349, 1, ProductCategory.ARMOUR),
+        new ProductTier(1137, "Iron med helm", 18, 2351, 1, ProductCategory.ARMOUR),
+        new ProductTier(1141, "Steel med helm", 33, 2353, 1, ProductCategory.ARMOUR),
+        new ProductTier(1143, "Mithril med helm", 53, 2359, 1, ProductCategory.ARMOUR),
+        new ProductTier(1145, "Adamant med helm", 73, 2361, 1, ProductCategory.ARMOUR),
+        new ProductTier(1147, "Rune med helm", 88, 2363, 1, ProductCategory.ARMOUR),
+
         new ProductTier(1115, "Bronze full helm", 7, 2349, 2, ProductCategory.ARMOUR),
         new ProductTier(1153, "Iron full helm", 22, 2351, 2, ProductCategory.ARMOUR),
         new ProductTier(1157, "Steel full helm", 37, 2353, 2, ProductCategory.ARMOUR),
         new ProductTier(1163, "Mithril full helm", 57, 2359, 2, ProductCategory.ARMOUR),
         new ProductTier(1161, "Adamant full helm", 77, 2361, 2, ProductCategory.ARMOUR),
-        new ProductTier(1165, "Rune full helm", 92, 2363, 2, ProductCategory.ARMOUR)
+        new ProductTier(1165, "Rune full helm", 92, 2363, 2, ProductCategory.ARMOUR),
+
+        new ProductTier(1103, "Bronze chainbody", 11, 2349, 3, ProductCategory.ARMOUR),
+        new ProductTier(1101, "Iron chainbody", 26, 2351, 3, ProductCategory.ARMOUR),
+        new ProductTier(1105, "Steel chainbody", 41, 2353, 3, ProductCategory.ARMOUR),
+        new ProductTier(1109, "Mithril chainbody", 61, 2359, 3, ProductCategory.ARMOUR),
+        new ProductTier(1111, "Adamant chainbody", 81, 2361, 3, ProductCategory.ARMOUR),
+        new ProductTier(1113, "Rune chainbody", 96, 2363, 3, ProductCategory.ARMOUR),
+
+        new ProductTier(1175, "Bronze sq shield", 8, 2349, 2, ProductCategory.ARMOUR),
+        new ProductTier(1177, "Iron sq shield", 23, 2351, 2, ProductCategory.ARMOUR),
+        new ProductTier(1193, "Steel sq shield", 38, 2353, 2, ProductCategory.ARMOUR),
+        new ProductTier(1197, "Mithril sq shield", 58, 2359, 2, ProductCategory.ARMOUR),
+        new ProductTier(1199, "Adamant sq shield", 78, 2361, 2, ProductCategory.ARMOUR),
+        new ProductTier(1185, "Rune sq shield", 93, 2363, 2, ProductCategory.ARMOUR),
+
+        new ProductTier(1067, "Bronze platelegs", 16, 2349, 3, ProductCategory.ARMOUR),
+        new ProductTier(1069, "Iron platelegs", 31, 2351, 3, ProductCategory.ARMOUR),
+        new ProductTier(1071, "Steel platelegs", 46, 2353, 3, ProductCategory.ARMOUR),
+        new ProductTier(1075, "Mithril platelegs", 66, 2359, 3, ProductCategory.ARMOUR),
+        new ProductTier(1077, "Adamant platelegs", 86, 2361, 3, ProductCategory.ARMOUR),
+        new ProductTier(1079, "Rune platelegs", 99, 2363, 3, ProductCategory.ARMOUR),
+
+        new ProductTier(1119, "Bronze platebody", 18, 2349, 5, ProductCategory.ARMOUR),
+        new ProductTier(2000, "Iron platebody", 33, 2351, 5, ProductCategory.ARMOUR),
+        new ProductTier(1085, "Steel platebody", 48, 2353, 5, ProductCategory.ARMOUR),
+        new ProductTier(1129, "Mithril platebody", 68, 2359, 5, ProductCategory.ARMOUR),
+        new ProductTier(1133, "Adamant platebody", 88, 2361, 5, ProductCategory.ARMOUR),
+        new ProductTier(1127, "Rune platebody", 99, 2363, 5, ProductCategory.ARMOUR)
     );
 
-    private static final Map<Integer, ProductTier> PRODUCTS_BY_ITEM_ID = Map.ofEntries(
-        Map.entry(1351, PRODUCTS.get(0)),
-        Map.entry(1349, PRODUCTS.get(1)),
-        Map.entry(1353, PRODUCTS.get(2)),
-        Map.entry(1355, PRODUCTS.get(3)),
-        Map.entry(1357, PRODUCTS.get(4)),
-        Map.entry(1359, PRODUCTS.get(5)),
-        Map.entry(1321, PRODUCTS.get(6)),
-        Map.entry(1323, PRODUCTS.get(7)),
-        Map.entry(1325, PRODUCTS.get(8)),
-        Map.entry(1329, PRODUCTS.get(9)),
-        Map.entry(1331, PRODUCTS.get(10)),
-        Map.entry(1333, PRODUCTS.get(11)),
-        Map.entry(1115, PRODUCTS.get(12)),
-        Map.entry(1153, PRODUCTS.get(13)),
-        Map.entry(1157, PRODUCTS.get(14)),
-        Map.entry(1163, PRODUCTS.get(15)),
-        Map.entry(1161, PRODUCTS.get(16)),
-        Map.entry(1165, PRODUCTS.get(17))
-    );
+    private static final Map<Integer, ProductTier> PRODUCTS_BY_ITEM_ID = PRODUCTS.stream()
+        .collect(Collectors.toUnmodifiableMap(ProductTier::itemId, Function.identity()));
 
     private SmithingRegistry() {}
 

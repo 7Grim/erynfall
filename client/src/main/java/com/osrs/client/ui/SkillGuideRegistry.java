@@ -739,7 +739,7 @@ public final class SkillGuideRegistry {
             final String[] texts = {
                 "Smelt ores at a furnace to create bars, then use bars and a hammer at an anvil to smith equipment.",
                 "As your Smithing level rises, you unlock stronger bars and more advanced products.",
-                "Smithing supports combat gear and gathering tools, making it a key progression skill."
+                "You can forge tools, daggers, maces, helms, chainbodies, shields, platelegs, platebodies, and scimitars."
             };
 
             shapeRenderer.setProjectionMatrix(projection);
