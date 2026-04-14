@@ -4,17 +4,41 @@ id: "main_world"
 terrain_height:
   height_step: 0.6
   regions:
-    - name: "tutorial_island_core"
-      min_x: 26
-      min_y: 68
-      max_x: 86
-      max_y: 124
-      level: 1
-    - name: "tutorial_island_hub"
-      min_x: 46
+    - name: "tutorial_coastal_low"
+      min_x: 24
+      min_y: 76
+      max_x: 42
+      max_y: 90
+      level: 0
+    - name: "tutorial_arrival_rise"
+      min_x: 42
       min_y: 88
-      max_x: 66
-      max_y: 106
+      max_x: 60
+      max_y: 100
+      level: 1
+    - name: "tutorial_guide_square"
+      min_x: 52
+      min_y: 92
+      max_x: 62
+      max_y: 100
+      level: 2
+    - name: "tutorial_resource_terrace"
+      min_x: 56
+      min_y: 82
+      max_x: 76
+      max_y: 94
+      level: 1
+    - name: "tutorial_grove"
+      min_x: 34
+      min_y: 102
+      max_x: 52
+      max_y: 122
+      level: 1
+    - name: "tutorial_north_training"
+      min_x: 64
+      min_y: 104
+      max_x: 82
+      max_y: 122
       level: 2
     - name: "mainland_core"
       min_x: 206
@@ -31,23 +55,65 @@ terrain_height:
 terrain_visual:
   default_type: "water"
   regions:
-    - name: "tutorial_island_grass"
-      min_x: 24
-      min_y: 66
-      max_x: 88
-      max_y: 126
-      type: "grass"
-    - name: "tutorial_island_shore"
+    - name: "tutorial_shore_sand"
       min_x: 20
       min_y: 62
       max_x: 92
       max_y: 130
       type: "sand"
-    - name: "tutorial_path_hub"
+    - name: "tutorial_interior_grass"
+      min_x: 24
+      min_y: 66
+      max_x: 88
+      max_y: 126
+      type: "grass"
+    - name: "tutorial_arrival_path"
+      min_x: 42
+      min_y: 88
+      max_x: 58
+      max_y: 96
+      type: "path"
+    - name: "tutorial_cross_path"
+      min_x: 56
+      min_y: 94
+      max_x: 74
+      max_y: 100
+      type: "path"
+    - name: "tutorial_north_path"
+      min_x: 68
+      min_y: 100
+      max_x: 74
+      max_y: 116
+      type: "path"
+    - name: "tutorial_west_grove_path"
       min_x: 50
-      min_y: 90
-      max_x: 62
-      max_y: 102
+      min_y: 96
+      max_x: 56
+      max_y: 112
+      type: "path"
+    - name: "tutorial_south_skill_path"
+      min_x: 56
+      min_y: 88
+      max_x: 70
+      max_y: 94
+      type: "path"
+    - name: "tutorial_training_yard"
+      min_x: 70
+      min_y: 108
+      max_x: 82
+      max_y: 120
+      type: "path"
+    - name: "tutorial_fishing_cove"
+      min_x: 24
+      min_y: 78
+      max_x: 38
+      max_y: 88
+      type: "sand"
+    - name: "tutorial_artisan_yard"
+      min_x: 62
+      min_y: 82
+      max_x: 76
+      max_y: 92
       type: "path"
     - name: "mainland_grass"
       min_x: 202
@@ -67,4 +133,170 @@ terrain_visual:
       max_x: 262
       max_y: 106
       type: "path"
-static_props: []
+  tile_overrides:
+    - x: 30
+      y: 83
+      type: "water"
+    - x: 31
+      y: 83
+      type: "water"
+    - x: 32
+      y: 82
+      type: "water"
+    - x: 53
+      y: 101
+      type: "wall"
+    - x: 54
+      y: 101
+      type: "wall"
+    - x: 55
+      y: 101
+      type: "wall"
+    - x: 56
+      y: 101
+      type: "wall"
+    - x: 69
+      y: 95
+      type: "wall"
+    - x: 70
+      y: 95
+      type: "wall"
+static_props:
+  - key: "dock_pier_small"
+    x: 30
+    y: 82
+    rotation_y_degrees: 0.0
+    scale: 1.0
+    visibility_group: "base"
+  - key: "dock_platform"
+    x: 33
+    y: 84
+    rotation_y_degrees: 0.0
+    scale: 1.0
+    visibility_group: "base"
+  - key: "dock_stairs"
+    x: 35
+    y: 86
+    rotation_y_degrees: 0.0
+    scale: 1.0
+    visibility_group: "base"
+  - key: "building_shell_small_base"
+    x: 56
+    y: 96
+    rotation_y_degrees: 0.0
+    scale: 1.0
+    visibility_group: "base"
+  - key: "building_shell_small_roof"
+    x: 56
+    y: 96
+    rotation_y_degrees: 0.0
+    scale: 1.0
+    visibility_group: "roof"
+  - key: "building_shell_service_base"
+    x: 68
+    y: 88
+    rotation_y_degrees: 0.0
+    scale: 1.0
+    visibility_group: "base"
+  - key: "building_shell_service_roof"
+    x: 68
+    y: 88
+    rotation_y_degrees: 0.0
+    scale: 1.0
+    visibility_group: "roof"
+  - key: "building_shell_coastal_base"
+    x: 38
+    y: 84
+    rotation_y_degrees: 0.0
+    scale: 1.0
+    visibility_group: "base"
+  - key: "building_shell_coastal_roof"
+    x: 38
+    y: 84
+    rotation_y_degrees: 0.0
+    scale: 1.0
+    visibility_group: "roof"
+  - key: "signpost_small"
+    x: 58
+    y: 98
+    rotation_y_degrees: 90.0
+    scale: 1.0
+    visibility_group: "base"
+  - key: "signpost_small"
+    x: 70
+    y: 100
+    rotation_y_degrees: 0.0
+    scale: 1.0
+    visibility_group: "base"
+  - key: "bench_small"
+    x: 54
+    y: 94
+    rotation_y_degrees: 90.0
+    scale: 1.0
+    visibility_group: "base"
+  - key: "table_small"
+    x: 66
+    y: 88
+    rotation_y_degrees: 0.0
+    scale: 1.0
+    visibility_group: "base"
+  - key: "crate_small"
+    x: 64
+    y: 87
+    rotation_y_degrees: 0.0
+    scale: 1.0
+    visibility_group: "base"
+  - key: "barrel_small"
+    x: 72
+    y: 87
+    rotation_y_degrees: 0.0
+    scale: 1.0
+    visibility_group: "base"
+  - key: "sack_stack_small"
+    x: 73
+    y: 89
+    rotation_y_degrees: 180.0
+    scale: 1.0
+    visibility_group: "base"
+  - key: "cart_small"
+    x: 60
+    y: 90
+    rotation_y_degrees: 180.0
+    scale: 1.0
+    visibility_group: "base"
+  - key: "fence_post_small"
+    x: 67
+    y: 104
+    rotation_y_degrees: 0.0
+    scale: 1.0
+    visibility_group: "base"
+  - key: "fence_post_small"
+    x: 67
+    y: 108
+    rotation_y_degrees: 0.0
+    scale: 1.0
+    visibility_group: "base"
+  - key: "fence_post_small"
+    x: 67
+    y: 112
+    rotation_y_degrees: 0.0
+    scale: 1.0
+    visibility_group: "base"
+  - key: "fence_post_small"
+    x: 67
+    y: 116
+    rotation_y_degrees: 0.0
+    scale: 1.0
+    visibility_group: "base"
+  - key: "anvil"
+    x: 67
+    y: 86
+    rotation_y_degrees: 0.0
+    scale: 1.0
+    visibility_group: "base"
+  - key: "furnace"
+    x: 70
+    y: 86
+    rotation_y_degrees: 0.0
+    scale: 1.0
+    visibility_group: "base"

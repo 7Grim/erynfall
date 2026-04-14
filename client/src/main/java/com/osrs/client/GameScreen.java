@@ -203,6 +203,10 @@ public class GameScreen extends ApplicationAdapter {
     private float cameraYaw = 0f;
     private float cameraPitch = 0.9f;
     private float cameraDistance = 12f;
+    private boolean inWorldFreeCameraEnabled = false;
+    private float freeCameraX = 0f;
+    private float freeCameraY = 0f;
+    private float freeCameraZ = 0f;
     private static final float CAMERA_DISTANCE_MIN = 6f;
     private static final float CAMERA_DISTANCE_MAX = 24f;
     private static final float PITCH_MIN = 0.3f;
@@ -241,6 +245,8 @@ public class GameScreen extends ApplicationAdapter {
     private static final float WORKBENCH_PREVIEW_YAW_SENSITIVITY = 0.45f;
     private static final float WORKBENCH_PREVIEW_PITCH_SENSITIVITY = 0.30f;
     private static final float WORKBENCH_PREVIEW_ZOOM_STEP = 0.25f;
+    private static final float FREE_CAMERA_MOVE_SPEED = 16f;
+    private static final float FREE_CAMERA_FAST_MULTIPLIER = 2.5f;
     private int overlaysRenderedLastFrame3D = 0;
 
     // -----------------------------------------------------------------------
@@ -1408,6 +1414,9 @@ public class GameScreen extends ApplicationAdapter {
             artWorkbenchPopup.setModelKeys(modelLibrary.getModelKeys());
             artWorkbenchPopup.setEquipmentOptions(modelLibrary.getLoadedEquipmentOptionsBySlot());
             workbenchPreviewDragging = false;
+            if (!artWorkbenchPopup.isVisible()) {
+                disableInWorldFreeCamera();
+            }
             LOG.info("Art workbench: {}", artWorkbenchPopup.isVisible() ? "opened" : "closed");
         }
         if (Gdx.input.isKeyJustPressed(Input.Keys.F7)) {
@@ -1437,7 +1446,11 @@ public class GameScreen extends ApplicationAdapter {
                 && artWorkbenchPopup.mode() != ArtWorkbenchPopup.Mode.TERRAIN_PAINT;
             renderer3d.update(delta);
             if (!previewMode) {
-                updateCameraOrbit(delta);
+                if (shouldUseInWorldFreeCamera()) {
+                    updateFreeCamera(delta);
+                } else {
+                    updateCameraOrbit(delta);
+                }
             } else if (pendingScrollAmount != 0) {
                 renderer3d.zoomWorkbenchPreviewCamera(pendingScrollAmount * WORKBENCH_PREVIEW_ZOOM_STEP);
                 pendingScrollAmount = 0;
@@ -1510,7 +1523,9 @@ public class GameScreen extends ApplicationAdapter {
                     );
                 }
             } else {
-                renderer3d.renderTerrain(activeTerrainRenderMap(), visualX, visualY, activeMaterialProfile);
+                float terrainFocusX = shouldUseInWorldFreeCamera() ? camera3d.position.x : visualX;
+                float terrainFocusY = shouldUseInWorldFreeCamera() ? camera3d.position.z : visualY;
+                renderer3d.renderTerrain(activeTerrainRenderMap(), terrainFocusX, terrainFocusY, activeMaterialProfile);
                 renderStaticProps3D();
                 renderer3d.beginEntityPass();
                 renderGroundItemsLayer3D(groundItemEntries);
@@ -1615,6 +1630,7 @@ public class GameScreen extends ApplicationAdapter {
         renderAdminToolsButton(shapeRenderer, screenBatch, font, w, h, screenProjection, mouseScreenX, mouseScreenY);
         adminToolsPopup.render(shapeRenderer, screenBatch, font, w, h, screenProjection, handler());
         if (artistMode && artWorkbenchPopup != null && artWorkbenchPopup.isVisible()) {
+            artWorkbenchPopup.setInWorldFreeCameraEnabled(shouldUseInWorldFreeCamera());
             artWorkbenchPopup.render(shapeRenderer, screenBatch, font, w, h, screenProjection);
         }
         xpDropOverlay.render(shapeRenderer, screenBatch, font, w, h, screenProjection,
@@ -1687,6 +1703,113 @@ public class GameScreen extends ApplicationAdapter {
         );
         camera3d.up.set(0f, 1f, 0f);
         camera3d.lookAt(px, 0f, pz);
+        camera3d.update();
+    }
+
+    private boolean isWorkbenchInWorldMode() {
+        if (artWorkbenchPopup == null) {
+            return false;
+        }
+        ArtWorkbenchPopup.Mode mode = artWorkbenchPopup.mode();
+        return mode == ArtWorkbenchPopup.Mode.WORLD_PLACEMENT
+            || mode == ArtWorkbenchPopup.Mode.ENTITY_BINDING
+            || mode == ArtWorkbenchPopup.Mode.TERRAIN_PAINT;
+    }
+
+    private boolean shouldUseInWorldFreeCamera() {
+        return use3DRenderer
+            && artistMode
+            && artWorkbenchPopup != null
+            && artWorkbenchPopup.isVisible()
+            && isWorkbenchInWorldMode()
+            && !artWorkbenchPopup.isSelectionSearchActive()
+            && inWorldFreeCameraEnabled;
+    }
+
+    private void toggleInWorldFreeCamera() {
+        if (inWorldFreeCameraEnabled) {
+            disableInWorldFreeCamera();
+            return;
+        }
+        if (!use3DRenderer || camera3d == null || !isWorkbenchInWorldMode()) {
+            return;
+        }
+        inWorldFreeCameraEnabled = true;
+        freeCameraX = camera3d.position.x;
+        freeCameraY = camera3d.position.y;
+        freeCameraZ = camera3d.position.z;
+        LOG.info("In-world free camera enabled");
+    }
+
+    private void disableInWorldFreeCamera() {
+        if (!inWorldFreeCameraEnabled) {
+            return;
+        }
+        inWorldFreeCameraEnabled = false;
+        LOG.info("In-world free camera disabled");
+    }
+
+    private void resetInWorldFreeCameraPose() {
+        float px = visualX + 0.5f;
+        float pz = visualY + 0.5f;
+        freeCameraX = px + (float) (Math.sin(cameraYaw) * Math.cos(cameraPitch)) * cameraDistance;
+        freeCameraY = (float) (Math.sin(cameraPitch)) * cameraDistance;
+        freeCameraZ = pz + (float) (Math.cos(cameraYaw) * Math.cos(cameraPitch)) * cameraDistance;
+    }
+
+    private void updateFreeCamera(float delta) {
+        if (!shouldUseInWorldFreeCamera()) {
+            return;
+        }
+        if (pendingScrollAmount != 0) {
+            pendingScrollAmount = 0;
+        }
+
+        if (Gdx.input.isKeyPressed(Input.Keys.LEFT)) cameraYaw -= YAW_SPEED * delta;
+        if (Gdx.input.isKeyPressed(Input.Keys.RIGHT)) cameraYaw += YAW_SPEED * delta;
+        if (Gdx.input.isKeyPressed(Input.Keys.UP)) cameraPitch = Math.min(cameraPitch + PITCH_SPEED * delta, PITCH_MAX);
+        if (Gdx.input.isKeyPressed(Input.Keys.DOWN)) cameraPitch = Math.max(cameraPitch - PITCH_SPEED * delta, PITCH_MIN);
+
+        float speed = FREE_CAMERA_MOVE_SPEED * delta;
+        if (Gdx.input.isKeyPressed(Input.Keys.SHIFT_LEFT) || Gdx.input.isKeyPressed(Input.Keys.SHIFT_RIGHT)) {
+            speed *= FREE_CAMERA_FAST_MULTIPLIER;
+        }
+
+        float forwardX = (float) Math.sin(cameraYaw);
+        float forwardZ = (float) Math.cos(cameraYaw);
+        float rightX = (float) Math.cos(cameraYaw);
+        float rightZ = (float) -Math.sin(cameraYaw);
+
+        if (Gdx.input.isKeyPressed(Input.Keys.W)) {
+            freeCameraX += forwardX * speed;
+            freeCameraZ += forwardZ * speed;
+        }
+        if (Gdx.input.isKeyPressed(Input.Keys.S)) {
+            freeCameraX -= forwardX * speed;
+            freeCameraZ -= forwardZ * speed;
+        }
+        if (Gdx.input.isKeyPressed(Input.Keys.A)) {
+            freeCameraX -= rightX * speed;
+            freeCameraZ -= rightZ * speed;
+        }
+        if (Gdx.input.isKeyPressed(Input.Keys.D)) {
+            freeCameraX += rightX * speed;
+            freeCameraZ += rightZ * speed;
+        }
+        if (Gdx.input.isKeyPressed(Input.Keys.Q)) {
+            freeCameraY -= speed;
+        }
+        if (Gdx.input.isKeyPressed(Input.Keys.E)) {
+            freeCameraY += speed;
+        }
+
+        freeCameraY = Math.max(0.25f, Math.min(160f, freeCameraY));
+        camera3d.position.set(freeCameraX, freeCameraY, freeCameraZ);
+        float dirX = (float) (Math.sin(cameraYaw) * Math.cos(cameraPitch));
+        float dirY = (float) Math.sin(cameraPitch);
+        float dirZ = (float) (Math.cos(cameraYaw) * Math.cos(cameraPitch));
+        camera3d.up.set(0f, 1f, 0f);
+        camera3d.lookAt(freeCameraX + dirX, freeCameraY + dirY, freeCameraZ + dirZ);
         camera3d.update();
     }
 
@@ -3448,6 +3571,14 @@ public class GameScreen extends ApplicationAdapter {
                 }
                 return;
             }
+            if (isWorkbenchInWorldMode() && Gdx.input.isKeyJustPressed(Input.Keys.F)) {
+                toggleInWorldFreeCamera();
+                return;
+            }
+            if (shouldUseInWorldFreeCamera() && Gdx.input.isKeyJustPressed(Input.Keys.G)) {
+                resetInWorldFreeCameraPose();
+                return;
+            }
             if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
                 if (artWorkbenchPopup.mode() == ArtWorkbenchPopup.Mode.WORLD_PLACEMENT
                     && sceneEditState != null
@@ -3463,11 +3594,15 @@ public class GameScreen extends ApplicationAdapter {
                     return;
                 }
                 artWorkbenchPopup.dismiss();
+                disableInWorldFreeCamera();
                 workbenchPreviewDragging = false;
                 return;
             }
             if (Gdx.input.isKeyJustPressed(Input.Keys.TAB)) {
                 artWorkbenchPopup.cycleMode();
+                if (!isWorkbenchInWorldMode()) {
+                    disableInWorldFreeCamera();
+                }
                 return;
             }
             if (Gdx.input.isKeyJustPressed(Input.Keys.LEFT_BRACKET)) {
@@ -3547,7 +3682,7 @@ public class GameScreen extends ApplicationAdapter {
                 return;
             }
             if (artWorkbenchPopup.mode() == ArtWorkbenchPopup.Mode.TERRAIN_PAINT) {
-                if (Gdx.input.isKeyJustPressed(Input.Keys.E)) {
+                if (!shouldUseInWorldFreeCamera() && Gdx.input.isKeyJustPressed(Input.Keys.E)) {
                     if (sceneEditState == null || worldPlacementHoverTileX < 0 || worldPlacementHoverTileY < 0) {
                         artWorkbenchPopup.setTerrainPaintStatus("No hovered tile to erase");
                     } else if (sceneEditState.eraseTerrainOverride(worldPlacementHoverTileX, worldPlacementHoverTileY)) {

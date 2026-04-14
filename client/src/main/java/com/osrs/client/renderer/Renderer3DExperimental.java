@@ -371,13 +371,13 @@ public class Renderer3DExperimental {
         }
     }
 
-    public void renderTerrain(int[][] tileMap, float localPlayerX, float localPlayerY) {
-        renderTerrain(tileMap, localPlayerX, localPlayerY, activeMaterialProfile);
+    public void renderTerrain(int[][] tileMap, float centerX, float centerY) {
+        renderTerrain(tileMap, centerX, centerY, activeMaterialProfile);
     }
 
     public void renderTerrain(int[][] tileMap,
-                              float localPlayerX,
-                              float localPlayerY,
+                              float centerX,
+                              float centerY,
                               String materialProfile) {
         terrainChunksRenderedLastFrame = 0;
         overlayTilesProcessedLastFrame = 0;
@@ -401,10 +401,10 @@ public class Renderer3DExperimental {
             return;
         }
 
-        updateWallOcclusion(localPlayerX, localPlayerY);
+        updateWallOcclusion(centerX, centerY);
 
-        int centerTileX = clampTileX((int) Math.floor(localPlayerX));
-        int centerTileY = clampTileY((int) Math.floor(localPlayerY));
+        int centerTileX = clampTileX((int) Math.floor(centerX));
+        int centerTileY = clampTileY((int) Math.floor(centerY));
         int overlayRadius = computeOverlayRadius();
         int minTileX = Math.max(0, centerTileX - overlayRadius);
         int maxTileX = Math.min(mapWidth - 1, centerTileX + overlayRadius);
@@ -431,7 +431,7 @@ public class Renderer3DExperimental {
         }
         modelBatch.end();
 
-        renderGroundOverlayPass(tileMap, minTileX, maxTileX, minTileY, maxTileY, localPlayerX, localPlayerY, normalizedProfile);
+        renderGroundOverlayPass(tileMap, minTileX, maxTileX, minTileY, maxTileY, centerX, centerY, normalizedProfile);
 
         Gdx.gl.glDisable(GL20.GL_CULL_FACE);
         Gdx.gl.glDisable(GL20.GL_DEPTH_TEST);

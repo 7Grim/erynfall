@@ -81,6 +81,7 @@ public class ArtWorkbenchPopup {
     private final Map<Integer, String> equipmentSearchBySlot = new HashMap<>();
     private String worldSearchQuery = "";
     private String entityBindingSearchQuery = "";
+    private boolean inWorldFreeCameraEnabled = false;
     private boolean selectionSearchActive = false;
     private int declaredModelCount = 0;
     private int loadedModelCount = 0;
@@ -423,6 +424,10 @@ public class ArtWorkbenchPopup {
 
     public void setTerrainPaintStatus(String status) {
         this.terrainPaintStatus = status == null ? "" : status;
+    }
+
+    public void setInWorldFreeCameraEnabled(boolean enabled) {
+        this.inWorldFreeCameraEnabled = enabled;
     }
 
     public void cycleTerrainPaintType(int direction) {
@@ -825,6 +830,8 @@ public class ArtWorkbenchPopup {
                 case TERRAIN_PAINT -> sceneEditState != null && sceneEditState.terrainDirty();
                 default -> false;
             };
+            font.setColor(0.82f, 0.88f, 0.98f, 1f);
+            font.draw(batch, "Free cam: " + (inWorldFreeCameraEnabled ? "ON" : "OFF"), x + PANEL_W - 218, y + PANEL_H - 16);
             font.setColor(dirty ? 1f : 0.72f, dirty ? 0.9f : 0.84f, 0.62f, 1f);
             font.draw(batch, dirty ? "DIRTY" : "CLEAN", x + PANEL_W - 78, y + PANEL_H - 16);
         }
@@ -861,9 +868,12 @@ public class ArtWorkbenchPopup {
             font.draw(batch, truncateToWidth(font, statusB, PANEL_W - 28), x + 14, statusY + STATUS_H - 36);
         }
 
-        String footer = mode == Mode.TERRAIN_PAINT
-            ? "F6 close   TAB mode   LMB drag orbit   wheel zoom   MMB reset camera   F7/F8 debug"
-            : "F6 close   TAB mode   / search   LMB drag orbit   wheel zoom   MMB reset camera   F7/F8 debug";
+        String footer;
+        if (mode == Mode.WORLD_PLACEMENT || mode == Mode.ENTITY_BINDING || mode == Mode.TERRAIN_PAINT) {
+            footer = "F6 close   TAB mode   F free camera   WASD move   Q/E vertical   G reset free camera   F7/F8 debug";
+        } else {
+            footer = "F6 close   TAB mode   / search   LMB drag orbit   wheel zoom   MMB reset camera   F7/F8 debug";
+        }
         font.setColor(0.80f, 0.84f, 0.90f, 1f);
         font.draw(batch, footer, x + 14, y + 22);
 
@@ -1043,6 +1053,9 @@ public class ArtWorkbenchPopup {
         font.setColor(0.99f, 0.96f, 0.72f, 1f);
         font.draw(batch, truncateToWidth(font, key.isBlank() ? "(no placeable keys)" : key, leftWidth - 82), leftX + 80, y);
         y -= 22;
+        font.setColor(0.80f, 0.84f, 0.90f, 1f);
+        font.draw(batch, "Free camera: " + (inWorldFreeCameraEnabled ? "ON" : "OFF"), leftX, y);
+        y -= 22;
         int matches = filteredWorldIndices().size();
         font.setColor(0.80f, 0.84f, 0.90f, 1f);
         font.draw(batch, "Search:", leftX, y);
@@ -1086,6 +1099,8 @@ public class ArtWorkbenchPopup {
         font.draw(batch, truncateToWidth(font, "P save scene", rightWidth), rightX, y);
         y -= 20;
         font.draw(batch, truncateToWidth(font, "/ search   Enter apply   Esc exit search", rightWidth), rightX, y);
+        y -= 20;
+        font.draw(batch, truncateToWidth(font, "F toggle free camera   G reset camera", rightWidth), rightX, y);
     }
 
     private void renderTerrainPaintText(SpriteBatch batch,
@@ -1113,6 +1128,8 @@ public class ArtWorkbenchPopup {
         font.setColor(0.80f, 0.84f, 0.90f, 1f);
         font.draw(batch, "Dirty: " + dirty, leftX, y);
         y -= 20;
+        font.draw(batch, "Free camera: " + (inWorldFreeCameraEnabled ? "ON" : "OFF"), leftX, y);
+        y -= 20;
         font.draw(batch, "Tile overrides: " + overrideCount, leftX, y);
         y -= 20;
         font.draw(batch, "Hover tile: see in-world highlight", leftX, y);
@@ -1133,6 +1150,8 @@ public class ArtWorkbenchPopup {
         font.draw(batch, truncateToWidth(font, "P save scene terrain visuals", rightWidth), rightX, y);
         y -= 20;
         font.draw(batch, truncateToWidth(font, "ESC closes (or exits search)", rightWidth), rightX, y);
+        y -= 20;
+        font.draw(batch, truncateToWidth(font, "F toggle free camera   G reset camera", rightWidth), rightX, y);
     }
 
     private void renderEntityBindingText(SpriteBatch batch,
@@ -1208,6 +1227,9 @@ public class ArtWorkbenchPopup {
             font.draw(batch, "Candidate anim:", leftX, y);
             font.setColor(0.99f, 0.96f, 0.72f, 1f);
             font.draw(batch, entityBindingCandidateAnimated3d ? "true" : "false", leftX + 92, y);
+            y -= 22;
+            font.setColor(0.80f, 0.84f, 0.90f, 1f);
+            font.draw(batch, "Free camera: " + (inWorldFreeCameraEnabled ? "ON" : "OFF"), leftX, y);
         }
 
         y = rightTopY;
@@ -1228,6 +1250,8 @@ public class ArtWorkbenchPopup {
         font.draw(batch, truncateToWidth(font, "P save binding to entity_visuals.yaml", rightWidth), rightX, y);
         y -= 20;
         font.draw(batch, truncateToWidth(font, "ESC deselect first, then close", rightWidth), rightX, y);
+        y -= 20;
+        font.draw(batch, truncateToWidth(font, "F toggle free camera   G reset camera", rightWidth), rightX, y);
     }
 
     private String truncateToWidth(BitmapFont font, String text, float maxWidth) {
