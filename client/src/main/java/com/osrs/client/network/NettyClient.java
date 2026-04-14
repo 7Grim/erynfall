@@ -451,6 +451,16 @@ public class NettyClient {
         LOG.debug("Sent UseItemOnItem: src={} tgt={}", sourceSlot, targetSlot);
     }
 
+    public void sendLightGroundItem(int groundItemId) {
+        NetworkProto.ClientMessage msg = NetworkProto.ClientMessage.newBuilder()
+            .setLightGroundItem(NetworkProto.LightGroundItem.newBuilder()
+                .setGroundItemId(groundItemId)
+                .setSequence(System.currentTimeMillis()))
+            .build();
+        channel.writeAndFlush(msg);
+        LOG.debug("Sent LightGroundItem: groundItemId={}", groundItemId);
+    }
+
     public void sendSetCombatStyle(int styleIndex) {
         NetworkProto.ClientMessage msg = NetworkProto.ClientMessage.newBuilder()
             .setSetCombatStyle(NetworkProto.SetCombatStyle.newBuilder()

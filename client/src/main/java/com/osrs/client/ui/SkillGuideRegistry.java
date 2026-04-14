@@ -8,8 +8,10 @@ import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.Matrix4;
 import com.badlogic.gdx.utils.Align;
 import com.osrs.shared.CookingRegistry;
+import com.osrs.shared.FiremakingRegistry;
 import com.osrs.shared.FishingRegistry;
 import com.osrs.shared.MiningRegistry;
+import com.osrs.shared.PrayerRegistry;
 import com.osrs.shared.RangedRegistry;
 import com.osrs.shared.SmithingRegistry;
 import com.osrs.shared.SpellRegistry;
@@ -28,11 +30,13 @@ public final class SkillGuideRegistry {
     private static final int SKILL_HITPOINTS   = 3;
     private static final int SKILL_RANGED      = 4;
     private static final int SKILL_MAGIC       = 5;
+    private static final int SKILL_PRAYER      = 6;
     private static final int SKILL_WOODCUTTING = 7;
     private static final int SKILL_FISHING = 8;
     private static final int SKILL_COOKING = 9;
     private static final int SKILL_MINING = 10;
     private static final int SKILL_SMITHING = 11;
+    private static final int SKILL_FIREMAKING = 12;
     private static final Map<Integer, SkillGuidePopup.SkillGuideProvider> PROVIDERS = new HashMap<>();
 
     static {
@@ -42,11 +46,13 @@ public final class SkillGuideRegistry {
         register(SKILL_HITPOINTS, new HitpointsGuideProvider());
         register(SKILL_RANGED, new RangedGuideProvider());
         register(SKILL_MAGIC, new MagicGuideProvider());
+        register(SKILL_PRAYER, new PrayerGuideProvider());
         register(SKILL_WOODCUTTING, new WoodcuttingGuideProvider());
         register(SKILL_FISHING, new FishingGuideProvider());
         register(SKILL_COOKING, new CookingGuideProvider());
         register(SKILL_MINING, new MiningGuideProvider());
         register(SKILL_SMITHING, new SmithingGuideProvider());
+        register(SKILL_FIREMAKING, new FiremakingGuideProvider());
     }
 
     private SkillGuideRegistry() {
@@ -1292,6 +1298,509 @@ public final class SkillGuideRegistry {
                 uniqueCookedFoods.putIfAbsent(food.cookedItemId(), food);
             }
             return new java.util.ArrayList<>(uniqueCookedFoods.values());
+        }
+    }
+
+    private static final class PrayerGuideProvider implements SkillGuidePopup.SkillGuideProvider {
+
+        private static final List<SkillGuidePopup.GuideSection> SECTIONS = List.of(
+            new SkillGuidePopup.GuideSection("Introduction"),
+            new SkillGuidePopup.GuideSection("Prayers"),
+            new SkillGuidePopup.GuideSection("Restore")
+        );
+
+        private static final Color TEXT_MAIN = new Color(0.24f, 0.16f, 0.06f, 1f);
+        private static final Color TEXT_LOCKED = new Color(0.45f, 0.36f, 0.24f, 1f);
+        private static final Color TEXT_UNLOCKED = new Color(0.22f, 0.14f, 0.06f, 1f);
+        private static final Color TEXT_NEXT = new Color(0.48f, 0.28f, 0.04f, 1f);
+        private static final Color ROW_UNLOCKED = new Color(0.88f, 0.81f, 0.67f, 1f);
+        private static final Color ROW_LOCKED = new Color(0.78f, 0.71f, 0.57f, 1f);
+        private static final Color ROW_NEXT = new Color(0.94f, 0.82f, 0.50f, 1f);
+
+        @Override
+        public String getTitle(int skillIdx) {
+            return "Prayer";
+        }
+
+        @Override
+        public List<SkillGuidePopup.GuideSection> getSections(int skillIdx) {
+            return SECTIONS;
+        }
+
+        @Override
+        public void renderSectionContent(ShapeRenderer shapeRenderer,
+                                         SpriteBatch batch,
+                                         BitmapFont font,
+                                         Matrix4 projection,
+                                         int skillIdx,
+                                         int level,
+                                         long totalXp,
+                                         int sectionIdx,
+                                         float contentX,
+                                         float contentY,
+                                         float contentW,
+                                         float contentH,
+                                         float scrollOffset) {
+            if (sectionIdx == 0) {
+                renderIntroduction(shapeRenderer, batch, font, projection, contentX, contentY, contentW, contentH);
+            } else if (sectionIdx == 1) {
+                renderPrayers(shapeRenderer, batch, font, projection, level, contentX, contentY, contentW, contentH, scrollOffset);
+            } else if (sectionIdx == 2) {
+                renderRestore(shapeRenderer, batch, font, projection, contentX, contentY, contentW, contentH);
+            }
+        }
+
+        @Override
+        public float getSectionContentHeight(int skillIdx, int level, int sectionIdx, float contentW) {
+            if (sectionIdx == 1) {
+                return 18f + PrayerRegistry.f2pPrayers().size() * 32f + 12f;
+            }
+            return 236f;
+        }
+
+        private void renderIntroduction(ShapeRenderer shapeRenderer,
+                                        SpriteBatch batch,
+                                        BitmapFont font,
+                                        Matrix4 projection,
+                                        float x,
+                                        float y,
+                                        float w,
+                                        float h) {
+            final float blockH = 82f;
+            final float top = y + h - 14f;
+            final float blockX = x + 8f;
+            final float blockW = w - 16f;
+            final float dividerX = x + 10f;
+            final float dividerW = w - 20f;
+            final float iconX = x + 20f;
+            final float textX = x + 62f;
+            final float textW = w - 86f;
+            final float textTopPad = 16f;
+            final String[] texts = {
+                "Prayer boosts combat stats while active, but drains Prayer points over time.",
+                "Only one prayer of the same bonus type should be active. The strongest active bonus is applied.",
+                "Bury bones for Prayer XP, then recharge your points at an altar when they run low."
+            };
+
+            shapeRenderer.setProjectionMatrix(projection);
+            shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+            for (int i = 0; i < 3; i++) {
+                float by = top - (i + 1) * blockH;
+                shapeRenderer.setColor(0.92f, 0.84f, 0.69f, 1f);
+                shapeRenderer.rect(blockX, by, blockW, blockH - 8f);
+                shapeRenderer.setColor(0.64f, 0.50f, 0.30f, 1f);
+                shapeRenderer.rect(dividerX, by + blockH - 16f, dividerW, 2f);
+            }
+            drawPrayerIcon(shapeRenderer, iconX, top - blockH + 12f);
+            ItemIconRenderer.drawItemIcon(shapeRenderer, iconX, top - blockH * 2 + 12f, 526);
+            ItemIconRenderer.drawItemIcon(shapeRenderer, iconX, top - blockH * 3 + 12f, 2434);
+            shapeRenderer.end();
+
+            GlyphLayout wrapped = new GlyphLayout();
+            batch.setProjectionMatrix(projection);
+            batch.begin();
+            font.getData().setScale(0.68f);
+            font.setColor(TEXT_MAIN);
+            for (int i = 0; i < 3; i++) {
+                float by = top - (i + 1) * blockH;
+                float blockInnerTop = by + blockH - 8f;
+                wrapped.setText(font, texts[i], TEXT_MAIN, textW, Align.left, true);
+                font.draw(batch, wrapped, textX, blockInnerTop - textTopPad);
+            }
+            font.getData().setScale(1f);
+            font.setColor(Color.WHITE);
+            batch.end();
+        }
+
+        private void renderPrayers(ShapeRenderer shapeRenderer,
+                                   SpriteBatch batch,
+                                   BitmapFont font,
+                                   Matrix4 projection,
+                                   int level,
+                                   float x,
+                                   float y,
+                                   float w,
+                                   float h,
+                                   float scrollOffset) {
+            float rowH = 32f;
+            int nextReq = findNextPrayerLevel(level);
+
+            shapeRenderer.setProjectionMatrix(projection);
+            shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+            float yCursor = y + h - 14f + scrollOffset;
+            for (PrayerRegistry.PrayerDef prayer : PrayerRegistry.f2pPrayers()) {
+                float rowY = yCursor - rowH;
+                boolean visible = rowY + rowH >= y && rowY <= y + h;
+                if (visible) {
+                    boolean unlocked = level >= prayer.levelRequirement();
+                    boolean next = !unlocked && prayer.levelRequirement() == nextReq;
+                    shapeRenderer.setColor(next ? ROW_NEXT : unlocked ? ROW_UNLOCKED : ROW_LOCKED);
+                    shapeRenderer.rect(x + 8, rowY + 2, w - 16, rowH - 4);
+                }
+                yCursor -= rowH;
+            }
+            shapeRenderer.end();
+
+            batch.setProjectionMatrix(projection);
+            batch.begin();
+            font.getData().setScale(0.68f);
+            yCursor = y + h - 14f + scrollOffset;
+            for (PrayerRegistry.PrayerDef prayer : PrayerRegistry.f2pPrayers()) {
+                float rowY = yCursor - rowH;
+                boolean visible = rowY + rowH >= y && rowY <= y + h;
+                if (visible) {
+                    boolean unlocked = level >= prayer.levelRequirement();
+                    boolean next = !unlocked && prayer.levelRequirement() == nextReq;
+                    font.setColor(next ? TEXT_NEXT : unlocked ? TEXT_UNLOCKED : TEXT_LOCKED);
+                    font.draw(batch, "Lv " + prayer.levelRequirement(), x + 16, rowY + 22);
+                    font.draw(batch, prayer.name(), x + 74, rowY + 22);
+                    font.getData().setScale(0.60f);
+                    Color sub = next ? TEXT_NEXT : TEXT_LOCKED;
+                    font.setColor(sub.r, sub.g, sub.b, 0.75f);
+                    font.draw(batch, prayer.effectSummary(), x + w - 96, rowY + 14);
+                    font.getData().setScale(0.68f);
+                }
+                yCursor -= rowH;
+            }
+            font.getData().setScale(1f);
+            font.setColor(Color.WHITE);
+            batch.end();
+        }
+
+        private void renderRestore(ShapeRenderer shapeRenderer,
+                                   SpriteBatch batch,
+                                   BitmapFont font,
+                                   Matrix4 projection,
+                                   float x,
+                                   float y,
+                                   float w,
+                                   float h) {
+            final float blockH = 82f;
+            final float top = y + h - 14f;
+            final float blockX = x + 8f;
+            final float blockW = w - 16f;
+            final float dividerX = x + 10f;
+            final float dividerW = w - 20f;
+            final float iconX = x + 20f;
+            final float textX = x + 62f;
+            final float textW = w - 86f;
+            final float textTopPad = 16f;
+            final String[] texts = {
+                "Altars restore Prayer points to your maximum Prayer level.",
+                "Prayers can only be activated while you have at least 1 Prayer point.",
+                "If your Prayer points are already full, praying at an altar has no additional effect."
+            };
+
+            shapeRenderer.setProjectionMatrix(projection);
+            shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+            for (int i = 0; i < 3; i++) {
+                float by = top - (i + 1) * blockH;
+                shapeRenderer.setColor(0.92f, 0.84f, 0.69f, 1f);
+                shapeRenderer.rect(blockX, by, blockW, blockH - 8f);
+                shapeRenderer.setColor(0.64f, 0.50f, 0.30f, 1f);
+                shapeRenderer.rect(dividerX, by + blockH - 16f, dividerW, 2f);
+            }
+            drawAltarIcon(shapeRenderer, iconX, top - blockH + 12f);
+            drawPrayerDropIcon(shapeRenderer, iconX, top - blockH * 2 + 12f);
+            drawPrayerIcon(shapeRenderer, iconX, top - blockH * 3 + 12f);
+            shapeRenderer.end();
+
+            GlyphLayout wrapped = new GlyphLayout();
+            batch.setProjectionMatrix(projection);
+            batch.begin();
+            font.getData().setScale(0.68f);
+            font.setColor(TEXT_MAIN);
+            for (int i = 0; i < 3; i++) {
+                float by = top - (i + 1) * blockH;
+                float blockInnerTop = by + blockH - 8f;
+                wrapped.setText(font, texts[i], TEXT_MAIN, textW, Align.left, true);
+                font.draw(batch, wrapped, textX, blockInnerTop - textTopPad);
+            }
+            font.getData().setScale(1f);
+            font.setColor(Color.WHITE);
+            batch.end();
+        }
+
+        private static int findNextPrayerLevel(int level) {
+            for (PrayerRegistry.PrayerDef prayer : PrayerRegistry.f2pPrayers()) {
+                if (prayer.levelRequirement() > level) {
+                    return prayer.levelRequirement();
+                }
+            }
+            return -1;
+        }
+
+        private static void drawPrayerIcon(ShapeRenderer sr, float slotLeft, float slotBottom) {
+            float x = slotLeft + 4f;
+            float y = slotBottom + 3f;
+            sr.setColor(0.88f, 0.82f, 0.58f, 1f);
+            sr.rect(x + 11, y + 2, 4, 18);
+            sr.rect(x + 6, y + 9, 14, 3);
+            sr.rect(x + 8, y + 17, 10, 3);
+        }
+
+        private static void drawAltarIcon(ShapeRenderer sr, float slotLeft, float slotBottom) {
+            float x = slotLeft + 4f;
+            float y = slotBottom + 3f;
+            sr.setColor(0.78f, 0.72f, 0.58f, 1f);
+            sr.rect(x + 4, y + 2, 18, 5);
+            sr.rect(x + 6, y + 7, 14, 3);
+            sr.setColor(0.90f, 0.86f, 0.72f, 1f);
+            sr.rect(x + 8, y + 10, 10, 10);
+            sr.setColor(0.70f, 0.64f, 0.50f, 1f);
+            sr.rect(x + 11, y + 20, 4, 2);
+        }
+
+        private static void drawPrayerDropIcon(ShapeRenderer sr, float slotLeft, float slotBottom) {
+            float x = slotLeft + 4f;
+            float y = slotBottom + 3f;
+            sr.setColor(0.22f, 0.50f, 0.88f, 1f);
+            sr.rect(x + 10, y + 4, 6, 8);
+            sr.rect(x + 9, y + 12, 8, 4);
+            sr.rect(x + 11, y + 16, 4, 4);
+            sr.setColor(0.70f, 0.86f, 1.00f, 0.8f);
+            sr.rect(x + 11, y + 11, 2, 4);
+        }
+    }
+
+    private static final class FiremakingGuideProvider implements SkillGuidePopup.SkillGuideProvider {
+
+        private static final List<SkillGuidePopup.GuideSection> SECTIONS = List.of(
+            new SkillGuidePopup.GuideSection("Introduction"),
+            new SkillGuidePopup.GuideSection("Logs"),
+            new SkillGuidePopup.GuideSection("Lighting & Cooking")
+        );
+
+        private static final Color TEXT_MAIN = new Color(0.24f, 0.16f, 0.06f, 1f);
+        private static final Color TEXT_LOCKED = new Color(0.45f, 0.36f, 0.24f, 1f);
+        private static final Color TEXT_UNLOCKED = new Color(0.22f, 0.14f, 0.06f, 1f);
+        private static final Color TEXT_NEXT = new Color(0.48f, 0.28f, 0.04f, 1f);
+        private static final Color ROW_UNLOCKED = new Color(0.88f, 0.81f, 0.67f, 1f);
+        private static final Color ROW_LOCKED = new Color(0.78f, 0.71f, 0.57f, 1f);
+        private static final Color ROW_NEXT = new Color(0.94f, 0.82f, 0.50f, 1f);
+
+        @Override
+        public String getTitle(int skillIdx) {
+            return "Firemaking";
+        }
+
+        @Override
+        public List<SkillGuidePopup.GuideSection> getSections(int skillIdx) {
+            return SECTIONS;
+        }
+
+        @Override
+        public void renderSectionContent(ShapeRenderer shapeRenderer,
+                                         SpriteBatch batch,
+                                         BitmapFont font,
+                                         Matrix4 projection,
+                                         int skillIdx,
+                                         int level,
+                                         long totalXp,
+                                         int sectionIdx,
+                                         float contentX,
+                                         float contentY,
+                                         float contentW,
+                                         float contentH,
+                                         float scrollOffset) {
+            if (sectionIdx == 0) {
+                renderIntroduction(shapeRenderer, batch, font, projection, contentX, contentY, contentW, contentH);
+            } else if (sectionIdx == 1) {
+                renderLogs(shapeRenderer, batch, font, projection, level, contentX, contentY, contentW, contentH, scrollOffset);
+            } else if (sectionIdx == 2) {
+                renderLightingAndCooking(shapeRenderer, batch, font, projection, contentX, contentY, contentW, contentH);
+            }
+        }
+
+        @Override
+        public float getSectionContentHeight(int skillIdx, int level, int sectionIdx, float contentW) {
+            if (sectionIdx == 1) {
+                return 18f + FiremakingRegistry.f2pLogs().size() * 36f + 12f;
+            }
+            return 236f;
+        }
+
+        private void renderIntroduction(ShapeRenderer shapeRenderer,
+                                        SpriteBatch batch,
+                                        BitmapFont font,
+                                        Matrix4 projection,
+                                        float x,
+                                        float y,
+                                        float w,
+                                        float h) {
+            final float blockH = 82f;
+            final float top = y + h - 14f;
+            final float blockX = x + 8f;
+            final float blockW = w - 16f;
+            final float dividerX = x + 10f;
+            final float dividerW = w - 20f;
+            final float iconX = x + 20f;
+            final float textX = x + 62f;
+            final float textW = w - 86f;
+            final float textTopPad = 16f;
+            final String[] texts = {
+                "Use a tinderbox on logs to place logs on the ground and begin a lighting attempt.",
+                "You can also right-click dropped logs and choose Light log.",
+                "You gain Firemaking XP only when an attempt succeeds and the fire catches."
+            };
+
+            shapeRenderer.setProjectionMatrix(projection);
+            shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+            for (int i = 0; i < 3; i++) {
+                float by = top - (i + 1) * blockH;
+                shapeRenderer.setColor(0.92f, 0.84f, 0.69f, 1f);
+                shapeRenderer.rect(blockX, by, blockW, blockH - 8f);
+                shapeRenderer.setColor(0.64f, 0.50f, 0.30f, 1f);
+                shapeRenderer.rect(dividerX, by + blockH - 16f, dividerW, 2f);
+            }
+            ItemIconRenderer.drawItemIcon(shapeRenderer, iconX, top - blockH + 12f, 590);
+            ItemIconRenderer.drawItemIcon(shapeRenderer, iconX, top - blockH * 2 + 12f, 1511);
+            drawFireIcon(shapeRenderer, iconX, top - blockH * 3 + 12f);
+            shapeRenderer.end();
+
+            GlyphLayout wrapped = new GlyphLayout();
+            batch.setProjectionMatrix(projection);
+            batch.begin();
+            font.getData().setScale(0.68f);
+            font.setColor(TEXT_MAIN);
+            for (int i = 0; i < 3; i++) {
+                float by = top - (i + 1) * blockH;
+                float blockInnerTop = by + blockH - 8f;
+                wrapped.setText(font, texts[i], TEXT_MAIN, textW, Align.left, true);
+                font.draw(batch, wrapped, textX, blockInnerTop - textTopPad);
+            }
+            font.getData().setScale(1f);
+            font.setColor(Color.WHITE);
+            batch.end();
+        }
+
+        private void renderLogs(ShapeRenderer shapeRenderer,
+                                SpriteBatch batch,
+                                BitmapFont font,
+                                Matrix4 projection,
+                                int level,
+                                float x,
+                                float y,
+                                float w,
+                                float h,
+                                float scrollOffset) {
+            float rowH = 36f;
+            int nextReq = findNextLogLevel(level);
+
+            shapeRenderer.setProjectionMatrix(projection);
+            shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+            float yCursor = y + h - 14f + scrollOffset;
+            for (FiremakingRegistry.LogTier log : FiremakingRegistry.f2pLogs()) {
+                float rowY = yCursor - rowH;
+                boolean visible = rowY + rowH >= y && rowY <= y + h;
+                if (visible) {
+                    boolean unlocked = level >= log.levelRequirement();
+                    boolean next = !unlocked && log.levelRequirement() == nextReq;
+                    shapeRenderer.setColor(next ? ROW_NEXT : unlocked ? ROW_UNLOCKED : ROW_LOCKED);
+                    shapeRenderer.rect(x + 8, rowY + 2, w - 16, rowH - 4);
+                    ItemIconRenderer.drawItemIcon(shapeRenderer, x + 72, rowY + 3, log.itemId());
+                }
+                yCursor -= rowH;
+            }
+            shapeRenderer.end();
+
+            batch.setProjectionMatrix(projection);
+            batch.begin();
+            font.getData().setScale(0.68f);
+            yCursor = y + h - 14f + scrollOffset;
+            for (FiremakingRegistry.LogTier log : FiremakingRegistry.f2pLogs()) {
+                float rowY = yCursor - rowH;
+                boolean visible = rowY + rowH >= y && rowY <= y + h;
+                if (visible) {
+                    boolean unlocked = level >= log.levelRequirement();
+                    boolean next = !unlocked && log.levelRequirement() == nextReq;
+                    font.setColor(next ? TEXT_NEXT : unlocked ? TEXT_UNLOCKED : TEXT_LOCKED);
+                    font.draw(batch, "Lv " + log.levelRequirement(), x + 16, rowY + 26);
+                    font.draw(batch, log.name(), x + 116, rowY + 26);
+                    font.draw(batch, formatXpTenths(log.xpTenths()) + " xp", x + w - 88, rowY + 26);
+                }
+                yCursor -= rowH;
+            }
+            font.getData().setScale(1f);
+            font.setColor(Color.WHITE);
+            batch.end();
+        }
+
+        private void renderLightingAndCooking(ShapeRenderer shapeRenderer,
+                                              SpriteBatch batch,
+                                              BitmapFont font,
+                                              Matrix4 projection,
+                                              float x,
+                                              float y,
+                                              float w,
+                                              float h) {
+            final float blockH = 82f;
+            final float top = y + h - 14f;
+            final float blockX = x + 8f;
+            final float blockW = w - 16f;
+            final float dividerX = x + 10f;
+            final float dividerW = w - 20f;
+            final float iconX = x + 20f;
+            final float textX = x + 62f;
+            final float textW = w - 86f;
+            final float textTopPad = 16f;
+            final String[] texts = {
+                "Lighting uses a level-based success chance, so some attempts fail before the log catches.",
+                "On success, a temporary cooking fire appears and your character steps aside automatically.",
+                "Static cooking fires and ranges still work, and temporary fires remain valid cooking stations."
+            };
+
+            shapeRenderer.setProjectionMatrix(projection);
+            shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+            for (int i = 0; i < 3; i++) {
+                float by = top - (i + 1) * blockH;
+                shapeRenderer.setColor(0.92f, 0.84f, 0.69f, 1f);
+                shapeRenderer.rect(blockX, by, blockW, blockH - 8f);
+                shapeRenderer.setColor(0.64f, 0.50f, 0.30f, 1f);
+                shapeRenderer.rect(dividerX, by + blockH - 16f, dividerW, 2f);
+            }
+            drawFireIcon(shapeRenderer, iconX, top - blockH + 12f);
+            ItemIconRenderer.drawItemIcon(shapeRenderer, iconX, top - blockH * 2 + 12f, 317);
+            ItemIconRenderer.drawItemIcon(shapeRenderer, iconX, top - blockH * 3 + 12f, 315);
+            shapeRenderer.end();
+
+            GlyphLayout wrapped = new GlyphLayout();
+            batch.setProjectionMatrix(projection);
+            batch.begin();
+            font.getData().setScale(0.68f);
+            font.setColor(TEXT_MAIN);
+            for (int i = 0; i < 3; i++) {
+                float by = top - (i + 1) * blockH;
+                float blockInnerTop = by + blockH - 8f;
+                wrapped.setText(font, texts[i], TEXT_MAIN, textW, Align.left, true);
+                font.draw(batch, wrapped, textX, blockInnerTop - textTopPad);
+            }
+            font.getData().setScale(1f);
+            font.setColor(Color.WHITE);
+            batch.end();
+        }
+
+        private static int findNextLogLevel(int level) {
+            for (FiremakingRegistry.LogTier log : FiremakingRegistry.f2pLogs()) {
+                if (log.levelRequirement() > level) {
+                    return log.levelRequirement();
+                }
+            }
+            return -1;
+        }
+
+        private static void drawFireIcon(ShapeRenderer sr, float slotLeft, float slotBottom) {
+            float x = slotLeft + 4f;
+            float y = slotBottom + 3f;
+            sr.setColor(0.50f, 0.32f, 0.14f, 1f);
+            sr.rect(x + 5, y + 2, 16, 3);
+            sr.rect(x + 7, y + 5, 12, 2);
+            sr.setColor(0.96f, 0.54f, 0.14f, 1f);
+            sr.rect(x + 10, y + 7, 7, 9);
+            sr.setColor(1.00f, 0.78f, 0.18f, 1f);
+            sr.rect(x + 11, y + 11, 5, 9);
+            sr.setColor(1.00f, 0.92f, 0.58f, 1f);
+            sr.rect(x + 12, y + 14, 3, 6);
         }
     }
 

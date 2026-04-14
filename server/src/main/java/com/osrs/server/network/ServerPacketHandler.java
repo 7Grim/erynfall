@@ -14,9 +14,11 @@ import com.osrs.server.world.World;
 import com.osrs.shared.CombatStyle;
 import com.osrs.shared.CookingRegistry;
 import com.osrs.shared.EquipmentSlot;
+import com.osrs.shared.FiremakingRegistry;
 import com.osrs.shared.ItemDefinition;
 import com.osrs.shared.NPC;
 import com.osrs.shared.Player;
+import com.osrs.shared.PrayerRegistry;
 import com.osrs.shared.ShopDefinition;
 import com.osrs.shared.SmithingRegistry;
 import com.osrs.shared.SkillingAction;
@@ -61,18 +63,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
     private static final int BONES_ITEM_ID = 526;
     private static final int COINS_ITEM_ID = 995;
     private static final int  TINDERBOX_ITEM_ID   = 590;
-    private static final int[] FIREMAKING_LOG_ITEM_IDS = {1511, 1521, 1522, 1523, 1524, 1525};
     private static final long BONES_PRAYER_XP = 45L;  // 4.5 XP stored as tenths
-    /** Prayer defs: {prayerId, levelRequired}. IDs 1–6 = F2P melee prayers. */
-    private static final int[][] PRAYER_DEFS = {
-        {1,  1},  // Thick Skin        (+5% Defence)
-        {2,  4},  // Burst of Strength (+5% Strength)
-        {3,  7},  // Clarity of Thought(+5% Attack)
-        {4, 10},  // Rock Skin         (+10% Defence)
-        {5, 13},  // Superhuman Strength(+10% Strength)
-        {6, 16},  // Improved Reflexes (+10% Attack)
-    };
-    private static final long FIREMAKING_LOG_XP   = 400L;  // 40.0 XP stored as tenths
     
     private final NettyServer server;
     private final AuthTokenSettings authTokenSettings;
@@ -169,6 +160,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             case OPEN_SHOP               -> handleOpenShop(ctx, packet.getOpenShop());
             case BUY_SHOP_ITEM           -> handleBuyShopItem(ctx, packet.getBuyShopItem());
             case CLOSE_SHOP              -> handleCloseShop(ctx, packet.getCloseShop());
+            case LIGHT_GROUND_ITEM       -> handleLightGroundItem(ctx, packet.getLightGroundItem());
             case CLOSE_BANK_REQUEST      -> handleCloseBankRequest(ctx, packet.getCloseBankRequest());
             case DEPOSIT_BANK_ITEM       -> handleDepositBankItem(ctx, packet.getDepositBankItem());
             case WITHDRAW_BANK_ITEM      -> handleWithdrawBankItem(ctx, packet.getWithdrawBankItem());
@@ -2362,6 +2354,36 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             return true;
         }
 
+        if ("Altar".equalsIgnoreCase(npcName)) {
+            if (player.isInCombat()) {
+                sendChatMessage(ctx, "You are too busy fighting.", 1);
+                return true;
+            }
+            if (!canReachAnyAdjacentTile(player, npc)) {
+                sendChatMessage(ctx, "I can't reach that!", 1);
+                return true;
+            }
+
+            int maxPrayer = player.getMaxPrayerPoints();
+            if (maxPrayer <= 0) {
+                sendChatMessage(ctx, "You need Prayer training before this altar can help you.", 1);
+                return true;
+            }
+            if (player.getPrayerPoints() >= maxPrayer) {
+                sendChatMessage(ctx, "You already have full Prayer points.", 0);
+                return true;
+            }
+
+            player.setPrayerPoints(maxPrayer);
+            ctx.writeAndFlush(NetworkProto.ServerMessage.newBuilder()
+                .setPrayerPointsUpdate(NetworkProto.PrayerPointsUpdate.newBuilder()
+                    .setCurrent(player.getPrayerPoints())
+                    .setMaximum(maxPrayer))
+                .build());
+            sendChatMessage(ctx, "You recharge your Prayer points at the altar.", 0);
+            return true;
+        }
+
         return false;
     }
 
@@ -3142,26 +3164,62 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
         int srcItem = player.getInventoryItemId(srcSlot);
         int tgtItem = player.getInventoryItemId(tgtSlot);
 
-        boolean isFiremaking = (srcItem == TINDERBOX_ITEM_ID && isFiremakingLogItem(tgtItem))
-                             || (isFiremakingLogItem(srcItem) && tgtItem == TINDERBOX_ITEM_ID);
+        FiremakingRegistry.LogTier srcLogTier = FiremakingRegistry.getByItemId(srcItem);
+        FiremakingRegistry.LogTier tgtLogTier = FiremakingRegistry.getByItemId(tgtItem);
+
+        boolean isFiremaking = (srcItem == TINDERBOX_ITEM_ID && tgtLogTier != null)
+                             || (srcLogTier != null && tgtItem == TINDERBOX_ITEM_ID);
         if (isFiremaking) {
-            int usedLogItemId = isFiremakingLogItem(srcItem) ? srcItem : tgtItem;
-            int logsSlot = isFiremakingLogItem(srcItem) ? srcSlot : tgtSlot;
-            player.setInventoryItem(logsSlot, 0, 0);
+            if (player.isInCombat()) {
+                sendChatMessage(ctx, "You are too busy fighting.", 1);
+                return;
+            }
+            if (player.isInDialogue()) {
+                sendChatMessage(ctx, "Finish your conversation first.", 1);
+                return;
+            }
+
+            FiremakingRegistry.LogTier logTier = (srcLogTier != null) ? srcLogTier : tgtLogTier;
+            int usedLogItemId = logTier.itemId();
+            int logsSlot = (srcLogTier != null) ? srcSlot : tgtSlot;
+
+            int firemakingLevel = Math.max(1, player.getSkillLevel(Player.SKILL_FIREMAKING));
+            if (firemakingLevel < logTier.levelRequirement()) {
+                sendChatMessage(ctx,
+                    "You need a Firemaking level of " + logTier.levelRequirement()
+                        + " to burn " + firemakingTargetName(logTier) + ".",
+                    1);
+                return;
+            }
+
+            int spawnX = player.getX();
+            int spawnY = player.getY();
+            if (!isValidGroundLogTile(player, spawnX, spawnY)) {
+                sendChatMessage(ctx, "You can't light a fire here.", 1);
+                return;
+            }
+
+            int quantity = Math.max(0, player.getInventoryQuantity(logsSlot));
+            if (quantity <= 1) {
+                player.setInventoryItem(logsSlot, 0, 0);
+            } else {
+                player.setInventoryItem(logsSlot, usedLogItemId, quantity - 1);
+            }
             sendInventorySlot(ctx, player, logsSlot);
 
-            boolean leveledUp = player.addSkillXp(Player.SKILL_FIREMAKING, FIREMAKING_LOG_XP);
-            int  newLevel = player.getSkillLevel(Player.SKILL_FIREMAKING);
-            long totalXp  = player.getSkillXp(Player.SKILL_FIREMAKING);
-            ctx.writeAndFlush(NetworkProto.ServerMessage.newBuilder()
-                .setSkillUpdate(NetworkProto.SkillUpdate.newBuilder()
-                    .setSkillIndex(Player.SKILL_FIREMAKING)
-                    .setNewLevel(newLevel).setTotalXp(totalXp / 10).setLeveledUp(leveledUp))  // tenths→whole
+            long tick = Math.max(0L, server.getCurrentTick());
+            GroundItem gi = server.getWorld().spawnGroundItem(usedLogItemId, 1, spawnX, spawnY, -1, tick);
+            server.broadcastToAll(NetworkProto.ServerMessage.newBuilder()
+                .setGroundItemSpawn(NetworkProto.GroundItemSpawn.newBuilder()
+                    .setGroundItemId(gi.getGroundItemId())
+                    .setItemId(gi.getItemId())
+                    .setQuantity(gi.getQuantity())
+                    .setX(gi.getX())
+                    .setY(gi.getY())
+                    .setItemName(logTier.name()))
                 .build());
-            sendChatMessage(ctx, "You light a fire.", 0);
-            if (leveledUp) sendChatMessage(ctx, "Congratulations, you just advanced a Firemaking level.", 2);
-            updateGenericQuestObjectives(session, Quest.TaskType.ACTION, usedLogItemId);
-            LOG.info("Player {} lit a fire (+{} firemaking xp)", player.getId(), FIREMAKING_LOG_XP);
+
+            beginFiremakingGroundAttempt(ctx, player, gi, logTier, "inventory_tinderbox");
             return;
         }
 
@@ -3208,11 +3266,79 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
         }
     }
 
-    private boolean isFiremakingLogItem(int itemId) {
-        for (int id : FIREMAKING_LOG_ITEM_IDS) {
-            if (id == itemId) return true;
+    private void handleLightGroundItem(ChannelHandlerContext ctx, NetworkProto.LightGroundItem req) {
+        if (session == null || !session.isAuthenticated() || session.getPlayer() == null) {
+            return;
         }
-        return false;
+        Player player = session.getPlayer();
+        GroundItem gi = server.getWorld().getGroundItem(req.getGroundItemId());
+        if (gi == null) {
+            sendChatMessage(ctx, "Too late - it's gone!", 1);
+            return;
+        }
+
+        FiremakingRegistry.LogTier logTier = FiremakingRegistry.getByItemId(gi.getItemId());
+        if (logTier == null) {
+            sendChatMessage(ctx, "You can only light logs.", 1);
+            return;
+        }
+
+        if (player.getX() != gi.getX() || player.getY() != gi.getY()) {
+            sendChatMessage(ctx, "I can't reach that!", 1);
+            return;
+        }
+        if (!hasItemInInventory(player, TINDERBOX_ITEM_ID)) {
+            sendChatMessage(ctx, "You need a tinderbox to light logs.", 1);
+            return;
+        }
+        int firemakingLevel = Math.max(1, player.getSkillLevel(Player.SKILL_FIREMAKING));
+        if (firemakingLevel < logTier.levelRequirement()) {
+            sendChatMessage(ctx,
+                "You need a Firemaking level of " + logTier.levelRequirement()
+                    + " to burn " + firemakingTargetName(logTier) + ".",
+                1);
+            return;
+        }
+
+        beginFiremakingGroundAttempt(ctx, player, gi, logTier, "ground_light");
+    }
+
+    private void beginFiremakingGroundAttempt(ChannelHandlerContext ctx,
+                                              Player player,
+                                              GroundItem gi,
+                                              FiremakingRegistry.LogTier logTier,
+                                              String source) {
+        if (player.isSkilling() && (player.getSkillingAction() != SkillingAction.FIREMAKING
+            || player.getSkillingTargetNpcId() != gi.getGroundItemId())) {
+            interruptSkilling("interrupted");
+        }
+
+        player.startSkillingAction(SkillingAction.FIREMAKING, gi.getGroundItemId(), server.getCurrentTick() + 1);
+        player.setSkillingMetadata(logTier.itemId() + ":" + source);
+        sendSkillingStateUpdate(ctx,
+            NetworkProto.SkillingType.SKILLING_FIREMAKING,
+            NetworkProto.SkillingState.SKILLING_STATE_QUEUED,
+            gi.getGroundItemId(),
+            "queued");
+    }
+
+    private boolean hasItemInInventory(Player player, int itemId) {
+        return countInventoryItem(player, itemId) > 0;
+    }
+
+    private String firemakingTargetName(FiremakingRegistry.LogTier logTier) {
+        if (logTier == null || logTier.name() == null || logTier.name().isBlank()) {
+            return "logs";
+        }
+        String normalized = logTier.name().trim().toLowerCase();
+        return normalized.endsWith("logs") ? normalized : normalized + " logs";
+    }
+
+    private boolean isValidGroundLogTile(Player player, int x, int y) {
+        if (!server.getWorld().canWalkTo(x, y)) {
+            return false;
+        }
+        return server.getWorld().getNPCAt(x, y) == null;
     }
 
     private void handleSetCombatStyle(NetworkProto.SetCombatStyle req) {
@@ -3493,12 +3619,11 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
         Player player = session.getPlayer();
         int prayerId = req.getPrayerId();
 
-        // Validate prayer ID
-        int levelReq = -1;
-        for (int[] def : PRAYER_DEFS) {
-            if (def[0] == prayerId) { levelReq = def[1]; break; }
+        PrayerRegistry.PrayerDef prayer = PrayerRegistry.byId(prayerId).orElse(null);
+        if (prayer == null) {
+            return;
         }
-        if (levelReq < 0) return;
+        int levelReq = prayer.levelRequirement();
 
         if (player.isPrayerActive(prayerId)) {
             player.deactivatePrayer(prayerId);
@@ -3550,6 +3675,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             case COOKING -> NetworkProto.SkillingType.SKILLING_COOKING;
             case MINING -> NetworkProto.SkillingType.SKILLING_MINING;
             case SMITHING -> NetworkProto.SkillingType.SKILLING_SMITHING;
+            case FIREMAKING -> NetworkProto.SkillingType.SKILLING_FIREMAKING;
             case NONE -> NetworkProto.SkillingType.SKILLING_NONE;
         };
     }

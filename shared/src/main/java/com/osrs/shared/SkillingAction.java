@@ -9,5 +9,6 @@ public enum SkillingAction {
     FISHING,
     COOKING,
     MINING,
-    SMITHING
+    SMITHING,
+    FIREMAKING
 }

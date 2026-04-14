@@ -53,6 +53,7 @@ import com.osrs.client.ui.SmeltingUI;
 import com.osrs.client.ui.ShopUI;
 import com.osrs.client.ui.XpDropOverlay;
 import com.osrs.shared.EquipmentSlot;
+import com.osrs.shared.FiremakingRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -428,6 +429,8 @@ public class GameScreen extends ApplicationAdapter {
     private int    pendingGroundItemId = -1;
     /** World tile the item is on (cached so we can still pathfind if map updates). */
     private int    pendingGroundItemX  = -1, pendingGroundItemY = -1;
+    /** Pending ground-item interaction verb: take | light_log */
+    private String pendingGroundItemAction = "take";
     private int selectedInventorySlot = -1;  // use-mode: slot waiting for "use on" target
     private int inventoryMouseDownSlot = -1; // tracks which slot was pressed down
     private int bankInventoryMouseDownSlot = -1;
@@ -937,6 +940,13 @@ public class GameScreen extends ApplicationAdapter {
             return visual.spriteKey2d();
         }
         return IsometricRenderer.npcSpriteKeyForName(entry.npcName());
+    }
+
+    private boolean isCookingFireActor(ActorRenderEntry entry) {
+        if (entry == null || entry.isPlayer()) {
+            return false;
+        }
+        return entry.definitionId() == 400 || "Cooking Fire".equalsIgnoreCase(entry.npcName());
     }
 
     private EntityVisualRegistry.EntityVisual resolveEntityVisual(ActorRenderEntry entry) {
@@ -1813,6 +1823,12 @@ public class GameScreen extends ApplicationAdapter {
                 continue;
             }
             ActorRenderEntry entry = entries.get(i);
+            if (isCookingFireActor(entry)) {
+                float animTime = npcAnimTime.getOrDefault(entry.entityId(), 0f);
+                float alpha = isObstructingLocalPlayer(entry) ? 0.50f : 1f;
+                renderCookingFireBillboards3D(entry, animTime, alpha);
+                continue;
+            }
             TextureRegion region = resolveActorSpriteRegion3D(entry);
             float height = actorBillboardHeight3D(entry, region);
             float width = actorBillboardWidth3D(entry, region, height);
@@ -2531,6 +2547,66 @@ public class GameScreen extends ApplicationAdapter {
         return region;
     }
 
+    private TextureRegion resolveCookingFireRegion3D(float animTime) {
+        if (spriteSheet == null) {
+            return null;
+        }
+        com.badlogic.gdx.graphics.g2d.Animation<TextureRegion> idleAnim = spriteSheet.getAnimation("fire_idle");
+        if (idleAnim != null) {
+            return idleAnim.getKeyFrame(animTime, true);
+        }
+        return spriteSheet.getTile("fire");
+    }
+
+    private void renderCookingFireBillboards3D(ActorRenderEntry entry, float animTime, float alpha) {
+        TextureRegion fireRegion = resolveCookingFireRegion3D(animTime);
+        float clampedAlpha = Math.max(0.35f, Math.min(1f, alpha));
+
+        renderer3d.renderEntityBillboard(
+            entry.tileX(),
+            entry.tileY(),
+            0.14f,
+            null,
+            1.10f,
+            1.65f,
+            1.00f,
+            0.42f,
+            0.10f,
+            0.62f * clampedAlpha
+        );
+        renderer3d.renderEntityBillboard(
+            entry.tileX(),
+            entry.tileY(),
+            0.30f,
+            null,
+            0.62f,
+            1.00f,
+            1.00f,
+            0.90f,
+            0.24f,
+            0.78f * clampedAlpha
+        );
+
+        if (fireRegion != null) {
+            renderer3d.renderEntityBillboardAtHeight(entry.tileX(), entry.tileY(), 0.06f, fireRegion, 1.30f, 1.98f, clampedAlpha);
+            renderer3d.renderEntityBillboardAtHeight(entry.tileX(), entry.tileY(), 0.55f, fireRegion, 0.90f, 1.22f, 0.88f * clampedAlpha);
+            return;
+        }
+
+        renderer3d.renderEntityBillboard(
+            entry.tileX(),
+            entry.tileY(),
+            0.06f,
+            null,
+            1.30f,
+            1.98f,
+            1.00f,
+            0.48f,
+            0.14f,
+            clampedAlpha
+        );
+    }
+
     private boolean isInUiArea(int mouseX, int mouseY) {
         if (mouseY < ChatBox.TOTAL_H && mouseX >= 0 && mouseX < ChatBox.BOX_W) return true;
         if (isAdminToolsButtonVisible() && isAdminToolsButtonHit(mouseX, mouseY, Gdx.graphics.getHeight())) return true;
@@ -2869,7 +2945,9 @@ public class GameScreen extends ApplicationAdapter {
         for (String msg : h.drainServerChatMessages()) {
             chatBox.addSystemMessage(msg);
             // Any server response to a talk attempt means the server handled it — stop retrying.
-            if ("talk".equals(pendingAction) || "supplies".equals(pendingAction)) {
+            if ("talk".equals(pendingAction)
+                || "supplies".equals(pendingAction)
+                || "pray_at".equals(pendingAction)) {
                 clearPendingAction();
             }
             if ("I can't reach that!".equals(msg)) {
@@ -3260,7 +3338,8 @@ public class GameScreen extends ApplicationAdapter {
             || "Cooking Fire".equalsIgnoreCase(npcName)
             || "Cooking Range".equalsIgnoreCase(npcName)
             || "Furnace".equalsIgnoreCase(npcName)
-            || "Anvil".equalsIgnoreCase(npcName);
+            || "Anvil".equalsIgnoreCase(npcName)
+            || "Altar".equalsIgnoreCase(npcName);
     }
 
     private boolean isTreeResourceName(String npcName) {
@@ -5418,6 +5497,9 @@ public class GameScreen extends ApplicationAdapter {
                 // Keep pending action alive until server actually opens dialogue,
                 // because a moving NPC can invalidate a single packet attempt.
                 pendingActionRetryTimer = 0.25f;
+            } else if ("pray_at".equals(pendingAction)) {
+                nettyClient.sendTalkToNpc(pendingNpcId);
+                pendingActionRetryTimer = 0.25f;
             } else if ("chop".equals(pendingAction)) {
                 nettyClient.sendStartSkilling(pendingNpcId, NetworkProto.SkillingType.SKILLING_WOODCUTTING);
                 // Animation is triggered when server confirms SKILLING_STATE_ACTIVE, not here
@@ -5501,6 +5583,14 @@ public class GameScreen extends ApplicationAdapter {
      * shows "I can't reach that!" immediately without sending a packet.
      */
     private void startGroundItemApproach(int groundItemId) {
+        startGroundItemApproach(groundItemId, "take");
+    }
+
+    private void startGroundItemLightApproach(int groundItemId) {
+        startGroundItemApproach(groundItemId, "light_log");
+    }
+
+    private void startGroundItemApproach(int groundItemId, String action) {
         ClientPacketHandler h = handler();
         if (h == null) return;
 
@@ -5520,6 +5610,7 @@ public class GameScreen extends ApplicationAdapter {
         pendingGroundItemId = groundItemId;
         pendingGroundItemX  = itemX;
         pendingGroundItemY  = itemY;
+        pendingGroundItemAction = action == null ? "take" : action;
 
         // Walk onto the item's tile (OSRS pickup stance)
         if (playerX != itemX || playerY != itemY) {
@@ -5538,21 +5629,29 @@ public class GameScreen extends ApplicationAdapter {
         if (pendingGroundItemId < 0) return;
 
         ClientPacketHandler h = handler();
-        if (h == null) { pendingGroundItemId = -1; return; }
+        if (h == null) { pendingGroundItemId = -1; pendingGroundItemAction = "take"; return; }
 
         // Confirm item still exists (may have despawned while walking)
         if (!h.getGroundItems().containsKey(pendingGroundItemId)) {
             chatBox.addSystemMessage("Too late — it's gone!");
             pendingGroundItemId = -1;
+            pendingGroundItemAction = "take";
             return;
         }
 
         // Check if we've reached the item tile itself.
         if (playerX == pendingGroundItemX && playerY == pendingGroundItemY) {
-            // Send pickup packet — server will execute after 3-tick animation delay
-            if (nettyClient != null) nettyClient.sendPickupItem(pendingGroundItemId);
-            pickupAnimationTimer = PICKUP_ANIM_DURATION;
+            if (nettyClient != null) {
+                if ("light_log".equals(pendingGroundItemAction)) {
+                    nettyClient.sendLightGroundItem(pendingGroundItemId);
+                } else {
+                    // Send pickup packet — server will execute after 3-tick animation delay
+                    nettyClient.sendPickupItem(pendingGroundItemId);
+                    pickupAnimationTimer = PICKUP_ANIM_DURATION;
+                }
+            }
             pendingGroundItemId = -1;
+            pendingGroundItemAction = "take";
         }
     }
 
@@ -5788,6 +5887,9 @@ public class GameScreen extends ApplicationAdapter {
             int[] data = entry.getValue();  // {itemId, qty, x, y}
             if (data[2] == tileX && data[3] == tileY) {
                 String name = groundItemNamesMap.getOrDefault(entry.getKey(), "Item");
+                if (FiremakingRegistry.getByItemId(data[0]) != null) {
+                    opts.add(new ContextMenu.MenuItem(ContextMenu.Action.LIGHT_LOG, name, entry.getKey()));
+                }
                 opts.add(new ContextMenu.MenuItem(ContextMenu.Action.TAKE, name, entry.getKey()));
                 opts.add(new ContextMenu.MenuItem(ContextMenu.Action.EXAMINE_GROUND_ITEM, name, entry.getKey()));
             }
@@ -5850,6 +5952,7 @@ public class GameScreen extends ApplicationAdapter {
         boolean isFishingSpot = "Fishing Spot".equalsIgnoreCase(rawName);
         boolean isCookingStation = "Cooking Fire".equalsIgnoreCase(rawName)
             || "Cooking Range".equalsIgnoreCase(rawName);
+        boolean isAltar = "Altar".equalsIgnoreCase(rawName);
         boolean isFurnace = "Furnace".equalsIgnoreCase(rawName);
         boolean isBanker = "Banker".equalsIgnoreCase(rawName);
         boolean isFishingSupplier = "Fishing Supplier".equalsIgnoreCase(rawName);
@@ -5881,6 +5984,8 @@ public class GameScreen extends ApplicationAdapter {
             }
         } else if (isCookingStation) {
             opts.add(new ContextMenu.MenuItem(ContextMenu.Action.COOK_AT, yellowName, npcId));
+        } else if (isAltar) {
+            opts.add(new ContextMenu.MenuItem(ContextMenu.Action.PRAY_AT, yellowName, npcId));
         } else if (isFurnace) {
             opts.add(new ContextMenu.MenuItem(ContextMenu.Action.SMELT, yellowName, npcId));
         } else if ("Anvil".equalsIgnoreCase(rawName)) {
@@ -5915,6 +6020,7 @@ public class GameScreen extends ApplicationAdapter {
             case "fish_cage" -> startApproach((Integer) item.target, "fish_cage");
             case "fish_harpoon" -> startApproach((Integer) item.target, "fish_harpoon");
             case "cook_at" -> startApproach((Integer) item.target, "cook_at");
+            case "pray_at" -> startApproach((Integer) item.target, "pray_at");
             case "smelt_at" -> startApproach((Integer) item.target, "smelt_at");
             case "smith_at" -> startApproach((Integer) item.target, "smith_at");
             case "trade_player"  -> LOG.info("Trade not yet implemented for player {}", item.target);
@@ -5937,6 +6043,7 @@ public class GameScreen extends ApplicationAdapter {
                 }
             }
             case "take"   -> startGroundItemApproach((Integer) item.target);
+            case "light_log" -> startGroundItemLightApproach((Integer) item.target);
             case "examine_ground_item" -> {
                 String name = groundItemNamesMap.get((Integer) item.target);
                 if (name == null || name.isEmpty()) name = "item";
@@ -6036,6 +6143,15 @@ public class GameScreen extends ApplicationAdapter {
 
         Integer groundItemId = h.getGroundItemAt(tileX, tileY);
         if (groundItemId != null) {
+            if (selectedInventorySlot >= 0 && sidePanel.getInventoryItemId(selectedInventorySlot) == 590) {
+                int[] groundData = h.getGroundItems().get(groundItemId);
+                if (groundData != null && FiremakingRegistry.getByItemId(groundData[0]) != null) {
+                    startGroundItemLightApproach(groundItemId);
+                    selectedInventorySlot = -1;
+                    sidePanel.setSelectedInventorySlot(-1);
+                    return true;
+                }
+            }
             startGroundItemApproach(groundItemId);
             return true;
         }

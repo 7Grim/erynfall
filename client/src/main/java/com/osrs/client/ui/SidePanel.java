@@ -11,6 +11,7 @@ import com.badlogic.gdx.math.Matrix4;
 
 import com.osrs.client.audio.AudioManager;
 import com.osrs.client.audio.MusicTrack;
+import com.osrs.shared.PrayerRegistry;
 import com.osrs.shared.SpellRegistry;
 
 import java.util.ArrayList;
@@ -1259,15 +1260,7 @@ public class SidePanel {
         {22, 21, -1},  // Construction, Hunter,      [Total Level]
     };
 
-    /** F2P prayer definitions: {prayerId, levelRequired, name}. */
-    private static final Object[][] PRAYERS = {
-        {1,  1, "Thick Skin"},
-        {2,  4, "Burst of Strength"},
-        {3,  7, "Clarity of Thought"},
-        {4, 10, "Rock Skin"},
-        {5, 13, "Superhuman Strength"},
-        {6, 16, "Improved Reflexes"},
-    };
+    private static final List<PrayerRegistry.PrayerDef> PRAYERS = PrayerRegistry.f2pPrayers();
 
     private void renderPrayerTab(ShapeRenderer sr, SpriteBatch batch, BitmapFont font,
                                   Matrix4 proj, int mouseX, int mouseY) {
@@ -1298,9 +1291,10 @@ public class SidePanel {
         int startY = cY + CONTENT_H - 28;
 
         sr.begin(ShapeRenderer.ShapeType.Filled);
-        for (int i = 0; i < PRAYERS.length; i++) {
-            int prayerId = (int) PRAYERS[i][0];
-            int levelReq = (int) PRAYERS[i][1];
+        for (int i = 0; i < PRAYERS.size(); i++) {
+            PrayerRegistry.PrayerDef prayer = PRAYERS.get(i);
+            int prayerId = prayer.id();
+            int levelReq = prayer.levelRequirement();
             boolean active = activePrayerIds.contains(prayerId);
             boolean canUse = prayerLevel >= levelReq && currentPrayerPoints > 0;
             boolean hovering = mouseX >= contentX + PAD && mouseX <= contentX + CONTENT_W - PAD
@@ -1351,10 +1345,11 @@ public class SidePanel {
         // -- Text pass --
         batch.setProjectionMatrix(proj);
         batch.begin();
-        for (int i = 0; i < PRAYERS.length; i++) {
-            int prayerId = (int) PRAYERS[i][0];
-            int levelReq = (int) PRAYERS[i][1];
-            String name = (String) PRAYERS[i][2];
+        for (int i = 0; i < PRAYERS.size(); i++) {
+            PrayerRegistry.PrayerDef prayer = PRAYERS.get(i);
+            int prayerId = prayer.id();
+            int levelReq = prayer.levelRequirement();
+            String name = prayer.name();
             boolean active = activePrayerIds.contains(prayerId);
             boolean canUse = prayerLevel >= levelReq;
             int rowY = startY - (i + 1) * ROW_H + 2;
@@ -2872,8 +2867,8 @@ public class SidePanel {
                 int startY = cY + CONTENT_H - 28;
                 final int ROW_H = 36;
                 int contentX = panelX + CONTENT_INSET;
-                for (int i = 0; i < PRAYERS.length; i++) {
-                    int prayerId = (int) PRAYERS[i][0];
+                for (int i = 0; i < PRAYERS.size(); i++) {
+                    int prayerId = PRAYERS.get(i).id();
                     int rowY = startY - (i + 1) * ROW_H + 2;
                     if (mx >= contentX + 8 && mx <= contentX + CONTENT_W - 8
                      && my >= rowY && my <= rowY + ROW_H - 2) {

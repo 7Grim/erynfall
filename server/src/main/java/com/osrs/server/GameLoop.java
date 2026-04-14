@@ -14,6 +14,7 @@ import com.osrs.shared.ItemDefinition;
 import com.osrs.shared.CombatStyle;
 import com.osrs.shared.CookingRegistry;
 import com.osrs.shared.EquipmentSlot;
+import com.osrs.shared.FiremakingRegistry;
 import com.osrs.shared.NPC;
 import com.osrs.shared.Player;
 import com.osrs.shared.SkillingAction;
@@ -93,7 +94,13 @@ public class GameLoop {
     // Fixed mine attempt interval: 3 OSRS ticks per roll (OSRS standard)
     private static final int MINE_ATTEMPT_INTERVAL = MiningRegistry.MINE_ATTEMPT_OSRS_TICKS * OSRS_TICKS_TO_SERVER;
     private static final int SMITH_ITEM_ATTEMPT_INTERVAL = 5 * OSRS_TICKS_TO_SERVER;
+    private static final int FIREMAKING_ATTEMPT_INTERVAL = 2 * OSRS_TICKS_TO_SERVER;
     private static final int COAL_ITEM_ID = 453;
+    private static final int TINDERBOX_ITEM_ID = 590;
+    private static final int COOKING_FIRE_DEFINITION_ID = 400;
+    private static final String COOKING_FIRE_NAME = "Cooking Fire";
+    private static final long TEMP_FIRE_LIFETIME_TICKS = 15_360L;
+    private static int nextTemporaryFireNpcId = 1_000_000;
 
     
     public GameLoop(long tickIntervalNs, World world, NettyServer nettyServer) {
@@ -203,6 +210,9 @@ public class GameLoop {
 
             // Stage 5: Loot generation — tick ground item visibility and despawn
             tickGroundItems();
+
+            // Stage 5a: Temporary player-lit fire expiry
+            processTemporaryFireExpiry();
 
             // Stage 5b: NPC respawn timers
             processNPCRespawns();
@@ -1078,6 +1088,38 @@ public class GameLoop {
         toRemove.forEach(world::removeGroundItem);
     }
 
+    private void processTemporaryFireExpiry() {
+        List<Integer> expiredFireIds = new ArrayList<>();
+        for (NPC npc : world.getNPCs().values()) {
+            if (!isTemporaryCookingFire(npc)) {
+                continue;
+            }
+            if (tickCount >= npc.getRespawnAtTick()) {
+                expiredFireIds.add(npc.getId());
+            }
+        }
+
+        for (int fireId : expiredFireIds) {
+            NPC removed = world.getNPCs().remove(fireId);
+            if (removed == null) {
+                continue;
+            }
+            nettyServer.broadcastToAll(NetworkProto.ServerMessage.newBuilder()
+                .setNpcDespawn(NetworkProto.NpcDespawn.newBuilder()
+                    .setNpcId(fireId))
+                .build());
+            LOG.debug("Temporary fire {} expired at ({},{})", fireId, removed.getX(), removed.getY());
+        }
+    }
+
+    private boolean isTemporaryCookingFire(NPC npc) {
+        return npc != null
+            && !npc.isDead()
+            && npc.getRespawnAtTick() > 0
+            && npc.getDefinitionId() == COOKING_FIRE_DEFINITION_ID
+            && COOKING_FIRE_NAME.equalsIgnoreCase(npc.getName());
+    }
+
     /**
      * Consumes one arrow from the player's AMMO slot after a ranged attack.
      *
@@ -1402,6 +1444,8 @@ public class GameLoop {
                 processMining(player, session);
             } else if (player.getSkillingAction() == SkillingAction.SMITHING) {
                 processSmithing(player, session);
+            } else if (player.getSkillingAction() == SkillingAction.FIREMAKING) {
+                processFiremaking(player, session);
             }
         }
     }
@@ -2064,6 +2108,161 @@ public class GameLoop {
         player.setSkillingNextAttemptTick(tickCount + nextCookingAttemptTicks(cookingLevel));
     }
 
+    private void processFiremaking(Player player, PlayerSession session) {
+        GroundItem targetLog = world.getGroundItem(player.getSkillingTargetNpcId());
+        if (targetLog == null) {
+            stopSkilling(player, session, "target-invalid");
+            return;
+        }
+
+        FiremakingRegistry.LogTier logTier = FiremakingRegistry.getByItemId(targetLog.getItemId());
+        if (logTier == null) {
+            stopSkilling(player, session, "target-invalid");
+            return;
+        }
+
+        if (player.isInCombat()) {
+            sendChatMessageToPlayer(session.getChannel(), "You are too busy fighting.", 1);
+            stopSkilling(player, session, "combat");
+            return;
+        }
+
+        if (player.isInDialogue()) {
+            sendChatMessageToPlayer(session.getChannel(), "Finish your conversation first.", 1);
+            stopSkilling(player, session, "dialogue");
+            return;
+        }
+
+        if (player.getX() != targetLog.getX() || player.getY() != targetLog.getY()) {
+            sendChatMessageToPlayer(session.getChannel(), "I can't reach that!", 1);
+            stopSkilling(player, session, "out-of-range");
+            return;
+        }
+
+        int firemakingLevel = Math.max(1, player.getSkillLevel(Player.SKILL_FIREMAKING));
+        if (firemakingLevel < logTier.levelRequirement()) {
+            sendChatMessageToPlayer(
+                session.getChannel(),
+                "You need a Firemaking level of " + logTier.levelRequirement() + " to burn " + firemakingTargetName(logTier) + ".",
+                1
+            );
+            stopSkilling(player, session, "level-requirement");
+            return;
+        }
+
+        if (!hasInventoryItem(player, TINDERBOX_ITEM_ID)) {
+            sendChatMessageToPlayer(session.getChannel(), "You need a tinderbox to light logs.", 1);
+            stopSkilling(player, session, "missing-tool");
+            return;
+        }
+
+        announceSkillingActive(player, session, "You attempt to light the logs.");
+
+        if (tickCount < player.getSkillingNextAttemptTick()) {
+            return;
+        }
+        player.setSkillingNextAttemptTick(tickCount + FIREMAKING_ATTEMPT_INTERVAL);
+
+        int successThreshold = FiremakingRegistry.successThreshold255(logTier, firemakingLevel);
+        boolean success = random.nextInt(255) < successThreshold;
+        if (!success) {
+            sendChatMessageToPlayer(session.getChannel(), "You fail to light the logs.", 0);
+            return;
+        }
+
+        world.removeGroundItem(targetLog.getGroundItemId());
+        broadcastGroundItemDespawn(targetLog.getGroundItemId());
+
+        spawnTemporaryCookingFire(targetLog.getX(), targetLog.getY());
+        stepPlayerAsideFromFire(player, targetLog.getX(), targetLog.getY());
+
+        sendSkillUpdate(player, Player.SKILL_FIREMAKING, logTier.xpTenths());
+        updateSkillQuestObjectives(session, Quest.TaskType.ACTION, logTier.itemId());
+        sendChatMessageToPlayer(session.getChannel(), "The fire catches and the logs begin to burn.", 0);
+        stopSkilling(player, session, "success");
+    }
+
+    private String firemakingTargetName(FiremakingRegistry.LogTier logTier) {
+        if (logTier == null || logTier.name() == null || logTier.name().isBlank()) {
+            return "logs";
+        }
+        String normalized = logTier.name().trim().toLowerCase();
+        return normalized.endsWith("logs") ? normalized : normalized + " logs";
+    }
+
+    private void spawnTemporaryCookingFire(int x, int y) {
+        int npcId = nextTemporaryFireNpcId;
+        while (world.getNPC(npcId) != null) {
+            npcId++;
+        }
+        nextTemporaryFireNpcId = npcId + 1;
+
+        NPC fire = new NPC(npcId, COOKING_FIRE_NAME, COOKING_FIRE_DEFINITION_ID, x, y);
+        fire.setCombatLevel(0);
+        fire.setMaxHealth(1);
+        fire.setMaxHit(0);
+        fire.setRespawnDelayTicks(0);
+        fire.setWanderRadius(0);
+        fire.setAggressive(false);
+        fire.setRespawnAtTick(tickCount + TEMP_FIRE_LIFETIME_TICKS);
+        world.getNPCs().put(npcId, fire);
+
+        nettyServer.broadcastToAll(NetworkProto.ServerMessage.newBuilder()
+            .setNpcRespawn(NetworkProto.NpcRespawn.newBuilder()
+                .setNpcId(fire.getId())
+                .setName(fire.getName())
+                .setX(fire.getX())
+                .setY(fire.getY())
+                .setHealth(fire.getHealth())
+                .setMaxHealth(fire.getMaxHealth())
+                .setCombatLevel(fire.getCombatLevel())
+                .setDefinitionId(fire.getDefinitionId()))
+            .build());
+    }
+
+    private void stepPlayerAsideFromFire(Player player, int fireX, int fireY) {
+        int[][] stepOrder = {
+            {-1, 0},
+            {1, 0},
+            {0, 1},
+            {0, -1}
+        };
+        for (int[] step : stepOrder) {
+            int tx = fireX + step[0];
+            int ty = fireY + step[1];
+            if (!isValidStepAsideTile(player, tx, ty)) {
+                continue;
+            }
+            player.setPosition(tx, ty);
+            nettyServer.broadcastToAll(NetworkProto.ServerMessage.newBuilder()
+                .setEntityUpdate(NetworkProto.EntityUpdate.newBuilder()
+                    .setEntityId(player.getId())
+                    .setX(tx)
+                    .setY(ty))
+                .build());
+            return;
+        }
+    }
+
+    private boolean isValidStepAsideTile(Player player, int x, int y) {
+        if (!world.canWalkTo(x, y)) {
+            return false;
+        }
+        NPC npc = world.getNPCAt(x, y);
+        if (npc != null) {
+            return false;
+        }
+        for (Player other : world.getPlayers().values()) {
+            if (other.getId() == player.getId()) {
+                continue;
+            }
+            if (other.getX() == x && other.getY() == y) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     private CookingRegistry.StationType cookingStationType(NPC station) {
         if (station == null || station.getName() == null) {
             return CookingRegistry.StationType.FIRE;
@@ -2249,6 +2448,7 @@ public class GameLoop {
             case COOKING -> NetworkProto.SkillingType.SKILLING_COOKING;
             case MINING -> NetworkProto.SkillingType.SKILLING_MINING;
             case SMITHING -> NetworkProto.SkillingType.SKILLING_SMITHING;
+            case FIREMAKING -> NetworkProto.SkillingType.SKILLING_FIREMAKING;
             case NONE -> NetworkProto.SkillingType.SKILLING_NONE;
         };
     }

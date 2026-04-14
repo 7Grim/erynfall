@@ -5,6 +5,7 @@ import com.osrs.shared.CombatStyle;
 import com.osrs.shared.ItemDefinition;
 import com.osrs.shared.NPC;
 import com.osrs.shared.Player;
+import com.osrs.shared.PrayerRegistry;
 import com.osrs.shared.SpellRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -126,7 +127,14 @@ public class CombatEngine {
             default         -> 0;
         };
 
-        int effectiveLevel = level + styleBonus + 8;
+        int effectiveLevel;
+        if (isRanged) {
+            // No F2P ranged-boosting prayers in this block.
+            effectiveLevel = level + styleBonus + 8;
+        } else {
+            double prayerMult = PrayerRegistry.highestActiveMultiplier(p.getActivePrayers(), PrayerRegistry.BonusType.ATTACK);
+            effectiveLevel = (int) Math.floor(level * prayerMult) + styleBonus + 8;
+        }
 
         int equipBonus = isRanged
             ? bonuses.rangedAttack
@@ -164,7 +172,8 @@ public class CombatEngine {
             case CONTROLLED -> 1;
             default         -> 0;
         };
-        int effectiveDefence = p.getDefenceLevel() + styleBonus + 8;
+        double prayerMult = PrayerRegistry.highestActiveMultiplier(p.getActivePrayers(), PrayerRegistry.BonusType.DEFENCE);
+        int effectiveDefence = (int) Math.floor(p.getDefenceLevel() * prayerMult) + styleBonus + 8;
 
         // Sum all melee defence bonuses (conservative — OSRS picks based on attack type,
         // but we don't know the attacker's type here; using average is a fair proxy)
@@ -233,7 +242,8 @@ public class CombatEngine {
             case CONTROLLED -> 1;
             default         -> 0;
         };
-        int effectiveStr = strLevel + styleBonus + 8;
+        double prayerMult = PrayerRegistry.highestActiveMultiplier(p.getActivePrayers(), PrayerRegistry.BonusType.STRENGTH);
+        int effectiveStr = (int) Math.floor(strLevel * prayerMult) + styleBonus + 8;
         int strBonus     = bonuses.meleeStrength;
         return Math.max(1, (int) Math.floor(0.5 + effectiveStr * (strBonus + 64) / 640.0));
     }
