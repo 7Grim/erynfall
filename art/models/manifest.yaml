@@ -438,20 +438,21 @@ assets:
     required: false
     notes: Low-poly goblin combat/action pose.
   - key: equip_head_bronze_full_helm
-    file: equip_head_bronze_full_helm.g3dj
+    file: equip_head_bronze_full_helm.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
     notes: Bronze full helm attachment.
+    source_blend: equipment/equip_head_bronze_full_helm.blend
     equip_slot: 0
     item_id: 1115
     anchor_name: head_anchor
     offset_x: 0.0
     offset_y: 1.18
     offset_z: 0.0
-    rot_x: 3.0
+    rot_x: 0.0
     rot_y: 0.0
     rot_z: 0.0
     hide_nodes:
@@ -577,13 +578,14 @@ assets:
     rot_y: 0.0
     rot_z: 0.0
   - key: equip_body_bronze_platebody
-    file: equip_body_bronze_platebody.g3dj
+    file: equip_body_bronze_platebody.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
     notes: Bronze platebody attachment.
+    source_blend: equipment/equip_body_bronze_platebody.blend
     equip_slot: 6
     item_id: 1119
     anchor_name: body_anchor
