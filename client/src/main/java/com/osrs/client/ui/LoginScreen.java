@@ -76,7 +76,7 @@ public class LoginScreen extends ScreenAdapter {
     private boolean showSavedAccountView = false;
     private String savedEmail = "";
     private String savedPassword = "";
-    private final List<LaunchOptions.WorldOption> worldOptions = LaunchOptions.supportedWorlds();
+    private List<LaunchOptions.WorldOption> worldOptions = List.of();
     private int selectedWorldIndex = 0;
 
     public LoginScreen(ErynfallGame game) {
@@ -260,6 +260,7 @@ public class LoginScreen extends ScreenAdapter {
         savedPassword = prefs.getString(PREF_KEY_SAVED_PASSWORD, "");
         hasSavedCredentials = !savedEmail.isBlank() && !savedPassword.isBlank();
         showSavedAccountView = hasSavedCredentials;
+        worldOptions = LaunchOptions.supportedWorlds();
         String preferredWorldId = prefs.getString(PREF_KEY_SELECTED_WORLD_ID, LaunchOptions.defaultLoginWorldId());
         selectedWorldIndex = indexForWorldId(preferredWorldId);
 

@@ -34,33 +34,101 @@ scripts/  validation, export helpers, artist launch scripts
 mvn clean install
 ```
 
-### Run Server
+### Local Main World
+
+Build once:
+
+macOS / Linux:
 
 ```bash
-mvn -pl shared,server -am -DskipTests package
-./run-server.sh --world sandbox
+mvn -pl shared,server,client -am -DskipTests package
 ```
 
-Other local world targets:
+Windows:
+
+```cmd
+mvn -pl shared,server,client -am -DskipTests package
+```
+
+Run local `main_world` server:
+
+macOS / Linux:
 
 ```bash
 ./run-server.sh --world main_world
 ```
 
-Recommended workflow:
-- `sandbox` for local/dev system and content testing
-- `main_world` for testing the real live-world layout, including Tutorial Island as a region inside it
+Windows:
 
-The launcher also accepts the JVM property form if you prefer:
+```cmd
+run-server.bat --world main_world
+```
+
+Run local client:
+
+macOS / Linux:
 
 ```bash
-./run-server.sh -Derynfall.worldId=main_world
+./run-client.sh
 ```
+
+Windows:
+
+```cmd
+run-client.bat
+```
+
+Then on the login screen choose:
+- `Erynfall_001`
+
+When connecting to a remote/live server target, the login screen intentionally exposes only:
+- `Erynfall_001`
+
+`Sandbox` is only intended for local/dev testing against localhost.
+
+### Local Sandbox
+
+Run local `sandbox` server:
+
+macOS / Linux:
+
+```bash
+./run-server.sh --world sandbox
+```
+
+Windows:
+
+```cmd
+run-server.bat --world sandbox
+```
+
+Run local client:
+
+macOS / Linux:
+
+```bash
+./run-client.sh
+```
+
+Windows:
+
+```cmd
+run-client.bat
+```
+
+Then on the login screen choose:
+- `Sandbox`
+
+Important:
+- `sandbox` should primarily be used for local/dev testing
+- `main_world` is the real world containing Tutorial Island and mainland
+
+### Local Server Auth / DB Setup
 
 For a local server that still uses the shared Azure auth/database stack, create:
 
 ```bash
-.env.server.local
+server/.env.server.local
 ```
 
 with at minimum:
@@ -72,34 +140,54 @@ JWT_ISSUER=...
 JWT_AUDIENCE=erynfall-game
 ```
 
-Then launch normally with `./run-server.sh --world main_world` or `./run-server.sh --world sandbox`.
+Then launch normally with the server launcher for either `main_world` or `sandbox`.
 
 If these values are missing, the local server will still start, but:
 - DB persistence will fall back to in-memory mode if `DB_PASSWORD` is missing
 - token-auth login from the Azure auth service will be rejected if `JWT_SIGNING_KEY` is missing
 
-### Run Client
+### Remote Live Server Client
 
-```bash
-mvn -pl shared,client -am -DskipTests package
-./run-client.sh
-```
-
-Connect to a remote server explicitly:
+macOS / Linux:
 
 ```bash
 GAME_SERVER_HOST=165.22.37.200 ./run-client.sh
 ```
+
+Windows:
+
+```cmd
+set GAME_SERVER_HOST=165.22.37.200 && run-client.bat
+```
+
+Then on the login screen choose:
+- `Erynfall_001`
 
 ### Run Artist Mode
 
 Build the client jar first:
 
 ```bash
-mvn -pl client -am -DskipTests package
+mvn -pl shared,client -am -DskipTests package
 ```
 
-Then use a launch script:
+### Artist Mode On macOS / Linux
+
+Client:
+
+```bash
+./scripts/run-artist-client.sh
+```
+
+This runs artist mode against the local repo and defaults to the sandbox-style workflow.
+
+If the artist/client also needs a local server running for non-offline checks, use:
+
+```bash
+./run-server.sh --world sandbox
+```
+
+### Artist Mode On Windows
 
 Windows PowerShell:
 
@@ -113,11 +201,16 @@ Windows cmd:
 scripts\run-artist-client.bat
 ```
 
-macOS / Linux:
+If the artist/client also needs a local server running for non-offline checks, use:
 
-```bash
-./scripts/run-artist-client.sh
+```cmd
+run-server.bat --world sandbox
 ```
+
+Important:
+- artist mode is primarily intended for the local sandbox/testing workflow
+- the artist should generally not use `main_world` for everyday model iteration
+- use the normal client path with `Erynfall_001` when validating the real integrated world
 
 ## Read These First
 

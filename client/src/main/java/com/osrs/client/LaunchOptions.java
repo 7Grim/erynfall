@@ -3,7 +3,9 @@ package com.osrs.client;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.Files;
+import java.io.InputStream;
 import java.util.List;
+import java.util.Properties;
 import java.util.Set;
 
 public record LaunchOptions(boolean artistMode, String repoRoot, String worldId) {
@@ -13,6 +15,7 @@ public record LaunchOptions(boolean artistMode, String repoRoot, String worldId)
     private static final String ARTIST_MODE_PROPERTY = "erynfall.artistMode";
     private static final String REPO_ROOT_PROPERTY = "erynfall.repoRoot";
     private static final String WORLD_ID_PROPERTY = "erynfall.worldId";
+    private static final String GAME_SERVER_HOST_PROPERTY = "GAME_SERVER_HOST";
     private static final String DEFAULT_WORLD_ID = "sandbox";
     private static final String DEFAULT_LOGIN_WORLD_ID = "main_world";
     private static final Set<String> SUPPORTED_WORLD_IDS = Set.of(
@@ -71,6 +74,9 @@ public record LaunchOptions(boolean artistMode, String repoRoot, String worldId)
     }
 
     public static List<WorldOption> supportedWorlds() {
+        if (isRemoteServerTarget()) {
+            return List.of(new WorldOption("main_world", "Erynfall_001"));
+        }
         return SELECTABLE_WORLDS;
     }
 
@@ -79,7 +85,7 @@ public record LaunchOptions(boolean artistMode, String repoRoot, String worldId)
     }
 
     public static String defaultLoginWorldId() {
-        return DEFAULT_LOGIN_WORLD_ID;
+        return isRemoteServerTarget() ? "main_world" : DEFAULT_LOGIN_WORLD_ID;
     }
 
     public static String normalizeWorldId(String raw, String fallback) {
@@ -107,6 +113,40 @@ public record LaunchOptions(boolean artistMode, String repoRoot, String worldId)
             return false;
         }
         return SUPPORTED_WORLD_IDS.contains(candidate);
+    }
+
+    public static String resolveConfiguredGameServerHost() {
+        String host = System.getProperty(GAME_SERVER_HOST_PROPERTY);
+        if (host != null && !host.isBlank()) {
+            return host.trim();
+        }
+
+        host = System.getenv(GAME_SERVER_HOST_PROPERTY);
+        if (host != null && !host.isBlank()) {
+            return host.trim();
+        }
+
+        try (InputStream is = LaunchOptions.class.getResourceAsStream("/auth.properties")) {
+            if (is != null) {
+                Properties props = new Properties();
+                props.load(is);
+                String fromFile = props.getProperty("game.server.host");
+                if (fromFile != null && !fromFile.isBlank()) {
+                    return fromFile.trim();
+                }
+            }
+        } catch (Exception ignored) {
+        }
+
+        return "localhost";
+    }
+
+    public static boolean isRemoteServerTarget() {
+        String host = resolveConfiguredGameServerHost().trim().toLowerCase();
+        return !(host.isEmpty()
+            || "localhost".equals(host)
+            || "127.0.0.1".equals(host)
+            || "::1".equals(host));
     }
 
     private static String sanitizeWorldId(String raw) {
