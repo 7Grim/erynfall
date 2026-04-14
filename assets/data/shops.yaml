@@ -21,6 +21,8 @@ shops:
     stock:
       - item_id: 2347
         quantity: 100
+      - item_id: 1265
+        quantity: 60
   - id: "magic_supplier"
     name: "Magic Supplier"
     npc_name: "Magic Supplier"

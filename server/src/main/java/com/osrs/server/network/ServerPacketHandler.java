@@ -45,6 +45,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
     private static final int TRANSIENT_PLAYER_ID_OFFSET = 900_000;
     private static final int MAX_FRIENDS = 200;
     private static final int BRONZE_AXE_ITEM_ID = 1351;
+    private static final int BRONZE_PICKAXE_ITEM_ID = 1265;
     private static final int SMALL_FISHING_NET_ITEM_ID = 303;
     private static final int FISHING_BAIT_ITEM_ID = 313;
     private static final int HAMMER_ITEM_ID = 2347;
@@ -1014,6 +1015,17 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
                 }
             }
 
+            if (!hasItemInInventoryOrEquipmentOrBank(player, BRONZE_PICKAXE_ITEM_ID)) {
+                ItemDefinition pickaxe = server.getWorld().getItemDef(BRONZE_PICKAXE_ITEM_ID);
+                if (pickaxe != null && pickaxe.id > 0) {
+                    if (giveItemToInventory(player, pickaxe, 1) > 0) {
+                        changed = true;
+                    } else {
+                        blockedBySpace = true;
+                    }
+                }
+            }
+
             if (!changed) {
                 if (blockedBySpace) {
                     sendChatMessage(ctx, "You need more inventory space for supplies.", 1);
@@ -1027,7 +1039,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             if (DatabaseManager.isHealthy()) {
                 PlayerRepository.saveInventory(player);
             }
-            sendChatMessage(ctx, "The supplier hands you a hammer.", 0);
+            sendChatMessage(ctx, "The supplier hands you some basic metalworking tools.", 0);
             return;
         }
 
@@ -3892,6 +3904,9 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
 
     private void ensureStarterSkillingTools(Player player) {
         ensureStarterItem(player, BRONZE_AXE_ITEM_ID);
+        ensureStarterItem(player, BRONZE_PICKAXE_ITEM_ID);
+        ensureStarterItem(player, HAMMER_ITEM_ID);
+        ensureStarterItem(player, NEEDLE_ITEM_ID);
         ensureStarterItem(player, SMALL_FISHING_NET_ITEM_ID);
         ensureStarterItem(player, TINDERBOX_ITEM_ID);
         ensureStarterItem(player, 1115);  // Bronze full helm for equip_armor quest

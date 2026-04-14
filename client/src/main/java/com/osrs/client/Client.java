@@ -21,6 +21,7 @@ public class Client {
         LOG.info("Arch: {}", System.getProperty("os.arch"));
         LOG.info("Artist mode: {}", launchOptions.artistMode());
         LOG.info("Repo root: {}", launchOptions.repoRootPath());
+        LOG.info("World ID: {}", launchOptions.worldId());
         
         // Disable GLFW thread check (allows running from Maven on non-macOS)
         Configuration.GLFW_CHECK_THREAD0.set(false);

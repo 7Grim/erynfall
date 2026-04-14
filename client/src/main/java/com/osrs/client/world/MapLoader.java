@@ -2,6 +2,7 @@ package com.osrs.client.world;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
+import com.osrs.client.LaunchOptions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -32,11 +33,18 @@ public class MapLoader {
         this.walkableById = walkableById;
     }
 
-    /** Load map.yaml from the classpath. Throws RuntimeException on failure. */
+    /** Load world-specific map from the classpath. Throws RuntimeException on failure. */
     public static MapLoader load() {
+        return load(LaunchOptions.normal());
+    }
+
+    public static MapLoader load(LaunchOptions launchOptions) {
+        LaunchOptions options = launchOptions == null ? LaunchOptions.normal() : launchOptions;
+        String worldId = options.worldId();
+        String mapResourcePath = "/worlds/" + worldId + "/map.yaml";
         ObjectMapper mapper = new ObjectMapper(new YAMLFactory());
-        try (InputStream is = MapLoader.class.getResourceAsStream("/map.yaml")) {
-            if (is == null) throw new IllegalStateException("map.yaml not found in classpath");
+        try (InputStream is = MapLoader.class.getResourceAsStream(mapResourcePath)) {
+            if (is == null) throw new IllegalStateException("map not found in classpath at " + mapResourcePath);
 
             @SuppressWarnings("unchecked")
             Map<String, Object> data = mapper.readValue(is, Map.class);
@@ -78,10 +86,10 @@ public class MapLoader {
                 }
             }
 
-            LOG.info("Client gameplay map loaded: {}x{} tiles, {} walkability types", w, h, walkable.size());
+            LOG.info("Client gameplay map loaded for world '{}': {}x{} tiles, {} walkability types", worldId, w, h, walkable.size());
             return new MapLoader(layout, walkable);
         } catch (Exception e) {
-            throw new RuntimeException("Failed to load client map.yaml", e);
+            throw new RuntimeException("Failed to load client map for world '" + worldId + "'", e);
         }
     }
 

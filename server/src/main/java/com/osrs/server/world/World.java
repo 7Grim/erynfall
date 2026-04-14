@@ -83,6 +83,9 @@ public class World {
 
     public World() throws Exception {
         LOG.info("Initializing World...");
+        String worldId = WorldLoader.getConfiguredWorldId();
+        String mapPath = "worlds/" + worldId + "/map.yaml";
+        LOG.info("Configured world ID: {}", worldId);
 
         // Load item definitions from items.yaml
         Map<Integer, ItemDefinition> loadedItems;
@@ -94,7 +97,7 @@ public class World {
         }
         this.itemDefs = loadedItems;
 
-        // Load world configuration from world.yml
+        // Load world configuration from worlds/<worldId>/world.yml
         this.worldData = WorldLoader.loadWorld();
         LOG.info("World configuration loaded");
         LOG.info("  Spawn: ({}, {})", worldData.spawnX, worldData.spawnY);
@@ -103,9 +106,9 @@ public class World {
         // Initialize tile map
         this.tileMap = new TileMap();
         try {
-            tileMap.load("map.yaml");
+            tileMap.load(mapPath);
         } catch (Exception e) {
-            LOG.warn("Failed to load map.yaml; using default walkable map: {}", e.getMessage());
+            LOG.warn("Failed to load {}; using default walkable map: {}", mapPath, e.getMessage());
             tileMap.initializeDefaultMap(104, 104);  // OSRS default size
         }
         this.pathfinding = new Pathfinding(tileMap);

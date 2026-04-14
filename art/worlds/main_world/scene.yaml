@@ -1,0 +1,21 @@
+---
+version: 1
+id: "main_world"
+terrain_height:
+  height_step: 0.6
+  regions:
+    - name: "main_world_foundation"
+      min_x: 8
+      min_y: 8
+      max_x: 96
+      max_y: 95
+      level: 1
+terrain_visual:
+  regions:
+    - name: "main_world_path_stub"
+      min_x: 48
+      min_y: 46
+      max_x: 56
+      max_y: 54
+      type: "path"
+static_props: []

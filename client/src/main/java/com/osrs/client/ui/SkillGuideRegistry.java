@@ -472,7 +472,7 @@ public final class SkillGuideRegistry {
             final String[] texts = {
                 "Mine rocks to collect ores used in Smithing. Each ore type requires a minimum Mining level.",
                 "As your Mining level rises, your chance of successfully mining each swing improves. Higher-level ores give more XP.",
-                "Better pickaxes mine faster. Pickaxes work from inventory even when you lack the Attack level to equip them."
+                "Better pickaxes mine faster. You start with a bronze pickaxe, and Smithing Supplier can replace one if needed."
             };
 
             shapeRenderer.setProjectionMatrix(projection);
@@ -739,7 +739,7 @@ public final class SkillGuideRegistry {
             final String[] texts = {
                 "Smelt ores at a furnace to create bars, then use bars and a hammer at an anvil to smith equipment.",
                 "As your Smithing level rises, you unlock stronger bars and more advanced products.",
-                "You can forge tools, daggers, maces, helms, chainbodies, shields, platelegs, platebodies, and scimitars."
+                "You start with a hammer, and Smithing Supplier can provide replacement metalworking tools if you lose them."
             };
 
             shapeRenderer.setProjectionMatrix(projection);

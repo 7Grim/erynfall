@@ -1,0 +1,41 @@
+world:
+  spawn_x: 52
+  spawn_y: 52
+  spawn_location: "main_world"
+
+maps:
+  main_world:
+    name: "Main World"
+    min_x: 8
+    min_y: 8
+    max_x: 96
+    max_y: 95
+    description: "Scaffold for future main world content"
+
+npcs:
+  - id: 9001
+    name: "Main World Guide"
+    combat_level: 0
+    max_hp: 10
+    max_hit: 0
+    location: "main_world"
+    x: 52
+    y: 50
+    examine: "A placeholder guide for the future main world."
+    wander_radius: 0
+    is_aggressive: false
+
+  - id: 9002
+    name: "Banker"
+    combat_level: 0
+    max_hp: 10
+    max_hit: 0
+    location: "main_world"
+    x: 52
+    y: 48
+    examine: "A helpful banker."
+    wander_radius: 0
+    is_aggressive: false
+    is_banker: true
+
+loot_tables: {}

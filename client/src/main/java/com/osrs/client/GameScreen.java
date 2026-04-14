@@ -603,7 +603,7 @@ public class GameScreen extends ApplicationAdapter {
         renderer3d.setSpriteSheet(spriteSheet);
         renderer3d.setModelLibrary(modelLibrary);
         renderer3d.setArtistDebugVisualization(debug3DArtistBoundsAxes, debug3DArtistAnchors);
-        mapLoader  = MapLoader.load();
+        mapLoader  = MapLoader.load(launchOptions);
         tileMap    = mapLoader.getLayout();
         terrainVisualData = TerrainVisualLoader.loadTerrainVisualData(launchOptions);
         visualTerrainTileMap = TerrainVisualLoader.composeVisualTileMap(tileMap, terrainVisualData, null);

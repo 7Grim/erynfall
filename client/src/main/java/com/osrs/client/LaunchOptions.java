@@ -4,19 +4,22 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.Files;
 
-public record LaunchOptions(boolean artistMode, String repoRoot) {
+public record LaunchOptions(boolean artistMode, String repoRoot, String worldId) {
 
     private static final String ARTIST_MODE_PROPERTY = "erynfall.artistMode";
     private static final String REPO_ROOT_PROPERTY = "erynfall.repoRoot";
+    private static final String WORLD_ID_PROPERTY = "erynfall.worldId";
+    private static final String DEFAULT_WORLD_ID = "sandbox";
 
     public static LaunchOptions normal() {
-        return new LaunchOptions(false, detectDefaultRepoRoot().toString());
+        return new LaunchOptions(false, detectDefaultRepoRoot().toString(), DEFAULT_WORLD_ID);
     }
 
     public static LaunchOptions fromArgs(String[] args) {
         LaunchOptions defaults = fromSystemProperties();
         boolean artistMode = defaults.artistMode();
         String repoRoot = defaults.repoRoot();
+        String worldId = defaults.worldId();
 
         if (args != null) {
             for (String arg : args) {
@@ -30,11 +33,16 @@ public record LaunchOptions(boolean artistMode, String repoRoot) {
                     if (!value.isEmpty()) {
                         repoRoot = Paths.get(value).toAbsolutePath().normalize().toString();
                     }
+                } else if (arg.startsWith("--world-id=")) {
+                    String value = arg.substring("--world-id=".length()).trim();
+                    if (!value.isEmpty()) {
+                        worldId = sanitizeWorldId(value);
+                    }
                 }
             }
         }
 
-        return new LaunchOptions(artistMode, repoRoot);
+        return new LaunchOptions(artistMode, repoRoot, worldId);
     }
 
     private static LaunchOptions fromSystemProperties() {
@@ -44,7 +52,15 @@ public record LaunchOptions(boolean artistMode, String repoRoot) {
         String repoRoot = configuredRepoRoot.isEmpty()
             ? defaultRepoRoot
             : Paths.get(configuredRepoRoot).toAbsolutePath().normalize().toString();
-        return new LaunchOptions(artistMode, repoRoot);
+        String worldId = sanitizeWorldId(System.getProperty(WORLD_ID_PROPERTY, DEFAULT_WORLD_ID));
+        return new LaunchOptions(artistMode, repoRoot, worldId);
+    }
+
+    private static String sanitizeWorldId(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return DEFAULT_WORLD_ID;
+        }
+        return raw.trim().toLowerCase();
     }
 
     private static Path detectDefaultRepoRoot() {

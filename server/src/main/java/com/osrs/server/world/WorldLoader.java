@@ -17,6 +17,8 @@ import java.util.*;
 public class WorldLoader {
     
     private static final Logger LOG = LoggerFactory.getLogger(WorldLoader.class);
+    private static final String WORLD_ID_PROPERTY = "erynfall.worldId";
+    private static final String DEFAULT_WORLD_ID = "sandbox";
     private static final Set<String> VISUAL_ARCHETYPE_NAMES = Set.of(
         "rat",
         "giant rat",
@@ -24,18 +26,18 @@ public class WorldLoader {
         "cow"
     );
     
-    /**
-     * Load world from world.yml resource
-     */
+    /** Load world from worlds/<worldId>/world.yml resource. */
     public static WorldData loadWorld() throws Exception {
-        LOG.info("Loading world configuration from world.yml");
+        String worldId = sanitizeWorldId(System.getProperty(WORLD_ID_PROPERTY, DEFAULT_WORLD_ID));
+        String worldResourcePath = "worlds/" + worldId + "/world.yml";
+        LOG.info("Loading world configuration for world '{}' from {}", worldId, worldResourcePath);
         
         try {
             ObjectMapper mapper = new ObjectMapper(new YAMLFactory());
-            InputStream is = WorldLoader.class.getClassLoader().getResourceAsStream("world.yml");
+            InputStream is = WorldLoader.class.getClassLoader().getResourceAsStream(worldResourcePath);
             
             if (is == null) {
-                throw new Exception("world.yml not found in resources");
+                throw new Exception(worldResourcePath + " not found in resources");
             }
             
             Map<String, Object> yaml = mapper.readValue(is, Map.class);
@@ -144,6 +146,17 @@ public class WorldLoader {
             LOG.error("Failed to load world configuration", e);
             throw e;
         }
+    }
+
+    public static String getConfiguredWorldId() {
+        return sanitizeWorldId(System.getProperty(WORLD_ID_PROPERTY, DEFAULT_WORLD_ID));
+    }
+
+    private static String sanitizeWorldId(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return DEFAULT_WORLD_ID;
+        }
+        return raw.trim().toLowerCase(Locale.ROOT);
     }
     
     // Helper methods
