@@ -42,14 +42,19 @@ T      = (0,   0,   0,   0)       # transparent
 # ── Player / generic humanoid ──
 SKIN   = (208, 152, 104, 255)
 SKIN_D = (160, 104,  64, 255)     # shadow / underside
-HAIR   = ( 56,  36,  16, 255)
-TUN    = ( 72,  96, 148, 255)     # tunic blue-grey
-TUN_D  = ( 48,  64, 104, 255)
-PNT    = ( 80,  64,  40, 255)     # pants brown
-PNT_D  = ( 56,  44,  24, 255)
-BOOT   = ( 36,  24,  12, 255)
-BELT   = ( 88,  60,  24, 255)
-EYE    = ( 40,  28,  20, 255)
+HAIR   = ( 64,  46,  26, 255)     # dark brown
+TUN    = ( 71,  46,  23, 255)     # vest dark brown leather (was blue-grey tunic)
+TUN_D  = ( 48,  30,  14, 255)
+PNT    = ( 51,  64,  82, 255)     # faded denim blue (was brown)
+PNT_D  = ( 36,  46,  60, 255)
+BOOT   = ( 56,  36,  20, 255)     # dark brown leather boots
+BELT   = ( 64,  41,  20, 255)     # dark leather holster belt
+EYE    = ( 38,  72, 115, 255)     # grey-blue eyes
+HAT    = ( 77,  56,  31, 255)     # worn brown leather hat
+HAT_D  = ( 51,  37,  20, 255)     # hat shadow / underside brim
+HAT_BN = (166, 133,  56, 255)     # hat band aged gold
+BND    = (166,  38,  26, 255)     # bandana dusty red
+SHT    = (140, 122,  92, 255)     # shirt (dusty off-white, visible under vest)
 AXE    = (160, 160, 168, 255)     # axe blade (grey metal)
 
 # ── NPC Banker (gold shirt, dark-blue pants) ──
@@ -112,40 +117,74 @@ def vline(img, x, y1, y2, c):
 # Head occupies head_y..head_y+5 (6 rows total, chin on row head_y+5).
 # Callers set head_y = 1 + body_dy  so upper body bobs without moving boots.
 
-def head_south(img, hy, skin, skin_d, hair, eye):
-    """South-facing (frontal). 10 px wide centred at x=3..12."""
-    hline(img,  4, 11, hy,     hair)          # crown
-    px(img,  3, hy + 1, hair)                 # left hair border
-    px(img, 12, hy + 1, hair)                 # right hair border
-    rect(img, 4, hy + 1, 8, 4, skin)          # face (y+1..y+4)
-    px(img,  5, hy + 3, eye)                  # left eye
-    px(img, 10, hy + 3, eye)                  # right eye
-    hline(img,  5, 10, hy + 5, skin)          # chin centre
-    px(img,  4, hy + 5, skin_d)               # chin corners (shadow)
+def head_south(img, hy, skin, skin_d, hair, eye, hat=None, hat_d=None, hat_bn=None):
+    """South-facing (frontal). 10 px wide centred at x=3..12.
+    Pass hat/hat_d/hat_bn to draw cowboy hat (uses hy-1 row for brim)."""
+    if hat is not None:
+        hline(img,  2, 13, hy - 1, hat)           # wide brim (uses the 'clear' row above)
+        px(img,   1, hy - 1, hat_d or hat)         # brim underside left
+        px(img,  14, hy - 1, hat_d or hat)         # brim underside right
+        hline(img,  4, 11, hy,     hat)            # crown top row
+        hline(img,  5, 10, hy + 1, hat_bn or hat)  # hat band row (narrow stripe)
+    else:
+        hline(img,  4, 11, hy,     hair)           # crown
+        px(img,  3, hy + 1, hair)                  # left hair border
+        px(img, 12, hy + 1, hair)                  # right hair border
+    rect(img, 4, hy + 1, 8, 4, skin)              # face (y+1..y+4) — hat band overlays top row
+    px(img,  5, hy + 3, eye)                       # left eye
+    px(img, 10, hy + 3, eye)                       # right eye
+    hline(img,  5, 10, hy + 5, skin)               # chin centre
+    px(img,  4, hy + 5, skin_d)                    # chin corners (shadow)
     px(img, 11, hy + 5, skin_d)
 
-def head_north(img, hy, hair):
-    """North-facing (back of head). All hair, no visible face."""
-    hline(img,  4, 11, hy,     hair)
-    rect(img,   3, hy + 1, 10, 5, hair)
+def head_north(img, hy, hair, hat=None, hat_d=None, hat_bn=None):
+    """North-facing (back of head). All hair (or hat), no visible face."""
+    if hat is not None:
+        hline(img,  2, 13, hy - 1, hat)            # wide brim
+        px(img,   1, hy - 1, hat_d or hat)
+        px(img,  14, hy - 1, hat_d or hat)
+        hline(img,  4, 11, hy,     hat)             # back of crown
+        rect(img,   3, hy + 1, 10, 5, hat)          # crown body (all hat, back visible)
+        hline(img,  4, 11, hy + 5, hat_bn or hat)   # band at brim join
+    else:
+        hline(img,  4, 11, hy,     hair)
+        rect(img,   3, hy + 1, 10, 5, hair)
 
-def head_east(img, hy, skin, skin_d, hair, eye):
+def head_east(img, hy, skin, skin_d, hair, eye, hat=None, hat_d=None, hat_bn=None):
     """East-facing right-profile. Face on left half (x=6-9), hair on right."""
-    hline(img,  6, 12, hy,     hair)          # top hair
-    rect(img,   6, hy + 1, 4, 4, skin)        # face
-    hline(img, 10, 13, hy + 1, hair)          # back of head row 1
-    hline(img, 10, 13, hy + 2, hair)
-    hline(img, 10, 12, hy + 3, hair)
-    px(img,  8, hy + 3, eye)                  # single eye
-    hline(img,  6,  9, hy + 5, skin)          # chin
+    if hat is not None:
+        hline(img,  4, 14, hy - 1, hat)            # brim east: extends forward(left) and back(right)
+        px(img,   3, hy - 1, hat_d or hat)
+        px(img,  15, hy - 1, hat_d or hat)
+        hline(img,  6, 13, hy,     hat)             # crown top
+        hline(img, 10, 13, hy + 1, hat)             # back of crown
+        hline(img, 10, 12, hy + 2, hat)
+        hline(img,  6,  9, hy + 1, hat_bn or hat)  # band stripe (front-side)
+    else:
+        hline(img,  6, 12, hy,     hair)            # top hair
+        hline(img, 10, 13, hy + 1, hair)            # back of head row 1
+        hline(img, 10, 13, hy + 2, hair)
+        hline(img, 10, 12, hy + 3, hair)
+    rect(img,   6, hy + 1, 4, 4, skin)             # face
+    px(img,  8, hy + 3, eye)                        # single eye
+    hline(img,  6,  9, hy + 5, skin)               # chin
 
-def head_west(img, hy, skin, skin_d, hair, eye):
+def head_west(img, hy, skin, skin_d, hair, eye, hat=None, hat_d=None, hat_bn=None):
     """West-facing left-profile. Mirror of east."""
-    hline(img,  3,  9, hy,     hair)
+    if hat is not None:
+        hline(img,  1, 11, hy - 1, hat)            # brim west: extends forward(right) and back(left)
+        px(img,   0, hy - 1, hat_d or hat)
+        px(img,  12, hy - 1, hat_d or hat)
+        hline(img,  2,  9, hy,     hat)             # crown top
+        hline(img,  2,  5, hy + 1, hat)             # back of crown
+        hline(img,  2,  5, hy + 2, hat)
+        hline(img,  6,  9, hy + 1, hat_bn or hat)  # band stripe (front-side)
+    else:
+        hline(img,  3,  9, hy,     hair)
+        hline(img,  2,  5, hy + 1, hair)
+        hline(img,  2,  5, hy + 2, hair)
+        hline(img,  3,  5, hy + 3, hair)
     rect(img,   6, hy + 1, 4, 4, skin)
-    hline(img,  2,  5, hy + 1, hair)
-    hline(img,  2,  5, hy + 2, hair)
-    hline(img,  3,  5, hy + 3, hair)
     px(img,  7, hy + 3, eye)
     hline(img,  6,  9, hy + 5, skin)
 
@@ -155,26 +194,40 @@ def head_west(img, hy, skin, skin_d, hair, eye):
 # Neck is at ty, shirt y=ty+1..ty+6, belt at ty+7.
 # Callers pass ty = 7 + body_dy.
 
-def torso_south(img, ty, shirt, shirt_d, belt, skin):
-    rect(img,  7, ty,     2, 1, skin)          # neck visible
-    rect(img,  3, ty + 1, 10, 6, shirt)        # shirt body
-    vline(img, 12, ty + 1, ty + 6, shirt_d)    # right-side shadow
+def torso_south(img, ty, shirt, shirt_d, belt, skin, bandana=None):
+    if bandana:
+        rect(img,  6, ty, 4, 1, bandana)           # bandana covers neck front
+    else:
+        rect(img,  7, ty,     2, 1, skin)          # neck visible
+    rect(img,  3, ty + 1, 10, 6, shirt)            # shirt/vest body
+    vline(img, 12, ty + 1, ty + 6, shirt_d)        # right-side shadow
     hline(img,  3, 12, ty + 7, belt)
 
-def torso_north(img, ty, shirt, shirt_d, belt, skin):
-    rect(img,  6, ty,     4, 1, skin)           # back of neck
+def torso_north(img, ty, shirt, shirt_d, belt, skin, bandana=None):
+    if bandana:
+        rect(img,  5, ty, 6, 1, bandana)           # bandana back knot
+    else:
+        rect(img,  6, ty, 4, 1, skin)              # back of neck
     rect(img,  4, ty + 1, 8, 6, shirt)
     vline(img, 11, ty + 1, ty + 6, shirt_d)
     hline(img,  4, 11, ty + 7, belt)
 
-def torso_east(img, ty, shirt, shirt_d, belt, skin):
-    px(img,    6, ty, skin)                     # neck side
-    rect(img,  6, ty + 1, 5, 6, shirt)          # profile chest (5 px wide)
-    vline(img, 11, ty + 1, ty + 3, shirt_d)     # right shadow
+def torso_east(img, ty, shirt, shirt_d, belt, skin, bandana=None):
+    if bandana:
+        px(img,  6, ty, bandana)                   # bandana side
+        px(img,  7, ty, bandana)
+    else:
+        px(img,    6, ty, skin)                    # neck side
+    rect(img,  6, ty + 1, 5, 6, shirt)             # profile chest (5 px wide)
+    vline(img, 11, ty + 1, ty + 3, shirt_d)        # right shadow
     hline(img,  6, 11, ty + 7, belt)
 
-def torso_west(img, ty, shirt, shirt_d, belt, skin):
-    px(img,    9, ty, skin)
+def torso_west(img, ty, shirt, shirt_d, belt, skin, bandana=None):
+    if bandana:
+        px(img,  8, ty, bandana)
+        px(img,  9, ty, bandana)
+    else:
+        px(img,    9, ty, skin)
     rect(img,  5, ty + 1, 5, 6, shirt)
     vline(img,  4, ty + 1, ty + 3, shirt_d)
     hline(img,  4,  9, ty + 7, belt)
@@ -266,48 +319,48 @@ def player_idle(frame):
     """16×24 south-facing idle. Frame 1 drops body 1px (gentle breath bob)."""
     img = new(16, 24)
     dy  = 1 if frame == 1 else 0
-    head_south(img, 1 + dy, SKIN, SKIN_D, HAIR, EYE)
-    torso_south(img, 7 + dy, TUN, TUN_D, BELT, SKIN)
+    head_south(img, 1 + dy, SKIN, SKIN_D, HAIR, EYE, hat=HAT, hat_d=HAT_D, hat_bn=HAT_BN)
+    torso_south(img, 7 + dy, TUN, TUN_D, BELT, SKIN, bandana=BND)
     legs_south(img, 0, PNT, PNT_D, BOOT)
     return img
 
 def player_walk_south(frame):
     img = new(16, 24)
     dy  = 1 if frame in (1, 3) else 0
-    head_south(img, 1 + dy, SKIN, SKIN_D, HAIR, EYE)
-    torso_south(img, 7 + dy, TUN, TUN_D, BELT, SKIN)
+    head_south(img, 1 + dy, SKIN, SKIN_D, HAIR, EYE, hat=HAT, hat_d=HAT_D, hat_bn=HAT_BN)
+    torso_south(img, 7 + dy, TUN, TUN_D, BELT, SKIN, bandana=BND)
     legs_south(img, frame, PNT, PNT_D, BOOT)
     return img
 
 def player_walk_north(frame):
     img = new(16, 24)
     dy  = 1 if frame in (1, 3) else 0
-    head_north(img, 1 + dy, HAIR)
-    torso_north(img, 7 + dy, TUN, TUN_D, BELT, SKIN)
+    head_north(img, 1 + dy, HAIR, hat=HAT, hat_d=HAT_D, hat_bn=HAT_BN)
+    torso_north(img, 7 + dy, TUN, TUN_D, BELT, SKIN, bandana=BND)
     legs_north(img, frame, PNT, PNT_D, BOOT)
     return img
 
 def player_walk_east(frame):
     img = new(16, 24)
     dy  = 1 if frame in (1, 3) else 0
-    head_east(img, 1 + dy, SKIN, SKIN_D, HAIR, EYE)
-    torso_east(img, 7 + dy, TUN, TUN_D, BELT, SKIN)
+    head_east(img, 1 + dy, SKIN, SKIN_D, HAIR, EYE, hat=HAT, hat_d=HAT_D, hat_bn=HAT_BN)
+    torso_east(img, 7 + dy, TUN, TUN_D, BELT, SKIN, bandana=BND)
     legs_east(img, frame, PNT, PNT_D, BOOT)
     return img
 
 def player_walk_west(frame):
     img = new(16, 24)
     dy  = 1 if frame in (1, 3) else 0
-    head_west(img, 1 + dy, SKIN, SKIN_D, HAIR, EYE)
-    torso_west(img, 7 + dy, TUN, TUN_D, BELT, SKIN)
+    head_west(img, 1 + dy, SKIN, SKIN_D, HAIR, EYE, hat=HAT, hat_d=HAT_D, hat_bn=HAT_BN)
+    torso_west(img, 7 + dy, TUN, TUN_D, BELT, SKIN, bandana=BND)
     legs_west(img, frame, PNT, PNT_D, BOOT)
     return img
 
 def player_chop(frame):
     """16×24, east-facing. Frame 0: axe raised, frame 1: mid-swing."""
     img = new(16, 24)
-    head_east(img, 1, SKIN, SKIN_D, HAIR, EYE)
-    torso_east(img, 7, TUN, TUN_D, BELT, SKIN)
+    head_east(img, 1, SKIN, SKIN_D, HAIR, EYE, hat=HAT, hat_d=HAT_D, hat_bn=HAT_BN)
+    torso_east(img, 7, TUN, TUN_D, BELT, SKIN, bandana=BND)
     legs_east(img, 0, PNT, PNT_D, BOOT)
     # Axe head (2×2 grey) + handle (vline dark) on the right side
     if frame == 0:                              # raised high
