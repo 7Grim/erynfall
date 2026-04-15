@@ -73,7 +73,7 @@ public class GameContent {
     }
 
     private boolean shouldEnableTutorialContent(String worldId) {
-        return "tutorial_island".equals(worldId) || "main_world".equals(worldId);
+        return "main_world".equals(worldId);
     }
 
     @SuppressWarnings("unchecked")

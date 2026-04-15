@@ -58,8 +58,9 @@ public class LoginScreen extends ScreenAdapter {
     private static final float BACKSPACE_INITIAL_DELAY   = 0.35f;
     private static final float BACKSPACE_REPEAT_INTERVAL = 0.045f;
 
-    private static final int MUTE_BTN_SZ     = 30;
-    private static final int MUTE_BTN_MARGIN = 12;
+    private static final int MUTE_BTN_W      = 68;   // wide enough for icon + ON/OFF label
+    private static final int MUTE_BTN_H      = 30;
+    private static final int MUTE_BTN_MARGIN = 14;
 
     private final ErynfallGame game;
 
@@ -203,10 +204,10 @@ public class LoginScreen extends ScreenAdapter {
                 int flippedY = h - screenY;
 
                 // Mute button (always active, fixed to corner)
-                int muteX = w - MUTE_BTN_SZ - MUTE_BTN_MARGIN;
+                int muteX = w - MUTE_BTN_W - MUTE_BTN_MARGIN;
                 int muteY = MUTE_BTN_MARGIN;
-                if (screenX >= muteX && screenX <= muteX + MUTE_BTN_SZ
-                 && flippedY >= muteY && flippedY <= muteY + MUTE_BTN_SZ) {
+                if (screenX >= muteX && screenX <= muteX + MUTE_BTN_W
+                 && flippedY >= muteY && flippedY <= muteY + MUTE_BTN_H) {
                     if (game.getAudioManager() != null) game.getAudioManager().toggleMute();
                     return true;
                 }
@@ -846,44 +847,74 @@ public class LoginScreen extends ScreenAdapter {
 
     private void renderMuteButton(int w, int h) {
         boolean muted = game.getAudioManager() == null || game.getAudioManager().isMusicMuted();
-        int bx = w - MUTE_BTN_SZ - MUTE_BTN_MARGIN;
+
+        int bx = w - MUTE_BTN_W - MUTE_BTN_MARGIN;
         int by = MUTE_BTN_MARGIN;
-        int cx = bx + MUTE_BTN_SZ / 2;
-        int cy = by + MUTE_BTN_SZ / 2;
+        int divX = bx + 32;           // vertical divider between icon and label areas
+        int iconCx = bx + 16;         // center of 32px icon zone
+        int iconCy = by + MUTE_BTN_H / 2;
 
         sr.setProjectionMatrix(proj);
 
+        // Background
         sr.begin(ShapeRenderer.ShapeType.Filled);
-        sr.setColor(muted ? 0.18f : 0.08f, muted ? 0.08f : 0.07f, 0.06f, 0.92f);
-        sr.rect(bx, by, MUTE_BTN_SZ, MUTE_BTN_SZ);
+        sr.setColor(muted ? 0.16f : 0.08f, muted ? 0.07f : 0.07f, 0.06f, 0.94f);
+        sr.rect(bx, by, MUTE_BTN_W, MUTE_BTN_H);
+
+        // Gold border
         sr.setColor(0.55f, 0.46f, 0.18f, 1f);
-        sr.rect(bx,                    by,                    MUTE_BTN_SZ, 1);
-        sr.rect(bx,                    by + MUTE_BTN_SZ - 1, MUTE_BTN_SZ, 1);
-        sr.rect(bx,                    by,                    1, MUTE_BTN_SZ);
-        sr.rect(bx + MUTE_BTN_SZ - 1, by,                    1, MUTE_BTN_SZ);
+        sr.rect(bx,                  by,                  MUTE_BTN_W, 1);
+        sr.rect(bx,                  by + MUTE_BTN_H - 1, MUTE_BTN_W, 1);
+        sr.rect(bx,                  by,                  1, MUTE_BTN_H);
+        sr.rect(bx + MUTE_BTN_W - 1, by,                  1, MUTE_BTN_H);
+
+        // Vertical divider between icon and state text areas
+        sr.setColor(0.38f, 0.32f, 0.13f, 1f);
+        sr.rect(divX, by + 3, 1, MUTE_BTN_H - 6);
+
+        // Speaker body (rect)
         sr.setColor(muted ? 0.55f : 0.85f, muted ? 0.52f : 0.82f, muted ? 0.45f : 0.70f, 1f);
-        sr.rect(cx - 1, cy - 4, 4, 8);
-        sr.triangle(cx - 1, cy - 4, cx - 1, cy + 4, cx - 6, cy);
+        sr.rect(iconCx - 1, iconCy - 4, 4, 8);
+        // Speaker cone (triangle)
+        sr.triangle(iconCx - 1, iconCy - 4, iconCx - 1, iconCy + 4, iconCx - 6, iconCy);
         sr.end();
 
         if (!muted) {
             sr.begin(ShapeRenderer.ShapeType.Line);
             sr.setColor(0.85f, 0.82f, 0.70f, 1f);
-            sr.arc(cx + 3, cy, 5f, -50f, 100f, 7);
-            sr.arc(cx + 3, cy, 9f, -42f, 84f, 9);
+            sr.arc(iconCx + 3, iconCy, 5f, -50f, 100f, 7);
+            sr.arc(iconCx + 3, iconCy, 9f, -42f, 84f, 9);
             sr.end();
         } else {
+            // Red diagonal slash
             sr.begin(ShapeRenderer.ShapeType.Filled);
-            sr.setColor(0.82f, 0.18f, 0.14f, 1f);
-            sr.rectLine(cx - 7, cy - 7, cx + 7, cy + 7, 2f);
+            sr.setColor(0.80f, 0.16f, 0.12f, 1f);
+            sr.rectLine(iconCx - 7, iconCy - 7, iconCx + 7, iconCy + 7, 2f);
             sr.end();
         }
 
+        // State label + [M] key hint (right zone: divX+4 to bx+MUTE_BTN_W-4)
         batch.setProjectionMatrix(proj);
         batch.begin();
-        font.getData().setScale(0.60f);
-        font.setColor(0.35f, 0.32f, 0.24f, 1f);
-        font.draw(batch, "[M]", bx + 4, by - 2);
+
+        // State text: "ON" or "OFF"
+        font.getData().setScale(0.72f);
+        String stateLabel = muted ? "OFF" : "ON";
+        font.setColor(muted ? 0.60f : 0.96f, muted ? 0.50f : 0.88f, muted ? 0.40f : 0.40f, 1f);
+        GlyphLayout stateLyt = new GlyphLayout(font, stateLabel);
+        int labelZoneW = MUTE_BTN_W - 32 - 4;
+        font.draw(batch, stateLabel,
+            divX + 4 + (labelZoneW - stateLyt.width) / 2f,
+            by + MUTE_BTN_H - 6);
+
+        // [M] key hint below state label
+        font.getData().setScale(0.52f);
+        font.setColor(0.38f, 0.34f, 0.22f, 1f);
+        GlyphLayout mLyt = new GlyphLayout(font, "[M]");
+        font.draw(batch, "[M]",
+            divX + 4 + (labelZoneW - mLyt.width) / 2f,
+            by + 10);
+
         font.getData().setScale(1f);
         font.setColor(Color.WHITE);
         batch.end();

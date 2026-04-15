@@ -20,7 +20,6 @@ public record LaunchOptions(boolean artistMode, String repoRoot, String worldId)
     private static final String DEFAULT_LOGIN_WORLD_ID = "main_world";
     private static final Set<String> SUPPORTED_WORLD_IDS = Set.of(
         "sandbox",
-        "tutorial_island",
         "main_world"
     );
     private static final List<WorldOption> SELECTABLE_WORLDS = List.of(

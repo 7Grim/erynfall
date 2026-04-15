@@ -16,8 +16,9 @@ Primary workflow:
 3. Export runtime assets to `art/models/` as `.glb`.
 4. Describe runtime metadata in `art/models/manifest.yaml`.
 5. Use artist mode and the in-client Art Workbench to preview, fit, bind, paint, and place assets.
-6. Save visual world-scene placement and terrain data to `art/world/tutorial_island.scene.yaml`.
-7. Save entity/resource visual bindings to `art/world/entity_visuals.yaml`.
+6. **Model work (MODEL_PREVIEW, EQUIPMENT_FIT, ENTITY_BINDING):** launch artist mode with `sandbox` world (default). Saves from ENTITY_BINDING go to `art/worlds/sandbox/scene.yaml` and `art/world/entity_visuals.yaml`.
+7. **World building (WORLD_PLACEMENT, TERRAIN_PAINT):** launch artist mode with `main_world`. Saves go to `art/worlds/main_world/scene.yaml`.
+8. Save entity/resource visual bindings to `art/world/entity_visuals.yaml`.
 
 This file is the source of truth for the current art workflow.
 
@@ -28,7 +29,8 @@ This file is the source of truth for the current art workflow.
 - 3D authored source: `art/blender/`
 - Runtime model exports: `art/models/`
 - Model metadata: `art/models/manifest.yaml`
-- Visual world-scene source: `art/world/tutorial_island.scene.yaml`
+- Visual world-scene source: `art/worlds/main_world/scene.yaml` (world building)
+- Sandbox test scene: `art/worlds/sandbox/scene.yaml` (model staging only)
 - Entity/resource visual bindings: `art/world/entity_visuals.yaml`
 
 ### Runtime Format
@@ -56,7 +58,12 @@ art/
   models/                       # runtime 3D exports (.glb primary)
     manifest.yaml               # model metadata / attachment metadata
   world/
-    tutorial_island.scene.yaml  # canonical visual scene source
+    entity_visuals.yaml         # entity/resource archetype visual bindings
+  worlds/
+    main_world/
+      scene.yaml                # canonical visual scene (terrain + props for tutorial island region + mainland)
+    sandbox/
+      scene.yaml                # sandbox scene (model staging, not world building)
 scripts/
   export-blender-models.py      # export planner / optional Blender CLI runner
   validate-models.py            # model + manifest validation
@@ -125,18 +132,23 @@ Example:
 
 ### 4. World Scene Source
 
-Static prop placement and terrain visual scene data belong in:
-- `art/world/tutorial_island.scene.yaml`
+Static prop placement and terrain visual scene data belong in the active world's scene file:
+- `art/worlds/main_world/scene.yaml` — tutorial island region + mainland (primary world building target)
+- `art/worlds/sandbox/scene.yaml` — sandbox staging scene
 
-This file currently owns:
+Each scene file owns:
 - `terrain_height`
 - `terrain_visual`
 - `static_props`
+
+The artist workbench saves to whichever world is currently loaded. Use `main_world` for real world building. Use `sandbox` for isolated model staging and testing.
 
 ### 5. Entity Visual Binding Source
 
 Entity and resource archetype visual bindings belong in:
 - `art/world/entity_visuals.yaml`
+
+This file is shared across all worlds (entity visuals are not world-specific).
 
 This file maps runtime entity `definition_id` values to visual behavior such as:
 - `sprite_key_2d`
@@ -162,27 +174,51 @@ Before launching the packaged client jar, build it:
 mvn -pl client -am -DskipTests package
 ```
 
-### Launch Scripts
+### Two Artist Launch Modes
 
-Preferred launch commands:
+#### Model Work (default — sandbox world)
+
+Use this for MODEL_PREVIEW, EQUIPMENT_FIT, ENTITY_BINDING.
+The sandbox server must be running locally.
+
+macOS / Linux:
+```bash
+./scripts/run-artist-client.sh
+```
 
 Windows PowerShell:
-
 ```powershell
 .\scripts\run-artist-client.ps1
 ```
 
 Windows cmd:
-
 ```cmd
 scripts\run-artist-client.bat
 ```
 
-macOS / Linux:
+This launches in sandbox world (default). Saves from ENTITY_BINDING go to `art/worlds/sandbox/scene.yaml` and `art/world/entity_visuals.yaml`.
 
+#### World Building (main_world)
+
+Use this for WORLD_PLACEMENT and TERRAIN_PAINT on the actual game world.
+The main_world server must be running locally.
+
+macOS / Linux:
 ```bash
-./scripts/run-artist-client.sh
+./scripts/run-artist-client.sh --world-id=main_world
 ```
+
+Windows PowerShell:
+```powershell
+.\scripts\run-artist-client.ps1 --world-id=main_world
+```
+
+Windows cmd:
+```cmd
+scripts\run-artist-client.bat --world-id=main_world
+```
+
+WORLD_PLACEMENT and TERRAIN_PAINT saves go directly to `art/worlds/main_world/scene.yaml`. After saving, the client hot-reloads the scene immediately via `reloadRuntimeAssets()`.
 
 These scripts:
 - resolve repo root automatically
@@ -379,7 +415,7 @@ Use this mode when:
 
 Purpose:
 - place and edit static props in the canonical visual scene
-- save scene placement to `art/world/tutorial_island.scene.yaml`
+- save scene placement to `art/worlds/{worldId}/scene.yaml` (the active world's scene file)
 
 This is visual scene editing only.
 It does not change gameplay pathing or collision authority.
@@ -425,7 +461,7 @@ It does not change gameplay pathing or collision authority.
 ### Delete / Save
 
 - `BACKSPACE` delete selected placement
-- `P` save scene to `art/world/tutorial_island.scene.yaml`
+- `P` save scene to `art/worlds/{worldId}/scene.yaml` (active world)
 
 ### Best Use
 
@@ -481,7 +517,7 @@ Gameplay map authority remains in `map.yaml`.
 - `[` / `]` cycle terrain type
 - `LMB` paint hovered tile
 - `E` erase/reset hovered tile override back to fallback
-- `P` save terrain visual changes to `art/world/tutorial_island.scene.yaml`
+- `P` save terrain visual changes to `art/worlds/{worldId}/scene.yaml` (active world)
 - `ESC` close workbench or exit search in other modes
 
 Current terrain visual vocabulary:
@@ -654,9 +690,10 @@ Use the workbench `ENTITY_BINDING` mode when possible instead of hand-editing th
 ### For Terrain Visual Authoring
 
 Static visual ground authoring is now owned by:
-- `terrain_visual` inside `art/world/tutorial_island.scene.yaml`
+- `terrain_visual` inside `art/worlds/main_world/scene.yaml` (for the actual game world)
+- `terrain_visual` inside `art/worlds/sandbox/scene.yaml` (for sandbox staging)
 
-Use `TERRAIN_PAINT` for tile-level edits instead of trying to repurpose gameplay `map.yaml` for visual art.
+Use `TERRAIN_PAINT` in the appropriate world mode instead of trying to repurpose gameplay `map.yaml` for visual art.
 
 ## Current Workflow Limitations
 

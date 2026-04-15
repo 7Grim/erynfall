@@ -4655,7 +4655,8 @@ public class GameScreen extends ApplicationAdapter {
             return;
         }
 
-        java.nio.file.Path scenePath = launchOptions.repoRootPath().resolve("art/world/tutorial_island.scene.yaml");
+        java.nio.file.Path scenePath = launchOptions.repoRootPath()
+            .resolve("art/worlds/" + launchOptions.worldId() + "/scene.yaml");
         ScenePersistence.SaveResult result = ScenePersistence.saveStaticProps(scenePath, sceneEditState.placements());
         if (!result.success()) {
             artWorkbenchPopup.setWorldPlacementStatus(result.message());
@@ -4681,7 +4682,8 @@ public class GameScreen extends ApplicationAdapter {
             return;
         }
 
-        java.nio.file.Path scenePath = launchOptions.repoRootPath().resolve("art/world/tutorial_island.scene.yaml");
+        java.nio.file.Path scenePath = launchOptions.repoRootPath()
+            .resolve("art/worlds/" + launchOptions.worldId() + "/scene.yaml");
         ScenePersistence.SaveResult result = ScenePersistence.saveTerrainVisualOverrides(
             scenePath,
             sceneEditState.terrainTileOverrides()
