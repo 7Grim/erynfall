@@ -960,7 +960,8 @@ public class Renderer3DExperimental {
             if (hasClips) {
                 String currentClip = currentPlayerClipByEntityId.getOrDefault(entityId, "");
                 if (!clipName.equals(currentClip)) {
-                    animationController.setAnimation(clipName, -1);
+                    // Blend over 0.15 s so walk→idle doesn't snap the legs.
+                    animationController.animate(clipName, -1, 1f, null, 0.15f);
                     currentPlayerClipByEntityId.put(entityId, clipName);
                 }
                 animationController.update(Math.max(0f, delta));
@@ -1047,7 +1048,7 @@ public class Renderer3DExperimental {
             if (hasClips) {
                 String currentClip = currentNpcClipByEntityId.getOrDefault(entityId, "");
                 if (!clipName.equals(currentClip)) {
-                    controller.setAnimation(clipName, -1);
+                    controller.animate(clipName, -1, 1f, null, 0.15f);
                     currentNpcClipByEntityId.put(entityId, clipName);
                 }
                 controller.update(Math.max(0f, delta));
@@ -1285,11 +1286,11 @@ public class Renderer3DExperimental {
 
     // ── Programmatic skeletal animation ─────────────────────────────────────
 
-    private static final float WALK_PERIOD    = 0.6f;
-    private static final float WALK_LEG_ANG   = 28f;
-    private static final float WALK_ARM_ANG   = 20f;
-    private static final float WALK_KNEE_F    = 0.45f;
-    private static final float WALK_ELBOW_F   = 0.30f;
+    private static final float WALK_PERIOD    = 1.2f;   // 2 OSRS ticks per full stride cycle
+    private static final float WALK_LEG_ANG   = 22f;   // reduced for OSRS-style subtle stride
+    private static final float WALK_ARM_ANG   = 14f;
+    private static final float WALK_KNEE_F    = 0.40f;
+    private static final float WALK_ELBOW_F   = 0.25f;
 
     /** Dispatch to walk or idle based on clip name. No-op if model lacks multi-bone structure. */
     private void applyCharacterAnimation(ModelInstance instance, String clipName, float animTime) {

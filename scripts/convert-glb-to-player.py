@@ -266,14 +266,37 @@ def split_mesh(pos, tri, normals, colors):
 
 def r4(v): return round(float(v), 4)
 
+# Limb segments must rotate around the TOP of the segment (the joint),
+# not the bounding-box centre.  Without this, rotation pivots at mid-thigh
+# instead of the hip, and mid-shin instead of the knee — body parts appear
+# detached during animation.
+_JOINT_TOP   = {"upper_leg_l","upper_leg_r","lower_leg_l","lower_leg_r",
+                 "upper_arm_l","upper_arm_r","lower_arm_l","lower_arm_r"}
+_JOINT_BOTT  = {"head"}   # head rotates at the neck (its bottom edge)
+
 
 def make_g3dj_part(node_id, d):
     """Build G3DJ mesh, node and material for one body part."""
     pos, normals, colors, tri = d["pos"], d["normals"], d["colors"], d["tri"]
 
-    # Centre mesh at its bounding box midpoint (node translation = world position)
-    ctr = ((pos.max(axis=0) + pos.min(axis=0)) / 2.0).astype(np.float32)
-    local_pos = pos - ctr
+    # Determine the joint pivot in world space
+    x_ctr = float((pos[:,0].max() + pos[:,0].min()) / 2.0)
+    y_min = float(pos[:,1].min())
+    y_max = float(pos[:,1].max())
+    y_ctr = (y_min + y_max) / 2.0
+    z_ctr = float((pos[:,2].max() + pos[:,2].min()) / 2.0)
+
+    if node_id in _JOINT_TOP:
+        # Hip / knee / shoulder / elbow — rotate around the top of the segment
+        pivot = np.array([x_ctr, y_max, z_ctr], dtype=np.float32)
+    elif node_id in _JOINT_BOTT:
+        # Head — rotate around the neck (bottom edge of the head mesh)
+        pivot = np.array([x_ctr, y_min, z_ctr], dtype=np.float32)
+    else:
+        # Torso, neck, hair: bounding-box centre is fine
+        pivot = np.array([x_ctr, y_ctr, z_ctr], dtype=np.float32)
+
+    local_pos = pos - pivot
 
     # Build vertex buffer: x y z r g b a  (7 floats per vertex)
     verts = []
@@ -292,7 +315,7 @@ def make_g3dj_part(node_id, d):
 
     g3dj_node = {
         "id":          node_id,
-        "translation": [r4(ctr[0]), r4(ctr[1]), r4(ctr[2])],
+        "translation": [r4(pivot[0]), r4(pivot[1]), r4(pivot[2])],
         "parts":       [{"meshpartid": f"part_{node_id}",
                          "materialid": f"mat_{node_id}"}]
     }
@@ -349,19 +372,31 @@ def make_clips(present):
         return {"id": cid, "length": round(length, 4), "bones": used}
 
     return [
+        # Idle: explicitly reset every animated bone so that switching from walk
+        # never leaves legs or arms frozen mid-swing.
         clip("idle", 2.0, [
-            kf(TRS,  [(0.0,0),(1.0,+2),(2.0,0)]),
-            kf(HEAD, [(0.0,0),(1.0,-1),(2.0,0)]),
+            kf(TRS,  [(0.0, 0  ),(1.0, +2  ),(2.0, 0  )]),
+            kf(HEAD, [(0.0, 0  ),(1.0, -1  ),(2.0, 0  )]),
+            kf(ULL,  [(0.0, 0  ),(2.0, 0   )]),
+            kf(ULR,  [(0.0, 0  ),(2.0, 0   )]),
+            kf(LLL,  [(0.0, 0  ),(2.0, 0   )]),
+            kf(LLR,  [(0.0, 0  ),(2.0, 0   )]),
+            kf(UAL,  [(0.0, -5 ),(2.0, -5  )]),
+            kf(UAR,  [(0.0, -5 ),(2.0, -5  )]),
+            kf(LAL,  [(0.0, 0  ),(2.0, 0   )]),
+            kf(LAR,  [(0.0, 0  ),(2.0, 0   )]),
         ]),
-        clip("walk", 0.8, [
-            kf(ULL, [(0.0,+30),(0.2,0),(0.4,-30),(0.6,0),(0.8,+30)]),
-            kf(ULR, [(0.0,-30),(0.2,0),(0.4,+30),(0.6,0),(0.8,-30)]),
-            kf(LLL, [(0.0,+12),(0.2,0),(0.4,  0),(0.6,0),(0.8,+12)]),
-            kf(LLR, [(0.0,  0),(0.2,0),(0.4,+12),(0.6,0),(0.8,  0)]),
-            kf(UAL, [(0.0,-22),(0.2,0),(0.4,+22),(0.6,0),(0.8,-22)]),
-            kf(UAR, [(0.0,+22),(0.2,0),(0.4,-22),(0.6,0),(0.8,+22)]),
-            kf(LAL, [(0.0,  0),(0.2,0),(0.4, +8),(0.6,0),(0.8,  0)]),
-            kf(LAR, [(0.0, +8),(0.2,0),(0.4,  0),(0.6,0),(0.8, +8)]),
+        # Walk: 1.2 s per full cycle (= 2 OSRS game ticks).  Reduced swing
+        # angles match OSRS's subtle, measured stride.
+        clip("walk", 1.2, [
+            kf(ULL, [(0.0,+22),(0.3,0),(0.6,-22),(0.9,0),(1.2,+22)]),
+            kf(ULR, [(0.0,-22),(0.3,0),(0.6,+22),(0.9,0),(1.2,-22)]),
+            kf(LLL, [(0.0, +8),(0.3,0),(0.6,  0),(0.9,0),(1.2, +8)]),
+            kf(LLR, [(0.0,  0),(0.3,0),(0.6, +8),(0.9,0),(1.2,  0)]),
+            kf(UAL, [(0.0,-14),(0.3,0),(0.6,+14),(0.9,0),(1.2,-14)]),
+            kf(UAR, [(0.0,+14),(0.3,0),(0.6,-14),(0.9,0),(1.2,+14)]),
+            kf(LAL, [(0.0,  0),(0.3,0),(0.6, +5),(0.9,0),(1.2,  0)]),
+            kf(LAR, [(0.0, +5),(0.3,0),(0.6,  0),(0.9,0),(1.2, +5)]),
         ]),
         clip("pickup", 1.0, [
             kf(TRS, [(0.0,0),(0.35,+35),(0.7,0),(1.0,0)]),

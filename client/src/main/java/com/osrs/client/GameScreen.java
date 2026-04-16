@@ -1166,10 +1166,15 @@ public class GameScreen extends ApplicationAdapter {
 
     private String animDirForDelta(float dx, float dy, String fallback) {
         if (Math.abs(dx) < 0.001f && Math.abs(dy) < 0.001f) return fallback;
-        if (Math.abs(dx) > Math.abs(dy)) {
-            return dx > 0 ? "e" : "w";
-        }
-        return dy > 0 ? "s" : "n";
+        boolean majorX = Math.abs(dx) > Math.abs(dy) * 2f;
+        boolean majorY = Math.abs(dy) > Math.abs(dx) * 2f;
+        if (majorX) return dx > 0 ? "e" : "w";
+        if (majorY) return dy > 0 ? "s" : "n";
+        // Diagonal
+        if (dx > 0 && dy > 0) return "se";
+        if (dx > 0 && dy < 0) return "ne";
+        if (dx < 0 && dy > 0) return "sw";
+        return "nw";
     }
 
     private void updateActorAnimationState(float delta) {
@@ -1322,7 +1327,9 @@ public class GameScreen extends ApplicationAdapter {
             return false;
         }
         float terrainY = renderer3d == null ? 0f : renderer3d.getTileTopY(tileX, tileY);
-        out.set(tileX + 0.5f, terrainY + worldHeight, tileY + 0.5f).prj(camera3d.combined);
+        out.set(tileX + 0.5f, terrainY + worldHeight, tileY + 0.5f);
+        camera3d.project(out);
+        // camera3d.project() outputs screen pixel coords; z is NDC depth (0=near, 1=far)
         return out.z >= 0f && out.z <= 1f;
     }
 
@@ -2256,10 +2263,14 @@ public class GameScreen extends ApplicationAdapter {
             dir = npcAnimDir.getOrDefault(entry.entityId(), "s");
         }
         return switch (dir) {
-            case "n" -> 180f;
-            case "e" -> -90f;
-            case "w" -> 90f;
-            default -> 0f;
+            case "n"  -> 180f;
+            case "ne" -> 135f;
+            case "e"  -> 90f;
+            case "se" -> 45f;
+            case "sw" -> -45f;
+            case "w"  -> -90f;
+            case "nw" -> -135f;
+            default   -> 0f;  // "s"
         };
     }
 
@@ -5457,6 +5468,13 @@ public class GameScreen extends ApplicationAdapter {
         walkPath.addAll(path);
         lastStepSentX = Integer.MIN_VALUE;
         lastStepSentY = Integer.MIN_VALUE;
+
+        // Snap facing direction immediately to first step — OSRS snaps before any movement
+        int[] firstStep = path.get(0);
+        float stepDx = firstStep[0] - fromX;
+        float stepDy = firstStep[1] - fromY;
+        playerAnimDir = animDirForDelta(stepDx, stepDy, playerAnimDir);
+
         return true;
     }
 
