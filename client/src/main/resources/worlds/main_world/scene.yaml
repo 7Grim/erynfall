@@ -4,18 +4,54 @@ id: "main_world"
 terrain_height:
   height_step: 0.6
   regions:
-    - name: "tutorial_island_core"
-      min_x: 26
-      min_y: 68
-      max_x: 86
-      max_y: 124
-      level: 1
-    - name: "tutorial_island_hub"
-      min_x: 46
+    - name: "tutorial_coastal_low"
+      min_x: 24
+      min_y: 76
+      max_x: 42
+      max_y: 90
+      level: 0
+    - name: "tutorial_arrival_rise"
+      min_x: 42
       min_y: 88
-      max_x: 66
-      max_y: 106
+      max_x: 60
+      max_y: 100
+      level: 1
+    - name: "tutorial_guide_square"
+      min_x: 52
+      min_y: 92
+      max_x: 62
+      max_y: 100
       level: 2
+    - name: "tutorial_resource_terrace"
+      min_x: 56
+      min_y: 82
+      max_x: 76
+      max_y: 94
+      level: 1
+    - name: "tutorial_service_pad"
+      min_x: 60
+      min_y: 84
+      max_x: 74
+      max_y: 92
+      level: 2
+    - name: "tutorial_grove"
+      min_x: 34
+      min_y: 102
+      max_x: 52
+      max_y: 122
+      level: 1
+    - name: "tutorial_north_training"
+      min_x: 64
+      min_y: 104
+      max_x: 82
+      max_y: 122
+      level: 2
+    - name: "tutorial_combat_lane"
+      min_x: 72
+      min_y: 104
+      max_x: 80
+      max_y: 120
+      level: 1
     - name: "mainland_core"
       min_x: 206
       min_y: 62
@@ -28,43 +64,473 @@ terrain_height:
       max_x: 270
       max_y: 110
       level: 1
+
 terrain_visual:
   default_type: "water"
   regions:
-    - name: "tutorial_island_grass"
-      min_x: 24
-      min_y: 66
-      max_x: 88
-      max_y: 126
-      type: "grass"
-    - name: "tutorial_island_shore"
+    # ── Tutorial Island: base layers ──────────────────────────────────────────
+    # Sandy shore — island bounding box (paints beach perimeter)
+    - name: "island_sand_shore"
       min_x: 20
       min_y: 62
       max_x: 92
       max_y: 130
       type: "sand"
-    - name: "tutorial_path_hub"
-      min_x: 50
-      min_y: 90
-      max_x: 62
-      max_y: 102
-      type: "path"
-    - name: "mainland_grass"
-      min_x: 202
-      min_y: 58
-      max_x: 302
-      max_y: 140
+
+    # Grass interior — main walkable island surface
+    - name: "island_grass_interior"
+      min_x: 25
+      min_y: 67
+      max_x: 87
+      max_y: 125
       type: "grass"
+
+    # Fishing cove — visual water inlet (northwest).
+    # Wider than walkability water in map.yaml for natural look.
+    # Fishing spot NPCs at x:32/34 are on walkable shore tiles just east of here.
+    - name: "fishing_cove_water"
+      min_x: 24
+      min_y: 76
+      max_x: 36
+      max_y: 87
+      type: "water"
+
+    # Grove clearing — natural grass for woodcutting area.
+    # Painted before paths so path entry track can overwrite the junction.
+    - name: "grove_clearing"
+      min_x: 35
+      min_y: 104
+      max_x: 53
+      max_y: 120
+      type: "grass"
+
+    # ── Paths — painted on top of base terrain ────────────────────────────────
+    # Artisan yard: smithing / cooking / mining (north-east section)
+    - name: "artisan_yard_path"
+      min_x: 60
+      min_y: 82
+      max_x: 77
+      max_y: 93
+      type: "path"
+
+    # Arrival path west: dock shore to mid-island
+    - name: "arrival_path_west"
+      min_x: 34
+      min_y: 85
+      max_x: 46
+      max_y: 91
+      type: "path"
+
+    # Arrival path east: mid-island to central hub
+    - name: "arrival_path_east"
+      min_x: 44
+      min_y: 89
+      max_x: 57
+      max_y: 96
+      type: "path"
+
+    # Central hub square: Tutorial Guide / Banker / Quest Guide
+    - name: "central_hub_square"
+      min_x: 53
+      min_y: 91
+      max_x: 65
+      max_y: 100
+      type: "path"
+
+    # Mine access: hub to artisan yard
+    - name: "mine_access_path"
+      min_x: 57
+      min_y: 88
+      max_x: 68
+      max_y: 93
+      type: "path"
+
+    # Grove access: hub to woodcutting grove
+    - name: "grove_access_path"
+      min_x: 46
+      min_y: 98
+      max_x: 55
+      max_y: 110
+      type: "path"
+
+    # Combat access: hub to combat training yard
+    - name: "combat_access_path"
+      min_x: 62
+      min_y: 99
+      max_x: 73
+      max_y: 110
+      type: "path"
+
+    # Combat training yard: fenced arena for rats + instructor
+    - name: "combat_yard_floor"
+      min_x: 68
+      min_y: 106
+      max_x: 83
+      max_y: 121
+      type: "path"
+
+    # ── Mainland scaffold ─────────────────────────────────────────────────────
     - name: "mainland_shore"
       min_x: 196
       min_y: 56
       max_x: 308
       max_y: 142
       type: "sand"
-    - name: "mainland_path_hub"
+
+    - name: "mainland_grass"
+      min_x: 202
+      min_y: 62
+      max_x: 302
+      max_y: 136
+      type: "grass"
+
+    - name: "mainland_hub_path"
       min_x: 244
       min_y: 90
       max_x: 262
       max_y: 106
       type: "path"
-static_props: []
+
+  tile_overrides:
+    # Fishing cove shore — sand tiles at east cove edge for natural transition
+    - { x: 37, y: 86, type: "sand" }
+    - { x: 37, y: 85, type: "sand" }
+    - { x: 37, y: 84, type: "sand" }
+    - { x: 30, y: 88, type: "sand" }
+    - { x: 31, y: 88, type: "sand" }
+    - { x: 32, y: 88, type: "sand" }
+    # Dock-to-path connection
+    - { x: 36, y: 88, type: "path" }
+    - { x: 37, y: 88, type: "path" }
+    # Grove path junction
+    - { x: 50, y: 98, type: "path" }
+    - { x: 51, y: 99, type: "path" }
+    - { x: 52, y: 100, type: "path" }
+    # Combat yard entrance narrowing
+    - { x: 68, y: 105, type: "path" }
+    - { x: 69, y: 104, type: "path" }
+    - { x: 70, y: 103, type: "path" }
+
+static_props:
+  # ── Dock (northwest, fishing cove) ───────────────────────────────────────────
+  - key: "dock_pier_small"
+    x: 30
+    y: 82
+    rotation_y_degrees: 0.0
+    scale: 1.0
+    visibility_group: "base"
+  - key: "dock_platform"
+    x: 33
+    y: 84
+    rotation_y_degrees: 0.0
+    scale: 1.0
+    visibility_group: "base"
+  - key: "dock_stairs"
+    x: 35
+    y: 86
+    rotation_y_degrees: 0.0
+    scale: 1.0
+    visibility_group: "base"
+
+  # ── Tutorial Guide hut (central hub) ─────────────────────────────────────────
+  - key: "building_shell_small_base"
+    x: 56
+    y: 96
+    rotation_y_degrees: 0.0
+    scale: 1.0
+    visibility_group: "base"
+  - key: "building_shell_small_roof"
+    x: 56
+    y: 96
+    rotation_y_degrees: 0.0
+    scale: 1.0
+    visibility_group: "roof"
+
+  # ── Quest Guide hut (east of tutorial guide) ──────────────────────────────────
+  - key: "building_shell_small_base"
+    x: 62
+    y: 92
+    rotation_y_degrees: 0.0
+    scale: 1.0
+    visibility_group: "base"
+  - key: "building_shell_small_roof"
+    x: 62
+    y: 92
+    rotation_y_degrees: 0.0
+    scale: 1.0
+    visibility_group: "roof"
+
+  # ── Artisan service building (smithing / cooking / mining) ────────────────────
+  - key: "building_shell_service_base"
+    x: 68
+    y: 88
+    rotation_y_degrees: 0.0
+    scale: 1.0
+    visibility_group: "base"
+  - key: "building_shell_service_roof"
+    x: 68
+    y: 88
+    rotation_y_degrees: 0.0
+    scale: 1.0
+    visibility_group: "roof"
+
+  # ── Coastal building (fishing cove / survival intro) ──────────────────────────
+  - key: "building_shell_coastal_base"
+    x: 38
+    y: 84
+    rotation_y_degrees: 0.0
+    scale: 1.0
+    visibility_group: "base"
+  - key: "building_shell_coastal_roof"
+    x: 38
+    y: 84
+    rotation_y_degrees: 0.0
+    scale: 1.0
+    visibility_group: "roof"
+
+  # ── Survival Expert hut (grove / woodcutting area) ────────────────────────────
+  - key: "building_shell_coastal_base"
+    x: 44
+    y: 107
+    rotation_y_degrees: 90.0
+    scale: 1.0
+    visibility_group: "base"
+  - key: "building_shell_coastal_roof"
+    x: 44
+    y: 107
+    rotation_y_degrees: 90.0
+    scale: 1.0
+    visibility_group: "roof"
+
+  # ── Combat building (east training yard) ─────────────────────────────────────
+  - key: "building_shell_small_base"
+    x: 74
+    y: 111
+    rotation_y_degrees: 180.0
+    scale: 1.0
+    visibility_group: "base"
+  - key: "building_shell_small_roof"
+    x: 74
+    y: 111
+    rotation_y_degrees: 180.0
+    scale: 1.0
+    visibility_group: "roof"
+
+  # ── Signposts ────────────────────────────────────────────────────────────────
+  - key: "signpost_small"
+    x: 58
+    y: 98
+    rotation_y_degrees: 90.0
+    scale: 1.0
+    visibility_group: "base"
+  - key: "signpost_small"
+    x: 70
+    y: 100
+    rotation_y_degrees: 0.0
+    scale: 1.0
+    visibility_group: "base"
+  - key: "signpost_small"
+    x: 52
+    y: 102
+    rotation_y_degrees: 270.0
+    scale: 1.0
+    visibility_group: "base"
+  - key: "signpost_small"
+    x: 48
+    y: 100
+    rotation_y_degrees: 180.0
+    scale: 1.0
+    visibility_group: "base"
+  - key: "signpost_small"
+    x: 66
+    y: 102
+    rotation_y_degrees: 0.0
+    scale: 1.0
+    visibility_group: "base"
+
+  # ── Benches + tables (central hub) ───────────────────────────────────────────
+  - key: "bench_small"
+    x: 54
+    y: 94
+    rotation_y_degrees: 90.0
+    scale: 1.0
+    visibility_group: "base"
+  - key: "bench_small"
+    x: 60
+    y: 94
+    rotation_y_degrees: 90.0
+    scale: 1.0
+    visibility_group: "base"
+  - key: "table_small"
+    x: 66
+    y: 88
+    rotation_y_degrees: 0.0
+    scale: 1.0
+    visibility_group: "base"
+
+  # ── Artisan yard clutter ──────────────────────────────────────────────────────
+  - key: "crate_small"
+    x: 64
+    y: 87
+    rotation_y_degrees: 0.0
+    scale: 1.0
+    visibility_group: "base"
+  - key: "crate_small"
+    x: 76
+    y: 89
+    rotation_y_degrees: 0.0
+    scale: 1.0
+    visibility_group: "base"
+  - key: "barrel_small"
+    x: 72
+    y: 87
+    rotation_y_degrees: 0.0
+    scale: 1.0
+    visibility_group: "base"
+  - key: "barrel_small"
+    x: 64
+    y: 83
+    rotation_y_degrees: 90.0
+    scale: 1.0
+    visibility_group: "base"
+  - key: "sack_stack_small"
+    x: 73
+    y: 89
+    rotation_y_degrees: 180.0
+    scale: 1.0
+    visibility_group: "base"
+  - key: "cart_small"
+    x: 60
+    y: 90
+    rotation_y_degrees: 180.0
+    scale: 1.0
+    visibility_group: "base"
+
+  # ── Crafting stations ─────────────────────────────────────────────────────────
+  - key: "anvil"
+    x: 67
+    y: 86
+    rotation_y_degrees: 0.0
+    scale: 1.0
+    visibility_group: "base"
+  - key: "furnace"
+    x: 70
+    y: 86
+    rotation_y_degrees: 0.0
+    scale: 1.0
+    visibility_group: "base"
+
+  # ── Combat yard fence ─────────────────────────────────────────────────────────
+  # West side
+  - key: "fence_post_small"
+    x: 69
+    y: 104
+    rotation_y_degrees: 0.0
+    scale: 1.0
+    visibility_group: "base"
+  - key: "fence_post_small"
+    x: 69
+    y: 108
+    rotation_y_degrees: 0.0
+    scale: 1.0
+    visibility_group: "base"
+  - key: "fence_post_small"
+    x: 69
+    y: 112
+    rotation_y_degrees: 0.0
+    scale: 1.0
+    visibility_group: "base"
+  - key: "fence_post_small"
+    x: 69
+    y: 116
+    rotation_y_degrees: 0.0
+    scale: 1.0
+    visibility_group: "base"
+  # East side
+  - key: "fence_post_small"
+    x: 81
+    y: 106
+    rotation_y_degrees: 0.0
+    scale: 1.0
+    visibility_group: "base"
+  - key: "fence_post_small"
+    x: 81
+    y: 110
+    rotation_y_degrees: 0.0
+    scale: 1.0
+    visibility_group: "base"
+  - key: "fence_post_small"
+    x: 81
+    y: 114
+    rotation_y_degrees: 0.0
+    scale: 1.0
+    visibility_group: "base"
+  - key: "fence_post_small"
+    x: 81
+    y: 118
+    rotation_y_degrees: 0.0
+    scale: 1.0
+    visibility_group: "base"
+  # North fence row
+  - key: "fence_post_small"
+    x: 70
+    y: 105
+    rotation_y_degrees: 90.0
+    scale: 1.0
+    visibility_group: "base"
+  - key: "fence_post_small"
+    x: 74
+    y: 105
+    rotation_y_degrees: 90.0
+    scale: 1.0
+    visibility_group: "base"
+  - key: "fence_post_small"
+    x: 78
+    y: 105
+    rotation_y_degrees: 90.0
+    scale: 1.0
+    visibility_group: "base"
+  - key: "fence_post_small"
+    x: 82
+    y: 105
+    rotation_y_degrees: 90.0
+    scale: 1.0
+    visibility_group: "base"
+  # South fence row
+  - key: "fence_post_small"
+    x: 70
+    y: 121
+    rotation_y_degrees: 90.0
+    scale: 1.0
+    visibility_group: "base"
+  - key: "fence_post_small"
+    x: 74
+    y: 121
+    rotation_y_degrees: 90.0
+    scale: 1.0
+    visibility_group: "base"
+  - key: "fence_post_small"
+    x: 78
+    y: 121
+    rotation_y_degrees: 90.0
+    scale: 1.0
+    visibility_group: "base"
+  - key: "fence_post_small"
+    x: 82
+    y: 121
+    rotation_y_degrees: 90.0
+    scale: 1.0
+    visibility_group: "base"
+  # Artisan yard south boundary fence
+  - key: "fence_post_small"
+    x: 76
+    y: 88
+    rotation_y_degrees: 90.0
+    scale: 1.0
+    visibility_group: "base"
+  - key: "fence_post_small"
+    x: 76
+    y: 92
+    rotation_y_degrees: 90.0
+    scale: 1.0
+    visibility_group: "base"
