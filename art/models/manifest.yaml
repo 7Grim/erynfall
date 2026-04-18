@@ -238,21 +238,23 @@ assets:
     required: false
     notes: Service-area building shell for the 3D renderer.
   - key: building_shell_service_base
-    file: building_shell_service_base.g3dj
+    file: building_shell_service_base.glb
     category: shell
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: tile-center
     required: false
     notes: Lower walls/base of the service-area shell.
+    source_blend: shells/building_shell_service_base.blend
   - key: building_shell_service_roof
-    file: building_shell_service_roof.g3dj
+    file: building_shell_service_roof.glb
     category: shell
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: tile-center
     required: false
     notes: Upper roof/foreground piece of the service-area shell.
+    source_blend: shells/building_shell_service_roof.blend
   - key: building_shell_coastal
     file: building_shell_coastal.g3dj
     category: shell
@@ -262,21 +264,23 @@ assets:
     required: false
     notes: Shoreline/coastal building shell for the 3D renderer.
   - key: building_shell_coastal_base
-    file: building_shell_coastal_base.g3dj
+    file: building_shell_coastal_base.glb
     category: shell
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: tile-center
     required: false
     notes: Lower walls/base of the coastal shell.
+    source_blend: shells/building_shell_coastal_base.blend
   - key: building_shell_coastal_roof
-    file: building_shell_coastal_roof.g3dj
+    file: building_shell_coastal_roof.glb
     category: shell
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: tile-center
     required: false
     notes: Upper roof/foreground piece of the coastal shell.
+    source_blend: shells/building_shell_coastal_roof.blend
   - key: dock_pier_small
     file: dock_pier_small.g3dj
     category: prop
