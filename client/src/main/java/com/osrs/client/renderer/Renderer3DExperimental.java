@@ -2244,21 +2244,24 @@ public class Renderer3DExperimental {
         part.rect(v01, v11, v10, v00);
     }
 
-    /** OSRS-accurate base colors for each tile type (pre-lighting). */
+    /**
+     * OSRS-accurate base colors for each tile type (pre-lighting).
+     * Flat palette matching Tutorial Island visual style — minimal variation by design.
+     */
     private static Color tileBaseColor(int type) {
         return switch (type) {
-            case TILE_WATER -> new Color(0.20f, 0.36f, 0.48f, 1f); // water: slate blue
-            case TILE_PATH -> new Color(0.40f, 0.36f, 0.28f, 1f); // path: warm gray-brown
-            case TILE_WALL -> new Color(0.36f, 0.34f, 0.32f, 1f); // wall top: stone gray
-            case TILE_SAND -> new Color(0.56f, 0.48f, 0.28f, 1f); // sand: warm tan
-            default -> new Color(0.22f, 0.42f, 0.13f, 1f); // grass: dark natural green
+            case TILE_WATER -> new Color(0.10f, 0.26f, 0.44f, 1f); // water: deep blue
+            case TILE_PATH  -> new Color(0.46f, 0.38f, 0.22f, 1f); // path: warm dirt-brown
+            case TILE_WALL  -> new Color(0.34f, 0.32f, 0.30f, 1f); // wall: stone gray
+            case TILE_SAND  -> new Color(0.60f, 0.52f, 0.28f, 1f); // sand: warm sandy yellow
+            default         -> new Color(0.30f, 0.54f, 0.17f, 1f); // grass: medium OSRS green
         };
     }
 
     /**
      * Per-corner vertex color: average of up to 4 neighboring tile base colors
-     * plus ±5% seeded noise to break up uniformity (texture-like variation).
-     * cx, cz are tile-corner world coordinates (0..mapW, 0..mapH).
+     * plus minimal seeded noise (±1.5%) to prevent perfectly uniform flat shading
+     * without introducing visible speckle variation.
      */
     private Color tileCornerColor(int[][] tileMap, int cx, int cz) {
         float r = 0, g = 0, b = 0;
@@ -2274,15 +2277,15 @@ public class Renderer3DExperimental {
         }
         if (n == 0) return tileBaseColor(0);
         r /= n; g /= n; b /= n;
-        // Deterministic ±5% per-corner noise
+        // Deterministic ±1.5% per-corner noise (subtle, breaks perfect uniformity)
         int h = (cx * 374761393) ^ (cz * 668265263);
         h = (h ^ (h >>> 13)) * 1274126177;
         h ^= (h >>> 16);
-        float noise = ((h & 0xFF) / 255f - 0.5f) * 0.10f;
+        float noise = ((h & 0xFF) / 255f - 0.5f) * 0.03f;
         return new Color(
             Math.max(0f, Math.min(1f, r + noise)),
-            Math.max(0f, Math.min(1f, g + noise * 0.7f)),
-            Math.max(0f, Math.min(1f, b + noise * 0.4f)),
+            Math.max(0f, Math.min(1f, g + noise)),
+            Math.max(0f, Math.min(1f, b + noise)),
             1f);
     }
 

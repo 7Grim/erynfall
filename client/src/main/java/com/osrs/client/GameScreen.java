@@ -597,6 +597,11 @@ public class GameScreen extends ApplicationAdapter {
                     skillGuidePopup.handleScroll(amountY);
                     return true;
                 }
+                // Minimap scroll → zoom in/out
+                if (MiniMap.isOverMinimap(mx, smy, Gdx.graphics.getWidth(), Gdx.graphics.getHeight())) {
+                    miniMap.handleScroll(amountY);
+                    return true;
+                }
                 ClientPacketHandler h = handler();
                 boolean bankOpen = h != null && h.isBankOpen();
                 if (bankOpen && bankUI != null && bankUI.isOver(mx, smy)) {
@@ -1406,7 +1411,7 @@ public class GameScreen extends ApplicationAdapter {
             w, h, playerX, playerY,
             walkDestX, walkDestY,
             cameraYaw,
-            tileMap, handler());
+            visualTerrainTileMap, handler());
         if (dialogueUI.isVisible()) {
             renderDialogueOverlay(mouseScreenX, mouseScreenY);
         } else if (smeltingUI.isVisible()) {
@@ -4252,6 +4257,12 @@ public class GameScreen extends ApplicationAdapter {
                 ContextMenu.MenuItem clicked = contextMenu.getClickedItem(mx, screenMy);
                 if (clicked != null) handleContextMenuAction(clicked);
                 contextMenu.close();
+            } else if (MiniMap.isOverMinimap(mx, screenMy, w, h)) {
+                // Minimap left-click: walk to the clicked tile
+                int[] target = miniMap.getTileAtScreenPos(mx, screenMy, w, h, cameraYaw, playerX, playerY);
+                if (target != null && isValidMapTile(target[0], target[1])) {
+                    walkTo(target[0], target[1]);
+                }
             } else if (sidePanel.isOverPanel(mx, screenMy)) {
                 if (sidePanel.isInventoryTabActive()) {
                     int slot = sidePanel.getInventorySlotAt(mx, screenMy);
