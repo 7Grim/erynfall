@@ -51,6 +51,26 @@ entity_visuals:
     shadow_height: 4.0
     shadow_alpha: 0.16
 
+  - definition_id: 4
+    name: Rat
+    sprite_key_2d: npc_rat
+    model_key_3d: npc_rat
+    animated_3d: true
+    action_animated: true
+    shadow_width: 8.0
+    shadow_height: 4.0
+    shadow_alpha: 0.16
+
+  - definition_id: 5
+    name: Rat
+    sprite_key_2d: npc_rat
+    model_key_3d: npc_rat
+    animated_3d: true
+    action_animated: true
+    shadow_width: 8.0
+    shadow_height: 4.0
+    shadow_alpha: 0.16
+
   - definition_id: 60
     name: Giant Rat
     sprite_key_2d: npc_giant_rat
@@ -328,6 +348,36 @@ entity_visuals:
     shadow_width: 12.0
     shadow_height: 5.0
     shadow_alpha: 0.16
+
+  - definition_id: 50
+    name: Survival Expert
+    sprite_key_2d: npc_guide
+    model_key_3d: npc_guide
+    animated_3d: true
+    action_animated: false
+    shadow_width: 10.0
+    shadow_height: 5.0
+    shadow_alpha: 0.18
+
+  - definition_id: 51
+    name: Mining Instructor
+    sprite_key_2d: npc_guide
+    model_key_3d: npc_guide
+    animated_3d: true
+    action_animated: false
+    shadow_width: 10.0
+    shadow_height: 5.0
+    shadow_alpha: 0.18
+
+  - definition_id: 52
+    name: Quest Guide
+    sprite_key_2d: npc_guide
+    model_key_3d: npc_guide
+    animated_3d: true
+    action_animated: false
+    shadow_width: 10.0
+    shadow_height: 5.0
+    shadow_alpha: 0.18
 
   # Service NPCs without dedicated model keys yet.
   - definition_id: 37

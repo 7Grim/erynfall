@@ -45,5 +45,72 @@ npcs:
     walk_speed: 3
     walk_path: []
 
-  # Additional NPCs (9 more for Tutorial Island)
-  # TODO: Add remaining 12 NPCs as per Tutorial Island design
+  - id: 4
+    name: "Rat"
+    definition_id: 4
+    spawn_x: 77
+    spawn_y: 116
+    sprite_id: 1002
+    health: 35
+    max_health: 35
+    attack_level: 5
+    defence_level: 5
+    aggressive: false
+    walk_speed: 3
+    walk_path: []
+
+  - id: 5
+    name: "Rat"
+    definition_id: 5
+    spawn_x: 74
+    spawn_y: 118
+    sprite_id: 1002
+    health: 35
+    max_health: 35
+    attack_level: 5
+    defence_level: 5
+    aggressive: false
+    walk_speed: 3
+    walk_path: []
+
+  - id: 50
+    name: "Survival Expert"
+    definition_id: 50
+    spawn_x: 50
+    spawn_y: 108
+    sprite_id: 1050
+    health: 100
+    max_health: 100
+    dialogue:
+      initial: "dialogue_survival_expert_intro"
+      responses: []
+    walk_speed: 2
+    walk_path: []
+
+  - id: 51
+    name: "Mining Instructor"
+    definition_id: 51
+    spawn_x: 65
+    spawn_y: 90
+    sprite_id: 1051
+    health: 100
+    max_health: 100
+    dialogue:
+      initial: "dialogue_mining_instr_intro"
+      responses: []
+    walk_speed: 2
+    walk_path: []
+
+  - id: 52
+    name: "Quest Guide"
+    definition_id: 52
+    spawn_x: 58
+    spawn_y: 94
+    sprite_id: 1052
+    health: 100
+    max_health: 100
+    dialogue:
+      initial: "dialogue_quest_guide_intro"
+      responses: []
+    walk_speed: 2
+    walk_path: []

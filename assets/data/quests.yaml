@@ -3,86 +3,157 @@
 quests:
   - id: 1
     name: "Tutorial Island"
-    description: "Complete the Tutorial Island training"
+    description: "Complete the Tutorial Island training to unlock the mainland."
     miniquest: true
     quest_points: 1
     free_to_play: true
     reward_skill_index: 3   # Hitpoints XP on completion
     tasks:
+
+      # ── Arrival ─────────────────────────────────────────────────────────────
       - id: "speak_guide"
         type: "dialogue"
-        description: "Speak to the Tutorial Guide"
+        description: "Speak to the Tutorial Guide near the dock."
         npc_id: 1
         dialogue_id: "dialogue_tutorial_intro"
         reward_xp: 10
-        
-      - id: "learn_combat"
+
+      # ── Survival area: woodcutting / firemaking / fishing / cooking ──────────
+      - id: "speak_survival_expert"
         type: "dialogue"
-        description: "Speak to the Combat Instructor"
-        npc_id: 2
-        dialogue_id: "dialogue_combat_instructor"
-        reward_xp: 25
-        
-      - id: "kill_rats"
-        type: "kill"
-        description: "Defeat 5 rats"
-        npc_id: 3
-        count: 5
-        reward_xp: 150
-        
+        description: "Speak to the Survival Expert in the grove to the west."
+        npc_id: 50
+        dialogue_id: "dialogue_survival_expert_intro"
+        reward_xp: 10
+
       - id: "collect_logs"
         type: "collect"
-        description: "Collect 10 logs"
+        description: "Chop down 5 trees with your bronze axe."
         item_id: 1521
-        count: 10
-        reward_xp: 100
+        count: 5
+        reward_xp: 75
+
+      - id: "light_fire"
+        type: "action"
+        description: "Light a fire using logs and your tinderbox."
+        item_id: 1521
+        count: 1
+        reward_xp: 40
 
       - id: "catch_fish"
         type: "collect"
-        description: "Catch 5 raw shrimps at the fishing spot"
+        description: "Catch 5 raw shrimps at the fishing spot."
         item_id: 317
         count: 5
         reward_xp: 50
 
       - id: "cook_food"
         type: "action"
-        description: "Cook 5 food items at the cooking fire"
+        description: "Cook 3 food items at the cooking fire or range."
         npc_id: 400
-        count: 5
-        reward_xp: 100
-        
+        count: 3
+        reward_xp: 75
+
+      # ── Quest Guide ──────────────────────────────────────────────────────────
+      - id: "speak_quest_guide"
+        type: "dialogue"
+        description: "Speak to the Quest Guide near the guide hut."
+        npc_id: 52
+        dialogue_id: "dialogue_quest_guide_intro"
+        reward_xp: 10
+
+      # ── Mining / Smithing ────────────────────────────────────────────────────
+      - id: "speak_mining_instr"
+        type: "dialogue"
+        description: "Speak to the Mining Instructor at the mine."
+        npc_id: 51
+        dialogue_id: "dialogue_mining_instr_intro"
+        reward_xp: 15
+
+      - id: "mine_ore"
+        type: "collect"
+        description: "Mine 2 copper ore from the rocks."
+        item_id: 436
+        count: 2
+        reward_xp: 75
+
+      - id: "smelt_bar"
+        type: "collect"
+        description: "Smelt a bronze bar at the furnace."
+        item_id: 2349
+        count: 1
+        reward_xp: 62
+
+      - id: "smith_item"
+        type: "collect"
+        description: "Smith a bronze dagger at the anvil."
+        item_id: 1205
+        count: 1
+        reward_xp: 125
+
+      # ── Combat ───────────────────────────────────────────────────────────────
+      - id: "learn_combat"
+        type: "dialogue"
+        description: "Speak to the Combat Instructor in the training yard."
+        npc_id: 2
+        dialogue_id: "dialogue_combat_instructor"
+        reward_xp: 25
+
       - id: "equip_armor"
         type: "equip"
-        description: "Equip training armour"
+        description: "Equip your training armour."
         item_id: 1115
         reward_xp: 50
 
+      - id: "kill_rats"
+        type: "kill"
+        description: "Defeat 3 rats in melee combat."
+        npc_id: 3
+        count: 3
+        reward_xp: 100
+
+      - id: "ranged_combat"
+        type: "kill"
+        description: "Defeat a rat using ranged combat."
+        npc_id: 4
+        count: 1
+        reward_xp: 75
+
+      - id: "magic_combat"
+        type: "kill"
+        description: "Defeat a rat using magic."
+        npc_id: 5
+        count: 1
+        reward_xp: 75
+
       - id: "bury_bones"
         type: "action"
-        description: "Bury 5 bones"
+        description: "Bury 3 bones to train your Prayer skill."
         item_id: 526
-        count: 5
+        count: 3
         reward_xp: 25
 
-      - id: "light_fire"
+      # ── Banking ──────────────────────────────────────────────────────────────
+      - id: "use_bank"
         type: "action"
-        description: "Light a fire using your tinderbox"
-        item_id: 1521
+        description: "Open the bank to store your items."
+        npc_id: 40
         count: 1
-        reward_xp: 40
+        reward_xp: 10
 
+      # ── Completion ───────────────────────────────────────────────────────────
       - id: "return_to_guide"
         type: "hand_in"
-        description: "Return to the Tutorial Guide to complete the tutorial"
+        description: "Return to the Tutorial Guide to complete your training."
         npc_id: 1
         reward_xp: 0
 
-    # Quest completion reward
-    total_reward_xp: 550
+    # Quest completion reward (sum of all task XP above)
+    total_reward_xp: 913
     total_reward_gold: 0
-    
+
     # Skill requirements (none for tutorial)
     requirements: []
-    
+
     # Next quest after completion
     next_quest_id: null

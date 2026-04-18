@@ -1010,6 +1010,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
         session.setBankOpen(true);
         session.setBankNpcId(npc.getId());
         sendBankOpen(ctx, player);
+        updateGenericQuestObjectives(session, Quest.TaskType.ACTION, npc.getDefinitionId());
     }
 
     private void handleClaimNpcSupplies(ChannelHandlerContext ctx, NetworkProto.ClaimNpcSupplies request) {

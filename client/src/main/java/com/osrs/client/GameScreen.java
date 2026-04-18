@@ -51,6 +51,7 @@ import com.osrs.client.ui.SidePanel;
 import com.osrs.client.ui.SmithingUI;
 import com.osrs.client.ui.SmeltingUI;
 import com.osrs.client.ui.ShopUI;
+import com.osrs.client.ui.TutorialHintOverlay;
 import com.osrs.client.ui.XpDropOverlay;
 import com.osrs.shared.EquipmentSlot;
 import com.osrs.shared.FiremakingRegistry;
@@ -257,6 +258,7 @@ public class GameScreen extends ApplicationAdapter {
     private ChatBox      chatBox;
     private MiniMap      miniMap;
     private XpDropOverlay xpDropOverlay;
+    private TutorialHintOverlay tutorialHintOverlay;
     private LevelUpOverlay levelUpOverlay;
     private SkillGuidePopup skillGuidePopup;
     private AdminToolsPopup adminToolsPopup;
@@ -653,8 +655,9 @@ public class GameScreen extends ApplicationAdapter {
         shopUI = new ShopUI();
         miniMap = new MiniMap();
         chatBox        = new ChatBox();
-        xpDropOverlay  = new XpDropOverlay();
-        levelUpOverlay = new LevelUpOverlay();
+        xpDropOverlay       = new XpDropOverlay();
+        tutorialHintOverlay = new TutorialHintOverlay();
+        levelUpOverlay      = new LevelUpOverlay();
         skillGuidePopup = new SkillGuidePopup();
         adminToolsPopup = new AdminToolsPopup();
         artWorkbenchPopup = new ArtWorkbenchPopup();
@@ -1425,6 +1428,7 @@ public class GameScreen extends ApplicationAdapter {
         }
         xpDropOverlay.render(shapeRenderer, screenBatch, font, w, h, screenProjection,
             sidePanel.getPanelX(), SidePanel.TOTAL_H + SidePanel.MARGIN);
+        tutorialHintOverlay.render(shapeRenderer, screenBatch, font, w, h, screenProjection);
         if (handler != null && handler.isBankOpen()) {
             bankUI.render(shapeRenderer, screenBatch, font, w, h, screenProjection,
                 mouseScreenX, mouseScreenY, handler.getBankCapacity(), handler.getBankSlots(), handler,
@@ -3087,6 +3091,18 @@ public class GameScreen extends ApplicationAdapter {
                 status,
                 tasks
             ), evt.playerTotalQuestPoints);
+
+            // Tutorial hint overlay — only care about quest 1 (Tutorial Island)
+            if (evt.questId == 1) {
+                String firstIncomplete = null;
+                for (ClientPacketHandler.QuestUpdateEvent.TaskEvent task : evt.tasks) {
+                    if (!task.completed) {
+                        firstIncomplete = task.description;
+                        break;
+                    }
+                }
+                tutorialHintOverlay.onQuestUpdate(evt.completed, firstIncomplete);
+            }
 
             if (shown != evt.tasksCompleted || (evt.completed && !wasComplete)) {
                 if (evt.completed && !wasComplete) {

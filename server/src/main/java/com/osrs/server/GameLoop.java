@@ -1544,6 +1544,7 @@ public class GameLoop {
         sendInventorySlot(session.getChannel(), player, outputSlot);
         sendSkillUpdate(player, Player.SKILL_SMITHING, bar.xpTenths());
         sendChatMessageToPlayer(session.getChannel(), "You smelt " + article(bar.name()) + bar.name().toLowerCase() + ".", 0);
+        updateSkillQuestObjectives(session, Quest.TaskType.COLLECT, bar.itemId());
     }
 
     private void processAnvilSmithing(Player player, PlayerSession session, NPC anvil) {
@@ -1614,6 +1615,7 @@ public class GameLoop {
         sendSkillUpdate(player, Player.SKILL_SMITHING, SmithingRegistry.smithingXpTenths(product));
         sendChatMessageToPlayer(session.getChannel(),
             "You smith " + article(product.name()) + product.name().toLowerCase() + ".", 0);
+        updateSkillQuestObjectives(session, Quest.TaskType.COLLECT, product.itemId());
 
         player.setSkillingNextAttemptTick(tickCount + SMITH_ITEM_ATTEMPT_INTERVAL);
 

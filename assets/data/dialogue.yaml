@@ -105,3 +105,108 @@ dialogues:
       - option_id: 1
         text: "Good to know."
         next_dialogue: null
+
+  # ── Survival Expert (NPC 50) ─────────────────────────────────────────────
+
+  dialogue_survival_expert_intro:
+    npc_id: 50
+    npc_name: "Survival Expert"
+    npc_says: "Welcome to the survival area! To thrive in Erynfall you need to feed yourself and use the land. Use your bronze axe on those trees to chop logs, light the logs with your tinderbox to make a fire, then use the fishing spot to catch shrimps with your small net. Cook the raw shrimps on your fire or the cooking fire nearby."
+    options:
+      - option_id: 1
+        text: "How do I use the axe?"
+        next_dialogue: "dialogue_survival_expert_axe"
+      - option_id: 2
+        text: "How do I catch fish?"
+        next_dialogue: "dialogue_survival_expert_fish"
+      - option_id: 3
+        text: "Thanks, I'll get started."
+        next_dialogue: null
+
+  dialogue_survival_expert_axe:
+    npc_id: 50
+    npc_name: "Survival Expert"
+    npc_says: "Right-click a tree and choose Chop down. Your character will keep chopping until the tree falls and logs appear in your inventory. You start with a bronze axe — it's enough for normal trees."
+    options:
+      - option_id: 1
+        text: "[Back]"
+        next_dialogue: "dialogue_survival_expert_intro"
+
+  dialogue_survival_expert_fish:
+    npc_id: 50
+    npc_name: "Survival Expert"
+    npc_says: "Head to the fishing spot on the cove shore. Right-click it and choose Net. You already have a small fishing net in your inventory. Once you've caught some shrimps, cook them on your fire or that cooking fire near the range."
+    options:
+      - option_id: 1
+        text: "[Back]"
+        next_dialogue: "dialogue_survival_expert_intro"
+
+  # ── Quest Guide (NPC 52) ──────────────────────────────────────────────────
+
+  dialogue_quest_guide_intro:
+    npc_id: 52
+    npc_name: "Quest Guide"
+    npc_says: "Welcome to the Quest Guide hut! Quests are adventures and challenges spread across Erynfall. Your quest journal tracks all active and completed quests — press Q to open it. This very tutorial is your first quest! Complete all the objectives, then return to the Tutorial Guide."
+    options:
+      - option_id: 1
+        text: "What do I get for completing quests?"
+        next_dialogue: "dialogue_quest_guide_rewards"
+      - option_id: 2
+        text: "How do I track my progress?"
+        next_dialogue: "dialogue_quest_guide_tracking"
+      - option_id: 3
+        text: "Thanks, I'll keep going."
+        next_dialogue: null
+
+  dialogue_quest_guide_rewards:
+    npc_id: 52
+    npc_name: "Quest Guide"
+    npc_says: "Quests reward experience, items, and access to new areas of Erynfall. Some quests unlock skills, shops, or special content. As you progress, quests become the main way to grow your character."
+    options:
+      - option_id: 1
+        text: "[Back]"
+        next_dialogue: "dialogue_quest_guide_intro"
+
+  dialogue_quest_guide_tracking:
+    npc_id: 52
+    npc_name: "Quest Guide"
+    npc_says: "Open your quest journal with Q. Active tasks show your current objectives and how many you've completed. The tutorial hint in the top-right of your screen also shows your next step."
+    options:
+      - option_id: 1
+        text: "[Back]"
+        next_dialogue: "dialogue_quest_guide_intro"
+
+  # ── Mining Instructor (NPC 51) ────────────────────────────────────────────
+
+  dialogue_mining_instr_intro:
+    npc_id: 51
+    npc_name: "Mining Instructor"
+    npc_says: "Welcome to the mine and forge! Mining lets you extract ore from rock faces — you already have a bronze pickaxe. Use it on a copper rock to get started. Combine copper and tin ore at the furnace to smelt a bronze bar, then take that bar and your hammer to the anvil to smith your first item."
+    options:
+      - option_id: 1
+        text: "What ore do I need to smelt bronze?"
+        next_dialogue: "dialogue_mining_instr_smelt"
+      - option_id: 2
+        text: "What can I smith with bronze bars?"
+        next_dialogue: "dialogue_mining_instr_smith"
+      - option_id: 3
+        text: "I'll head to the mine now."
+        next_dialogue: null
+
+  dialogue_mining_instr_smelt:
+    npc_id: 51
+    npc_name: "Mining Instructor"
+    npc_says: "Bronze requires one copper ore and one tin ore. Mine each from their respective rocks — copper is the orange-veined rock, tin is the grey one. Use the furnace to smelt them into a bronze bar."
+    options:
+      - option_id: 1
+        text: "[Back]"
+        next_dialogue: "dialogue_mining_instr_intro"
+
+  dialogue_mining_instr_smith:
+    npc_id: 51
+    npc_name: "Mining Instructor"
+    npc_says: "With a bronze bar and a hammer, the anvil lets you smith daggers, axes, swords, and more — each requiring a certain Smithing level. A bronze dagger only needs level 1 Smithing, so it's the perfect place to start."
+    options:
+      - option_id: 1
+        text: "[Back]"
+        next_dialogue: "dialogue_mining_instr_intro"
