@@ -1,4 +1,4 @@
-package com.osrs.client.renderer;
+package com.osrs.client.renderer.legacy;
 
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.OrthographicCamera;
@@ -6,6 +6,8 @@ import com.badlogic.gdx.graphics.g2d.Animation;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
+import com.osrs.client.renderer.CoordinateConverter;
+import com.osrs.client.renderer.SpriteSheet;
 
 /**
  * Isometric tile + entity renderer.

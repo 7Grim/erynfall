@@ -13,6 +13,7 @@ import com.badlogic.gdx.graphics.g2d.GlyphLayout;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
+import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Matrix4;
 import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.math.collision.Ray;
@@ -25,7 +26,6 @@ import com.osrs.client.art.ScenePersistence;
 import com.osrs.client.network.ClientPacketHandler;
 import com.osrs.client.network.NettyClient;
 import com.osrs.client.renderer.CoordinateConverter;
-import com.osrs.client.renderer.IsometricRenderer;
 import com.osrs.client.renderer.ModelLibrary;
 import com.osrs.client.renderer.RenderZone;
 import com.osrs.client.renderer.Renderer3DExperimental;
@@ -163,17 +163,10 @@ public class GameScreen extends ApplicationAdapter {
     private SpriteBatch      batch;
     private SpriteBatch      screenBatch;
     private ShapeRenderer    shapeRenderer;
-    // 3D migration model:
-    // keep the current isometric renderer alive while a PerspectiveCamera-based
-    // world renderer is brought up behind a runtime toggle. Gameplay/network/UI
-    // stay unchanged; only world presentation and world picking differ.
     private OrthographicCamera camera2d;
     private PerspectiveCamera camera3d;
-    private IsometricRenderer renderer2d;
     private Renderer3DExperimental renderer3d;
-    private boolean use3DRenderer = true;
     private OrthographicCamera camera;
-    private IsometricRenderer renderer;
     /** Null when sprites.atlas has not been packed yet — falls back to ShapeRenderer. */
     private SpriteSheet      spriteSheet;
     private ModelLibrary     modelLibrary;
@@ -429,6 +422,33 @@ public class GameScreen extends ApplicationAdapter {
     private final java.util.List<ActiveProjectile> activeProjectiles = new java.util.ArrayList<>();
 
     // -----------------------------------------------------------------------
+    // Spell impact effects
+    // -----------------------------------------------------------------------
+    /** A brief animated impact that plays when a spell projectile reaches its target. */
+    private static final class SpellImpact {
+        /** Spell projectile type (3=wind, 4=water, 5=fire, 6=earth). */
+        final int spellType;
+        final float tileX;
+        final float tileY;
+        float age = 0f;
+        /** Total duration in seconds (2 ticks for most, 3 ticks for fire). */
+        final float duration;
+
+        SpellImpact(int spellType, float tileX, float tileY) {
+            this.spellType = spellType;
+            this.tileX     = tileX;
+            this.tileY     = tileY;
+            this.duration  = (spellType == 5) ? 1.8f : 1.2f; // fire = 3 ticks, others = 2 ticks
+        }
+
+        /** Normalised progress 0..1. */
+        float progress() { return duration > 0f ? Math.min(age / duration, 1f) : 1f; }
+        boolean isExpired() { return age >= duration; }
+    }
+
+    private final java.util.List<SpellImpact> activeImpacts = new java.util.ArrayList<>();
+
+    // -----------------------------------------------------------------------
     // Ground item pickup approach
     // -----------------------------------------------------------------------
     /** Ground item ID the player is walking toward to pick up; -1 if none. */
@@ -563,8 +583,6 @@ public class GameScreen extends ApplicationAdapter {
         camera2d.position.set(0, 0, 0);
         camera2d.update();
         camera = camera2d;
-        renderer2d = new IsometricRenderer(camera2d, batch, shapeRenderer);
-        renderer = renderer2d;
         renderer3d = new Renderer3DExperimental(Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
         camera3d = renderer3d.getCamera();
 
@@ -605,7 +623,6 @@ public class GameScreen extends ApplicationAdapter {
         spriteSheet = SpriteSheet.load();
         modelLibrary = ModelLibrary.load(launchOptions);
         entityVisualRegistry = EntityVisualRegistry.load(launchOptions);
-        renderer2d.setSpriteSheet(spriteSheet);
         renderer3d.setSpriteSheet(spriteSheet);
         renderer3d.setModelLibrary(modelLibrary);
         renderer3d.setArtistDebugVisualization(debug3DArtistBoundsAxes, debug3DArtistAnchors);
@@ -725,14 +742,6 @@ public class GameScreen extends ApplicationAdapter {
                                     float sortY,
                                     float sortX) {}
 
-    private record ShadowRenderEntry(float tileX,
-                                     float tileY,
-                                     float width,
-                                     float height,
-                                     float alpha,
-                                     float sortY,
-                                     float sortX) {}
-
     private record PickableEntry(int entityId,
                                  int tileX,
                                  int tileY,
@@ -750,10 +759,6 @@ public class GameScreen extends ApplicationAdapter {
         java.util.Comparator.comparingDouble(ActorRenderEntry::sortY)
             .thenComparingDouble(ActorRenderEntry::sortX)
             .thenComparingInt(ActorRenderEntry::entityId);
-
-    private static final java.util.Comparator<ShadowRenderEntry> SHADOW_RENDER_ORDER =
-        java.util.Comparator.comparingDouble(ShadowRenderEntry::sortY)
-            .thenComparingDouble(ShadowRenderEntry::sortX);
 
     // Depth sorting contract:
     // - Ground items render first, sorted back-to-front
@@ -773,8 +778,8 @@ public class GameScreen extends ApplicationAdapter {
                 qty,
                 x,
                 y,
-                renderer.worldToScreenY(x, y),
-                renderer.worldToScreenX(x, y)
+                x + y,
+                x - y
             ));
         }
         out.sort(GROUND_ITEM_RENDER_ORDER);
@@ -809,8 +814,8 @@ public class GameScreen extends ApplicationAdapter {
                     null,
                     health,
                     maxHealth,
-                    renderer.worldToScreenY(vis[0], vis[1]),
-                    renderer.worldToScreenX(vis[0], vis[1])
+                    vis[0] + vis[1],
+                    vis[0] - vis[1]
                 ));
             }
         }
@@ -829,114 +834,13 @@ public class GameScreen extends ApplicationAdapter {
             localPose,
             localHealth,
             localMaxHealth,
-            renderer.worldToScreenY(visualX, visualY),
-            renderer.worldToScreenX(visualX, visualY)
+            visualX + visualY,
+            visualX - visualY
         ));
 
         out.sort(ACTOR_RENDER_ORDER);
         return out;
     }
-
-    private void renderGroundItemsLayer(List<GroundItemRenderEntry> entries) {
-        renderer.beginWorldShapePass(ShapeRenderer.ShapeType.Filled);
-        for (GroundItemRenderEntry entry : entries) {
-            renderer.renderGroundItemInPass(entry.tileX(), entry.tileY(), entry.itemId(), entry.quantity());
-        }
-        renderer.endWorldShapePass();
-    }
-
-    private List<ShadowRenderEntry> collectShadowRenderEntries(List<ActorRenderEntry> actorEntries) {
-        List<ShadowRenderEntry> out = new ArrayList<>();
-        for (ActorRenderEntry entry : actorEntries) {
-            float width;
-            float height;
-            float alpha;
-
-            if (entry.isPlayer()) {
-                width = 10f;
-                height = 5f;
-                alpha = 0.18f;
-            } else {
-                EntityVisualRegistry.EntityVisual visual = resolveEntityVisual(entry);
-                if (visual != null
-                    && visual.shadowWidth() != null
-                    && visual.shadowHeight() != null
-                    && visual.shadowAlpha() != null) {
-                    width = visual.shadowWidth();
-                    height = visual.shadowHeight();
-                    alpha = visual.shadowAlpha();
-                } else {
-                String npcName = entry.npcName();
-                if ("Rat".equals(npcName) || "Chicken".equals(npcName)) {
-                    width = 8f;
-                    height = 4f;
-                    alpha = 0.16f;
-                } else if ("Cow".equals(npcName) || "Giant Rat".equals(npcName)) {
-                    width = 12f;
-                    height = 6f;
-                    alpha = 0.18f;
-                } else if ("Fishing Spot".equals(npcName)
-                    || "Cooking Fire".equals(npcName)
-                    || "Cooking Range".equals(npcName)) {
-                    width = 12f;
-                    height = 5f;
-                    alpha = 0.14f;
-                } else if ("Tree".equals(npcName)
-                    || "Oak Tree".equals(npcName)
-                    || "Willow Tree".equals(npcName)
-                    || "Teak Tree".equals(npcName)
-                    || "Maple Tree".equals(npcName)
-                    || "Mahogany Tree".equals(npcName)
-                    || "Yew Tree".equals(npcName)
-                    || "Magic Tree".equals(npcName)) {
-                    width = 14f;
-                    height = 6f;
-                    alpha = 0.16f;
-                } else if ("Copper Rock".equals(npcName)
-                    || "Tin Rock".equals(npcName)
-                    || "Iron Rock".equals(npcName)
-                    || "Silver Rock".equals(npcName)
-                    || "Coal Rock".equals(npcName)
-                    || "Gold Rock".equals(npcName)
-                    || "Mithril Rock".equals(npcName)
-                    || "Adamantite Rock".equals(npcName)
-                    || "Runite Rock".equals(npcName)) {
-                    width = 12f;
-                    height = 5f;
-                    alpha = 0.16f;
-                } else {
-                    width = 10f;
-                    height = 5f;
-                    alpha = 0.18f;
-                }
-                }
-            }
-
-            String spriteKey = actorSpriteKey(entry);
-            if (spriteSheet != null && spriteKey != null) {
-                SpriteSheet.SpriteMeta meta = spriteSheet.getMeta(spriteKey);
-                if (meta != null && meta.shadowWidth() != null && meta.shadowHeight() != null && meta.shadowAlpha() != null) {
-                    width = meta.shadowWidth();
-                    height = meta.shadowHeight();
-                    alpha = meta.shadowAlpha();
-                }
-            }
-
-            out.add(new ShadowRenderEntry(
-                entry.tileX(),
-                entry.tileY(),
-                width,
-                height,
-                alpha,
-                renderer.worldToScreenY(entry.tileX(), entry.tileY()),
-                renderer.worldToScreenX(entry.tileX(), entry.tileY())
-            ));
-        }
-
-        out.sort(SHADOW_RENDER_ORDER);
-        return out;
-    }
-
     private String actorSpriteKey(ActorRenderEntry entry) {
         if (entry.isPlayer()) {
             return "player";
@@ -945,7 +849,47 @@ public class GameScreen extends ApplicationAdapter {
         if (visual != null && visual.spriteKey2d() != null && !visual.spriteKey2d().isBlank()) {
             return visual.spriteKey2d();
         }
-        return IsometricRenderer.npcSpriteKeyForName(entry.npcName());
+        return npcSpriteKeyForName(entry.npcName());
+    }
+
+    /** Maps an NPC display name to its 2D atlas key for billboard fallback rendering. */
+    private static String npcSpriteKeyForName(String npcName) {
+        if (npcName == null) return "npc_unknown";
+        return switch (npcName) {
+            case "Tutorial Guide"    -> "npc_guide";
+            case "Combat Instructor" -> "npc_instructor";
+            case "Banker"            -> "npc_banker";
+            case "Fishing Supplier",
+                 "Smithing Supplier" -> "npc_supplier";
+            case "Rat"               -> "npc_rat";
+            case "Giant Rat"         -> "npc_giant_rat";
+            case "Chicken"           -> "npc_chicken";
+            case "Cow"               -> "npc_cow";
+            case "Goblin"            -> "npc_goblin";
+            case "Tree"              -> "tree";
+            case "Oak Tree"          -> "tree_oak";
+            case "Willow Tree"       -> "tree_willow";
+            case "Teak Tree"         -> "tree_teak";
+            case "Maple Tree"        -> "tree_maple";
+            case "Mahogany Tree"     -> "tree_mahogany";
+            case "Yew Tree"          -> "tree_yew";
+            case "Magic Tree"        -> "tree_magic";
+            case "Copper Rock"       -> "rock_copper";
+            case "Tin Rock"          -> "rock_tin";
+            case "Iron Rock"         -> "rock_iron";
+            case "Silver Rock"       -> "rock_silver";
+            case "Coal Rock"         -> "rock_coal";
+            case "Gold Rock"         -> "rock_gold";
+            case "Mithril Rock"      -> "rock_mithril";
+            case "Adamantite Rock"   -> "rock_adamantite";
+            case "Runite Rock"       -> "rock_runite";
+            case "Fishing Spot"      -> "fishing_spot";
+            case "Cooking Fire"      -> "fire";
+            case "Cooking Range"     -> "cooking_range";
+            case "Furnace"           -> "furnace";
+            case "Anvil"             -> "anvil";
+            default                  -> "npc_unknown";
+        };
     }
 
     private boolean isCookingFireActor(ActorRenderEntry entry) {
@@ -1033,128 +977,19 @@ public class GameScreen extends ApplicationAdapter {
 
     // Local-player readability rule:
     // tall world resources in front of the player fade slightly when they overlap
-    // the player's screen-space position. This is the sprite/isometric equivalent
-    // of OSRS-style roof/foreground readability assistance.
+    // the player's screen-space position — same readability assist as OSRS roof-fading.
     private boolean isObstructingLocalPlayer(ActorRenderEntry entry) {
         if (!isOccludingWorldResource(entry)) return false;
-        float playerSx = renderer.worldToScreenX(visualX, visualY);
-        float playerSy = renderer.worldToScreenY(visualX, visualY);
-        float entrySx = renderer.worldToScreenX(entry.tileX(), entry.tileY());
-        float entrySy = renderer.worldToScreenY(entry.tileX(), entry.tileY());
+        if (!projectWorldToScreen3D(visualX, visualY, 0f, projectedWorldPoint)) return false;
+        float playerSx = projectedWorldPoint.x;
+        float playerSy = projectedWorldPoint.y;
+        if (!projectWorldToScreen3D(entry.tileX(), entry.tileY(), 0f, projectedWorldPoint)) return false;
+        float entrySx = projectedWorldPoint.x;
+        float entrySy = projectedWorldPoint.y;
         if (entrySy <= playerSy) return false;
         float dx = Math.abs(entrySx - playerSx);
         float dy = Math.abs(entrySy - playerSy);
         return dx <= 18f && dy <= 28f;
-    }
-
-    private void renderShadowsLayer(List<ShadowRenderEntry> entries) {
-        renderer.beginWorldShapePass(ShapeRenderer.ShapeType.Filled);
-        for (ShadowRenderEntry entry : entries) {
-            renderer.renderBlobShadowInPass(entry.tileX(), entry.tileY(), entry.width(), entry.height(), entry.alpha());
-        }
-        renderer.endWorldShapePass();
-    }
-
-    private void renderFireGlows(ClientPacketHandler handler) {
-        if (handler == null) return;
-        renderer.beginWorldShapePass(ShapeRenderer.ShapeType.Filled);
-        for (Map.Entry<Integer, int[]> entry : handler.getEntityPositions().entrySet()) {
-            int id = entry.getKey();
-            if (handler.isPlayer(id)) continue;
-            int definitionId = handler.getNpcDefinitionId(id);
-            String npcName = handler.getEntityName(id);
-            EntityVisualRegistry.EntityVisual visual = resolveEntityVisual(definitionId, npcName);
-            boolean isFire = visual != null && "fire".equals(visual.spriteKey2d());
-            if (!isFire && !"Cooking Fire".equals(npcName)) continue;
-            float[] vis = npcVisual.get(id);
-            if (vis == null) continue;
-            renderer.renderGroundGlowInPass(vis[0], vis[1], 22f, 10f, 1.0f, 0.55f, 0.15f, 0.12f);
-        }
-        renderer.endWorldShapePass();
-    }
-
-    private void renderActorsLayer(List<ActorRenderEntry> entries) {
-        final int MODE_NONE = 0;
-        final int MODE_SPRITE = 1;
-        final int MODE_SHAPE = 2;
-        int mode = MODE_NONE;
-
-        for (ActorRenderEntry entry : entries) {
-            if (entry.isPlayer()) {
-                if (isLocalActorEntry(entry)) {
-                    if (mode != MODE_SPRITE) {
-                        if (mode == MODE_SHAPE) renderer.endWorldShapePass();
-                        renderer.beginWorldSpritePass();
-                        mode = MODE_SPRITE;
-                    }
-                    boolean drawn = renderer.renderPlayerSpriteInPass(
-                        entry.tileX(),
-                        entry.tileY(),
-                        entry.pickingUp(),
-                        entry.playerPose(),
-                        playerAnimMoving,
-                        playerAnimDir,
-                        playerAnimTime
-                    );
-                    if (!drawn) {
-                        renderer.endWorldSpritePass();
-                        renderer.beginWorldShapePass(ShapeRenderer.ShapeType.Filled);
-                        mode = MODE_SHAPE;
-                        renderer.renderPlayerFallbackInPass(entry.tileX(), entry.tileY(), entry.pickingUp(), entry.playerPose());
-                    }
-                } else {
-                    boolean moving = npcAnimMoving.getOrDefault(entry.entityId(), false);
-                    String dir = npcAnimDir.getOrDefault(entry.entityId(), "s");
-                    float time = npcAnimTime.getOrDefault(entry.entityId(), 0f);
-                    if (mode != MODE_SPRITE) {
-                        if (mode == MODE_SHAPE) renderer.endWorldShapePass();
-                        renderer.beginWorldSpritePass();
-                        mode = MODE_SPRITE;
-                    }
-                    boolean drawn = renderer.renderPlayerSpriteInPass(entry.tileX(), entry.tileY(), false, null, moving, dir, time);
-                    if (!drawn) {
-                        renderer.endWorldSpritePass();
-                        renderer.beginWorldShapePass(ShapeRenderer.ShapeType.Filled);
-                        mode = MODE_SHAPE;
-                        renderer.renderPlayerFallbackInPass(entry.tileX(), entry.tileY(), false, null);
-                    }
-                }
-            } else {
-                boolean moving = npcAnimMoving.getOrDefault(entry.entityId(), false);
-                String dir = npcAnimDir.getOrDefault(entry.entityId(), "s");
-                float time = npcAnimTime.getOrDefault(entry.entityId(), 0f);
-                float alpha = isObstructingLocalPlayer(entry) ? 0.35f : 1f;
-                boolean actionActive = isActionAnimationActive(entry);
-                String spriteKey = actorSpriteKey(entry);
-                if (mode != MODE_SPRITE) {
-                    if (mode == MODE_SHAPE) renderer.endWorldShapePass();
-                    renderer.beginWorldSpritePass();
-                    mode = MODE_SPRITE;
-                }
-                boolean drawn = renderer.renderNPCSpriteByKeyInPass(
-                    entry.tileX(),
-                    entry.tileY(),
-                    spriteKey,
-                    moving,
-                    dir,
-                    time,
-                    actionActive,
-                    alpha
-                );
-                if (!drawn) {
-                    renderer.endWorldSpritePass();
-                    renderer.beginWorldShapePass(ShapeRenderer.ShapeType.Filled);
-                    mode = MODE_SHAPE;
-                    renderer.renderNPCFallbackInPass(entry.tileX(), entry.tileY(), entry.npcName(), alpha);
-                }
-            }
-        }
-
-        if (mode == MODE_SPRITE) {
-            renderer.endWorldSpritePass();
-        } else if (mode == MODE_SHAPE) {
-            renderer.endWorldShapePass();
-        }
     }
 
     private boolean isLocalActorEntry(ActorRenderEntry entry) {
@@ -1274,18 +1109,8 @@ public class GameScreen extends ApplicationAdapter {
         shapeRenderer.end();
     }
 
-    private void renderHealthBarsLayer(List<ActorRenderEntry> entries) {
-        renderer.beginWorldShapePass(ShapeRenderer.ShapeType.Filled);
-        for (ActorRenderEntry entry : entries) {
-            if (entry.maxHealth() > 0 && entry.health() < entry.maxHealth()) {
-                renderer.renderHealthBarInPass(entry.tileX(), entry.tileY(), entry.health(), entry.maxHealth());
-            }
-        }
-        renderer.endWorldShapePass();
-    }
-
     private void renderHealthBarsLayer3D(List<ActorRenderEntry> entries) {
-        if (!use3DRenderer || entries.isEmpty()) {
+        if (entries.isEmpty()) {
             return;
         }
         shapeRenderer.setProjectionMatrix(screenProjection);
@@ -1334,7 +1159,7 @@ public class GameScreen extends ApplicationAdapter {
     }
 
     private boolean isTileNearAndVisible3D(float tileX, float tileY, float maxDistance) {
-        if (!use3DRenderer || renderer3d == null) {
+        if (renderer3d == null) {
             return true;
         }
         return renderer3d.isTileCenterNearCamera(tileX, tileY, maxDistance)
@@ -1342,7 +1167,7 @@ public class GameScreen extends ApplicationAdapter {
     }
 
     private boolean shouldCullByDistanceAndFrustum3D(float tileX, float tileY, float maxDistance) {
-        if (!use3DRenderer || renderer3d == null) {
+        if (renderer3d == null) {
             return false;
         }
         return !renderer3d.isTileCenterNearCamera(tileX, tileY, maxDistance)
@@ -1403,10 +1228,6 @@ public class GameScreen extends ApplicationAdapter {
             if (attackAnimTimer == 0f && !isWoodcuttingActive && !isMiningActive) currentAttackPose = "idle";
         }
 
-        if (Gdx.input.isKeyJustPressed(Input.Keys.F9)) {
-            use3DRenderer = !use3DRenderer;
-            LOG.info("Renderer mode switched: {}", use3DRenderer ? "3D experimental" : "2D isometric");
-        }
         if (Gdx.input.isKeyJustPressed(Input.Keys.F10)) {
             debugPickVolumes3D = !debugPickVolumes3D;
             LOG.info("3D pick volume debug: {}", debugPickVolumes3D ? "enabled" : "disabled");
@@ -1446,7 +1267,7 @@ public class GameScreen extends ApplicationAdapter {
             reloadRuntimeAssets();
         }
 
-        if (use3DRenderer) {
+        {
             boolean previewMode = artistMode && artWorkbenchPopup != null && artWorkbenchPopup.isVisible()
                 && artWorkbenchPopup.mode() != ArtWorkbenchPopup.Mode.WORLD_PLACEMENT
                 && artWorkbenchPopup.mode() != ArtWorkbenchPopup.Mode.ENTITY_BINDING
@@ -1462,24 +1283,6 @@ public class GameScreen extends ApplicationAdapter {
                 renderer3d.zoomWorkbenchPreviewCamera(pendingScrollAmount * WORKBENCH_PREVIEW_ZOOM_STEP);
                 pendingScrollAmount = 0;
             }
-        } else {
-            if (pendingScrollAmount != 0) {
-                targetZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX,
-                    targetZoom + pendingScrollAmount * 0.1f));
-                pendingScrollAmount = 0;
-            }
-            if (Gdx.input.isButtonJustPressed(Input.Buttons.MIDDLE)) {
-                targetZoom = ZOOM_DEFAULT;
-            }
-            updateCameraZoom(delta);
-            updateCameraPan(delta);
-            renderer2d.update(delta);
-            camera2d.position.set(
-                renderer2d.worldToScreenX(visualX, visualY) + cameraPanOffsetX,
-                renderer2d.worldToScreenY(visualX, visualY) + cameraPanOffsetY,
-                0
-            );
-            camera2d.update();
         }
 
         if (audioManager != null) {
@@ -1502,8 +1305,7 @@ public class GameScreen extends ApplicationAdapter {
         //   5. Health bars / overlays
         List<GroundItemRenderEntry> groundItemEntries = collectGroundItemRenderEntries();
         List<ActorRenderEntry> actorEntries = collectActorRenderEntries(handler);
-        List<ShadowRenderEntry> shadowEntries = collectShadowRenderEntries(actorEntries);
-        if (use3DRenderer) {
+        {
             boolean previewMode = artistMode && artWorkbenchPopup != null && artWorkbenchPopup.isVisible()
                 && artWorkbenchPopup.mode() != ArtWorkbenchPopup.Mode.WORLD_PLACEMENT
                 && artWorkbenchPopup.mode() != ArtWorkbenchPopup.Mode.ENTITY_BINDING
@@ -1542,35 +1344,20 @@ public class GameScreen extends ApplicationAdapter {
             renderer3d.renderArtistDebugOverlays();
             if (!previewMode) {
                 renderHealthBarsLayer3D(actorEntries);
+                renderFireGroundGlows3D(actorEntries);
                 renderGroundItemLabels();
                 renderPickVolumeDebug3D();
                 renderTerrainPaintHoverOverlay();
             }
-        } else {
-            renderer2d.renderWorld(activeTerrainRenderMap(), visualX, visualY, visualX, visualY, activeMaterialProfile);
-            renderGroundItemsLayer(groundItemEntries);
-            renderShadowsLayer(shadowEntries);
-            renderFireGlows(handler);
-            renderActorsLayer(actorEntries);
-            renderHealthBarsLayer(actorEntries);
-            renderGroundItemLabels();
-            renderTerrainPaintHoverOverlay();
-
-            // Firemaking animation — fire on the player's tile
-            if (firemakerAnimTimer > 0) {
-                firemakerAnimTimer -= delta;
-                firemakerFlicker   += delta * 8f;
-                renderer2d.renderGroundGlow(visualX, visualY, 22f, 10f, 1.0f, 0.55f, 0.15f, 0.12f);
-                renderFireAnimation(visualX, visualY);
-            }
-
-            // Projectiles (ranged) + Hitsplats
-            updateProjectiles(delta);
-            renderProjectiles();
         }
 
+        updateProjectiles(delta);
+        renderProjectiles();
+        updateImpacts(delta);
+        renderImpacts();
+
         combatUI.update(delta);
-        combatUI.render(shapeRenderer, batch, font, camera2d);
+        combatUI.render(shapeRenderer, batch, font, camera3d, renderer3d);
 
         // Overhead chat text (world space — same projection as hitsplats)
         chatBox.update(delta);
@@ -1580,7 +1367,7 @@ public class GameScreen extends ApplicationAdapter {
         renderOverheadText(delta);
         renderClickMarkers();
 
-        if (use3DRenderer && debug3DRenderBudget && renderer3d != null) {
+        if (debug3DRenderBudget && renderer3d != null) {
             debug3DRenderBudgetTimer += delta;
             if (debug3DRenderBudgetTimer >= 1f) {
                 debug3DRenderBudgetTimer = 0f;
@@ -1599,10 +1386,6 @@ public class GameScreen extends ApplicationAdapter {
         int w = Gdx.graphics.getWidth(), h = Gdx.graphics.getHeight();
         // Zone ambience affects the world only. UI remains ungraded for readability.
         renderWorldAmbientTint(w, h);
-        if (!use3DRenderer) {
-            renderWorldVignette(w, h);
-        }
-
         // --- Screen-space UI ---
         Gdx.gl.glEnable(GL20.GL_BLEND);
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
@@ -1619,7 +1402,7 @@ public class GameScreen extends ApplicationAdapter {
         miniMap.render(shapeRenderer, screenBatch, font, screenProjection,
             w, h, playerX, playerY,
             walkDestX, walkDestY,
-            use3DRenderer ? cameraYaw : 0f,
+            cameraYaw,
             tileMap, handler());
         if (dialogueUI.isVisible()) {
             renderDialogueOverlay(mouseScreenX, mouseScreenY);
@@ -1724,8 +1507,7 @@ public class GameScreen extends ApplicationAdapter {
     }
 
     private boolean shouldUseInWorldFreeCamera() {
-        return use3DRenderer
-            && artistMode
+        return artistMode
             && artWorkbenchPopup != null
             && artWorkbenchPopup.isVisible()
             && isWorkbenchInWorldMode()
@@ -1738,7 +1520,7 @@ public class GameScreen extends ApplicationAdapter {
             disableInWorldFreeCamera();
             return;
         }
-        if (!use3DRenderer || camera3d == null || !isWorkbenchInWorldMode()) {
+        if (camera3d == null || !isWorkbenchInWorldMode()) {
             return;
         }
         inWorldFreeCameraEnabled = true;
@@ -2120,6 +1902,12 @@ public class GameScreen extends ApplicationAdapter {
                 if ("spear".equals(entry.playerPose())) {
                     return "player_spear";
                 }
+                if ("bow".equals(entry.playerPose())) {
+                    return "player_attack_shoot_bow";
+                }
+                if ("shoot".equals(entry.playerPose()) || "gun".equals(entry.playerPose())) {
+                    return "player_attack_shoot";
+                }
             }
             return playerAnimMovingForEntry(entry) ? "player_walk" : "player_idle";
         }
@@ -2366,7 +2154,6 @@ public class GameScreen extends ApplicationAdapter {
 
     private boolean isWorldPlacementModeActive() {
         return artistMode
-            && use3DRenderer
             && artWorkbenchPopup != null
             && artWorkbenchPopup.isVisible()
             && artWorkbenchPopup.mode() == ArtWorkbenchPopup.Mode.WORLD_PLACEMENT
@@ -2431,20 +2218,12 @@ public class GameScreen extends ApplicationAdapter {
             return;
         }
 
-        float sx;
-        float sy;
-        if (use3DRenderer) {
-            if (!projectWorldToScreen3D(worldPlacementHoverTileX, worldPlacementHoverTileY, 0.05f, projectedWorldPoint)) {
-                return;
-            }
-            sx = projectedWorldPoint.x;
-            sy = projectedWorldPoint.y;
-        } else {
-            sx = renderer.worldToScreenX(worldPlacementHoverTileX, worldPlacementHoverTileY);
-            sy = renderer.worldToScreenY(worldPlacementHoverTileX, worldPlacementHoverTileY);
+        if (!projectWorldToScreen3D(worldPlacementHoverTileX, worldPlacementHoverTileY, 0.05f, projectedWorldPoint)) {
+            return;
         }
-
-        float size = use3DRenderer ? 18f : 14f;
+        float sx = projectedWorldPoint.x;
+        float sy = projectedWorldPoint.y;
+        float size = 18f;
         Color c = switch (sceneEditState.selectedTerrainType()) {
             case 1 -> new Color(0.35f, 0.68f, 1f, 0.95f);
             case 2 -> new Color(0.92f, 0.80f, 0.46f, 0.95f);
@@ -2739,6 +2518,47 @@ public class GameScreen extends ApplicationAdapter {
             0.14f,
             clampedAlpha
         );
+    }
+
+    /**
+     * Renders a pulsing orange ground glow under each active cooking fire.
+     * Drawn in screen space as concentric soft circles — approximates OSRS-style
+     * fire light radius on nearby ground tiles.
+     */
+    private void renderFireGroundGlows3D(List<ActorRenderEntry> entries) {
+        if (camera3d == null || entries == null) return;
+        boolean hasFireEntries = false;
+        for (ActorRenderEntry e : entries) {
+            if (isCookingFireActor(e)) { hasFireEntries = true; break; }
+        }
+        if (!hasFireEntries) return;
+
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
+
+        shapeRenderer.setProjectionMatrix(screenProjection);
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+
+        for (ActorRenderEntry entry : entries) {
+            if (!isCookingFireActor(entry)) continue;
+            if (!projectWorldToScreen3D(entry.tileX(), entry.tileY(), 0.05f, projectedWorldPoint)) continue;
+            float sx = projectedWorldPoint.x;
+            float sy = projectedWorldPoint.y;
+            float animTime = npcAnimTime.getOrDefault(entry.entityId(), 0f);
+            float pulse = 0.15f + 0.10f * MathUtils.sin(animTime * 2.5f);
+            // Outer glow — large, very faint
+            shapeRenderer.setColor(1.0f, 0.38f, 0.06f, pulse * 0.18f);
+            shapeRenderer.circle(sx, sy, 60f, 22);
+            // Mid glow
+            shapeRenderer.setColor(1.0f, 0.44f, 0.10f, pulse * 0.35f);
+            shapeRenderer.circle(sx, sy, 38f, 18);
+            // Inner glow — brightest, closest to fire base
+            shapeRenderer.setColor(1.0f, 0.55f, 0.16f, pulse * 0.58f);
+            shapeRenderer.circle(sx, sy, 20f, 14);
+        }
+
+        shapeRenderer.end();
+        Gdx.gl.glDisable(GL20.GL_BLEND);
     }
 
     private boolean isInUiArea(int mouseX, int mouseY) {
@@ -3177,7 +2997,7 @@ public class GameScreen extends ApplicationAdapter {
                     evt.projectileType));
             } else {
                 // Melee / instant: show hitsplat immediately
-                combatUI.addDamageNumber(evt.targetX, evt.targetY, evt.damage, evt.hit);
+                combatUI.addDamageNumber(evt.targetX, evt.targetY, evt.damage, evt.hit, CombatUI.HitType.MELEE);
                 chatBox.addSystemMessage(chatMsg);
             }
             // Play hit or miss sound
@@ -3352,23 +3172,15 @@ public class GameScreen extends ApplicationAdapter {
     // -----------------------------------------------------------------------
 
     private int[] screenToTile(int sx, int sy) {
-        if (use3DRenderer) {
-            int[] picked = renderer3d.pickTile(sx, sy);
-            if (picked[0] >= 0 && picked[1] >= 0) {
-                return picked;
-            }
-            return new int[]{-1, -1};
+        int[] picked = renderer3d.pickTile(sx, sy);
+        if (picked[0] >= 0 && picked[1] >= 0) {
+            return picked;
         }
-        Vector3 w = new Vector3(sx, sy, 0);
-        camera2d.unproject(w);
-        return new int[]{
-            CoordinateConverter.screenToWorldX(w.x, w.y),
-            CoordinateConverter.screenToWorldY(w.x, w.y)
-        };
+        return new int[]{-1, -1};
     }
 
     private Integer pick3DEntityId(int screenX, int screenY) {
-        if (!use3DRenderer || renderer3d == null || camera3d == null) {
+        if (renderer3d == null || camera3d == null) {
             return null;
         }
         Ray ray = camera3d.getPickRay(screenX, screenY);
@@ -3500,7 +3312,7 @@ public class GameScreen extends ApplicationAdapter {
     }
 
     private void renderPickVolumeDebug3D() {
-        if (!use3DRenderer || !debugPickVolumes3D) {
+        if (!debugPickVolumes3D) {
             return;
         }
         List<PickableEntry> entries = collectPickableEntries();
@@ -4721,7 +4533,7 @@ public class GameScreen extends ApplicationAdapter {
             return;
         }
 
-        Integer entityId = use3DRenderer ? pick3DEntityId(screenX, screenY) : null;
+        Integer entityId = pick3DEntityId(screenX, screenY);
         if (entityId == null) {
             int[] tile = screenToTile(screenX, screenY);
             Integer resourceNpc = h.getResourceNpcAt(tile[0], tile[1]);
@@ -4808,7 +4620,6 @@ public class GameScreen extends ApplicationAdapter {
         TerrainHeightLoader.TerrainHeightData terrainHeightData = TerrainHeightLoader.load(launchOptions);
         terrainHeightLevels = terrainHeightData.levels;
         terrainHeightStep = terrainHeightData.heightStep;
-        renderer2d.setSpriteSheet(spriteSheet);
         renderer3d.setSpriteSheet(spriteSheet);
         renderer3d.setModelLibrary(modelLibrary);
         renderer3d.setArtistDebugVisualization(debug3DArtistBoundsAxes, debug3DArtistAnchors);
@@ -6425,92 +6236,92 @@ public class GameScreen extends ApplicationAdapter {
 
         if (overheadTexts.isEmpty() && !prayerIndicatorVisible) return;
 
-        if (use3DRenderer) {
-            if (!overheadTexts.isEmpty()) {
-                screenBatch.setProjectionMatrix(screenProjection);
-                screenBatch.begin();
-            }
-
-            for (Map.Entry<Integer, OverheadText> entry : overheadTexts.entrySet()) {
-                int entityId = entry.getKey();
-                OverheadText ot = entry.getValue();
-
-                float tx;
-                float ty;
-                if (entityId == localPlayerId) {
-                    tx = visualX;
-                    ty = visualY;
-                } else {
-                    float[] vis = npcVisual.get(entityId);
-                    if (vis != null) {
-                        tx = vis[0];
-                        ty = vis[1];
-                    } else if (h != null) {
-                        int[] pos = h.getEntityPosition(entityId);
-                        if (pos == null) {
-                            continue;
-                        }
-                        tx = pos[0];
-                        ty = pos[1];
-                    } else {
-                        continue;
-                    }
-                }
-
-                if (!isTileNearAndVisible3D(tx, ty, CULL_DISTANCE_OVERHEAD_TEXT_3D)) {
-                    continue;
-                }
-
-                if (!projectWorldToScreen3D(tx, ty, 2.35f, projectedWorldPoint)) {
-                    continue;
-                }
-
-                float alpha = (ot.timer < 0.5f) ? ot.timer / 0.5f : 1f;
-                gl.setText(font, ot.text);
-                float textX = projectedWorldPoint.x - gl.width * 0.5f;
-                float textY = projectedWorldPoint.y;
-
-                font.setColor(0f, 0f, 0f, alpha * 0.85f);
-                font.draw(screenBatch, ot.text, textX + 1f, textY - 1f);
-                font.setColor(COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b, alpha);
-                font.draw(screenBatch, ot.text, textX, textY);
-                overlaysRenderedLastFrame3D++;
-            }
-
-            if (!overheadTexts.isEmpty()) {
-                screenBatch.end();
-            }
-
-            int overheadPrayerId = -1;
-            if (localActivePrayers.contains(PRAYER_ID_PROTECT_FROM_MELEE)) {
-                overheadPrayerId = PRAYER_ID_PROTECT_FROM_MELEE;
-            } else if (localActivePrayers.contains(PRAYER_ID_PROTECT_FROM_MISSILES)) {
-                overheadPrayerId = PRAYER_ID_PROTECT_FROM_MISSILES;
-            } else if (localActivePrayers.contains(PRAYER_ID_PROTECT_FROM_MAGIC)) {
-                overheadPrayerId = PRAYER_ID_PROTECT_FROM_MAGIC;
-            }
-
-            if (overheadPrayerId >= 0
-                && isTileNearAndVisible3D(visualX, visualY, CULL_DISTANCE_OVERHEAD_TEXT_3D)
-                && projectWorldToScreen3D(visualX, visualY, 2.7f, projectedWorldPoint)) {
-                shapeRenderer.setProjectionMatrix(screenProjection);
-                shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
-                if (overheadPrayerId == PRAYER_ID_PROTECT_FROM_MELEE) {
-                    shapeRenderer.setColor(0.2f, 0.5f, 1.0f, 1f);
-                } else if (overheadPrayerId == PRAYER_ID_PROTECT_FROM_MISSILES) {
-                    shapeRenderer.setColor(0.2f, 0.85f, 0.3f, 1f);
-                } else {
-                    shapeRenderer.setColor(0.85f, 0.2f, 0.2f, 1f);
-                }
-                shapeRenderer.circle(projectedWorldPoint.x, projectedWorldPoint.y, 4f);
-                shapeRenderer.end();
-                overlaysRenderedLastFrame3D++;
-            }
-
-            font.setColor(COLOR_WHITE);
-            return;
+        if (!overheadTexts.isEmpty()) {
+            screenBatch.setProjectionMatrix(screenProjection);
+            screenBatch.begin();
         }
 
+        for (Map.Entry<Integer, OverheadText> entry : overheadTexts.entrySet()) {
+            int entityId = entry.getKey();
+            OverheadText ot = entry.getValue();
+
+            float tx;
+            float ty;
+            if (entityId == localPlayerId) {
+                tx = visualX;
+                ty = visualY;
+            } else {
+                float[] vis = npcVisual.get(entityId);
+                if (vis != null) {
+                    tx = vis[0];
+                    ty = vis[1];
+                } else if (h != null) {
+                    int[] pos = h.getEntityPosition(entityId);
+                    if (pos == null) {
+                        continue;
+                    }
+                    tx = pos[0];
+                    ty = pos[1];
+                } else {
+                    continue;
+                }
+            }
+
+            if (!isTileNearAndVisible3D(tx, ty, CULL_DISTANCE_OVERHEAD_TEXT_3D)) {
+                continue;
+            }
+
+            if (!projectWorldToScreen3D(tx, ty, 2.35f, projectedWorldPoint)) {
+                continue;
+            }
+
+            float alpha = (ot.timer < 0.5f) ? ot.timer / 0.5f : 1f;
+            gl.setText(font, ot.text);
+            float textX = projectedWorldPoint.x - gl.width * 0.5f;
+            float textY = projectedWorldPoint.y;
+
+            font.setColor(0f, 0f, 0f, alpha * 0.85f);
+            font.draw(screenBatch, ot.text, textX + 1f, textY - 1f);
+            font.setColor(COLOR_YELLOW.r, COLOR_YELLOW.g, COLOR_YELLOW.b, alpha);
+            font.draw(screenBatch, ot.text, textX, textY);
+            overlaysRenderedLastFrame3D++;
+        }
+
+        if (!overheadTexts.isEmpty()) {
+            screenBatch.end();
+        }
+
+        int overheadPrayerId = -1;
+        if (localActivePrayers.contains(PRAYER_ID_PROTECT_FROM_MELEE)) {
+            overheadPrayerId = PRAYER_ID_PROTECT_FROM_MELEE;
+        } else if (localActivePrayers.contains(PRAYER_ID_PROTECT_FROM_MISSILES)) {
+            overheadPrayerId = PRAYER_ID_PROTECT_FROM_MISSILES;
+        } else if (localActivePrayers.contains(PRAYER_ID_PROTECT_FROM_MAGIC)) {
+            overheadPrayerId = PRAYER_ID_PROTECT_FROM_MAGIC;
+        }
+
+        if (overheadPrayerId >= 0
+            && isTileNearAndVisible3D(visualX, visualY, CULL_DISTANCE_OVERHEAD_TEXT_3D)
+            && projectWorldToScreen3D(visualX, visualY, 2.7f, projectedWorldPoint)) {
+            shapeRenderer.setProjectionMatrix(screenProjection);
+            shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+            if (overheadPrayerId == PRAYER_ID_PROTECT_FROM_MELEE) {
+                shapeRenderer.setColor(0.2f, 0.5f, 1.0f, 1f);
+            } else if (overheadPrayerId == PRAYER_ID_PROTECT_FROM_MISSILES) {
+                shapeRenderer.setColor(0.2f, 0.85f, 0.3f, 1f);
+            } else {
+                shapeRenderer.setColor(0.85f, 0.2f, 0.2f, 1f);
+            }
+            shapeRenderer.circle(projectedWorldPoint.x, projectedWorldPoint.y, 4f);
+            shapeRenderer.end();
+            overlaysRenderedLastFrame3D++;
+        }
+
+        font.setColor(COLOR_WHITE);
+    }
+
+    @SuppressWarnings("unused") // retained for potential 2D revival; not on hot path
+    private void renderOverheadText2DLegacy(ClientPacketHandler h) {
         Gdx.gl.glEnable(GL20.GL_BLEND);
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
 
@@ -6523,7 +6334,6 @@ public class GameScreen extends ApplicationAdapter {
             int      entityId = entry.getKey();
             OverheadText ot   = entry.getValue();
 
-            // Determine world tile of this entity
             float tx, ty;
             if (entityId == localPlayerId) {
                 tx = visualX; ty = visualY;
@@ -6596,97 +6406,71 @@ public class GameScreen extends ApplicationAdapter {
     private void renderGroundItemLabels() {
         if (groundItemsOnMap.isEmpty()) return;
 
-        if (use3DRenderer) {
-            screenBatch.setProjectionMatrix(screenProjection);
-            screenBatch.begin();
-
-            font.getData().setScale(FontManager.getScale(FontManager.FontContext.SMALL_LABEL));
-            font.setColor(FontManager.TEXT_YELLOW);
-            gl.setText(font, "");
-
-            List<Map.Entry<Integer, int[]>> items = new ArrayList<>(groundItemsOnMap.entrySet());
-            items.sort((a, b) -> {
-                int[] ad = a.getValue();
-                int[] bd = b.getValue();
-                int da = Math.abs(ad[2] - playerX) + Math.abs(ad[3] - playerY);
-                int db = Math.abs(bd[2] - playerX) + Math.abs(bd[3] - playerY);
-                if (da != db) {
-                    return Integer.compare(da, db);
-                }
-                if (ad[3] != bd[3]) {
-                    return Integer.compare(ad[3], bd[3]);
-                }
-                return Integer.compare(ad[2], bd[2]);
-            });
-
-            Set<Long> occupiedLabelCells = new HashSet<>();
-            int labelsDrawn = 0;
-            for (Map.Entry<Integer, int[]> itemEntry : items) {
-                if (labelsDrawn >= MAX_GROUND_ITEM_LABELS_3D) {
-                    break;
-                }
-
-                int[] data = itemEntry.getValue();
-
-                String itemName = groundItemNamesMap.get(itemEntry.getKey());
-                if (itemName == null || itemName.isEmpty()) {
-                    continue;
-                }
-
-                if (!isTileNearAndVisible3D(data[2], data[3], CULL_DISTANCE_GROUND_LABELS_3D)) {
-                    continue;
-                }
-
-                if (!projectWorldToScreen3D(data[2], data[3], GROUND_ITEM_LABEL_HEIGHT_3D, projectedWorldPoint)) {
-                    continue;
-                }
-
-                int cellX = (int) (projectedWorldPoint.x / 92f);
-                int cellY = (int) (projectedWorldPoint.y / 26f);
-                long cellKey = (((long) cellX) << 32) ^ (cellY & 0xffffffffL);
-                if (occupiedLabelCells.contains(cellKey)) {
-                    continue;
-                }
-
-                gl.setText(font, itemName);
-                float textX = projectedWorldPoint.x - gl.width * 0.5f;
-                float textY = projectedWorldPoint.y;
-                font.setColor(0f, 0f, 0f, 0.84f);
-                font.draw(screenBatch, itemName, textX + 1f, textY - 1f);
-                font.setColor(FontManager.TEXT_YELLOW);
-                font.draw(screenBatch, itemName, textX, textY);
-
-                occupiedLabelCells.add(cellKey);
-                labelsDrawn++;
-                overlaysRenderedLastFrame3D++;
-            }
-
-            screenBatch.end();
-            font.getData().setScale(FontManager.getScale(FontManager.FontContext.BASE_UI));
-            font.setColor(COLOR_WHITE);
-            return;
-        }
-
-        batch.setProjectionMatrix(camera.combined);
-        batch.begin();
+        screenBatch.setProjectionMatrix(screenProjection);
+        screenBatch.begin();
 
         font.getData().setScale(FontManager.getScale(FontManager.FontContext.SMALL_LABEL));
         font.setColor(FontManager.TEXT_YELLOW);
-        GlyphLayout gl = new GlyphLayout();
+        gl.setText(font, "");
 
-        for (Map.Entry<Integer, int[]> entry : groundItemsOnMap.entrySet()) {
-            String itemName = groundItemNamesMap.get(entry.getKey());
-            if (itemName == null || itemName.isEmpty()) continue;
+        List<Map.Entry<Integer, int[]>> items = new ArrayList<>(groundItemsOnMap.entrySet());
+        items.sort((a, b) -> {
+            int[] ad = a.getValue();
+            int[] bd = b.getValue();
+            int da = Math.abs(ad[2] - playerX) + Math.abs(ad[3] - playerY);
+            int db = Math.abs(bd[2] - playerX) + Math.abs(bd[3] - playerY);
+            if (da != db) {
+                return Integer.compare(da, db);
+            }
+            if (ad[3] != bd[3]) {
+                return Integer.compare(ad[3], bd[3]);
+            }
+            return Integer.compare(ad[2], bd[2]);
+        });
 
-            int[] data = entry.getValue(); // {itemId, qty, x, y}
-            float sx = renderer.worldToScreenX(data[2], data[3]);
-            float sy = renderer.worldToScreenY(data[2], data[3]);
+        Set<Long> occupiedLabelCells = new HashSet<>();
+        int labelsDrawn = 0;
+        for (Map.Entry<Integer, int[]> itemEntry : items) {
+            if (labelsDrawn >= MAX_GROUND_ITEM_LABELS_3D) {
+                break;
+            }
+
+            int[] data = itemEntry.getValue();
+
+            String itemName = groundItemNamesMap.get(itemEntry.getKey());
+            if (itemName == null || itemName.isEmpty()) {
+                continue;
+            }
+
+            if (!isTileNearAndVisible3D(data[2], data[3], CULL_DISTANCE_GROUND_LABELS_3D)) {
+                continue;
+            }
+
+            if (!projectWorldToScreen3D(data[2], data[3], GROUND_ITEM_LABEL_HEIGHT_3D, projectedWorldPoint)) {
+                continue;
+            }
+
+            int cellX = (int) (projectedWorldPoint.x / 92f);
+            int cellY = (int) (projectedWorldPoint.y / 26f);
+            long cellKey = (((long) cellX) << 32) ^ (cellY & 0xffffffffL);
+            if (occupiedLabelCells.contains(cellKey)) {
+                continue;
+            }
 
             gl.setText(font, itemName);
-            font.draw(batch, gl, sx - gl.width / 2f, sy + 18f);
+            float textX = projectedWorldPoint.x - gl.width * 0.5f;
+            float textY = projectedWorldPoint.y;
+            font.setColor(0f, 0f, 0f, 0.84f);
+            font.draw(screenBatch, itemName, textX + 1f, textY - 1f);
+            font.setColor(FontManager.TEXT_YELLOW);
+            font.draw(screenBatch, itemName, textX, textY);
+
+            occupiedLabelCells.add(cellKey);
+            labelsDrawn++;
+            overlaysRenderedLastFrame3D++;
         }
 
-        batch.end();
+        screenBatch.end();
         font.getData().setScale(FontManager.getScale(FontManager.FontContext.BASE_UI));
         font.setColor(COLOR_WHITE);
     }
@@ -6699,50 +6483,7 @@ public class GameScreen extends ApplicationAdapter {
         ClientPacketHandler h = handler();
         if (h == null) return;
 
-        if (use3DRenderer) {
-            renderEntityNametags3D(h);
-            return;
-        }
-
-        boolean started = false;
-        font.getData().setScale(FontManager.getScale(FontManager.FontContext.TOOLTIP));
-
-        for (Map.Entry<Integer, int[]> entry : h.getEntityPositions().entrySet()) {
-            int id = entry.getKey();
-            if (!h.isPlayer(id)) continue;
-            if (localPlayerId >= 0 && id == localPlayerId) continue;
-            float[] vis = npcVisual.get(id);
-            if (vis == null) continue;
-            String name = h.getEntityName(id);
-            if (name == null || name.isEmpty()) continue;
-
-            if (!started) {
-                Gdx.gl.glEnable(GL20.GL_BLEND);
-                Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
-                batch.setProjectionMatrix(camera.combined);
-                batch.begin();
-                started = true;
-            }
-
-            float sx = (vis[0] - vis[1]) * 16f;
-            float sy = (vis[0] + vis[1]) * 8f + 28f;   // 28px above player feet
-
-            npcTagLayout.setText(font, name);
-
-            // Shadow
-            font.setColor(0f, 0f, 0f, 0.8f);
-            font.draw(batch, name, sx - npcTagLayout.width * 0.5f + 1f, sy - 1f);
-            // Yellow name
-            font.setColor(COLOR_YELLOW);
-            font.draw(batch, name, sx - npcTagLayout.width * 0.5f, sy);
-        }
-
-        font.getData().setScale(FontManager.getScale(FontManager.FontContext.BASE_UI));
-        font.setColor(COLOR_WHITE);
-        if (started) {
-            batch.end();
-            Gdx.gl.glDisable(GL20.GL_BLEND);
-        }
+        renderEntityNametags3D(h);
     }
 
     private void renderEntityNametags3D(ClientPacketHandler h) {
@@ -6812,78 +6553,19 @@ public class GameScreen extends ApplicationAdapter {
     private void renderClickMarkers() {
         if (clickMarkers.isEmpty()) return;
 
-        if (use3DRenderer) {
-            Gdx.gl.glEnable(GL20.GL_BLEND);
-            Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
-            shapeRenderer.setProjectionMatrix(screenProjection);
-            shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
-            for (ClickMarker m : clickMarkers) {
-                if (m.expired()) continue;
-                if (!isTileNearAndVisible3D(m.tileX, m.tileY, CULL_DISTANCE_CLICK_MARKERS_3D)) continue;
-                if (!projectWorldToScreen3D(m.tileX, m.tileY, 0.05f, projectedWorldPoint)) continue;
-
-                float alpha    = m.alpha();
-                float progress = m.progress();
-                float sx       = projectedWorldPoint.x;
-                float sy       = projectedWorldPoint.y;
-                float rot      = m.rotationRad();
-
-                if (m.isAction) {
-                    shapeRenderer.setColor(1f, 0.10f, 0.10f, alpha);
-                } else {
-                    shapeRenderer.setColor(1f, 1f, 0f, alpha);
-                }
-
-                // 4 arrowheads pointing INWARD, converging toward center as progress → 1
-                // startRadius → endRadius over lifetime (convergence)
-                float startR  = 14f;
-                float endR    = 1.5f;
-                float radius  = startR + (endR - startR) * progress; // outer edge of arrowhead
-                float headLen = 6.5f;   // arrowhead depth (base to tip)
-                float wingW   = 4.0f;   // half-width of arrowhead base
-
-                for (int i = 0; i < 4; i++) {
-                    float arm     = rot + i * com.badlogic.gdx.math.MathUtils.HALF_PI;
-                    float perp    = arm + com.badlogic.gdx.math.MathUtils.HALF_PI;
-                    float cosArm  = com.badlogic.gdx.math.MathUtils.cos(arm);
-                    float sinArm  = com.badlogic.gdx.math.MathUtils.sin(arm);
-                    float cosPerp = com.badlogic.gdx.math.MathUtils.cos(perp);
-                    float sinPerp = com.badlogic.gdx.math.MathUtils.sin(perp);
-
-                    // Base (wide end) is at radius — outer, further from center
-                    float baseX = sx + cosArm * radius;
-                    float baseY = sy + sinArm * radius;
-                    // Tip points TOWARD center — inner
-                    float tipDist = Math.max(0f, radius - headLen);
-                    float tipX  = sx + cosArm * tipDist;
-                    float tipY  = sy + sinArm * tipDist;
-                    // Two base wing vertices
-                    float b1x = baseX + cosPerp * wingW;
-                    float b1y = baseY + sinPerp * wingW;
-                    float b2x = baseX - cosPerp * wingW;
-                    float b2y = baseY - sinPerp * wingW;
-                    shapeRenderer.triangle(tipX, tipY, b1x, b1y, b2x, b2y);
-                }
-                overlaysRenderedLastFrame3D++;
-            }
-            shapeRenderer.end();
-            Gdx.gl.glDisable(GL20.GL_BLEND);
-            return;
-        }
-
         Gdx.gl.glEnable(GL20.GL_BLEND);
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
-
-        shapeRenderer.setProjectionMatrix(camera.combined);
-        shapeRenderer.begin(com.badlogic.gdx.graphics.glutils.ShapeRenderer.ShapeType.Filled);
-
+        shapeRenderer.setProjectionMatrix(screenProjection);
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
         for (ClickMarker m : clickMarkers) {
             if (m.expired()) continue;
+            if (!isTileNearAndVisible3D(m.tileX, m.tileY, CULL_DISTANCE_CLICK_MARKERS_3D)) continue;
+            if (!projectWorldToScreen3D(m.tileX, m.tileY, 0.05f, projectedWorldPoint)) continue;
 
             float alpha    = m.alpha();
             float progress = m.progress();
-            float sx       = renderer.worldToScreenX(m.tileX, m.tileY);
-            float sy       = renderer.worldToScreenY(m.tileX, m.tileY);
+            float sx       = projectedWorldPoint.x;
+            float sy       = projectedWorldPoint.y;
             float rot      = m.rotationRad();
 
             if (m.isAction) {
@@ -6892,7 +6574,6 @@ public class GameScreen extends ApplicationAdapter {
                 shapeRenderer.setColor(1f, 1f, 0f, alpha);
             }
 
-            // 4 arrowheads pointing INWARD, converging toward center as progress → 1
             float startR  = 14f;
             float endR    = 1.5f;
             float radius  = startR + (endR - startR) * progress;
@@ -6918,9 +6599,10 @@ public class GameScreen extends ApplicationAdapter {
                 float b2y     = baseY - sinPerp * wingW;
                 shapeRenderer.triangle(tipX, tipY, b1x, b1y, b2x, b2y);
             }
+            overlaysRenderedLastFrame3D++;
         }
-
         shapeRenderer.end();
+        Gdx.gl.glDisable(GL20.GL_BLEND);
     }
 
     // -----------------------------------------------------------------------
@@ -7049,55 +6731,199 @@ public class GameScreen extends ApplicationAdapter {
             ActiveProjectile p = it.next();
             p.elapsed += delta;
             if (p.elapsed >= p.duration) {
-                combatUI.addDamageNumber(p.targetTileX, p.targetTileY, p.damage, p.hit);
+                CombatUI.HitType projHitType = (p.projectileType == 1 || p.projectileType == 2)
+                    ? CombatUI.HitType.RANGED : CombatUI.HitType.MAGIC;
+                combatUI.addDamageNumber(p.targetTileX, p.targetTileY, p.damage, p.hit, projHitType);
                 if (p.chatMessage != null) chatBox.addSystemMessage(p.chatMessage);
+                // Spawn spell impact effect at landing tile
+                if (p.projectileType >= 3) {
+                    activeImpacts.add(new SpellImpact(p.projectileType, p.targetTileX, p.targetTileY));
+                }
                 it.remove();
             }
         }
     }
 
-    private void renderProjectiles() {
-        if (activeProjectiles.isEmpty()) return;
-        shapeRenderer.setProjectionMatrix(camera.combined);
-        shapeRenderer.begin(com.badlogic.gdx.graphics.glutils.ShapeRenderer.ShapeType.Filled);
-        for (ActiveProjectile p : activeProjectiles) {
-            float progress = p.duration > 0f ? (p.elapsed / p.duration) : 1f;
-            float tileX = p.srcTileX + (p.dstTileX - p.srcTileX) * progress;
-            float tileY = p.srcTileY + (p.dstTileY - p.srcTileY) * progress;
-            float sx = renderer.worldToScreenX(tileX, tileY);
-            float sy = renderer.worldToScreenY(tileX, tileY);
-            float arcH = (p.projectileType >= 3) ? SPELL_ARC_HEIGHT : ARROW_ARC_HEIGHT;
-            sy += arcH * (float) Math.sin(Math.PI * progress);
-            float radius = (p.projectileType >= 3) ? 5f : 4f;
+    private void updateImpacts(float delta) {
+        activeImpacts.removeIf(i -> {
+            i.age += delta;
+            return i.isExpired();
+        });
+    }
 
-            if (p.projectileType >= 3) {
-                float gr;
-                float gg;
-                float gb;
-                switch (p.projectileType) {
-                    case 3  -> { gr = 0.88f; gg = 0.92f; gb = 1.00f; } // wind
-                    case 4  -> { gr = 0.30f; gg = 0.62f; gb = 1.00f; } // water
-                    case 5  -> { gr = 1.00f; gg = 0.45f; gb = 0.12f; } // fire
-                    case 6  -> { gr = 0.52f; gg = 0.56f; gb = 0.32f; } // earth
-                    default -> { gr = 0.80f; gg = 0.80f; gb = 0.80f; }
-                }
-                shapeRenderer.setColor(gr, gg, gb, 0.14f);
-                shapeRenderer.circle(sx, sy, radius + 2.5f, 12);
-                shapeRenderer.setColor(gr, gg, gb, 0.08f);
-                shapeRenderer.circle(sx, sy, radius + 4.5f, 12);
-            }
+    /**
+     * Render spell impact effects in screen space.
+     * Each spell type has a distinct expanding ring+flash pattern.
+     *
+     * Wind  (3): pale blue-white expanding ring
+     * Water (4): blue concentric rings
+     * Fire  (5): orange burst → ember fade
+     * Earth (6): olive shockwave ring
+     */
+    private void renderImpacts() {
+        if (activeImpacts.isEmpty() || camera3d == null) return;
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
+        shapeRenderer.setProjectionMatrix(screenProjection);
+        shapeRenderer.begin(com.badlogic.gdx.graphics.glutils.ShapeRenderer.ShapeType.Line);
 
-            // Colour by projectile type
-            switch (p.projectileType) {
-                case 3  -> shapeRenderer.setColor(0.90f, 0.90f, 0.90f, 1f); // wind: white
-                case 4  -> shapeRenderer.setColor(0.25f, 0.60f, 1.00f, 1f); // water: blue
-                case 5  -> shapeRenderer.setColor(1.00f, 0.40f, 0.10f, 1f); // fire: orange-red
-                case 6  -> shapeRenderer.setColor(0.30f, 0.75f, 0.25f, 1f); // earth: green
-                default -> shapeRenderer.setColor(1f, 0.72f, 0.1f, 1f);     // arrow: orange-gold
-            }
-            shapeRenderer.circle(sx, sy, radius, 10);
+        for (SpellImpact impact : activeImpacts) {
+            if (!projectWorldToScreen3D(impact.tileX, impact.tileY, 0.1f, projectedWorldPoint)) continue;
+            float sx = projectedWorldPoint.x;
+            float sy = projectedWorldPoint.y;
+            float prog = impact.progress();
+            // Fade: full alpha for first 60%, then fade out
+            float alpha = prog < 0.6f ? 1f : (1f - prog) / 0.4f;
+
+            float[] col = spellOrbColor(impact.spellType);
+            float maxRadius = 28f;
+            float r1 = prog * maxRadius;           // primary expanding ring
+            float r2 = Math.max(0f, prog * maxRadius - 8f); // secondary ring (slightly behind)
+
+            // Primary ring
+            shapeRenderer.setColor(col[0], col[1], col[2], alpha * 0.90f);
+            if (r1 > 0.5f) shapeRenderer.circle(sx, sy, r1, 18);
+
+            // Secondary ring (lags behind)
+            shapeRenderer.setColor(col[0] * 0.8f, col[1] * 0.8f, col[2] * 0.8f, alpha * 0.50f);
+            if (r2 > 0.5f) shapeRenderer.circle(sx, sy, r2, 18);
         }
         shapeRenderer.end();
+
+        // Flash fill on the first 20% of the impact
+        shapeRenderer.begin(com.badlogic.gdx.graphics.glutils.ShapeRenderer.ShapeType.Filled);
+        for (SpellImpact impact : activeImpacts) {
+            if (impact.progress() >= 0.20f) continue;
+            if (!projectWorldToScreen3D(impact.tileX, impact.tileY, 0.1f, projectedWorldPoint)) continue;
+            float sx = projectedWorldPoint.x;
+            float sy = projectedWorldPoint.y;
+            float flashAlpha = (0.20f - impact.progress()) / 0.20f * 0.55f;
+            float[] col = spellOrbColor(impact.spellType);
+            shapeRenderer.setColor(col[0], col[1], col[2], flashAlpha);
+            shapeRenderer.circle(sx, sy, 10f, 14);
+        }
+        shapeRenderer.end();
+        Gdx.gl.glDisable(GL20.GL_BLEND);
+    }
+
+    private void renderProjectiles() {
+        if (activeProjectiles.isEmpty() || camera3d == null) return;
+        Gdx.gl.glEnable(GL20.GL_BLEND);
+        Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
+        shapeRenderer.setProjectionMatrix(screenProjection);
+        shapeRenderer.begin(com.badlogic.gdx.graphics.glutils.ShapeRenderer.ShapeType.Filled);
+        for (ActiveProjectile p : activeProjectiles) {
+            float progress = p.duration > 0f ? Math.min(p.elapsed / p.duration, 1f) : 1f;
+            boolean isSpell = p.projectileType >= 3;
+            float arcH = isSpell ? SPELL_ARC_HEIGHT : ARROW_ARC_HEIGHT;
+
+            float tileX = p.srcTileX + (p.dstTileX - p.srcTileX) * progress;
+            float tileY = p.srcTileY + (p.dstTileY - p.srcTileY) * progress;
+            if (!projectWorldToScreen3D(tileX, tileY, 0f, projectedWorldPoint)) continue;
+            float sx = projectedWorldPoint.x;
+            float sy = projectedWorldPoint.y + arcH * MathUtils.sin(MathUtils.PI * progress);
+
+            if (isSpell) {
+                renderSpellProjectile(p, sx, sy, progress, arcH);
+            } else {
+                renderArrowProjectile(p, sx, sy, progress, arcH);
+            }
+        }
+        shapeRenderer.end();
+        Gdx.gl.glDisable(GL20.GL_BLEND);
+    }
+
+    /** Render a spell orb with smear trail and glow rings. */
+    private void renderSpellProjectile(ActiveProjectile p, float sx, float sy,
+                                        float progress, float arcH) {
+        float[] col = spellOrbColor(p.projectileType);
+        float radius = 5f;
+
+        // Smear trail: 3 faded copies at earlier progress positions
+        float[] trailAlphas = { 0.40f, 0.25f, 0.12f };
+        for (int t = 0; t < 3; t++) {
+            float tp = Math.max(0f, progress - (t + 1) * 0.06f);
+            float ttx = p.srcTileX + (p.dstTileX - p.srcTileX) * tp;
+            float tty = p.srcTileY + (p.dstTileY - p.srcTileY) * tp;
+            if (!projectWorldToScreen3D(ttx, tty, 0f, projectedWorldPoint)) continue;
+            float trailSx = projectedWorldPoint.x;
+            float trailSy = projectedWorldPoint.y + arcH * MathUtils.sin(MathUtils.PI * tp);
+            shapeRenderer.setColor(col[0], col[1], col[2], trailAlphas[t]);
+            shapeRenderer.circle(trailSx, trailSy, radius - t * 0.9f, 10);
+        }
+
+        // Outer glow rings
+        shapeRenderer.setColor(col[0], col[1], col[2], 0.14f);
+        shapeRenderer.circle(sx, sy, radius + 3f, 14);
+        shapeRenderer.setColor(col[0], col[1], col[2], 0.07f);
+        shapeRenderer.circle(sx, sy, radius + 6f, 14);
+        // Core orb
+        shapeRenderer.setColor(col[0], col[1], col[2], 1f);
+        shapeRenderer.circle(sx, sy, radius, 14);
+        // Bright centre highlight
+        shapeRenderer.setColor(1f, 1f, 1f, 0.65f);
+        shapeRenderer.circle(sx, sy, radius * 0.38f, 8);
+    }
+
+    private static float[] spellOrbColor(int projectileType) {
+        return switch (projectileType) {
+            case 3  -> new float[]{ 0.88f, 0.92f, 1.00f }; // wind: pale blue-white
+            case 4  -> new float[]{ 0.28f, 0.58f, 1.00f }; // water: blue
+            case 5  -> new float[]{ 1.00f, 0.42f, 0.10f }; // fire: orange-red
+            case 6  -> new float[]{ 0.48f, 0.60f, 0.28f }; // earth: olive green
+            default -> new float[]{ 0.85f, 0.85f, 0.85f }; // fallback: grey
+        };
+    }
+
+    /**
+     * Render an arrow/bolt as a thin oriented line pointing in the direction of travel.
+     * Direction is computed from the arc tangent in screen space.
+     */
+    private void renderArrowProjectile(ActiveProjectile p, float sx, float sy,
+                                        float progress, float arcH) {
+        // Project source and destination to screen to get the base travel direction
+        if (!projectWorldToScreen3D(p.srcTileX, p.srcTileY, 0f, projectedWorldPoint)) {
+            shapeRenderer.setColor(1f, 0.72f, 0.1f, 1f);
+            shapeRenderer.circle(sx, sy, 3.5f, 10);
+            return;
+        }
+        float srcSx = projectedWorldPoint.x;
+        float srcSy = projectedWorldPoint.y;
+
+        if (!projectWorldToScreen3D(p.dstTileX, p.dstTileY, 0f, projectedWorldPoint)) {
+            shapeRenderer.setColor(1f, 0.72f, 0.1f, 1f);
+            shapeRenderer.circle(sx, sy, 3.5f, 10);
+            return;
+        }
+        float dstSx = projectedWorldPoint.x;
+        float dstSy = projectedWorldPoint.y;
+
+        // Base direction (screen-space source → destination)
+        float dx = dstSx - srcSx;
+        float dy = dstSy - srcSy;
+        // Add arc vertical tangent component at current progress
+        dy += arcH * MathUtils.PI * MathUtils.cos(MathUtils.PI * progress);
+        float len = (float) Math.sqrt(dx * dx + dy * dy);
+        if (len < 0.001f) len = 1f;
+        float nx = dx / len;
+        float ny = dy / len;
+
+        // Arrow as a thin rectLine (shaft) plus a bright tip dot
+        float halfShaft = 10f;
+        float tailX = sx - nx * halfShaft;
+        float tailY = sy - ny * halfShaft;
+        float headX = sx + nx * halfShaft;
+        float headY = sy + ny * halfShaft;
+
+        // Drop shadow
+        shapeRenderer.setColor(0.25f, 0.18f, 0.04f, 0.55f);
+        shapeRenderer.rectLine(tailX + 1f, tailY - 1f, headX + 1f, headY - 1f, 2f);
+        // Shaft
+        shapeRenderer.setColor(0.95f, 0.72f, 0.12f, 1f);
+        shapeRenderer.rectLine(tailX, tailY, headX, headY, 2.2f);
+        // Tip highlight
+        shapeRenderer.setColor(1f, 0.95f, 0.55f, 0.90f);
+        shapeRenderer.circle(headX, headY, 2.2f, 6);
     }
 
     /**
@@ -7168,28 +6994,6 @@ public class GameScreen extends ApplicationAdapter {
             panelX + 8, panelY + 22);
         screenBatch.end();
         font.setColor(COLOR_WHITE);
-    }
-
-    /** Draws a flickering fire shape on the given world tile (world-space projection). */
-    private void renderFireAnimation(float wx, float wy) {
-        float sx    = renderer.worldToScreenX(wx, wy);
-        float sy    = renderer.worldToScreenY(wx, wy);
-        float flick = (float) Math.sin(firemakerFlicker);
-
-        shapeRenderer.setProjectionMatrix(camera.combined);
-        shapeRenderer.begin(com.badlogic.gdx.graphics.glutils.ShapeRenderer.ShapeType.Filled);
-        // Base ember
-        shapeRenderer.setColor(0.55f, 0.08f, 0.02f, 0.9f);
-        shapeRenderer.ellipse(sx - 7, sy - 2, 14, 7);
-        // Orange flame body
-        shapeRenderer.setColor(0.95f, 0.45f, 0.05f, 0.85f);
-        float h1 = 10f + flick * 2f;
-        shapeRenderer.ellipse(sx - 5, sy, 10, h1);
-        // Yellow tip
-        shapeRenderer.setColor(1.0f, 0.90f, 0.15f, 0.75f);
-        float h2 = 6f + flick * 1.5f;
-        shapeRenderer.ellipse(sx - 3, sy + h1 - 3f, 6, h2);
-        shapeRenderer.end();
     }
 
     private void renderHUD() {
@@ -7275,25 +7079,6 @@ public class GameScreen extends ApplicationAdapter {
         font.getData().setScale(FontManager.getScale(FontManager.FontContext.BASE_UI));
     }
 
-    // private void renderRendererModeLabel() {
-    //     int w = Gdx.graphics.getWidth();
-    //     int h = Gdx.graphics.getHeight();
-    //     String modeLabel = use3DRenderer ? "Renderer: 3D Experimental" : "Renderer: 2D Isometric";
-
-    //     screenBatch.setProjectionMatrix(screenProjection);
-    //     screenBatch.begin();
-    //     font.getData().setScale(FontManager.getScale(FontManager.FontContext.SMALL_LABEL));
-    //     gl.setText(font, modeLabel);
-    //     float x = w - gl.width - 12f;
-    //     float y = h - 12f;
-    //     font.setColor(0f, 0f, 0f, 0.75f);
-    //     font.draw(screenBatch, modeLabel, x + 1f, y - 1f);
-    //     font.setColor(0.88f, 0.88f, 0.88f, 0.95f);
-    //     font.draw(screenBatch, modeLabel, x, y);
-    //     font.getData().setScale(FontManager.getScale(FontManager.FontContext.BASE_UI));
-    //     font.setColor(COLOR_WHITE);
-    //     screenBatch.end();
-    // }
 
     // -----------------------------------------------------------------------
     // Lifecycle

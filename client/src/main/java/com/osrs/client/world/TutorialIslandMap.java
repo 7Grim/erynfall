@@ -3,7 +3,7 @@ package com.osrs.client.world;
 /**
  * Generates the Tutorial Island tile layout as a 104×104 int array.
  *
- * Tile type constants (same integers used by IsometricRenderer):
+ * Tile type constants:
  *   GRASS=0, PATH=1, WATER=2, SAND=3, WALL=4
  */
 public class TutorialIslandMap {

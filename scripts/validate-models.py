@@ -27,6 +27,7 @@ class ModelEntry:
     scale: float
     origin: str
     required: bool
+    animated: bool
     notes: str
     equip_slot: int | None
     item_id: int | None
@@ -241,6 +242,9 @@ def parse_manifest(manifest_path: Path) -> list[ModelEntry]:
         hide_nodes_raw = item.get("hide_nodes")
         hide_nodes_list = hide_nodes_raw if isinstance(hide_nodes_raw, list) else []
 
+        animated_raw = item.get("animated")
+        animated = as_bool(animated_raw, "animated", key) if animated_raw is not None else False
+
         entry = ModelEntry(
             key=key,
             file=file_name,
@@ -249,6 +253,7 @@ def parse_manifest(manifest_path: Path) -> list[ModelEntry]:
             scale=as_float(item["scale"], "scale", key),
             origin=str(item["origin"]),
             required=as_bool(item["required"], "required", key),
+            animated=animated,
             notes=str(item["notes"]),
             equip_slot=parse_equip_slot(item.get("equip_slot"), key),
             item_id=as_optional_int(item.get("item_id"), "item_id", key),
@@ -339,6 +344,11 @@ def validate(entries: list[ModelEntry], models_dir: Path, blender_dir: Path) -> 
         if entry.category not in supported_categories:
             warnings.append(f"unknown category '{entry.category}' for key '{entry.key}'")
 
+        if entry.format in {"g3dj", "g3db"}:
+            warnings.append(
+                f"DEPRECATED: entry '{entry.key}' uses legacy format '{entry.format}' — migrate to GLB"
+            )
+
         if entry.category == "equipment" and not entry.anchor_name:
             errors.append(f"equipment key '{entry.key}' is missing anchor_name")
 
@@ -347,23 +357,10 @@ def validate(entries: list[ModelEntry], models_dir: Path, blender_dir: Path) -> 
                 f"equipment key '{entry.key}' uses origin '{entry.origin}' (expected actor-center for attachment workflows)"
             )
 
-        if entry.category == "actor" and entry.key.endswith("_base"):
-            required_clips = {"idle", "walk"}
-            if entry.format == "g3dj":
-                try:
-                    if model_path not in g3dj_cache:
-                        g3dj_cache[model_path] = inspect_g3dj(model_path)
-                    _, clips = g3dj_cache[model_path]
-                    missing = sorted(required_clips - {clip.lower() for clip in clips})
-                    if missing:
-                        warnings.append(
-                            f"actor base '{entry.key}' missing expected clips: {', '.join(missing)}"
-                        )
-                except Exception as exc:
-                    warnings.append(f"could not inspect clips for actor base '{entry.key}': {exc}")
-            else:
+        if entry.category == "actor" and entry.format in {"glb", "gltf"}:
+            if not entry.animated:
                 warnings.append(
-                    f"actor base '{entry.key}' clip check skipped for non-g3dj format '{entry.format}'"
+                    f"GLB actor '{entry.key}' should set animated: true if it contains animation clips"
                 )
 
         if entry.format in {"glb", "gltf"}:
@@ -400,11 +397,7 @@ def validate(entries: list[ModelEntry], models_dir: Path, blender_dir: Path) -> 
             errors.append("equipment anchor validation requires 'player_base' manifest entry")
         else:
             player_base_path = models_dir / player_base.file
-            if player_base.format != "g3dj":
-                warnings.append(
-                    "player_base is not g3dj; anchor node validation skipped for equipment attachment anchors"
-                )
-            elif player_base_path.exists():
+            if player_base.format in {"g3dj", "g3db"} and player_base_path.exists():
                 try:
                     if player_base_path not in g3dj_cache:
                         g3dj_cache[player_base_path] = inspect_g3dj(player_base_path)
@@ -450,6 +443,7 @@ def write_runtime_metadata(entries: Iterable[ModelEntry], output_path: Path) -> 
             "scale": entry.scale,
             "origin": entry.origin,
             "required": entry.required,
+            "animated": entry.animated,
         }
         if entry.equip_slot is not None:
             asset["equip_slot"] = entry.equip_slot

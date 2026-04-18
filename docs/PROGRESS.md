@@ -12,26 +12,31 @@ Older detailed planning and implementation notes still exist elsewhere in `docs/
 ### Core Project State
 
 - server-authoritative architecture is in place
-- client supports both 3D experimental and 2D fallback rendering paths
+- client is **3D-only** — IsometricRenderer removed from active path; billboard fallback for entities without 3D models
 - gameplay breadth is well beyond initial foundation stage
-- 3D art workflow is now an active workstream, not an idea
+- 3D art pipeline is fully spec'd and operational end-to-end
 
-### 3D Art Workflow State
+### 3D Art Pipeline (Complete)
 
-Completed major work:
+- `docs/GRAPHICS_STYLE.md` created — authoritative visual/animation/rig style guide for artists and AI
+- `IsometricRenderer` moved to `renderer/legacy/` package; no 2D rendering in hot path
+- Legacy procedural generation scripts moved to `scripts/legacy/`
+- `validate-models.py` updated: G3DJ → deprecation warnings; GLB actor `animated` flag check; source_blend enforcement
+- `export-blender-models.py` updated: animation NLA strip export, no skinning, vertex colors
+- `ARTIST_GUIDE.md` updated with Blender rig/export section
+- `AGENTS.md` and `CLAUDE.md` updated to reference `docs/GRAPHICS_STYLE.md`
+- Renderer animation: idle fallback on missing clip, blend time tightened to 0.08s (OSRS feel), `normalizePlayerClipName()` expanded to full clip set
+- Two-world art structure in place: `art/worlds/sandbox/` (model staging) and `art/worlds/main_world/` (game world)
+
+### 3D Art Workflow (Art Workbench)
+
 - GLB-first runtime plumbing added
 - artist mode added
-- repo-backed source loading added for current art workflow
-- canonical visual scene source moved to `art/world/tutorial_island.scene.yaml`
-- Art Workbench added
-- model preview added
-- equipment fit preview added
-- live preview-only equipment transform tuning added
-- manifest snippet export added
-- manifest save-back for active equipment fit preview added
-- world placement mode added
-- searchable selection added to the workbench
-- workbench readability/layout improved
+- repo-backed source loading added
+- Art Workbench: 5 modes (Model Preview, Equipment Fit, World Placement, Entity Binding, Terrain Paint)
+- equipment fit preview + live transform tuning + manifest save-back
+- world placement mode with `P` save-back to active world's scene.yaml
+- searchable selection in workbench
 
 ### S5 Skilling and Systems (Complete)
 
@@ -58,20 +63,20 @@ For current work, use this context set first:
 
 1. `../AGENTS.md`
 2. `../ARTIST_GUIDE.md`
-3. `README.md`
-4. `ARCHITECTURE.md`
-5. `ART_PIPELINE_IMPLEMENTATION_CHECKLIST.md`
-6. `ART_PIPELINE_IMPLEMENTATION_ORDER.md`
-7. `CONTRIBUTING.md`
+3. `GRAPHICS_STYLE.md`
+4. `README.md`
+5. `ARCHITECTURE.md`
+6. `ART_PIPELINE_IMPLEMENTATION_CHECKLIST.md`
+7. `ART_PIPELINE_IMPLEMENTATION_ORDER.md`
+8. `CONTRIBUTING.md`
 
 ## Next High-Value Areas
 
-The biggest remaining workflow/value areas are:
-
-1. stronger export + validation hardening
-2. doc cleanup / source-of-truth lock-in
-3. broader real GLB asset adoption
-4. further world-placement quality-of-life only if artists still need it
+1. **Player base GLB** — author `player_base.blend` with full rig + all clips per GRAPHICS_STYLE.md; replace `player_base.g3dj`
+2. **Broader GLB asset adoption** — migrate remaining 170 G3DJ models to Blender-authored GLB
+3. **Prayer system** — points, activation, drain
+4. **SQL persistence** — complete schema wiring so XP/inventory survive server restart
+5. **Post-Tutorial Island** — mainland map, bank, follow-on quests
 
 ## Notes
 

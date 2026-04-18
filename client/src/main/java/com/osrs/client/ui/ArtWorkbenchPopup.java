@@ -25,6 +25,27 @@ public class ArtWorkbenchPopup {
         WALK
     }
 
+    /** All animation clips available for preview cycling in MODEL_PREVIEW mode. */
+    private static final String[] PREVIEW_CLIPS = {
+        "",             // AUTO — let renderer choose
+        "idle",
+        "walk",
+        "run",
+        "pickup",
+        "chop",
+        "mine",
+        "fish",
+        "smith",
+        "cook",
+        "attack_slash",
+        "attack_stab",
+        "attack_shoot",
+        "attack_shoot_bow",
+        "attack_throw",
+        "block",
+        "death"
+    };
+
     public enum Mode {
         MODEL_PREVIEW,
         EQUIPMENT_FIT,
@@ -70,6 +91,8 @@ public class ArtWorkbenchPopup {
     private int selectedIndex = 0;
     private int activeSlotIndex = 0;
     private ClipMode clipMode = ClipMode.AUTO;
+    /** Index into PREVIEW_CLIPS used when mode == MODEL_PREVIEW. */
+    private int previewClipIndex = 0;
     private Mode mode = Mode.MODEL_PREVIEW;
     private String exportStatus = "";
     private String exportSnippet = "";
@@ -287,11 +310,17 @@ public class ArtWorkbenchPopup {
     }
 
     public void cycleClipMode() {
-        clipMode = switch (clipMode) {
-            case AUTO -> ClipMode.IDLE;
-            case IDLE -> ClipMode.WALK;
-            case WALK -> ClipMode.AUTO;
-        };
+        if (mode == Mode.MODEL_PREVIEW) {
+            // In MODEL_PREVIEW: cycle through all clips in PREVIEW_CLIPS
+            previewClipIndex = (previewClipIndex + 1) % PREVIEW_CLIPS.length;
+        } else {
+            // In other modes (e.g. EQUIPMENT_FIT): cycle the simpler ClipMode enum
+            clipMode = switch (clipMode) {
+                case AUTO -> ClipMode.IDLE;
+                case IDLE -> ClipMode.WALK;
+                case WALK -> ClipMode.AUTO;
+            };
+        }
     }
 
     public void cycleActiveSlot(int direction) {
@@ -736,6 +765,9 @@ public class ArtWorkbenchPopup {
     }
 
     public String selectedClipName() {
+        if (mode == Mode.MODEL_PREVIEW) {
+            return PREVIEW_CLIPS[previewClipIndex];
+        }
         return switch (clipMode) {
             case IDLE -> "idle";
             case WALK -> "walk";
@@ -822,7 +854,10 @@ public class ArtWorkbenchPopup {
             font.setColor(0.82f, 0.88f, 0.98f, 1f);
             font.draw(batch, "Clip:", x + 520, y + PANEL_H - 16);
             font.setColor(0.96f, 0.96f, 0.96f, 1f);
-            font.draw(batch, clipMode.name(), x + 558, y + PANEL_H - 16);
+            String clipLabel = (mode == Mode.MODEL_PREVIEW)
+                ? (PREVIEW_CLIPS[previewClipIndex].isEmpty() ? "AUTO" : PREVIEW_CLIPS[previewClipIndex])
+                : clipMode.name();
+            font.draw(batch, clipLabel, x + 558, y + PANEL_H - 16);
         } else {
             boolean dirty = switch (mode) {
                 case WORLD_PLACEMENT -> sceneEditState != null && sceneEditState.dirty();

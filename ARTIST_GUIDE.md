@@ -130,7 +130,55 @@ Example:
   source_blend: player/player_base.blend
 ```
 
-### 4. World Scene Source
+### 4. Blender Rig and Export Standards
+
+**Full spec:** `docs/GRAPHICS_STYLE.md` — read it before rigging or animating anything.
+
+Key rules (summary only — GRAPHICS_STYLE.md is authoritative):
+
+**Rig method — rigid body part, not vertex skinning:**
+- Each body part (head, torso, arms, legs) is a **separate mesh object parented to a bone** via Ctrl+P → Bone.
+- No Armature modifier, no weight painting, no automatic weights.
+- LibGDX `AnimationController` handles node animations from GLB — this is why rigid parenting works.
+
+**Bone naming (must match exactly):**
+```
+root → hips → spine → chest → shoulder_l → upper_arm_l → lower_arm_l → hand_l
+                             → shoulder_r → upper_arm_r → lower_arm_r → hand_r
+                             → neck → head
+            → upper_leg_l → lower_leg_l → foot_l
+            → upper_leg_r → lower_leg_r → foot_r
+```
+
+**Equipment anchor nodes (child bones, exact names):**
+`head_anchor`, `weapon_anchor` (child of hand_r), `shield_anchor` (child of hand_l),
+`cape_anchor`, `ammo_anchor`, `body_anchor`, `hands_anchor` (chest),
+`legs_anchor`, `feet_anchor` (hips)
+
+**Animation clips (NLA tracks, exact names, OSRS tick timing = 600ms/tick):**
+
+| Clip | Duration | Loop |
+|---|---|---|
+| `idle` | 2.4s | YES |
+| `walk` | 1.2s | YES |
+| `run` | 0.6s | YES |
+| `attack_slash` | 1.8s | NO |
+| `attack_shoot` | 1.8s | NO |
+| `death` | 1.8s | NO |
+| (full table in GRAPHICS_STYLE.md) | | |
+
+**Blender GLB export settings:**
+- Format: GLB
+- Geometry → Apply Modifiers: ON
+- Geometry → Vertex Colors: ON
+- Animation → Export NLA Strips: ON
+- Armatures → Export Deform Bones Only: OFF (needed for anchor nodes)
+- Skinning: OFF
+
+Run `python3 scripts/export-blender-models.py --dry-run` to preview planned exports.
+Run `python3 scripts/export-blender-models.py --run` to execute (requires Blender in PATH).
+
+### 5. World Scene Source
 
 Static prop placement and terrain visual scene data belong in the active world's scene file:
 - `art/worlds/main_world/scene.yaml` — tutorial island region + mainland (primary world building target)
@@ -143,7 +191,7 @@ Each scene file owns:
 
 The artist workbench saves to whichever world is currently loaded. Use `main_world` for real world building. Use `sandbox` for isolated model staging and testing.
 
-### 5. Entity Visual Binding Source
+### 6. Entity Visual Binding Source
 
 Entity and resource archetype visual bindings belong in:
 - `art/world/entity_visuals.yaml`

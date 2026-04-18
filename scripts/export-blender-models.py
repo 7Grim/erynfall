@@ -205,6 +205,19 @@ bpy.ops.export_scene.gltf(
     filepath=output_path,
     export_format='GLB',
     export_apply=True,
+    # Vertex colors (no PBR — flat diffuse only)
+    export_colors=True,
+    # Animations via NLA strips — rigid body part method (no vertex skinning)
+    export_animations=True,
+    export_nla_strips=True,
+    export_frame_range=False,
+    export_force_sampling=False,
+    # No skin/vertex weight data — rigid parenting only
+    export_skins=False,
+    # Armature bones (include non-deform for anchor nodes)
+    export_def_bones=False,
+    use_selection=False,
+    use_visible=True,
 )
 print(f"Exported GLB: {output_path}")
 """.strip()

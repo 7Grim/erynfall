@@ -128,7 +128,7 @@ Global implemented F-key controls:
 - `F6` art workbench toggle in artist mode
 - `F7` 3D bounds/axes debug
 - `F8` 3D anchor debug
-- `F9` 3D / 2D renderer toggle
+- `F9` reserved (was 2D toggle — removed)
 - `F10` 3D pick-volume debug
 - `F11` 3D render-budget debug
 

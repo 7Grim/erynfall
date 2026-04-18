@@ -480,14 +480,23 @@ public class ModelLibrary {
                     if (sceneAsset == null || sceneAsset.scene == null || sceneAsset.scene.model == null) {
                         throw new IllegalStateException("GLB scene asset missing root model");
                     }
-                    normalizeGlbMaterials(sceneAsset.scene.model, meta, resolvedPath);
-                    loadedAsset = new LoadedAsset(sceneAsset.scene.model, sceneAsset);
-                    Model model = loadedAsset.model();
+                    Model model = sceneAsset.scene.model;
+                    normalizeGlbMaterials(model, meta, resolvedPath);
+                    // mgsx-gltf may store animation objects in SceneAsset.animations separately from
+                    // model.animations. Copy them over so AnimationController.getAnimation() finds them.
+                    if (model.animations.size == 0 && sceneAsset.animations != null
+                            && sceneAsset.animations.size > 0) {
+                        model.animations.addAll(sceneAsset.animations);
+                        Gdx.app.log("ModelLibrary", "GLB copied " + sceneAsset.animations.size
+                            + " animation(s) from SceneAsset to model for key='" + meta.key() + "'");
+                    }
+                    loadedAsset = new LoadedAsset(model, sceneAsset);
                     Gdx.app.log("ModelLibrary", "GLB loaded key='" + meta.key()
                         + "' path='" + resolvedPath
                         + "' model_id=" + System.identityHashCode(model)
                         + " meshes=" + model.meshes.size
-                        + " materials=" + model.materials.size);
+                        + " materials=" + model.materials.size
+                        + " animations=" + model.animations.size);
                 } else {
                     Model model = g3djLoader.loadModel(handle);
                     loadedAsset = new LoadedAsset(model, model);

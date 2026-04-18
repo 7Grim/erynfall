@@ -15,6 +15,7 @@ Scope: entire monorepo (`client`, `server`, `shared`).
 - Read `CLAUDE.md` for architecture and common commands.
 - Read `docs/CONTRIBUTING.md` for branch/commit/process standards.
 - Read `docs/ARCHITECTURE.md` for server-authoritative design decisions.
+- Read `docs/GRAPHICS_STYLE.md` before authoring or reviewing any art, rig, animation, or rendering code — this is the frozen visual/animation style reference for the project.
 - No Cursor rules were found (`.cursor/rules/` and `.cursorrules` absent at time of writing).
 - No Copilot rules were found (`.github/copilot-instructions.md` absent at time of writing).
 

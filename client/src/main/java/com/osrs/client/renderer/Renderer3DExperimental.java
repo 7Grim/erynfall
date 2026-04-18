@@ -22,7 +22,9 @@ import com.badlogic.gdx.graphics.g3d.decals.CameraGroupStrategy;
 import com.badlogic.gdx.graphics.g3d.decals.Decal;
 import com.badlogic.gdx.graphics.g3d.decals.DecalBatch;
 import com.badlogic.gdx.graphics.g3d.environment.DirectionalLight;
+import com.badlogic.gdx.graphics.g3d.shaders.DefaultShader;
 import com.badlogic.gdx.graphics.g3d.utils.AnimationController;
+import com.badlogic.gdx.graphics.g3d.utils.DefaultShaderProvider;
 import com.badlogic.gdx.graphics.g3d.utils.MeshPartBuilder;
 import com.badlogic.gdx.graphics.g3d.utils.ModelBuilder;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
@@ -231,7 +233,17 @@ public class Renderer3DExperimental {
         camera.up.set(0f, 1f, 0f);
         camera.update();
 
-        modelBatch = new ModelBatch();
+        // Use an adaptive DefaultShaderProvider: each shader is compiled with the exact
+        // numBones required by its first renderable.  A global cap of 32 causes shader
+        // compilation failures on Apple Silicon / Metal-backed OpenGL.
+        modelBatch = new ModelBatch(new DefaultShaderProvider() {
+            @Override
+            protected DefaultShader createShader(com.badlogic.gdx.graphics.g3d.Renderable renderable) {
+                DefaultShader.Config cfg = new DefaultShader.Config();
+                cfg.numBones = renderable.bones != null ? renderable.bones.length : 0;
+                return new DefaultShader(renderable, cfg);
+            }
+        });
         debugShapeRenderer = new ShapeRenderer();
         decalBatch = new DecalBatch(new CameraGroupStrategy(camera));
         overlayDecalBatch = new DecalBatch(new CameraGroupStrategy(camera));
@@ -946,7 +958,15 @@ public class Renderer3DExperimental {
         boolean hasClips = animatedInstance.animations != null
                            && !animatedInstance.animations.isEmpty();
         if (hasClips && animatedInstance.getAnimation(clipName) == null) {
-            return false;
+            // Try legacy G3DJ clip name alias before falling back to idle.
+            String alias = getLegacyClipAlias(clipName);
+            if (alias != null && animatedInstance.getAnimation(alias) != null) {
+                clipName = alias;
+            } else if (animatedInstance.getAnimation("idle") != null) {
+                clipName = "idle";
+            } else {
+                clipName = animatedInstance.animations.get(0).id;
+            }
         }
 
         boolean ownsPass = !actorModelPassActive;
@@ -960,8 +980,8 @@ public class Renderer3DExperimental {
             if (hasClips) {
                 String currentClip = currentPlayerClipByEntityId.getOrDefault(entityId, "");
                 if (!clipName.equals(currentClip)) {
-                    // Blend over 0.15 s so walk→idle doesn't snap the legs.
-                    animationController.animate(clipName, -1, 1f, null, 0.15f);
+                    // OSRS feel: snappy transitions, blend ≤ 0.1s.
+                    animationController.animate(clipName, -1, 1f, null, 0.08f);
                     currentPlayerClipByEntityId.put(entityId, clipName);
                 }
                 animationController.update(Math.max(0f, delta));
@@ -1034,7 +1054,12 @@ public class Renderer3DExperimental {
         String clipName = normalizeNpcClipName(stateKey);
         boolean hasClips = instance.animations != null && !instance.animations.isEmpty();
         if (hasClips && instance.getAnimation(clipName) == null) {
-            return false;
+            // Requested clip not present — fall back to idle or first available clip.
+            if (instance.getAnimation("idle") != null) {
+                clipName = "idle";
+            } else {
+                clipName = instance.animations.get(0).id;
+            }
         }
 
         boolean ownsPass = !actorModelPassActive;
@@ -1048,7 +1073,7 @@ public class Renderer3DExperimental {
             if (hasClips) {
                 String currentClip = currentNpcClipByEntityId.getOrDefault(entityId, "");
                 if (!clipName.equals(currentClip)) {
-                    controller.animate(clipName, -1, 1f, null, 0.15f);
+                    controller.animate(clipName, -1, 1f, null, 0.08f);
                     currentNpcClipByEntityId.put(entityId, clipName);
                 }
                 controller.update(Math.max(0f, delta));
@@ -1259,15 +1284,39 @@ public class Renderer3DExperimental {
             return "idle";
         }
         return switch (stateKey) {
-            case "player_idle" -> "idle";
-            case "player_walk" -> "walk";
-            case "player_pickup" -> "pickup";
-            case "player_chop" -> "chop";
-            case "player_mine" -> "mine";
-            case "player_fish" -> "fish";
-            case "player_sword" -> "sword";
-            case "player_spear" -> "spear";
-            default -> "idle";
+            case "player_idle"          -> "idle";
+            case "player_walk"          -> "walk";
+            case "player_run"           -> "run";
+            case "player_pickup"        -> "pickup";
+            case "player_chop"          -> "chop";
+            case "player_mine"          -> "mine";
+            case "player_fish"          -> "fish";
+            case "player_smith"         -> "smith";
+            case "player_cook"          -> "cook";
+            case "player_sword",
+                 "player_attack_slash"  -> "attack_slash";
+            case "player_spear",
+                 "player_attack_stab"   -> "attack_stab";
+            case "player_attack_shoot"     -> "attack_shoot";      // gun / firearm
+            case "player_attack_shoot_bow" -> "attack_shoot_bow";  // bow / crossbow
+            case "player_attack_throw"     -> "attack_throw";
+            case "player_block"         -> "block";
+            case "player_death"         -> "death";
+            default                     -> "idle";
+        };
+    }
+
+    /**
+     * Maps canonical clip names to legacy G3DJ clip names for backward compatibility.
+     * G3DJ models authored before the canonical naming convention used shorter names
+     * (e.g., "sword" instead of "attack_slash"). Returns null if no alias exists.
+     */
+    private static String getLegacyClipAlias(String clipName) {
+        return switch (clipName) {
+            case "attack_slash" -> "sword";
+            case "attack_stab"  -> "spear";
+            case "run"          -> "walk";   // graceful fallback if no dedicated run clip
+            default -> null;
         };
     }
 
