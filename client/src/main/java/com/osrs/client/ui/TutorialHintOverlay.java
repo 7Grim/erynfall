@@ -48,8 +48,8 @@ public class TutorialHintOverlay {
                        int screenW, int screenH, Matrix4 projection) {
         if (tutorialComplete || currentTask == null || currentTask.isBlank()) return;
 
-        int panelX = screenW - PANEL_W - MARGIN;
-        int panelY = screenH - PANEL_H - MARGIN;
+        int panelX = (screenW - PANEL_W) / 2;   // horizontally centered
+        int panelY = screenH - PANEL_H - MARGIN; // top edge with margin
 
         // ── shapes ──────────────────────────────────────────────────────────
         sr.setProjectionMatrix(projection);
