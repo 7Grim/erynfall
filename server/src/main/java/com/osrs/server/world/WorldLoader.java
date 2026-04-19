@@ -144,8 +144,24 @@ public class WorldLoader {
                 validateVisualArchetypeDefinitionIds(worldData.npcs);
             }
             
+            // Load doors
+            if (yaml.containsKey("doors")) {
+                List<Map<String, Object>> doors = (List<Map<String, Object>>) yaml.get("doors");
+                for (Map<String, Object> d : doors) {
+                    WorldData.DoorDefinition door = new WorldData.DoorDefinition();
+                    door.id         = getInt(d, "id", 0);
+                    door.x          = getInt(d, "x", 0);
+                    door.y          = getInt(d, "y", 0);
+                    door.rotationY  = ((Number) d.getOrDefault("rotation_y", 0)).floatValue();
+                    door.visualKey  = getString(d, "visual_key", "door_wood_closed");
+                    door.startOpen  = getBoolean(d, "start_open", false);
+                    worldData.doors.add(door);
+                }
+                LOG.info("Loaded {} doors", worldData.doors.size());
+            }
+
             return worldData;
-            
+
         } catch (Exception e) {
             LOG.error("Failed to load world configuration", e);
             throw e;
@@ -233,6 +249,7 @@ class WorldData {
     public Map<String, MapInfo> maps = new HashMap<>();
     public List<NPCDefinition> npcs = new ArrayList<>();
     public Map<String, LootTable> lootTables = new HashMap<>();
+    public List<DoorDefinition> doors = new ArrayList<>();
     
     static class MapInfo {
         public String name;
@@ -279,5 +296,13 @@ class WorldData {
         public int minQuantity;
         public int maxQuantity;
         public int chance;  // 0-100, 100 = always
+    }
+
+    static class DoorDefinition {
+        public int    id;
+        public int    x, y;           // tile position of the door
+        public float  rotationY;      // visual facing angle in degrees
+        public String visualKey;      // prop key from model library
+        public boolean startOpen;     // initial state
     }
 }

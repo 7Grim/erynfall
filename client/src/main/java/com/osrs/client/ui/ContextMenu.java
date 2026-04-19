@@ -51,7 +51,9 @@ public class ContextMenu {
         WIELD("inv_wield", "Wield"),
         BURY("inv_bury", "Bury"),
         USE("inv_use", "Use"),
-        DROP("inv_drop", "Drop");
+        DROP("inv_drop", "Drop"),
+        OPEN_DOOR("open_door", "Open"),
+        CLOSE_DOOR("close_door", "Close");
 
         public final String id;
         public final String defaultLabel;

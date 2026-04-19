@@ -37,6 +37,13 @@ public class World {
     private final Map<Integer, GroundItem> groundItems = new HashMap<>();
     private int nextGroundItemId = 1;
 
+    // Door state: id → DoorDefinition; open state stored separately for quick toggle
+    private final Map<Integer, WorldData.DoorDefinition> doorDefinitions = new HashMap<>();
+    private final Map<Integer, Boolean> doorOpenState = new HashMap<>();
+
+    /** Public-facing door snapshot exposed to server packet handler. */
+    public record DoorInfo(int id, int x, int y, float rotationY, String visualKey, boolean open) {}
+
     // -----------------------------------------------------------------------
     // Pending item pickups (cross-tick scheduling)
     // -----------------------------------------------------------------------
@@ -126,8 +133,12 @@ public class World {
         
         // Spawn NPCs from world configuration (uses wander_radius from world.yml)
         spawnConfiguredNPCs();
-        
-        LOG.info("✓ World initialized successfully with {} NPCs", npcs.size());
+
+        // Initialize door states and walkability
+        initializeDoors();
+
+        LOG.info("✓ World initialized successfully with {} NPCs, {} doors",
+            npcs.size(), doorDefinitions.size());
     }
 
     private int[] resolveFallbackMapSize() {
@@ -176,6 +187,51 @@ public class World {
         }
     }
     
+    private void initializeDoors() {
+        for (WorldData.DoorDefinition def : worldData.doors) {
+            doorDefinitions.put(def.id, def);
+            doorOpenState.put(def.id, def.startOpen);
+            // Closed doors block their tile; open doors leave it walkable
+            tileMap.setWalkable(def.x, def.y, def.startOpen);
+        }
+    }
+
+    /** Toggle a door and update map walkability. Returns new open state, or -1 if unknown id. */
+    public boolean toggleDoor(int doorId) {
+        WorldData.DoorDefinition def = doorDefinitions.get(doorId);
+        if (def == null) {
+            LOG.warn("toggleDoor: unknown door id {}", doorId);
+            return false;
+        }
+        boolean nowOpen = !doorOpenState.getOrDefault(doorId, false);
+        doorOpenState.put(doorId, nowOpen);
+        tileMap.setWalkable(def.x, def.y, nowOpen);
+        LOG.debug("Door {} toggled → {}", doorId, nowOpen ? "open" : "closed");
+        return nowOpen;
+    }
+
+    public boolean isDoorOpen(int doorId) {
+        return doorOpenState.getOrDefault(doorId, false);
+    }
+
+    /** Return all doors as public DoorInfo snapshots (for packet handler use). */
+    public java.util.Collection<DoorInfo> getAllDoorInfos() {
+        java.util.List<DoorInfo> result = new java.util.ArrayList<>();
+        for (WorldData.DoorDefinition def : doorDefinitions.values()) {
+            result.add(new DoorInfo(def.id, def.x, def.y, def.rotationY, def.visualKey,
+                doorOpenState.getOrDefault(def.id, false)));
+        }
+        return result;
+    }
+
+    /** Return DoorInfo for a single door id, or null if not found. */
+    public DoorInfo getDoorInfo(int doorId) {
+        WorldData.DoorDefinition def = doorDefinitions.get(doorId);
+        if (def == null) return null;
+        return new DoorInfo(def.id, def.x, def.y, def.rotationY, def.visualKey,
+            doorOpenState.getOrDefault(doorId, false));
+    }
+
     /**
      * Spawn a player into the world
      */

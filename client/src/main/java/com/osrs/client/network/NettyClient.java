@@ -470,6 +470,16 @@ public class NettyClient {
         LOG.debug("Sent LightGroundItem: groundItemId={}", groundItemId);
     }
 
+    public void sendObjectInteract(int objectId, String action) {
+        NetworkProto.ClientMessage msg = NetworkProto.ClientMessage.newBuilder()
+            .setObjectInteract(NetworkProto.ObjectInteract.newBuilder()
+                .setObjectId(objectId)
+                .setAction(action))
+            .build();
+        channel.writeAndFlush(msg);
+        LOG.debug("Sent ObjectInteract: objectId={} action={}", objectId, action);
+    }
+
     public void sendSetCombatStyle(int styleIndex) {
         NetworkProto.ClientMessage msg = NetworkProto.ClientMessage.newBuilder()
             .setSetCombatStyle(NetworkProto.SetCombatStyle.newBuilder()

@@ -82,9 +82,21 @@ public class TileMap {
         if (x < 0 || x >= width || y < 0 || y >= height) {
             return false;
         }
-        
+
         int tileId = layout[y][x];
         return walkableCache.getOrDefault(tileId, false);
+    }
+
+    /**
+     * Override the walkability of a single tile.
+     * Used for dynamic objects (open/closed doors).
+     * GRASS (0) = walkable; ROCK (3) = non-walkable.
+     */
+    public void setWalkable(int x, int y, boolean walkable) {
+        if (x < 0 || x >= width || y < 0 || y >= height) {
+            return;
+        }
+        layout[y][x] = walkable ? 0 : 3;
     }
     
     /**

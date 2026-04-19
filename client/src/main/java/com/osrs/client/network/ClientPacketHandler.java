@@ -51,6 +51,34 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
     private int myPlayerId = -1;
 
     // -----------------------------------------------------------------------
+    // World objects (doors) — set by WorldObjectsInit, updated by ObjectStateUpdate
+    // -----------------------------------------------------------------------
+
+    /** Snapshot record for a world object (door). */
+    public static class WorldObjectState {
+        public final int    id;
+        public final String type;
+        public final int    x, y;
+        public final float  rotationY;
+        public final String visualKey;
+        public volatile boolean open;
+
+        public WorldObjectState(int id, String type, int x, int y,
+                                float rotationY, String visualKey, boolean open) {
+            this.id        = id;
+            this.type      = type;
+            this.x         = x;
+            this.y         = y;
+            this.rotationY = rotationY;
+            this.visualKey = visualKey;
+            this.open      = open;
+        }
+    }
+
+    /** All known world objects, keyed by id. Written by Netty I/O thread, read by render thread. */
+    private final Map<Integer, WorldObjectState> worldObjects = new ConcurrentHashMap<>();
+
+    // -----------------------------------------------------------------------
     // NPC despawn queue — drained by GameScreen each frame
     // -----------------------------------------------------------------------
 
@@ -462,6 +490,8 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
             case SMITHING_MENU_OPEN -> handleSmithingMenuOpen(packet.getSmithingMenuOpen());
             case SHOP_OPEN -> handleShopOpen(packet.getShopOpen());
             case REMOTE_PLAYER_EQUIPMENT_UPDATE -> handleRemotePlayerEquipmentUpdate(packet.getRemotePlayerEquipmentUpdate());
+            case WORLD_OBJECTS_INIT -> handleWorldObjectsInit(packet.getWorldObjectsInit());
+            case OBJECT_STATE_UPDATE -> handleObjectStateUpdate(packet.getObjectStateUpdate());
             default -> LOG.debug("Unhandled server message: {}", packet.getPayloadCase());
         }
     }
@@ -1440,6 +1470,49 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
         synchronized (bankLock) {
             return Collections.unmodifiableList(new ArrayList<>(bankSlots));
         }
+    }
+
+    // ── World-object / door handlers ──────────────────────────────────────────
+
+    private void handleWorldObjectsInit(NetworkProto.WorldObjectsInit msg) {
+        worldObjects.clear();
+        for (NetworkProto.WorldObject obj : msg.getObjectsList()) {
+            worldObjects.put(obj.getId(), new WorldObjectState(
+                obj.getId(), obj.getType(),
+                obj.getX(), obj.getY(),
+                obj.getRotationY(), obj.getVisualKey(),
+                obj.getOpen()
+            ));
+        }
+        LOG.debug("WorldObjectsInit: {} objects", worldObjects.size());
+    }
+
+    private void handleObjectStateUpdate(NetworkProto.ObjectStateUpdate msg) {
+        WorldObjectState obj = worldObjects.get(msg.getObjectId());
+        if (obj != null) {
+            obj.open = msg.getOpen();
+            LOG.debug("Door {} is now {}", msg.getObjectId(), msg.getOpen() ? "open" : "closed");
+        }
+    }
+
+    /** Return snapshot of all world objects for the render thread. */
+    public java.util.Collection<WorldObjectState> getWorldObjects() {
+        return worldObjects.values();
+    }
+
+    /** Get one world object by id, or null. */
+    public WorldObjectState getWorldObject(int id) {
+        return worldObjects.get(id);
+    }
+
+    /** Find the first door world object at (x, y), or null. */
+    public WorldObjectState getDoorAt(int x, int y) {
+        for (WorldObjectState obj : worldObjects.values()) {
+            if ("door".equals(obj.type) && obj.x == x && obj.y == y) {
+                return obj;
+            }
+        }
+        return null;
     }
 
     @Override

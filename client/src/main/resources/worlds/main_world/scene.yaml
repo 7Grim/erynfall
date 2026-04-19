@@ -4,54 +4,63 @@ id: "main_world"
 terrain_height:
   height_step: 0.6
   regions:
+    # Fishing cove inlet — lowest level (sea level)
     - name: "tutorial_coastal_low"
       min_x: 24
       min_y: 76
       max_x: 42
       max_y: 90
       level: 0
+    # Arrival beach rise — slight elevation from beach to island interior
     - name: "tutorial_arrival_rise"
       min_x: 42
       min_y: 88
       max_x: 60
       max_y: 100
       level: 1
+    # Hub building pad — slightly elevated town square
     - name: "tutorial_guide_square"
       min_x: 52
       min_y: 92
       max_x: 62
       max_y: 100
       level: 2
+    # Artisan terrace — forge + mine area is naturally elevated rocky ground
     - name: "tutorial_resource_terrace"
       min_x: 56
       min_y: 82
       max_x: 76
       max_y: 94
       level: 1
+    # Forge workshop pad — slightly higher than surrounding terrace
     - name: "tutorial_service_pad"
-      min_x: 60
+      min_x: 65
       min_y: 84
-      max_x: 74
-      max_y: 92
+      max_x: 77
+      max_y: 93
       level: 2
+    # Grove and survival area — gentle slope
     - name: "tutorial_grove"
       min_x: 34
       min_y: 102
       max_x: 52
       max_y: 122
       level: 1
-    - name: "tutorial_north_training"
+    # Combat yard area — open flat ground
+    - name: "tutorial_combat_area"
       min_x: 64
       min_y: 104
-      max_x: 82
+      max_x: 84
       max_y: 122
-      level: 2
-    - name: "tutorial_combat_lane"
-      min_x: 72
-      min_y: 104
-      max_x: 80
-      max_y: 120
       level: 1
+    # Combat lane interior — slightly lower
+    - name: "tutorial_combat_lane"
+      min_x: 70
+      min_y: 106
+      max_x: 82
+      max_y: 121
+      level: 0
+    # Mainland scaffold
     - name: "mainland_core"
       min_x: 206
       min_y: 62
@@ -69,7 +78,8 @@ terrain_visual:
   default_type: "water"
   regions:
     # ── Tutorial Island: base layers ──────────────────────────────────────────
-    # Sandy shore — island bounding box (paints beach perimeter)
+
+    # Sandy beach — island perimeter ring
     - name: "island_sand_shore"
       min_x: 20
       min_y: 62
@@ -77,7 +87,7 @@ terrain_visual:
       max_y: 130
       type: "sand"
 
-    # Grass interior — main walkable island surface
+    # Grass interior — the whole island surface is natural grass
     - name: "island_grass_interior"
       min_x: 25
       min_y: 67
@@ -85,9 +95,8 @@ terrain_visual:
       max_y: 125
       type: "grass"
 
-    # Fishing cove — visual water inlet (northwest).
-    # Wider than walkability water in map.yaml for natural look.
-    # Fishing spot NPCs at x:32/34 are on walkable shore tiles just east of here.
+    # Fishing cove — wide water inlet (northwest).
+    # Wider than the map.yaml walkability cutout for a natural-looking bay.
     - name: "fishing_cove_water"
       min_x: 24
       min_y: 76
@@ -95,25 +104,29 @@ terrain_visual:
       max_y: 87
       type: "water"
 
-    # Grove clearing — natural grass for woodcutting area.
-    # Painted before paths so path entry track can overwrite the junction.
-    - name: "grove_clearing"
-      min_x: 35
-      min_y: 104
-      max_x: 53
-      max_y: 120
-      type: "grass"
-
-    # ── Paths — painted on top of base terrain ────────────────────────────────
-    # Artisan yard: smithing / cooking / mining (north-east section)
-    - name: "artisan_yard_path"
-      min_x: 60
-      min_y: 82
-      max_x: 77
+    # ── Forge workshop floor ──────────────────────────────────────────────────
+    # Cobbled area under and around the smithing forge.
+    # Slightly larger than the building footprint — a workshop courtyard.
+    # mining rocks (63,84), (66,83) are OUTSIDE this rectangle (to the west/north).
+    - name: "forge_workshop_floor"
+      min_x: 65
+      min_y: 83
+      max_x: 79
       max_y: 93
       type: "path"
 
-    # Arrival path west: dock shore to mid-island
+    # Mine natural ground — overrides the forge path directly west of forge,
+    # so ore rocks sit on natural earthen ground, not cobblestone.
+    - name: "mine_natural_ground"
+      min_x: 56
+      min_y: 80
+      max_x: 65
+      max_y: 91
+      type: "grass"
+
+    # ── Travel paths ──────────────────────────────────────────────────────────
+
+    # Arrival path west: dock shore → mid-island
     - name: "arrival_path_west"
       min_x: 34
       min_y: 85
@@ -121,7 +134,7 @@ terrain_visual:
       max_y: 91
       type: "path"
 
-    # Arrival path east: mid-island to central hub
+    # Arrival path east: mid-island → central hub
     - name: "arrival_path_east"
       min_x: 44
       min_y: 89
@@ -129,7 +142,7 @@ terrain_visual:
       max_y: 96
       type: "path"
 
-    # Central hub square: Tutorial Guide / Banker / Quest Guide
+    # Central hub square — guide, quest guide, banker
     - name: "central_hub_square"
       min_x: 53
       min_y: 91
@@ -137,15 +150,15 @@ terrain_visual:
       max_y: 100
       type: "path"
 
-    # Mine access: hub to artisan yard
-    - name: "mine_access_path"
-      min_x: 57
-      min_y: 88
+    # Hub → artisan area: narrow path northeast from hub to forge entrance
+    - name: "hub_to_artisan_path"
+      min_x: 59
+      min_y: 87
       max_x: 68
       max_y: 93
       type: "path"
 
-    # Grove access: hub to woodcutting grove
+    # Hub → grove: path south-west toward woodcutting/survival area
     - name: "grove_access_path"
       min_x: 46
       min_y: 98
@@ -153,7 +166,7 @@ terrain_visual:
       max_y: 110
       type: "path"
 
-    # Combat access: hub to combat training yard
+    # Hub → combat: path south-east toward combat yard
     - name: "combat_access_path"
       min_x: 62
       min_y: 99
@@ -161,7 +174,7 @@ terrain_visual:
       max_y: 110
       type: "path"
 
-    # Combat training yard: fenced arena for rats + instructor
+    # Combat training yard — fenced arena for rats + instructor
     - name: "combat_yard_floor"
       min_x: 68
       min_y: 106
@@ -192,17 +205,17 @@ terrain_visual:
       type: "path"
 
   tile_overrides:
-    # Fishing cove shore — sand tiles at east cove edge for natural transition
+    # Fishing cove — sandy shore transition at east edge of water
     - { x: 37, y: 86, type: "sand" }
     - { x: 37, y: 85, type: "sand" }
     - { x: 37, y: 84, type: "sand" }
     - { x: 30, y: 88, type: "sand" }
     - { x: 31, y: 88, type: "sand" }
     - { x: 32, y: 88, type: "sand" }
-    # Dock-to-path connection
+    # Dock → arrival path join
     - { x: 36, y: 88, type: "path" }
     - { x: 37, y: 88, type: "path" }
-    # Grove path junction
+    # Grove path junction (smooth hub→grove turn)
     - { x: 50, y: 98, type: "path" }
     - { x: 51, y: 99, type: "path" }
     - { x: 52, y: 100, type: "path" }
@@ -212,6 +225,7 @@ terrain_visual:
     - { x: 70, y: 103, type: "path" }
 
 static_props:
+
   # ── Dock (northwest, fishing cove) ───────────────────────────────────────────
   - key: "dock_pier_small"
     x: 30
@@ -232,115 +246,95 @@ static_props:
     scale: 2.0
     visibility_group: "base"
 
-  # ── Tutorial Guide hut (central hub) ─────────────────────────────────────────
+  # ── Central hub (Tutorial Guide + Quest Guide + Banker — service indoors) ─────
+  # Footprint at scale 2.5, small model (hw=2.10, hd=1.90):
+  #   scaled hw=5.25, hd=4.75  →  walls: W(x=53) E(x=63) N(y=92) S(y=102)
+  #   interior: x:54..62, y:93..101
+  #   covers Tutorial Guide (56,95), Quest Guide (58,94), Banker (60,95) ✓
   - key: "building_shell_small_base"
-    x: 56
-    y: 96
+    x: 58
+    y: 97
     rotation_y_degrees: 0.0
     scale: 2.5
     visibility_group: "base"
   - key: "building_shell_small_roof"
-    x: 56
-    y: 96
+    x: 58
+    y: 97
     rotation_y_degrees: 0.0
     scale: 2.5
     visibility_group: "roof"
 
-  # ── Quest Guide hut (east of tutorial guide) ──────────────────────────────────
-  - key: "building_shell_small_base"
-    x: 62
-    y: 92
-    rotation_y_degrees: 0.0
-    scale: 2.5
-    visibility_group: "base"
-  - key: "building_shell_small_roof"
-    x: 62
-    y: 92
-    rotation_y_degrees: 0.0
-    scale: 2.5
-    visibility_group: "roof"
-
-  # ── Artisan service building (smithing / cooking / mining) ────────────────────
+  # ── Smithing forge (anvil + furnace indoors; mining rocks remain outdoor) ─────
+  # Footprint at scale 2.0, service model (hw=2.50, hd=2.10):
+  #   scaled hw=5.0, hd=4.2  →  walls: W(x=66) E(x=76) N(y=84) S(y=92)
+  #   interior: x:67..75, y:85..91
+  #   Anvil (67,86) ✓ inside   Furnace (70,86) ✓ inside
+  #   Copper Rock (63,84) OUTSIDE (west of W wall) ✓
+  #   Tin Rock (66,83) OUTSIDE (north of N wall, on W wall column but y<84) ✓
+  #   Mining Instructor (65,90) OUTSIDE (west of W wall) ✓
+  #   West door gap at y:87..89 — players walk straight from mine into forge ✓
   - key: "building_shell_service_base"
-    x: 68
+    x: 71
     y: 88
     rotation_y_degrees: 0.0
-    scale: 2.5
+    scale: 2.0
     visibility_group: "base"
   - key: "building_shell_service_roof"
-    x: 68
+    x: 71
     y: 88
     rotation_y_degrees: 0.0
-    scale: 2.5
+    scale: 2.0
     visibility_group: "roof"
 
-  # ── Coastal building (fishing cove / survival intro) ──────────────────────────
-  - key: "building_shell_coastal_base"
-    x: 38
-    y: 84
-    rotation_y_degrees: 0.0
-    scale: 2.5
-    visibility_group: "base"
-  - key: "building_shell_coastal_roof"
-    x: 38
-    y: 84
-    rotation_y_degrees: 0.0
-    scale: 2.5
-    visibility_group: "roof"
-
-  # ── Survival Expert hut (grove / woodcutting area) ────────────────────────────
-  - key: "building_shell_coastal_base"
-    x: 44
-    y: 107
-    rotation_y_degrees: 90.0
-    scale: 2.5
-    visibility_group: "base"
-  - key: "building_shell_coastal_roof"
-    x: 44
-    y: 107
-    rotation_y_degrees: 90.0
-    scale: 2.5
-    visibility_group: "roof"
-
-  # ── Combat building (east training yard) ─────────────────────────────────────
+  # ── Combat armory (south of yard — combat training area is fully outdoor) ──────
+  # Small building at scale 1.5, small model (hw=2.10, hd=1.90):
+  #   scaled hw=3.15, hd=2.85  →  walls: W(x=69) E(x=75) N(y=121) S(y=126)
+  #   north door at y=121 faces combat yard
+  #   Melee rats (73-79, 110-113) all north of building ✓
+  #   Combat Instructor (70,108) far north of building ✓
   - key: "building_shell_small_base"
-    x: 74
-    y: 111
-    rotation_y_degrees: 180.0
-    scale: 2.5
+    x: 72
+    y: 123
+    rotation_y_degrees: 0.0
+    scale: 1.5
     visibility_group: "base"
   - key: "building_shell_small_roof"
-    x: 74
-    y: 111
-    rotation_y_degrees: 180.0
-    scale: 2.5
+    x: 72
+    y: 123
+    rotation_y_degrees: 0.0
+    scale: 1.5
     visibility_group: "roof"
 
   # ── Signposts ────────────────────────────────────────────────────────────────
+  # Hub signpost (guides players inside hub building area)
   - key: "signpost_small"
     x: 58
     y: 98
     rotation_y_degrees: 90.0
     scale: 1.8
     visibility_group: "base"
+  # Combat direction (east from hub path)
   - key: "signpost_small"
     x: 70
     y: 100
     rotation_y_degrees: 0.0
     scale: 1.8
     visibility_group: "base"
+  # Grove direction (south from hub path)
   - key: "signpost_small"
     x: 52
     y: 102
     rotation_y_degrees: 270.0
     scale: 1.8
     visibility_group: "base"
+  # Dock direction (northwest from hub)
   - key: "signpost_small"
     x: 48
     y: 100
     rotation_y_degrees: 180.0
     scale: 1.8
     visibility_group: "base"
+  # Artisan/forge direction (northeast from hub path)
   - key: "signpost_small"
     x: 66
     y: 102
@@ -348,7 +342,7 @@ static_props:
     scale: 1.8
     visibility_group: "base"
 
-  # ── Benches + tables (central hub) ───────────────────────────────────────────
+  # ── Hub interior furniture ────────────────────────────────────────────────────
   - key: "bench_small"
     x: 54
     y: 94
@@ -361,52 +355,9 @@ static_props:
     rotation_y_degrees: 90.0
     scale: 1.5
     visibility_group: "base"
-  - key: "table_small"
-    x: 66
-    y: 88
-    rotation_y_degrees: 0.0
-    scale: 1.5
-    visibility_group: "base"
 
-  # ── Artisan yard clutter ──────────────────────────────────────────────────────
-  - key: "crate_small"
-    x: 64
-    y: 87
-    rotation_y_degrees: 0.0
-    scale: 1.5
-    visibility_group: "base"
-  - key: "crate_small"
-    x: 76
-    y: 89
-    rotation_y_degrees: 0.0
-    scale: 1.5
-    visibility_group: "base"
-  - key: "barrel_small"
-    x: 72
-    y: 87
-    rotation_y_degrees: 0.0
-    scale: 1.5
-    visibility_group: "base"
-  - key: "barrel_small"
-    x: 64
-    y: 83
-    rotation_y_degrees: 90.0
-    scale: 1.5
-    visibility_group: "base"
-  - key: "sack_stack_small"
-    x: 73
-    y: 89
-    rotation_y_degrees: 180.0
-    scale: 1.5
-    visibility_group: "base"
-  - key: "cart_small"
-    x: 60
-    y: 90
-    rotation_y_degrees: 180.0
-    scale: 1.8
-    visibility_group: "base"
-
-  # ── Crafting stations ─────────────────────────────────────────────────────────
+  # ── Forge workshop: crafting stations + clutter ───────────────────────────────
+  # Crafting stations (inside forge)
   - key: "anvil"
     x: 67
     y: 86
@@ -418,6 +369,45 @@ static_props:
     y: 86
     rotation_y_degrees: 0.0
     scale: 2.0
+    visibility_group: "base"
+  # Storage near east wall of forge
+  - key: "barrel_small"
+    x: 72
+    y: 87
+    rotation_y_degrees: 0.0
+    scale: 1.5
+    visibility_group: "base"
+  - key: "sack_stack_small"
+    x: 74
+    y: 89
+    rotation_y_degrees: 180.0
+    scale: 1.5
+    visibility_group: "base"
+  # Outdoor mine area: crates + cart around ore rocks (natural workshop scatter)
+  - key: "crate_small"
+    x: 62
+    y: 85
+    rotation_y_degrees: 0.0
+    scale: 1.5
+    visibility_group: "base"
+  - key: "barrel_small"
+    x: 64
+    y: 83
+    rotation_y_degrees: 90.0
+    scale: 1.5
+    visibility_group: "base"
+  - key: "cart_small"
+    x: 60
+    y: 90
+    rotation_y_degrees: 180.0
+    scale: 1.8
+    visibility_group: "base"
+  # East boundary table (outside forge east wall)
+  - key: "table_small"
+    x: 77
+    y: 88
+    rotation_y_degrees: 0.0
+    scale: 1.5
     visibility_group: "base"
 
   # ── Combat yard fence ─────────────────────────────────────────────────────────
@@ -521,16 +511,16 @@ static_props:
     rotation_y_degrees: 90.0
     scale: 1.5
     visibility_group: "base"
-  # Artisan yard south boundary fence
+  # Artisan east boundary fence (marks edge of forge workshop yard)
   - key: "fence_post_small"
-    x: 76
-    y: 88
-    rotation_y_degrees: 90.0
+    x: 79
+    y: 86
+    rotation_y_degrees: 0.0
     scale: 1.5
     visibility_group: "base"
   - key: "fence_post_small"
-    x: 76
-    y: 92
-    rotation_y_degrees: 90.0
+    x: 79
+    y: 90
+    rotation_y_degrees: 0.0
     scale: 1.5
     visibility_group: "base"

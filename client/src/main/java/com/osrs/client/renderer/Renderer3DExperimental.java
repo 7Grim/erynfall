@@ -767,6 +767,99 @@ public class Renderer3DExperimental {
         return renderPlacedStaticPropModel(key, tileX, tileY, rotationYDegrees, scaleOverride, 1f);
     }
 
+    /**
+     * Render a placed static prop with one material slot forced fully transparent.
+     * Used to hide the interior ceiling face (slot 1) when the player is inside a building.
+     *
+     * @param hiddenMaterialSlot index of the material slot to render at opacity 0; -1 = no hiding
+     */
+    public boolean renderPlacedStaticPropModel(String key,
+                                               float tileX,
+                                               float tileY,
+                                               float rotationYDegrees,
+                                               float scaleOverride,
+                                               float alpha,
+                                               int hiddenMaterialSlot) {
+        if (key == null || key.isBlank() || modelLibrary == null || !modelLibrary.hasModel(key)) {
+            return false;
+        }
+
+        Model model = modelLibrary.getModel(key);
+        ModelLibrary.ModelMeta meta = modelLibrary.getMeta(key);
+        if (model == null || meta == null) {
+            return false;
+        }
+
+        boolean ownsPass = !staticPropPassActive;
+        if (ownsPass) {
+            beginStaticPropPass();
+        }
+
+        ModelInstance instance = obtainStaticPropInstance(key, model);
+        float tileBaseY = getTileTopY(tileX, tileY);
+        float placementScale = scaleOverride > 0f ? scaleOverride : 1f;
+        applyManifestModelTransform(instance, meta, tileX, tileY, tileBaseY, rotationYDegrees, placementScale);
+
+        int materialCount = instance.materials.size;
+        float[] savedDiffuseAlpha = new float[materialCount];
+        float[] savedBlendAlpha = new float[materialCount];
+        int[] savedBlendSrc = new int[materialCount];
+        int[] savedBlendDst = new int[materialCount];
+        boolean[] hadBlend = new boolean[materialCount];
+        boolean needsRestore = false;
+
+        float clampedAlpha = Math.max(0f, Math.min(1f, alpha));
+        for (int i = 0; i < materialCount; i++) {
+            Material material = instance.materials.get(i);
+            ColorAttribute diffuse = (ColorAttribute) material.get(ColorAttribute.Diffuse);
+            savedDiffuseAlpha[i] = diffuse != null ? diffuse.color.a : 1f;
+            BlendingAttribute blend = (BlendingAttribute) material.get(BlendingAttribute.Type);
+            if (blend != null) {
+                hadBlend[i] = true;
+                savedBlendAlpha[i] = blend.opacity;
+                savedBlendSrc[i] = blend.sourceFunction;
+                savedBlendDst[i] = blend.destFunction;
+            }
+            float slotAlpha = (hiddenMaterialSlot >= 0 && i == hiddenMaterialSlot) ? 0f : clampedAlpha;
+            if (slotAlpha < 0.999f) {
+                needsRestore = true;
+                if (diffuse != null) {
+                    diffuse.color.a = slotAlpha;
+                }
+                material.set(new BlendingAttribute(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA, slotAlpha));
+            }
+        }
+
+        if (needsRestore) {
+            Gdx.gl.glDepthMask(false);
+        }
+        modelBatch.render(instance, environment);
+        staticPropsRenderedLastFrame++;
+        if (needsRestore) {
+            Gdx.gl.glDepthMask(true);
+        }
+
+        captureDebugModelMarker(key, model, instance);
+
+        for (int i = 0; i < materialCount; i++) {
+            Material material = instance.materials.get(i);
+            ColorAttribute diffuse = (ColorAttribute) material.get(ColorAttribute.Diffuse);
+            if (diffuse != null) {
+                diffuse.color.a = savedDiffuseAlpha[i];
+            }
+            if (hadBlend[i]) {
+                material.set(new BlendingAttribute(savedBlendSrc[i], savedBlendDst[i], savedBlendAlpha[i]));
+            } else {
+                material.remove(BlendingAttribute.Type);
+            }
+        }
+
+        if (ownsPass) {
+            endStaticPropPass();
+        }
+        return true;
+    }
+
     public boolean renderPlacedStaticPropModel(String key,
                                                float tileX,
                                                float tileY,

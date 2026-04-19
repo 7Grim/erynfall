@@ -457,3 +457,26 @@ loot_tables:
       - item_id: 2132
         quantity: 1
         chance: 36
+
+# ── Doors ─────────────────────────────────────────────────────────────────────
+# Each entry defines a door world-object.  The tile x/y matches the ROCK wall
+# gap left by gen_tutorial_map.py for that building's door opening.
+# visual_key references a prop from the model library (door_wood_closed = TBD).
+# start_open: false means the door tile is non-walkable until opened.
+#
+# Note: no door prop models exist yet.  Doors are purely functional (walkability
+# toggle) until art assets are created.  Leave visual_key blank for now.
+doors:
+  - id: 1
+    x: 66      # Forge west door (building_shell_service at x=71, y=88)
+    y: 88      # west wall x=66; door gap y=87..89, using y=88 (center)
+    rotation_y: 90.0
+    visual_key: ""
+    start_open: false
+
+  - id: 4
+    x: 72      # Armory north door (small at x=72, y=123)
+    y: 121     # north wall y=121; door gap x=71..73, using x=72 (center)
+    rotation_y: 180.0
+    visual_key: ""
+    start_open: false

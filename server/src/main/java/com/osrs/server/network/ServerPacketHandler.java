@@ -174,6 +174,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             case BUY_SHOP_ITEM           -> handleBuyShopItem(ctx, packet.getBuyShopItem());
             case CLOSE_SHOP              -> handleCloseShop(ctx, packet.getCloseShop());
             case LIGHT_GROUND_ITEM       -> handleLightGroundItem(ctx, packet.getLightGroundItem());
+            case OBJECT_INTERACT         -> handleObjectInteract(ctx, packet.getObjectInteract());
             case CLOSE_BANK_REQUEST      -> handleCloseBankRequest(ctx, packet.getCloseBankRequest());
             case DEPOSIT_BANK_ITEM       -> handleDepositBankItem(ctx, packet.getDepositBankItem());
             case WITHDRAW_BANK_ITEM      -> handleWithdrawBankItem(ctx, packet.getWithdrawBankItem());
@@ -273,6 +274,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
 
         sendWorldState(ctx);
         sendRemoteEquipmentSnapshotForWorldState(ctx);
+        sendWorldObjectsInit(ctx);
 
         // Notify already-connected clients of the new player
         Player newPlayer = session.getPlayer();
@@ -393,6 +395,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
         sendInitialQuestState(ctx);
         sendWorldState(ctx);
         sendRemoteEquipmentSnapshotForWorldState(ctx);
+        sendWorldObjectsInit(ctx);
 
         // Notify already-connected clients of the new player
         Player newPlayer = session.getPlayer();
@@ -4044,6 +4047,67 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
         if (empty >= 0) {
             player.setInventoryItem(empty, itemId, 1);
         }
+    }
+
+    // ── Door / world-object handling ──────────────────────────────────────────
+
+    private void handleObjectInteract(ChannelHandlerContext ctx, NetworkProto.ObjectInteract req) {
+        Player player = session != null ? session.getPlayer() : null;
+        if (player == null) return;
+
+        int doorId = req.getObjectId();
+        String action = req.getAction();
+        World world = server.getWorld();
+
+        World.DoorInfo def = world.getDoorInfo(doorId);
+        if (def == null) {
+            LOG.warn("ObjectInteract: unknown object id {}", doorId);
+            return;
+        }
+
+        // Validate adjacency — player must be within 2 tiles
+        int dx = Math.abs(player.getX() - def.x());
+        int dy = Math.abs(player.getY() - def.y());
+        if (dx > 2 || dy > 2) {
+            LOG.debug("ObjectInteract: player {} too far from door {} (dx={} dy={})",
+                player.getId(), doorId, dx, dy);
+            return;
+        }
+
+        boolean currentlyOpen = world.isDoorOpen(doorId);
+        boolean wantsOpen = "open".equalsIgnoreCase(action);
+
+        if (currentlyOpen == wantsOpen) {
+            return; // Already in requested state — ignore
+        }
+
+        boolean newOpen = world.toggleDoor(doorId);
+
+        // Broadcast the state change to all players in the world
+        server.broadcastToAll(NetworkProto.ServerMessage.newBuilder()
+            .setObjectStateUpdate(NetworkProto.ObjectStateUpdate.newBuilder()
+                .setObjectId(doorId)
+                .setOpen(newOpen))
+            .build());
+    }
+
+    /** Send the full world-object snapshot to a newly logged-in player. */
+    public void sendWorldObjectsInit(ChannelHandlerContext ctx) {
+        World world = server.getWorld();
+        NetworkProto.WorldObjectsInit.Builder builder = NetworkProto.WorldObjectsInit.newBuilder();
+        for (World.DoorInfo def : world.getAllDoorInfos()) {
+            builder.addObjects(NetworkProto.WorldObject.newBuilder()
+                .setId(def.id())
+                .setType("door")
+                .setX(def.x())
+                .setY(def.y())
+                .setRotationY(def.rotationY())
+                .setVisualKey(def.visualKey())
+                .setOpen(def.open()));
+        }
+        ctx.writeAndFlush(NetworkProto.ServerMessage.newBuilder()
+            .setWorldObjectsInit(builder)
+            .build());
     }
 
     @Override

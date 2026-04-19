@@ -678,6 +678,36 @@ message EquipmentBonuses {
     int32 prayer          = 14;
 }
 
+// ── Door / world-object system ─────────────────────────────────────────────
+
+// Client → Server: interact with a world object (open/close door, etc.)
+message ObjectInteract {
+    int32 object_id = 1;   // matches WorldObject.id sent by server
+    string action   = 2;   // "open" or "close"
+}
+
+// One world object (door) sent in the init snapshot.
+message WorldObject {
+    int32  id          = 1;
+    string type        = 2;   // "door"
+    int32  x           = 3;
+    int32  y           = 4;
+    float  rotation_y  = 5;   // degrees; wall-aligned face direction
+    string visual_key  = 6;   // prop key from the model library
+    bool   open        = 7;   // current state
+}
+
+// Server → Client: full world-object snapshot sent on login / teleport.
+message WorldObjectsInit {
+    repeated WorldObject objects = 1;
+}
+
+// Server → Client: single object state change broadcast to nearby players.
+message ObjectStateUpdate {
+    int32 object_id = 1;
+    bool  open      = 2;
+}
+
 // ClientMessage: wrapper for all client → server messages
 message ClientMessage {
     oneof payload {
@@ -725,6 +755,7 @@ message ClientMessage {
         BuyShopItem buy_shop_item = 42;
         CloseShop close_shop = 43;
         LightGroundItem light_ground_item = 44;
+        ObjectInteract object_interact = 45;
     }
 }
 
@@ -766,5 +797,7 @@ message ServerMessage {
         SmithingMenuOpen smithing_menu_open = 33;
         ShopOpen shop_open = 34;
         RemotePlayerEquipmentUpdate remote_player_equipment_update = 35;
+        WorldObjectsInit world_objects_init = 36;
+        ObjectStateUpdate object_state_update = 37;
     }
 }

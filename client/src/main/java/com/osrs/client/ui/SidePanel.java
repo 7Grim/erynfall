@@ -9,6 +9,7 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.Matrix4;
 
+import com.osrs.client.ClientPreferences;
 import com.osrs.client.audio.AudioManager;
 import com.osrs.client.audio.MusicTrack;
 import com.osrs.shared.PrayerRegistry;
@@ -149,7 +150,8 @@ public class SidePanel {
     private Tab activeTab = Tab.INVENTORY;   // default open tab (OSRS default)
 
     // Music tab state
-    private AudioManager audioManager;
+    private AudioManager      audioManager;
+    private ClientPreferences clientPreferences;
     private int musicTabScroll = 0;   // scroll offset for track list (rows)
 
     // -----------------------------------------------------------------------
@@ -373,6 +375,8 @@ public class SidePanel {
         this.maxHp = max;
     }
 
+    public void setClientPreferences(ClientPreferences prefs) { this.clientPreferences = prefs; }
+
     public void setAudioManager(AudioManager am) {
         this.audioManager = am;
     }
@@ -450,6 +454,7 @@ public class SidePanel {
             case SETTINGS  -> renderCharacterTab(sr, batch, font, proj);
             case LOGOUT    -> renderLogoutTab(sr, batch, font, proj);
             case MUSIC     -> renderMusicTab(sr, batch, font, proj);
+            case IGNORE    -> renderOptionsTab(sr, batch, font, proj, mouseX, mouseY);
             default        -> renderStubTab(sr, batch, font, proj, activeTab.label);
         }
 
@@ -869,6 +874,80 @@ public class SidePanel {
                 return;
             }
         }
+    }
+
+    // ── Options button layout (shared between render + hit-test) ─────────────
+    private static final int OPT_BTN_H    = 26;
+    private static final int OPT_BTN_PAD  = 10;
+
+    private int optRoofBtnY() {
+        return cY + CONTENT_H - 48;
+    }
+
+    private void renderOptionsTab(ShapeRenderer sr, SpriteBatch batch, BitmapFont font,
+                                  Matrix4 proj, int mouseX, int mouseY) {
+        int contentX = panelX + CONTENT_INSET;
+        int btnW     = CONTENT_W - OPT_BTN_PAD * 2;
+        int btnX     = contentX + OPT_BTN_PAD;
+        int btnY     = optRoofBtnY();
+
+        // Section header
+        batch.setProjectionMatrix(proj);
+        batch.begin();
+        font.getData().setScale(0.85f);
+        font.setColor(COLOR_TITLE_GOLD);
+        font.draw(batch, "Display Options", contentX + OPT_BTN_PAD, cY + CONTENT_H - 10);
+        font.getData().setScale(1f);
+        font.setColor(Color.WHITE);
+        batch.end();
+
+        // Divider
+        sr.setProjectionMatrix(proj);
+        sr.begin(ShapeRenderer.ShapeType.Filled);
+        sr.setColor(0.45f, 0.38f, 0.22f, 1f);
+        sr.rect(contentX + OPT_BTN_PAD, cY + CONTENT_H - 22, CONTENT_W - OPT_BTN_PAD * 2, 1);
+        sr.end();
+
+        // Roof visibility cycle button
+        String roofLabel = clientPreferences != null
+            ? clientPreferences.roofVisibilityLabel()
+            : "Roofs: Auto";
+        boolean hovered = mouseX >= btnX && mouseX <= btnX + btnW
+            && mouseY >= btnY && mouseY <= btnY + OPT_BTN_H;
+
+        sr.begin(ShapeRenderer.ShapeType.Filled);
+        sr.setColor(hovered ? new Color(0.28f, 0.24f, 0.10f, 1f) : COLOR_BTN_IDLE_BG);
+        sr.rect(btnX, btnY, btnW, OPT_BTN_H);
+        sr.end();
+
+        sr.begin(ShapeRenderer.ShapeType.Line);
+        sr.setColor(hovered ? COLOR_BTN_SEL_BORDER : COLOR_BTN_IDLE_BORDER);
+        sr.rect(btnX, btnY, btnW, OPT_BTN_H);
+        sr.end();
+
+        batch.setProjectionMatrix(proj);
+        batch.begin();
+        font.getData().setScale(0.78f);
+        font.setColor(hovered ? COLOR_BTN_SEL_TEXT : Color.WHITE);
+        font.draw(batch, roofLabel, btnX + 8, btnY + OPT_BTN_H - 8);
+        font.getData().setScale(1f);
+        font.setColor(Color.WHITE);
+        batch.end();
+
+        // Sub-label describing current mode
+        batch.setProjectionMatrix(proj);
+        batch.begin();
+        font.getData().setScale(0.72f);
+        font.setColor(0.60f, 0.57f, 0.48f, 1f);
+        String hint = clientPreferences == null ? "" : switch (clientPreferences.getRoofVisibility()) {
+            case AUTO        -> "Hides when inside building";
+            case ALWAYS_SHOW -> "Always show roofs";
+            case ALWAYS_HIDE -> "Always hide roofs";
+        };
+        font.draw(batch, hint, btnX + 8, btnY - 4);
+        font.getData().setScale(1f);
+        font.setColor(Color.WHITE);
+        batch.end();
     }
 
     private void renderStubTab(ShapeRenderer sr, SpriteBatch batch, BitmapFont font, Matrix4 proj, String tabName) {
@@ -2843,6 +2922,16 @@ public class SidePanel {
                 }
             }
             case SETTINGS -> { /* character summary — no clickable elements */ }
+            case IGNORE -> {
+                int contentX = panelX + CONTENT_INSET;
+                int btnW = CONTENT_W - OPT_BTN_PAD * 2;
+                int btnX = contentX + OPT_BTN_PAD;
+                int btnY = optRoofBtnY();
+                if (mx >= btnX && mx <= btnX + btnW && my >= btnY && my <= btnY + OPT_BTN_H) {
+                    if (clientPreferences != null) clientPreferences.cycleRoofVisibility();
+                    return -1;
+                }
+            }
             case LOGOUT -> {
                 int contentX = panelX + CONTENT_INSET;
                 int pad = 12;

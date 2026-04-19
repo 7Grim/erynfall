@@ -70,6 +70,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
+
 /**
  * Main game screen.
  *
@@ -103,6 +104,18 @@ public class GameScreen extends ApplicationAdapter {
     private static final Color FALLBACK_ITEM_ORE = new Color(0.56f, 0.58f, 0.62f, 1f);
     private static final Color FALLBACK_ITEM_OTHER = new Color(0.82f, 0.78f, 0.62f, 1f);
     private static final float ROOF_PROP_OCCLUSION_ALPHA = 0.24f;
+
+    // Building footprint half-extents in model units (hw, hd).
+    // At placement, effective half-extent = half-extent × prop.scale.
+    // 90°/270° rotation swaps hw↔hd.  Keyed by both base and roof prop key (same footprint).
+    private static final Map<String, float[]> BUILDING_HALF_EXTENTS = Map.of(
+        "building_shell_small_base",   new float[]{2.10f, 1.90f},
+        "building_shell_small_roof",   new float[]{2.10f, 1.90f},
+        "building_shell_service_base", new float[]{2.50f, 2.10f},
+        "building_shell_service_roof", new float[]{2.50f, 2.10f},
+        "building_shell_coastal_base", new float[]{2.10f, 1.90f},
+        "building_shell_coastal_roof", new float[]{2.10f, 1.90f}
+    );
     private static final float BILLBOARD_BASE_PLAYER_HEIGHT = 1.10f;
     private static final float BILLBOARD_BASE_NPC_HEIGHT = 1.05f;
     private static final float GROUND_ITEM_BILLBOARD_BASE_Y = 0.08f;
@@ -249,7 +262,8 @@ public class GameScreen extends ApplicationAdapter {
     private NettyClient  nettyClient;
     private ContextMenu  contextMenu;
     private CombatUI     combatUI;
-    private SidePanel    sidePanel;
+    private SidePanel         sidePanel;
+    private ClientPreferences clientPreferences;
     private DialogueUI   dialogueUI;
     private BankUI       bankUI;
     private SmeltingUI   smeltingUI;
@@ -653,6 +667,8 @@ public class GameScreen extends ApplicationAdapter {
         sidePanel  = new SidePanel();
         audioManager = game.getAudioManager();
         sidePanel.setAudioManager(audioManager);
+        clientPreferences = new ClientPreferences();
+        sidePanel.setClientPreferences(clientPreferences);
         dialogueUI = new DialogueUI();
         bankUI = new BankUI();
         smeltingUI = new SmeltingUI();
@@ -2115,6 +2131,10 @@ public class GameScreen extends ApplicationAdapter {
             return;
         }
 
+        ClientPreferences.RoofVisibility roofMode = clientPreferences != null
+            ? clientPreferences.getRoofVisibility()
+            : ClientPreferences.RoofVisibility.AUTO;
+
         renderer3d.beginStaticPropPass();
         for (StaticPropLoader.StaticPropPlacement prop : renderPlacements) {
             if (isWorldPlacementModeActive() && !sceneEditState.shouldRenderByVisibilityFilter(prop)) {
@@ -2126,7 +2146,13 @@ public class GameScreen extends ApplicationAdapter {
             if ("roof".equals(prop.visibilityGroup)) {
                 continue;
             }
-            renderer3d.renderPlacedStaticPropModel(prop.key, prop.x, prop.y, prop.rotationYDegrees, prop.scale, 1f);
+            // When player is inside this building footprint, render the entire base at alpha=0
+            // so the ceiling (and all walls) become fully invisible from above.
+            // This is the only reliable approach — it works regardless of how many
+            // material slots the model has.  ALWAYS_SHOW overrides and keeps walls visible.
+            float baseAlpha = (roofMode != ClientPreferences.RoofVisibility.ALWAYS_SHOW
+                && playerInsideBuildingFootprint(prop)) ? 0f : 1f;
+            renderer3d.renderPlacedStaticPropModel(prop.key, prop.x, prop.y, prop.rotationYDegrees, prop.scale, baseAlpha);
         }
         for (StaticPropLoader.StaticPropPlacement prop : renderPlacements) {
             if (isWorldPlacementModeActive() && !sceneEditState.shouldRenderByVisibilityFilter(prop)) {
@@ -2138,7 +2164,15 @@ public class GameScreen extends ApplicationAdapter {
             if (!"roof".equals(prop.visibilityGroup)) {
                 continue;
             }
-            float alpha = propOccludesLocalPlayer(prop) ? ROOF_PROP_OCCLUSION_ALPHA : 1f;
+            if (roofMode == ClientPreferences.RoofVisibility.ALWAYS_HIDE) {
+                continue;
+            }
+            if (roofMode == ClientPreferences.RoofVisibility.AUTO && playerInsideBuildingFootprint(prop)) {
+                continue;
+            }
+            float alpha = (roofMode == ClientPreferences.RoofVisibility.ALWAYS_SHOW)
+                ? 1f
+                : (propOccludesLocalPlayer(prop) ? ROOF_PROP_OCCLUSION_ALPHA : 1f);
             renderer3d.renderPlacedStaticPropModel(prop.key, prop.x, prop.y, prop.rotationYDegrees, prop.scale, alpha);
         }
         if (isWorldPlacementModeActive() && worldPlacementHoverTileX >= 0 && worldPlacementHoverTileY >= 0
@@ -2152,6 +2186,16 @@ public class GameScreen extends ApplicationAdapter {
                 0.45f
             );
         }
+        // Render closed doors as static props
+        ClientPacketHandler doorPh = handler();
+        if (doorPh != null) {
+            for (ClientPacketHandler.WorldObjectState obj : doorPh.getWorldObjects()) {
+                if (!"door".equals(obj.type) || obj.open) continue;
+                if (shouldCullByDistanceAndFrustum3D(obj.x, obj.y, CULL_DISTANCE_STATIC_PROPS_3D)) continue;
+                renderer3d.renderPlacedStaticPropModel(obj.visualKey, obj.x, obj.y, obj.rotationY, 1f, 1f, -1);
+            }
+        }
+
         renderer3d.endStaticPropPass();
     }
 
@@ -2159,6 +2203,29 @@ public class GameScreen extends ApplicationAdapter {
         float dx = Math.abs((prop.x + 0.5f) - (visualX + 0.5f));
         float dy = Math.abs((prop.y + 0.5f) - (visualY + 0.5f));
         return dx <= 2.0f && dy <= 2.0f;
+    }
+
+    /**
+     * Returns true when the local player's current tile falls inside the footprint
+     * of the given building prop (base or roof).
+     * Used for AUTO ceiling/roof-hide and for hiding the interior ceiling face.
+     *
+     * Footprint = AABB derived from building half-extents × placement scale.
+     * 90°/270° rotation swaps the X and Z half-extents.
+     */
+    private boolean playerInsideBuildingFootprint(StaticPropLoader.StaticPropPlacement prop) {
+        float[] he = BUILDING_HALF_EXTENTS.get(prop.key);
+        if (he == null) return false;
+        float scaledHw = he[0] * prop.scale;
+        float scaledHd = he[1] * prop.scale;
+        // 90°/270° rotation physically swaps building width and depth
+        int snap = Math.round(prop.rotationYDegrees / 90f) & 3;
+        boolean swapped = (snap == 1 || snap == 3);
+        float hw = swapped ? scaledHd : scaledHw;
+        float hd = swapped ? scaledHw : scaledHd;
+        float dx = Math.abs((visualX + 0.5f) - (prop.x + 0.5f));
+        float dy = Math.abs((visualY + 0.5f) - (prop.y + 0.5f));
+        return dx < hw && dy < hd;
     }
 
     private boolean isWorldPlacementModeActive() {
@@ -5893,6 +5960,19 @@ public class GameScreen extends ApplicationAdapter {
 
         opts.add(new ContextMenu.MenuItem(ContextMenu.Action.WALK_HERE, null, new int[]{tileX, tileY}));
 
+        // Door at this tile — show Open or Close depending on current state
+        ClientPacketHandler doorHandler = handler();
+        if (doorHandler != null) {
+            ClientPacketHandler.WorldObjectState door = doorHandler.getDoorAt(tileX, tileY);
+            if (door != null) {
+                if (door.open) {
+                    opts.add(new ContextMenu.MenuItem(ContextMenu.Action.CLOSE_DOOR, "Door", door.id));
+                } else {
+                    opts.add(new ContextMenu.MenuItem(ContextMenu.Action.OPEN_DOOR, "Door", door.id));
+                }
+            }
+        }
+
         // Ground items at this tile
         for (Map.Entry<Integer, int[]> entry : groundItemsOnMap.entrySet()) {
             int[] data = entry.getValue();  // {itemId, qty, x, y}
@@ -6101,7 +6181,14 @@ public class GameScreen extends ApplicationAdapter {
                 if (nettyClient != null) nettyClient.sendDepositBankItem((Integer) item.target, Integer.MAX_VALUE);
             }
             case "examine_npc" -> requestNpcExamine((Integer) item.target);
+            case "open_door"  -> sendObjectInteract((Integer) item.target, "open");
+            case "close_door" -> sendObjectInteract((Integer) item.target, "close");
         }
+    }
+
+    private void sendObjectInteract(int objectId, String action) {
+        if (nettyClient == null) return;
+        nettyClient.sendObjectInteract(objectId, action);
     }
 
     /** Request server-authoritative NPC examine text. */
