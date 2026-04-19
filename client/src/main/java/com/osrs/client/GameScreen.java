@@ -2146,13 +2146,15 @@ public class GameScreen extends ApplicationAdapter {
             if ("roof".equals(prop.visibilityGroup)) {
                 continue;
             }
-            // When player is inside this building footprint, render the entire base at alpha=0
-            // so the ceiling (and all walls) become fully invisible from above.
-            // This is the only reliable approach — it works regardless of how many
-            // material slots the model has.  ALWAYS_SHOW overrides and keeps walls visible.
-            float baseAlpha = (roofMode != ClientPreferences.RoofVisibility.ALWAYS_SHOW
-                && playerInsideBuildingFootprint(prop)) ? 0f : 1f;
-            renderer3d.renderPlacedStaticPropModel(prop.key, prop.x, prop.y, prop.rotationYDegrees, prop.scale, baseAlpha);
+            // When player is inside the building footprint, skip rendering the base entirely.
+            // alpha=0 does NOT work: LibGDX ModelBatch queues draw calls and flushes them in
+            // modelBatch.end(), by which point material state is already restored to opaque.
+            // Skipping render (like we do for roofs) is the only correct approach.
+            if (roofMode != ClientPreferences.RoofVisibility.ALWAYS_SHOW
+                    && playerInsideBuildingFootprint(prop)) {
+                continue;
+            }
+            renderer3d.renderPlacedStaticPropModel(prop.key, prop.x, prop.y, prop.rotationYDegrees, prop.scale, 1f);
         }
         for (StaticPropLoader.StaticPropPlacement prop : renderPlacements) {
             if (isWorldPlacementModeActive() && !sceneEditState.shouldRenderByVisibilityFilter(prop)) {
