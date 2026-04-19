@@ -2146,14 +2146,10 @@ public class GameScreen extends ApplicationAdapter {
             if ("roof".equals(prop.visibilityGroup)) {
                 continue;
             }
-            // When player is inside the building footprint, skip rendering the base entirely.
-            // alpha=0 does NOT work: LibGDX ModelBatch queues draw calls and flushes them in
-            // modelBatch.end(), by which point material state is already restored to opaque.
-            // Skipping render (like we do for roofs) is the only correct approach.
-            if (roofMode != ClientPreferences.RoofVisibility.ALWAYS_SHOW
-                    && playerInsideBuildingFootprint(prop)) {
-                continue;
-            }
+            // _base models contain walls + floor only (no ceiling face).
+            // The ceiling lives exclusively in the _roof model, which is already
+            // skipped by the roof pass when playerInsideBuildingFootprint() is true.
+            // Never skip the base — walls and floor should always be visible.
             renderer3d.renderPlacedStaticPropModel(prop.key, prop.x, prop.y, prop.rotationYDegrees, prop.scale, 1f);
         }
         for (StaticPropLoader.StaticPropPlacement prop : renderPlacements) {
