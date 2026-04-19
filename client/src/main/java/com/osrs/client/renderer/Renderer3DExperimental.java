@@ -768,10 +768,14 @@ public class Renderer3DExperimental {
     }
 
     /**
-     * Render a placed static prop with one material slot forced fully transparent.
-     * Used to hide the interior ceiling face (slot 1) when the player is inside a building.
+     * Render a placed static prop with one node part (mesh primitive) excluded from the draw.
      *
-     * @param hiddenMaterialSlot index of the material slot to render at opacity 0; -1 = no hiding
+     * This uses NodePart.enabled toggling, NOT material alpha.  Material state is read at
+     * modelBatch.end() (flush time), so alpha changes made before render() are already
+     * reverted by flush time — alpha hiding is broken.  NodePart.enabled is read immediately
+     * inside modelBatch.render() via ModelInstance.getRenderables(), so it works correctly.
+     *
+     * @param hiddenNodePartIndex index into node.parts to exclude; -1 = render all parts
      */
     public boolean renderPlacedStaticPropModel(String key,
                                                float tileX,
@@ -779,7 +783,7 @@ public class Renderer3DExperimental {
                                                float rotationYDegrees,
                                                float scaleOverride,
                                                float alpha,
-                                               int hiddenMaterialSlot) {
+                                               int hiddenNodePartIndex) {
         if (key == null || key.isBlank() || modelLibrary == null || !modelLibrary.hasModel(key)) {
             return false;
         }
@@ -800,59 +804,26 @@ public class Renderer3DExperimental {
         float placementScale = scaleOverride > 0f ? scaleOverride : 1f;
         applyManifestModelTransform(instance, meta, tileX, tileY, tileBaseY, rotationYDegrees, placementScale);
 
-        int materialCount = instance.materials.size;
-        float[] savedDiffuseAlpha = new float[materialCount];
-        float[] savedBlendAlpha = new float[materialCount];
-        int[] savedBlendSrc = new int[materialCount];
-        int[] savedBlendDst = new int[materialCount];
-        boolean[] hadBlend = new boolean[materialCount];
-        boolean needsRestore = false;
-
-        float clampedAlpha = Math.max(0f, Math.min(1f, alpha));
-        for (int i = 0; i < materialCount; i++) {
-            Material material = instance.materials.get(i);
-            ColorAttribute diffuse = (ColorAttribute) material.get(ColorAttribute.Diffuse);
-            savedDiffuseAlpha[i] = diffuse != null ? diffuse.color.a : 1f;
-            BlendingAttribute blend = (BlendingAttribute) material.get(BlendingAttribute.Type);
-            if (blend != null) {
-                hadBlend[i] = true;
-                savedBlendAlpha[i] = blend.opacity;
-                savedBlendSrc[i] = blend.sourceFunction;
-                savedBlendDst[i] = blend.destFunction;
-            }
-            float slotAlpha = (hiddenMaterialSlot >= 0 && i == hiddenMaterialSlot) ? 0f : clampedAlpha;
-            if (slotAlpha < 0.999f) {
-                needsRestore = true;
-                if (diffuse != null) {
-                    diffuse.color.a = slotAlpha;
-                }
-                material.set(new BlendingAttribute(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA, slotAlpha));
+        // Disable the ceiling node part before render — getRenderables() is called immediately
+        // inside modelBatch.render(), so the excluded part is never added to the draw list.
+        // Re-enabling after is safe: the renderable list for this draw is already captured.
+        boolean partDisabled = false;
+        if (hiddenNodePartIndex >= 0 && instance.nodes.size > 0) {
+            Node firstNode = instance.nodes.get(0);
+            if (hiddenNodePartIndex < firstNode.parts.size) {
+                firstNode.parts.get(hiddenNodePartIndex).enabled = false;
+                partDisabled = true;
             }
         }
 
-        if (needsRestore) {
-            Gdx.gl.glDepthMask(false);
-        }
         modelBatch.render(instance, environment);
         staticPropsRenderedLastFrame++;
-        if (needsRestore) {
-            Gdx.gl.glDepthMask(true);
+
+        if (partDisabled) {
+            instance.nodes.get(0).parts.get(hiddenNodePartIndex).enabled = true;
         }
 
         captureDebugModelMarker(key, model, instance);
-
-        for (int i = 0; i < materialCount; i++) {
-            Material material = instance.materials.get(i);
-            ColorAttribute diffuse = (ColorAttribute) material.get(ColorAttribute.Diffuse);
-            if (diffuse != null) {
-                diffuse.color.a = savedDiffuseAlpha[i];
-            }
-            if (hadBlend[i]) {
-                material.set(new BlendingAttribute(savedBlendSrc[i], savedBlendDst[i], savedBlendAlpha[i]));
-            } else {
-                material.remove(BlendingAttribute.Type);
-            }
-        }
 
         if (ownsPass) {
             endStaticPropPass();

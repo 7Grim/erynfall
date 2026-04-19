@@ -116,6 +116,16 @@ public class GameScreen extends ApplicationAdapter {
         "building_shell_coastal_base", new float[]{2.10f, 1.90f},
         "building_shell_coastal_roof", new float[]{2.10f, 1.90f}
     );
+
+    // Each building_shell_*_base.glb has a flat horizontal ceiling plane as node primitive[1].
+    // That face is never visible from the isometric camera (only from straight above) and
+    // blocks interior view entirely.  Map each base key to the part index to always suppress.
+    private static final Map<String, Integer> BUILDING_CEILING_PART = Map.of(
+        "building_shell_small_base",   1,
+        "building_shell_service_base", 1,
+        "building_shell_coastal_base", 1
+    );
+
     private static final float BILLBOARD_BASE_PLAYER_HEIGHT = 1.10f;
     private static final float BILLBOARD_BASE_NPC_HEIGHT = 1.05f;
     private static final float GROUND_ITEM_BILLBOARD_BASE_Y = 0.08f;
@@ -2146,11 +2156,14 @@ public class GameScreen extends ApplicationAdapter {
             if ("roof".equals(prop.visibilityGroup)) {
                 continue;
             }
-            // _base models contain walls + floor only (no ceiling face).
-            // The ceiling lives exclusively in the _roof model, which is already
-            // skipped by the roof pass when playerInsideBuildingFootprint() is true.
-            // Never skip the base — walls and floor should always be visible.
-            renderer3d.renderPlacedStaticPropModel(prop.key, prop.x, prop.y, prop.rotationYDegrees, prop.scale, 1f);
+            // Every building_shell_*_base.glb has a 4-vertex flat ceiling plane as primitive[1]
+            // (confirmed via GLB vertex inspection: Y is constant at wall-top height).
+            // That face is never visible from the isometric camera looking at the sides, yet it
+            // completely blocks interior view when looking from above.  Always cull it via
+            // NodePart.enabled=false — this works because ModelBatch.render() calls
+            // getRenderables() immediately (not deferred like material state).
+            int ceilPart = BUILDING_CEILING_PART.getOrDefault(prop.key, -1);
+            renderer3d.renderPlacedStaticPropModel(prop.key, prop.x, prop.y, prop.rotationYDegrees, prop.scale, 1f, ceilPart);
         }
         for (StaticPropLoader.StaticPropPlacement prop : renderPlacements) {
             if (isWorldPlacementModeActive() && !sceneEditState.shouldRenderByVisibilityFilter(prop)) {
