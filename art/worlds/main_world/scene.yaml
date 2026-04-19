@@ -87,7 +87,8 @@ terrain_visual:
       max_y: 130
       type: "sand"
 
-    # Grass interior — the whole island surface is natural grass
+    # Grass interior — dominant terrain; skill areas sit on natural ground.
+    # Buildings and props define each zone visually — no path tiles needed per area.
     - name: "island_grass_interior"
       min_x: 25
       min_y: 67
@@ -95,8 +96,7 @@ terrain_visual:
       max_y: 125
       type: "grass"
 
-    # Fishing cove — wide water inlet (northwest).
-    # Wider than the map.yaml walkability cutout for a natural-looking bay.
+    # Fishing cove — wide water inlet northwest; walkable shore surrounds it.
     - name: "fishing_cove_water"
       min_x: 24
       min_y: 76
@@ -104,45 +104,17 @@ terrain_visual:
       max_y: 87
       type: "water"
 
-    # ── Forge workshop floor ──────────────────────────────────────────────────
-    # Cobbled area under and around the smithing forge.
-    # Slightly larger than the building footprint — a workshop courtyard.
-    # mining rocks (63,84), (66,83) are OUTSIDE this rectangle (to the west/north).
-    - name: "forge_workshop_floor"
-      min_x: 65
-      min_y: 83
-      max_x: 79
-      max_y: 93
-      type: "path"
-
-    # Mine natural ground — overrides the forge path directly west of forge,
-    # so ore rocks sit on natural earthen ground, not cobblestone.
-    - name: "mine_natural_ground"
-      min_x: 56
-      min_y: 80
-      max_x: 65
-      max_y: 91
-      type: "grass"
-
-    # ── Travel paths ──────────────────────────────────────────────────────────
-
-    # Arrival path west: dock shore → mid-island
-    - name: "arrival_path_west"
+    # ── Travel path ───────────────────────────────────────────────────────────
+    # Single arrival corridor: dock shore → central hub.
+    # Skill areas branch off natural grass to keep the island feeling open.
+    - name: "arrival_path"
       min_x: 34
       min_y: 85
-      max_x: 46
-      max_y: 91
+      max_x: 60
+      max_y: 97
       type: "path"
 
-    # Arrival path east: mid-island → central hub
-    - name: "arrival_path_east"
-      min_x: 44
-      min_y: 89
-      max_x: 57
-      max_y: 96
-      type: "path"
-
-    # Central hub square — guide, quest guide, banker
+    # Central hub — guide, quest guide, banker courtyard
     - name: "central_hub_square"
       min_x: 53
       min_y: 91
@@ -150,31 +122,7 @@ terrain_visual:
       max_y: 100
       type: "path"
 
-    # Hub → artisan area: narrow path northeast from hub to forge entrance
-    - name: "hub_to_artisan_path"
-      min_x: 59
-      min_y: 87
-      max_x: 68
-      max_y: 93
-      type: "path"
-
-    # Hub → grove: path south-west toward woodcutting/survival area
-    - name: "grove_access_path"
-      min_x: 46
-      min_y: 98
-      max_x: 55
-      max_y: 110
-      type: "path"
-
-    # Hub → combat: path south-east toward combat yard
-    - name: "combat_access_path"
-      min_x: 62
-      min_y: 99
-      max_x: 73
-      max_y: 110
-      type: "path"
-
-    # Combat training yard — fenced arena for rats + instructor
+    # Combat training yard — enclosed arena; distinct surface from surrounding grass
     - name: "combat_yard_floor"
       min_x: 68
       min_y: 106
@@ -205,24 +153,17 @@ terrain_visual:
       type: "path"
 
   tile_overrides:
-    # Fishing cove — sandy shore transition at east edge of water
-    - { x: 37, y: 86, type: "sand" }
-    - { x: 37, y: 85, type: "sand" }
+    # Fishing cove — sandy shore transition on east edge of water inlet
     - { x: 37, y: 84, type: "sand" }
+    - { x: 37, y: 85, type: "sand" }
+    - { x: 37, y: 86, type: "sand" }
     - { x: 30, y: 88, type: "sand" }
     - { x: 31, y: 88, type: "sand" }
     - { x: 32, y: 88, type: "sand" }
-    # Dock → arrival path join
+    # Dock landing → arrival path join
     - { x: 36, y: 88, type: "path" }
     - { x: 37, y: 88, type: "path" }
-    # Grove path junction (smooth hub→grove turn)
-    - { x: 50, y: 98, type: "path" }
-    - { x: 51, y: 99, type: "path" }
-    - { x: 52, y: 100, type: "path" }
-    # Combat yard entrance narrowing
-    - { x: 68, y: 105, type: "path" }
-    - { x: 69, y: 104, type: "path" }
-    - { x: 70, y: 103, type: "path" }
+    - { x: 38, y: 89, type: "path" }
 
 static_props:
 

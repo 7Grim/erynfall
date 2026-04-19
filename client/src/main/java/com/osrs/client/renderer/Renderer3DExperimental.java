@@ -1288,7 +1288,16 @@ public class Renderer3DExperimental {
         }
         try {
             ModelInstance instance = new ModelInstance(model);
-            for (Material m : instance.materials) m.set(IntAttribute.createCullFace(GL20.GL_BACK));
+            for (Material m : instance.materials) {
+                m.set(IntAttribute.createCullFace(GL20.GL_BACK));
+                // player_base.glb exports with no material colors — LibGDX creates one default
+                // Material with no ColorAttribute, so the mesh renders grey under white ambient.
+                // Apply a warm human skin/clothing base tone until the artist re-exports with
+                // per-zone materials (skin, hair, shirt, pants, boots as separate primitives).
+                if (m.get(ColorAttribute.Diffuse) == null) {
+                    m.set(new ColorAttribute(ColorAttribute.Diffuse, 0.76f, 0.52f, 0.33f, 1f));
+                }
+            }
             AnimationController controller = new AnimationController(instance);
             animatedPlayerInstances.put(entityId, instance);
             playerAnimationControllers.put(entityId, controller);
