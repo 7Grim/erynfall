@@ -14,6 +14,7 @@ import com.badlogic.gdx.graphics.g3d.Model;
 import com.badlogic.gdx.graphics.g3d.ModelBatch;
 import com.badlogic.gdx.graphics.g3d.ModelInstance;
 import com.badlogic.gdx.graphics.g3d.model.Node;
+import com.badlogic.gdx.graphics.g3d.model.NodePart;
 import com.badlogic.gdx.graphics.g3d.attributes.BlendingAttribute;
 import com.badlogic.gdx.graphics.g3d.attributes.ColorAttribute;
 import com.badlogic.gdx.graphics.g3d.attributes.IntAttribute;
@@ -1288,14 +1289,22 @@ public class Renderer3DExperimental {
         }
         try {
             ModelInstance instance = new ModelInstance(model);
-            for (Material m : instance.materials) {
-                m.set(IntAttribute.createCullFace(GL20.GL_BACK));
-                // player_base.glb exports with no material colors — LibGDX creates one default
-                // Material with no ColorAttribute, so the mesh renders grey under white ambient.
-                // Apply a warm human skin/clothing base tone until the artist re-exports with
-                // per-zone materials (skin, hair, shirt, pants, boots as separate primitives).
-                if (m.get(ColorAttribute.Diffuse) == null) {
-                    m.set(new ColorAttribute(ColorAttribute.Diffuse, 0.76f, 0.52f, 0.33f, 1f));
+            // player_base.glb exports with no materials JSON array — GltfLoader creates no
+            // Material objects, so instance.materials is empty and a normal loop does nothing.
+            // Create and assign a default skin-tone material to all node parts directly.
+            if (instance.materials.isEmpty()) {
+                Material defaultMat = new Material(
+                    ColorAttribute.createDiffuse(0.76f, 0.52f, 0.33f, 1f),
+                    IntAttribute.createCullFace(GL20.GL_BACK)
+                );
+                instance.materials.add(defaultMat);
+                assignMaterialToNodePartsRecursive(instance.nodes, defaultMat);
+            } else {
+                for (Material m : instance.materials) {
+                    m.set(IntAttribute.createCullFace(GL20.GL_BACK));
+                    if (m.get(ColorAttribute.Diffuse) == null) {
+                        m.set(ColorAttribute.createDiffuse(0.76f, 0.52f, 0.33f, 1f));
+                    }
                 }
             }
             AnimationController controller = new AnimationController(instance);
@@ -1310,6 +1319,17 @@ public class Renderer3DExperimental {
             currentPlayerClipByEntityId.remove(entityId);
             playerAnimTimes.remove(entityId);
             return false;
+        }
+    }
+
+    private void assignMaterialToNodePartsRecursive(Iterable<Node> nodes, Material mat) {
+        for (Node node : nodes) {
+            for (NodePart part : node.parts) {
+                part.material = mat;
+            }
+            if (node.hasChildren()) {
+                assignMaterialToNodePartsRecursive(node.getChildren(), mat);
+            }
         }
     }
 

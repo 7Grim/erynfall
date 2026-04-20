@@ -104,22 +104,81 @@ terrain_visual:
       max_y: 87
       type: "water"
 
-    # ── Travel path ───────────────────────────────────────────────────────────
-    # Single arrival corridor: dock shore → central hub.
-    # Skill areas branch off natural grass to keep the island feeling open.
-    - name: "arrival_path"
-      min_x: 34
-      min_y: 85
-      max_x: 60
+    # ── Travel paths ──────────────────────────────────────────────────────────
+    # Tighter path network: a short beach ramp, an arrival corridor into the
+    # central hub, and three spokes branching to forge (NE), combat yard (E),
+    # and grove/survival camp (S). Replaces the old 12×26 arrival plaza.
+
+    # Beach landing — dock stairs up to the island rise (north-south strip)
+    - name: "beach_landing_path"
+      min_x: 36
+      min_y: 86
+      max_x: 42
+      max_y: 95
+      type: "path"
+
+    # Arrival corridor — west-east path from beach landing into hub plaza
+    - name: "arrival_corridor"
+      min_x: 40
+      min_y: 93
+      max_x: 54
       max_y: 97
       type: "path"
 
-    # Central hub — guide, quest guide, banker courtyard
+    # Fishing shore apron — dirt/sand working ground around the dock + hut
+    - name: "fishing_shore_apron"
+      min_x: 37
+      min_y: 82
+      max_x: 44
+      max_y: 87
+      type: "sand"
+
+    # Central hub plaza — paved square around guide/quest/banker building
     - name: "central_hub_square"
       min_x: 53
-      min_y: 91
+      min_y: 92
       max_x: 65
-      max_y: 100
+      max_y: 101
+      type: "path"
+
+    # Hub → forge (NE spur). Enters artisan terrace at forge west door (y=88).
+    - name: "hub_forge_spur"
+      min_x: 63
+      min_y: 87
+      max_x: 67
+      max_y: 96
+      type: "path"
+
+    # Hub → combat yard (E dogleg, part 1: east off the hub square)
+    - name: "hub_combat_spur_east"
+      min_x: 63
+      min_y: 97
+      max_x: 71
+      max_y: 101
+      type: "path"
+
+    # Hub → combat yard (E dogleg, part 2: south down to west gate at y=108)
+    - name: "hub_combat_spur_south"
+      min_x: 66
+      min_y: 100
+      max_x: 71
+      max_y: 108
+      type: "path"
+
+    # Hub → grove (S spur). Drops from hub into the survival camp clearing.
+    - name: "hub_grove_spur"
+      min_x: 54
+      min_y: 100
+      max_x: 58
+      max_y: 110
+      type: "path"
+
+    # Grove survival clearing — trodden dirt around Survival Expert + cook fire
+    - name: "grove_cook_clearing"
+      min_x: 45
+      min_y: 108
+      max_x: 54
+      max_y: 114
       type: "path"
 
     # Combat training yard — enclosed arena; distinct surface from surrounding grass
@@ -157,13 +216,21 @@ terrain_visual:
     - { x: 37, y: 84, type: "sand" }
     - { x: 37, y: 85, type: "sand" }
     - { x: 37, y: 86, type: "sand" }
+    - { x: 36, y: 85, type: "sand" }  # apron edge where Fishing Supplier stands
+    - { x: 36, y: 86, type: "sand" }
     - { x: 30, y: 88, type: "sand" }
     - { x: 31, y: 88, type: "sand" }
     - { x: 32, y: 88, type: "sand" }
     # Dock landing → arrival path join
+    - { x: 36, y: 87, type: "path" }
     - { x: 36, y: 88, type: "path" }
     - { x: 37, y: 88, type: "path" }
     - { x: 38, y: 89, type: "path" }
+    # Forge west-door stone apron — painted where spur meets interior threshold
+    - { x: 66, y: 88, type: "path" }
+    - { x: 66, y: 89, type: "path" }
+    # Combat yard west gate stepping stones — mark the fence-gap tile
+    - { x: 69, y: 108, type: "path" }
 
 static_props:
 
@@ -185,6 +252,50 @@ static_props:
     y: 86
     rotation_y_degrees: 0.0
     scale: 2.0
+    visibility_group: "base"
+
+  # ── Fishing hut (coastal shell, east of dock on shore apron) ─────────────────
+  # Footprint at scale 1.5, coastal model (assume hw≈2.10, hd≈1.90):
+  #   scaled hw≈3.15, hd≈2.85  →  walls: W(x=37) E(x=43) N(y=79) S(y=85)
+  #   interior: x:38..42, y:80..84
+  #   Fishing Supplier now at (37,85) stands just outside SW corner on sand ✓
+  #   Fishing spots remain in water (32,82) and (34,84) — unaffected
+  - key: "building_shell_coastal_base"
+    x: 40
+    y: 82
+    rotation_y_degrees: 0.0
+    scale: 1.5
+    visibility_group: "base"
+  - key: "building_shell_coastal_roof"
+    x: 40
+    y: 82
+    rotation_y_degrees: 0.0
+    scale: 1.5
+    visibility_group: "roof"
+  # Tackle & net storage around the hut (outside, on sand apron)
+  - key: "crate_small"
+    x: 38
+    y: 86
+    rotation_y_degrees: 0.0
+    scale: 1.5
+    visibility_group: "base"
+  - key: "barrel_small"
+    x: 40
+    y: 86
+    rotation_y_degrees: 0.0
+    scale: 1.5
+    visibility_group: "base"
+  - key: "sack_stack_small"
+    x: 42
+    y: 84
+    rotation_y_degrees: 90.0
+    scale: 1.5
+    visibility_group: "base"
+  - key: "barrel_small"
+    x: 43
+    y: 86
+    rotation_y_degrees: 180.0
+    scale: 1.5
     visibility_group: "base"
 
   # ── Central hub (Tutorial Guide + Quest Guide + Banker — service indoors) ─────
@@ -246,39 +357,104 @@ static_props:
     scale: 1.5
     visibility_group: "roof"
 
-  # ── Signposts ────────────────────────────────────────────────────────────────
-  # Hub signpost (guides players inside hub building area)
-  - key: "signpost_small"
-    x: 58
-    y: 98
-    rotation_y_degrees: 90.0
-    scale: 1.8
-    visibility_group: "base"
-  # Combat direction (east from hub path)
-  - key: "signpost_small"
-    x: 70
-    y: 100
-    rotation_y_degrees: 0.0
-    scale: 1.8
-    visibility_group: "base"
-  # Grove direction (south from hub path)
-  - key: "signpost_small"
-    x: 52
-    y: 102
-    rotation_y_degrees: 270.0
-    scale: 1.8
-    visibility_group: "base"
-  # Dock direction (northwest from hub)
-  - key: "signpost_small"
+  # ── Survival camp (grove — woodcutting/fishing-tutor/cooking/firemaking) ─────
+  # Survival Expert at (50,108) greets players at the north edge of the clearing.
+  # Cooking Fire (47,109) and Cooking Range (49,109) moved here from the arrival
+  # path — they now sit in the clearing in front of the hut.
+  # Small hut at scale 1.5, small model (hw=2.10, hd=1.90):
+  #   scaled hw=3.15, hd=2.85  →  walls: W(x=45) E(x=51) N(y=112) S(y=118)
+  #   interior: x:46..50, y:113..117   (clear of cook stations; door at y=112)
+  - key: "building_shell_small_base"
     x: 48
+    y: 115
+    rotation_y_degrees: 0.0
+    scale: 1.5
+    visibility_group: "base"
+  - key: "building_shell_small_roof"
+    x: 48
+    y: 115
+    rotation_y_degrees: 0.0
+    scale: 1.5
+    visibility_group: "roof"
+  # Log piles and tool storage scattered around the camp clearing
+  - key: "sack_stack_small"
+    x: 45
+    y: 110
+    rotation_y_degrees: 0.0
+    scale: 1.5
+    visibility_group: "base"
+  - key: "sack_stack_small"
+    x: 45
+    y: 112
+    rotation_y_degrees: 90.0
+    scale: 1.5
+    visibility_group: "base"
+  - key: "crate_small"
+    x: 52
+    y: 111
+    rotation_y_degrees: 0.0
+    scale: 1.5
+    visibility_group: "base"
+  - key: "barrel_small"
+    x: 52
+    y: 113
+    rotation_y_degrees: 0.0
+    scale: 1.5
+    visibility_group: "base"
+  - key: "cart_small"
+    x: 51
+    y: 108
+    rotation_y_degrees: 270.0
+    scale: 1.6
+    visibility_group: "base"
+  # Seating by the campfire for the cooking lesson
+  - key: "bench_small"
+    x: 46
+    y: 108
+    rotation_y_degrees: 0.0
+    scale: 1.4
+    visibility_group: "base"
+
+  # ── Signposts (at real path junctions, arms pointing down the branch) ─────────
+  # Hub plaza center-piece signpost (greets arriving players entering the hub)
+  - key: "signpost_small"
+    x: 54
+    y: 96
+    rotation_y_degrees: 270.0  # arm points WEST back down arrival corridor
+    scale: 1.8
+    visibility_group: "base"
+  # Combat branch — at hub-SE corner of the east spur, arm points EAST
+  - key: "signpost_small"
+    x: 64
+    y: 99
+    rotation_y_degrees: 90.0   # arm points EAST toward combat dogleg
+    scale: 1.8
+    visibility_group: "base"
+  # Combat south-leg signpost — at the dogleg bend, arm points SOUTH to gate
+  - key: "signpost_small"
+    x: 67
+    y: 101
+    rotation_y_degrees: 180.0  # arm points SOUTH toward west gate (69,108)
+    scale: 1.8
+    visibility_group: "base"
+  # Grove branch — at hub-SW apron, arm points SOUTH down the grove spur
+  - key: "signpost_small"
+    x: 55
     y: 100
     rotation_y_degrees: 180.0
     scale: 1.8
     visibility_group: "base"
-  # Artisan/forge direction (northeast from hub path)
+  # Dock/beach branch — at the arrival-corridor west bend, arm points NW
   - key: "signpost_small"
-    x: 66
-    y: 102
+    x: 42
+    y: 94
+    rotation_y_degrees: 315.0
+    scale: 1.8
+    visibility_group: "base"
+  # Forge branch — at the hub-NE corner of the forge spur, arm points NORTH
+  - key: "signpost_small"
+    x: 64
+    y: 95
     rotation_y_degrees: 0.0
     scale: 1.8
     visibility_group: "base"
@@ -352,7 +528,8 @@ static_props:
     visibility_group: "base"
 
   # ── Combat yard fence ─────────────────────────────────────────────────────────
-  # West side
+  # West side — gap at (69,108) forms the west gate that the hub-combat spur
+  # terminates into. Gate-post pair at y=107 and y=109 frames the opening.
   - key: "fence_post_small"
     x: 69
     y: 104
@@ -361,7 +538,22 @@ static_props:
     visibility_group: "base"
   - key: "fence_post_small"
     x: 69
-    y: 108
+    y: 106
+    rotation_y_degrees: 0.0
+    scale: 1.5
+    visibility_group: "base"
+  # Gate-frame post (just north of the opening)
+  - key: "fence_post_small"
+    x: 69
+    y: 107
+    rotation_y_degrees: 0.0
+    scale: 1.5
+    visibility_group: "base"
+  # Gate opening at (69,108) — no post, path tile painted in overrides
+  # Gate-frame post (just south of the opening)
+  - key: "fence_post_small"
+    x: 69
+    y: 109
     rotation_y_degrees: 0.0
     scale: 1.5
     visibility_group: "base"
@@ -452,7 +644,16 @@ static_props:
     rotation_y_degrees: 90.0
     scale: 1.5
     visibility_group: "base"
-  # Artisan east boundary fence (marks edge of forge workshop yard)
+  # ── Artisan/forge yard fence ─────────────────────────────────────────────────
+  # Defines the compound around mining + forge so the workshop reads as a
+  # unified zone. Gate at (64,93) aligns with the hub→forge spur.
+  # East boundary
+  - key: "fence_post_small"
+    x: 79
+    y: 82
+    rotation_y_degrees: 0.0
+    scale: 1.5
+    visibility_group: "base"
   - key: "fence_post_small"
     x: 79
     y: 86
@@ -464,4 +665,68 @@ static_props:
     y: 90
     rotation_y_degrees: 0.0
     scale: 1.5
+    visibility_group: "base"
+  - key: "fence_post_small"
+    x: 79
+    y: 93
+    rotation_y_degrees: 0.0
+    scale: 1.5
+    visibility_group: "base"
+  # South boundary (gate gap at x=64 — spur from hub threads through)
+  - key: "fence_post_small"
+    x: 62
+    y: 93
+    rotation_y_degrees: 90.0
+    scale: 1.5
+    visibility_group: "base"
+  # Gate-frame posts bracket the opening at x=63..65
+  - key: "fence_post_small"
+    x: 66
+    y: 93
+    rotation_y_degrees: 90.0
+    scale: 1.5
+    visibility_group: "base"
+  - key: "fence_post_small"
+    x: 70
+    y: 93
+    rotation_y_degrees: 90.0
+    scale: 1.5
+    visibility_group: "base"
+  - key: "fence_post_small"
+    x: 74
+    y: 93
+    rotation_y_degrees: 90.0
+    scale: 1.5
+    visibility_group: "base"
+  - key: "fence_post_small"
+    x: 78
+    y: 93
+    rotation_y_degrees: 90.0
+    scale: 1.5
+    visibility_group: "base"
+  # West boundary (short — the mining rocks form natural boundary on NW)
+  - key: "fence_post_small"
+    x: 60
+    y: 89
+    rotation_y_degrees: 0.0
+    scale: 1.5
+    visibility_group: "base"
+  - key: "fence_post_small"
+    x: 60
+    y: 93
+    rotation_y_degrees: 0.0
+    scale: 1.5
+    visibility_group: "base"
+  # Additional ore-scatter around mining rocks (Copper @ 63,84 | Tin @ 66,83)
+  - key: "crate_small"
+    x: 64
+    y: 85
+    rotation_y_degrees: 45.0
+    scale: 1.4
+    visibility_group: "base"
+  - key: "sack_stack_small"
+    x: 67
+    y: 85
+    rotation_y_degrees: 0.0
+    scale: 1.4
     visibility_group: "base"

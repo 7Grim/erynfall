@@ -5339,6 +5339,7 @@ public class GameScreen extends ApplicationAdapter {
 
     /** Player-initiated walk — cancels any pending approach. */
     private void walkTo(int x, int y) {
+        combatTargetId = -1;
         clearPendingAction();
         if (!planWalkPath(x, y)) {
             chatBox.addSystemMessage("I can't reach that!");

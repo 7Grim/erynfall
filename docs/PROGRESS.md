@@ -49,6 +49,17 @@ Older detailed planning and implementation notes still exist elsewhere in `docs/
 - Walking system: server-authoritative click-to-walk + client prediction
 - Azure JWT auth deployed end-to-end; DigitalOcean VM + GitHub Actions CI/CD wired
 
+### Tutorial Island Polish (Complete)
+
+- Building interior visibility: `_base` (walls+floor) always renders; only `_roof` is skipped when player inside footprint (AUTO/ALWAYS_HIDE modes). Uses `NodePart.enabled = false` on prim[1] to cull the flat ceiling inside `_base.glb` — material alpha never works (LibGDX ModelBatch is deferred).
+- Terrain patchiness fixed: simplified to 7 clean visual regions; skill zones sit on natural grass; only arrival path, hub square, and combat yard use path tiles.
+- Skill areas moved outdoors: fishing cove, cooking fire/range, and grove are fully outdoor. Forge/smithing hut interior holds only anvil + furnace. Hub building holds tutorial guide, quest guide, banker.
+- Fishing Supplier moved to (33,84), Cooking Fire (43,90), Cooking Range (45,90).
+- Building door updated: forge has a 3-tile west door (y:87-89) so players walk from mine into forge.
+- OSRS-style door system in world.yml; map.yaml regenerated via `python3 scripts/gen_tutorial_map.py`.
+- Player character color: `player_base.glb` has no materials JSON so `instance.materials` is empty. Fix creates a default `Material(diffuse=0.76,0.52,0.33)` and assigns to all NodeParts via recursive traversal (`assignMaterialToNodePartsRecursive`).
+- Combat de-aggro: `walkTo()` now sets `combatTargetId = -1` before `clearPendingAction()`, so explicit player walk breaks the `processCombatFollow()` re-queue loop.
+
 ### Current Major Gaps
 
 - Prayer system (points, activation, drain) — not yet implemented
@@ -56,6 +67,7 @@ Older detailed planning and implementation notes still exist elsewhere in `docs/
 - SQL persistence gaps: XP/inventory can reset on server restart (schema wired, integration incomplete)
 - Weight stat: placeholder 0, not synced to client
 - Bronze scimitar still G3DJ (only bronze GLB piece not yet Blender-authored)
+- Player model colors are a flat single skin tone — no per-zone materials (skin, hair, shirt, pants, boots). Needs artist re-export with separate primitives per zone.
 
 ## Recommended Active Docs
 
@@ -72,11 +84,11 @@ For current work, use this context set first:
 
 ## Next High-Value Areas
 
-1. **Player base GLB** — author `player_base.blend` with full rig + all clips per GRAPHICS_STYLE.md; replace `player_base.g3dj`
-2. **Broader GLB asset adoption** — migrate remaining 170 G3DJ models to Blender-authored GLB
-3. **Prayer system** — points, activation, drain
-4. **SQL persistence** — complete schema wiring so XP/inventory survive server restart
-5. **Post-Tutorial Island** — mainland map, bank, follow-on quests
+1. **Player model per-zone materials** — re-export `player_base.glb` with separate mesh primitives (skin, hair, shirt, pants, boots) so each can be colored independently
+2. **Prayer system** — points, activation, drain
+3. **SQL persistence** — complete schema wiring so XP/inventory survive server restart
+4. **Post-Tutorial Island** — mainland map, bank, follow-on quests
+5. **Broader GLB asset adoption** — migrate remaining G3DJ models to Blender-authored GLB
 
 ## Notes
 
