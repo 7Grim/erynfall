@@ -51,7 +51,7 @@ public final class RenderZone {
         return null;
     }
 
-    public static final List<RenderZone> TUTORIAL_ISLAND = Arrays.asList(
+    public static final List<RenderZone> STARTER_ISLAND = Arrays.asList(
         new RenderZone("skill_north", 0, 8, 104, 23, "neutral", 0.94f, 0.95f, 0.90f, 0.04f, 0.00f),
         new RenderZone("cooking", 0, 24, 104, 27, "cooking", 1.00f, 0.90f, 0.82f, 0.05f, 0.00f),
         new RenderZone("fishing", 0, 28, 104, 31, "fishing", 0.86f, 0.92f, 1.00f, 0.06f, 0.00f),

@@ -156,7 +156,7 @@ message DialogueResponse {
 
 // PlayerDeath: Server → Client (local player died; respawn info included)
 message PlayerDeath {
-    int32 respawn_x = 1;   // Tile X of respawn point (Lumbridge)
+    int32 respawn_x = 1;   // Tile X of respawn point
     int32 respawn_y = 2;   // Tile Y of respawn point
 }
 
@@ -287,7 +287,7 @@ enum AdminTravelDestination {
     ADMIN_TRAVEL_SANDBOX_GROVE = 1;
     ADMIN_TRAVEL_SANDBOX_FISHING_COVE = 2;
     ADMIN_TRAVEL_SANDBOX_MINING_COVE = 3;
-    ADMIN_TRAVEL_MAIN_WORLD_TUTORIAL = 4;
+    ADMIN_TRAVEL_MAIN_WORLD_STARTER = 4;
     ADMIN_TRAVEL_MAIN_WORLD_MAINLAND = 5;
 }
 

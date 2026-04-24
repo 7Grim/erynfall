@@ -209,7 +209,7 @@ public class AudioManager {
     public void onPlayerMoved(int tileX, int tileY) {
         if (manualMode) return;
 
-        AudioZone zone = AudioZone.findZone(AudioZone.TUTORIAL_ISLAND, tileX, tileY);
+        AudioZone zone = AudioZone.findZone(AudioZone.STARTER_ISLAND, tileX, tileY);
         String zoneName = zone != null ? zone.name : null;
 
         if (java.util.Objects.equals(zoneName, currentZoneName)) return;

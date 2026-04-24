@@ -43,10 +43,10 @@ public class GameContent {
     
     public void initializeForWorld(String worldId) {
         String normalizedWorldId = normalizeWorldId(worldId);
-        boolean tutorialContentEnabled = shouldEnableTutorialContent(normalizedWorldId);
+        boolean starterContentEnabled = shouldEnableStarterContent(normalizedWorldId);
 
-        LOG.info("Initializing game content for world '{}' (tutorialContentEnabled={})",
-            normalizedWorldId, tutorialContentEnabled);
+        LOG.info("Initializing game content for world '{}' (starterContentEnabled={})",
+            normalizedWorldId, starterContentEnabled);
 
         npcInitialDialogueIds.clear();
         questDefinitions.clear();
@@ -54,11 +54,11 @@ public class GameContent {
         int shopCount = loadShopsFromYaml();
         int dialogueCount = 0;
         int questCount = 0;
-        if (tutorialContentEnabled) {
+        if (starterContentEnabled) {
             dialogueCount = loadDialoguesFromYaml();
             questCount = loadQuestsFromYaml();
         } else {
-            LOG.info("Skipping tutorial-specific dialogue and quest bootstrap for world '{}'", normalizedWorldId);
+            LOG.info("Skipping starter dialogue and quest bootstrap for world '{}'", normalizedWorldId);
         }
 
         LOG.info("Loaded {} dialogues, {} quest definitions, {} shops, {} NPC dialogue entry points",
@@ -72,7 +72,7 @@ public class GameContent {
         return worldId.trim().toLowerCase(Locale.ROOT);
     }
 
-    private boolean shouldEnableTutorialContent(String worldId) {
+    private boolean shouldEnableStarterContent(String worldId) {
         return "main_world".equals(worldId);
     }
 

@@ -36,7 +36,7 @@ public class MiniMap {
     private static final int VT_SAND  = 4;
 
     // ── OSRS minimap colour palette ───────────────────────────────────────────
-    // Reference: OSRS tutorial island minimap — flat, saturated, clearly distinct
+    // Reference: flat, saturated, clearly distinct colour palette
     private static final Color COLOR_GRASS = new Color(0.31f, 0.57f, 0.17f, 1f); // #4F9130 med green
     private static final Color COLOR_PATH  = new Color(0.53f, 0.43f, 0.25f, 1f); // #876E40 dirt brown
     private static final Color COLOR_WATER = new Color(0.11f, 0.40f, 0.68f, 1f); // #1C66AD OSRS blue

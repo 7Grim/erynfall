@@ -90,6 +90,10 @@ public final class EntityVisualPersistence {
             root.put("entity_visuals", entityVisualsList);
 
             String yaml = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(root);
+
+            Path backup = visualsPath.resolveSibling(visualsPath.getFileName() + ".bak");
+            Files.copy(visualsPath, backup, StandardCopyOption.REPLACE_EXISTING);
+
             Path temp = visualsPath.resolveSibling(visualsPath.getFileName() + ".tmp");
             Files.writeString(temp, yaml, StandardCharsets.UTF_8);
             try {
@@ -97,7 +101,8 @@ public final class EntityVisualPersistence {
             } catch (Exception atomicIgnored) {
                 Files.move(temp, visualsPath, StandardCopyOption.REPLACE_EXISTING);
             }
-            return new SaveResult(true, "Saved entity binding for definition_id=" + definitionId);
+            return new SaveResult(true, "Saved entity binding for definition_id=" + definitionId
+                + " (backup: " + backup.getFileName() + ")");
         } catch (Exception e) {
             return new SaveResult(false, "Entity visual save failed: " + e.getMessage());
         }

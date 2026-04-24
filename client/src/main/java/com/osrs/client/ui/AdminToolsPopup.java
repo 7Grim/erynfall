@@ -438,7 +438,7 @@ public class AdminToolsPopup {
         }
         if (mouseX >= travelBtnX5 && mouseX <= travelBtnX5 + travelBtnW5
             && mouseY >= travelBtnY5 && mouseY <= travelBtnY5 + travelBtnH5) {
-            pendingTravelAction = new AdminTravelAction(NetworkProto.AdminTravelDestination.ADMIN_TRAVEL_MAIN_WORLD_TUTORIAL);
+            pendingTravelAction = new AdminTravelAction(NetworkProto.AdminTravelDestination.ADMIN_TRAVEL_MAIN_WORLD_STARTER);
             return true;
         }
         if (mouseX >= travelBtnX6 && mouseX <= travelBtnX6 + travelBtnW6
@@ -1039,7 +1039,7 @@ public class AdminToolsPopup {
         font.draw(batch, "Sandbox Grove", travelBtnX2 + 10, travelBtnY2 + 18);
         font.draw(batch, "Fishing Cove", travelBtnX3 + 10, travelBtnY3 + 18);
         font.draw(batch, "Mining Cove", travelBtnX4 + 10, travelBtnY4 + 18);
-        font.draw(batch, "Main: Tutorial", travelBtnX5 + 10, travelBtnY5 + 18);
+        font.draw(batch, "Main: Starter", travelBtnX5 + 10, travelBtnY5 + 18);
         font.draw(batch, "Main: Mainland", travelBtnX6 + 10, travelBtnY6 + 18);
 
         if (handler != null) {

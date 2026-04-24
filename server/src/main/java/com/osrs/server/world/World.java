@@ -29,7 +29,7 @@ public class World {
     private final Map<String, WorldData.LootTable> lootTables;
     private final WorldData worldData;
     private final String worldId;
-    private static final String MAIN_WORLD_TUTORIAL_REGION_ID = "tutorial_island_region";
+    private static final String MAIN_WORLD_STARTER_REGION_ID = "starter_island_region";
     private static final String MAIN_WORLD_MAINLAND_REGION_ID = "mainland_region";
     private int nextEntityId = 1;
 
@@ -111,7 +111,7 @@ public class World {
         this.worldData = WorldLoader.loadWorld();
         LOG.info("World configuration loaded");
         LOG.info("  Spawn: ({}, {})", worldData.spawnX, worldData.spawnY);
-        LOG.info("  Tutorial spawn: ({}, {})", worldData.tutorialSpawnX, worldData.tutorialSpawnY);
+        LOG.info("  Starter spawn: ({}, {})", worldData.starterSpawnX, worldData.starterSpawnY);
         LOG.info("  Mainland spawn: ({}, {})", worldData.mainlandSpawnX, worldData.mainlandSpawnY);
         LOG.info("  Maps: {}", worldData.maps.keySet());
         
@@ -345,20 +345,20 @@ public class World {
 
     public int getSpawnX() { return worldData.spawnX; }
     public int getSpawnY() { return worldData.spawnY; }
-    public int getTutorialSpawnX() { return worldData.tutorialSpawnX; }
-    public int getTutorialSpawnY() { return worldData.tutorialSpawnY; }
+    public int getStarterSpawnX() { return worldData.starterSpawnX; }
+    public int getStarterSpawnY() { return worldData.starterSpawnY; }
     public int getMainlandSpawnX() { return worldData.mainlandSpawnX; }
     public int getMainlandSpawnY() { return worldData.mainlandSpawnY; }
     public String getWorldId() { return worldId; }
 
-    public int[] getMainWorldSpawnForTutorialState(boolean tutorialCompleted) {
+    public int[] getMainWorldSpawnForStarterState(boolean starterCompleted) {
         if (!"main_world".equals(worldId)) {
             return new int[]{worldData.spawnX, worldData.spawnY};
         }
-        if (tutorialCompleted) {
+        if (starterCompleted) {
             return new int[]{worldData.mainlandSpawnX, worldData.mainlandSpawnY};
         }
-        return new int[]{worldData.tutorialSpawnX, worldData.tutorialSpawnY};
+        return new int[]{worldData.starterSpawnX, worldData.starterSpawnY};
     }
 
     public boolean isPointInMapRegion(String regionId, int x, int y) {
@@ -373,11 +373,11 @@ public class World {
             && y >= mapInfo.minY && y <= mapInfo.maxY;
     }
 
-    public boolean isInMainWorldTutorialRegion(int x, int y) {
+    public boolean isInMainWorldStarterRegion(int x, int y) {
         if (!"main_world".equals(worldId)) {
             return false;
         }
-        return isPointInMapRegion(MAIN_WORLD_TUTORIAL_REGION_ID, x, y);
+        return isPointInMapRegion(MAIN_WORLD_STARTER_REGION_ID, x, y);
     }
 
     public boolean isInMainWorldMainlandRegion(int x, int y) {

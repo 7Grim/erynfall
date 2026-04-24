@@ -50,8 +50,8 @@ public class WorldLoader {
                 Map<String, Object> world = (Map<String, Object>) yaml.get("world");
                 worldData.spawnX = getInt(world, "spawn_x", 3222);
                 worldData.spawnY = getInt(world, "spawn_y", 3218);
-                worldData.tutorialSpawnX = getInt(world, "tutorial_spawn_x", worldData.spawnX);
-                worldData.tutorialSpawnY = getInt(world, "tutorial_spawn_y", worldData.spawnY);
+                worldData.starterSpawnX = getInt(world, "starter_spawn_x", worldData.spawnX);
+                worldData.starterSpawnY = getInt(world, "starter_spawn_y", worldData.spawnY);
                 worldData.mainlandSpawnX = getInt(world, "mainland_spawn_x", worldData.spawnX);
                 worldData.mainlandSpawnY = getInt(world, "mainland_spawn_y", worldData.spawnY);
             }
@@ -120,7 +120,7 @@ public class WorldLoader {
                     npcDef2.maxHp = getInt(npcDef, "max_hp", 100);
                     npcDef2.maxHit = getInt(npcDef, "max_hit", 1);
                     npcDef2.respawnDelayTicks = getInt(npcDef, "respawn_delay_ticks", 3850);
-                    npcDef2.location = getString(npcDef, "location", "lumbridge");
+                    npcDef2.location = getString(npcDef, "location", "settlement");
                     npcDef2.x = getInt(npcDef, "x", 0);
                     npcDef2.y = getInt(npcDef, "y", 0);
                     npcDef2.isAggressive = getBoolean(npcDef, "is_aggressive", false);
@@ -242,8 +242,8 @@ public class WorldLoader {
 class WorldData {
     public int spawnX = 3222;
     public int spawnY = 3218;
-    public int tutorialSpawnX = 3222;
-    public int tutorialSpawnY = 3218;
+    public int starterSpawnX = 3222;
+    public int starterSpawnY = 3218;
     public int mainlandSpawnX = 3222;
     public int mainlandSpawnY = 3218;
     public Map<String, MapInfo> maps = new HashMap<>();

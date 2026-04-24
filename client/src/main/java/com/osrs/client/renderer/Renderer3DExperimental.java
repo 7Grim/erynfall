@@ -38,12 +38,22 @@ import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.math.collision.BoundingBox;
 import com.badlogic.gdx.math.collision.Ray;
 import com.osrs.shared.EquipmentSlot;
+import com.osrs.client.CameraConfig;
+import com.osrs.client.WorldLighting;
+import com.osrs.client.WorldPalette;
+import com.osrs.client.WorldScale;
+import com.osrs.client.world.MapLoader;
+import com.osrs.client.world.PropDensityZoneLoader;
+import com.osrs.client.world.PropDensityZoneLoader.PropDensityZone;
+import com.osrs.client.world.StaticPropLoader;
+import com.osrs.client.world.WorldTheme;
 
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -51,9 +61,9 @@ public class Renderer3DExperimental {
     public record PickHit(int entityId, float distance) {}
 
     private static final int CHUNK_SIZE = 16;
-    private static final float GROUND_Y = 0f;
-    private static final float WALL_TOP_Y = 1.2f;
-    private static final float WALL_FACE_SHADE = 0.55f;
+    private static final float GROUND_Y   = WorldScale.GROUND_Y;
+    private static final float WALL_TOP_Y = WorldScale.TERRAIN_WALL_HEIGHT;
+    private static final float WALL_FACE_SHADE = WorldLighting.WALL_FACE_SHADE;
     private static final float WALL_FADE_ALPHA = 0.40f;
     private static final float WALL_FADE_LINE_DISTANCE = 1.15f;
     private static final float WALL_FADE_PLAYER_RADIUS = 6.5f;
@@ -101,7 +111,7 @@ public class Renderer3DExperimental {
     private static final float DEFAULT_FEET_ANCHOR_X = 0f;
     private static final float DEFAULT_FEET_ANCHOR_Y = 0.08f;
     private static final float DEFAULT_FEET_ANCHOR_Z = 0f;
-    private static final float DEFAULT_TERRAIN_HEIGHT_STEP = 0.6f;
+    private static final float DEFAULT_TERRAIN_HEIGHT_STEP = WorldScale.TERRAIN_HEIGHT_STEP_DEFAULT;
     private static final int TILE_GRASS = 0;
     private static final int TILE_WATER = 1;
     private static final int TILE_PATH = 2;
@@ -109,6 +119,14 @@ public class Renderer3DExperimental {
     private static final int TILE_SAND = 4;
     private static final float DEBUG_AXIS_LENGTH = 0.35f;
     private static final float DEBUG_ANCHOR_CROSS_SIZE = 0.10f;
+
+    // Building reference gizmo — canonical small-building model-space dimensions (see docs/BUILDING_STANDARD.md)
+    private static final float BREF_HW       = 2.10f;   // half-width  (model X)
+    private static final float BREF_HD       = 1.90f;   // half-depth  (model Z in GLTF)
+    private static final float BREF_WALL_H   = 1.50f;   // wall height (model Y)
+    private static final float BREF_PLAYER_H = WorldScale.PLAYER_HEIGHT;   // 1.80 WU
+    private static final float BREF_DOOR_HW  = 0.225f;  // door half-width
+    private static final float BREF_DOOR_H   = 0.90f;   // door height
     private static final String[] DEBUG_PLAYER_ANCHOR_NAMES = {
         "weapon_anchor",
         "shield_anchor",
@@ -174,6 +192,7 @@ public class Renderer3DExperimental {
     private final Vector3 debugTmpC = new Vector3();
     private boolean debugModelAxesAndBoundsEnabled = false;
     private boolean debugAnchorMarkersEnabled = false;
+    private boolean debugBuildingReferenceEnabled = false;
     private boolean staticPropPassActive = false;
     private boolean actorModelPassActive = false;
 
@@ -210,6 +229,7 @@ public class Renderer3DExperimental {
     private int[][] lastTileMap;
     private int mapWidth = 0;
     private int mapHeight = 0;
+    private WorldTheme[] tileThemeMap = null;
 
     private static final class WallMaterialBinding {
         private final Material material;
@@ -226,9 +246,9 @@ public class Renderer3DExperimental {
     }
 
     public Renderer3DExperimental(int screenW, int screenH) {
-        camera = new PerspectiveCamera(45f, Math.max(1, screenW), Math.max(1, screenH));
-        camera.near = 0.1f;
-        camera.far = 600f;
+        camera = new PerspectiveCamera(CameraConfig.FOV, Math.max(1, screenW), Math.max(1, screenH));
+        camera.near = CameraConfig.NEAR;
+        camera.far = CameraConfig.FAR;
         camera.position.set(52f, 26f, 74f);
         camera.lookAt(52f, 0f, 52f);
         camera.up.set(0f, 1f, 0f);
@@ -250,8 +270,11 @@ public class Renderer3DExperimental {
         overlayDecalBatch = new DecalBatch(new CameraGroupStrategy(camera));
 
         environment = new Environment();
-        environment.set(new ColorAttribute(ColorAttribute.AmbientLight, 0.50f, 0.48f, 0.42f, 1f));
-        environment.add(new DirectionalLight().set(0.45f, 0.42f, 0.36f, -0.5f, -0.85f, -0.2f));
+        environment.set(new ColorAttribute(ColorAttribute.AmbientLight,
+            WorldLighting.AMB_R, WorldLighting.AMB_G, WorldLighting.AMB_B, 1f));
+        environment.add(new DirectionalLight().set(
+            WorldLighting.SUN_R, WorldLighting.SUN_G, WorldLighting.SUN_B,
+            WorldLighting.SUN_DIR_X, WorldLighting.SUN_DIR_Y, WorldLighting.SUN_DIR_Z));
 
         // Character models use pre-baked vertex colors — full ambient, no directional light.
         characterEnvironment = new Environment();
@@ -306,6 +329,10 @@ public class Renderer3DExperimental {
         this.debugAnchorMarkersEnabled = showAnchorMarkers;
     }
 
+    public void setBuildingReferenceGizmoEnabled(boolean enabled) {
+        this.debugBuildingReferenceEnabled = enabled;
+    }
+
     public void orbitWorkbenchPreviewCamera(float yawDeltaDegrees, float pitchDeltaDegrees) {
         previewCameraYawDegrees = (previewCameraYawDegrees + yawDeltaDegrees) % 360f;
         if (previewCameraYawDegrees < 0f) {
@@ -341,6 +368,12 @@ public class Renderer3DExperimental {
         } else {
             this.terrainHeightStep = DEFAULT_TERRAIN_HEIGHT_STEP;
         }
+    }
+
+    /** Sets the per-tile theme map produced by {@link com.osrs.client.world.TerrainVisualLoader}.
+     *  Must be called before {@link #rebuildTerrain} to take effect. */
+    public void setTerrainThemeMap(WorldTheme[] themeMap) {
+        this.tileThemeMap = themeMap;
     }
 
     public void rebuildTerrain(int[][] tileMap) {
@@ -678,7 +711,7 @@ public class Renderer3DExperimental {
     }
 
     public void renderArtistDebugOverlays() {
-        if (!debugModelAxesAndBoundsEnabled && !debugAnchorMarkersEnabled) {
+        if (!debugModelAxesAndBoundsEnabled && !debugAnchorMarkersEnabled && !debugBuildingReferenceEnabled) {
             return;
         }
 
@@ -701,9 +734,137 @@ public class Renderer3DExperimental {
             }
         }
 
+        if (debugBuildingReferenceEnabled) {
+            drawBuildingReferenceGizmo();
+        }
+
         debugShapeRenderer.end();
         Gdx.gl.glDepthMask(true);
         Gdx.gl.glDisable(GL20.GL_DEPTH_TEST);
+    }
+
+    /**
+     * Draws colored border rectangles for density authoring zones in 3D world space.
+     * Colors: SPARSE=green, MEDIUM=yellow, DENSE=orange.
+     * Called from GameScreen when the Z-key density overlay is active (WORLD_PLACEMENT mode only).
+     */
+    public void renderDensityZoneOverlay(List<PropDensityZone> zones,
+                                          List<StaticPropLoader.StaticPropPlacement> placements) {
+        if (zones == null || zones.isEmpty()) {
+            return;
+        }
+
+        Gdx.gl.glEnable(GL20.GL_DEPTH_TEST);
+        Gdx.gl.glDepthMask(false);
+        debugShapeRenderer.setProjectionMatrix(camera.combined);
+        debugShapeRenderer.begin(ShapeRenderer.ShapeType.Line);
+
+        for (PropDensityZone zone : zones) {
+            float[] rgba = densityZoneColor(zone.density());
+            debugShapeRenderer.setColor(rgba[0], rgba[1], rgba[2], rgba[3]);
+
+            // Ground-plane border — slightly above ground to avoid z-fighting
+            float gy = 0.05f;
+            float x0 = zone.minX(), z0 = zone.minY();
+            float x1 = zone.maxX() + 1f, z1 = zone.maxY() + 1f;
+
+            debugShapeRenderer.line(x0, gy, z0, x1, gy, z0);
+            debugShapeRenderer.line(x1, gy, z0, x1, gy, z1);
+            debugShapeRenderer.line(x1, gy, z1, x0, gy, z1);
+            debugShapeRenderer.line(x0, gy, z1, x0, gy, z0);
+
+            // Inner fill lines at density-keyed spacing
+            int step = switch (zone.density()) {
+                case DENSE  -> 2;
+                case MEDIUM -> 4;
+                case SPARSE -> 8;
+            };
+            float dimColor = 0.45f;
+            debugShapeRenderer.setColor(rgba[0] * dimColor, rgba[1] * dimColor, rgba[2] * dimColor, 0.5f);
+            for (int ix = zone.minX() + step; ix <= zone.maxX(); ix += step) {
+                debugShapeRenderer.line(ix, gy, z0, ix, gy, z1);
+            }
+            for (int iz = zone.minY() + step; iz <= zone.maxY(); iz += step) {
+                debugShapeRenderer.line(x0, gy, iz, x1, gy, iz);
+            }
+        }
+
+        debugShapeRenderer.end();
+        Gdx.gl.glDepthMask(true);
+        Gdx.gl.glDisable(GL20.GL_DEPTH_TEST);
+    }
+
+    /**
+     * Draws a readability debug overlay: colored line-rectangles per non-grass tile type,
+     * and red X crosses on non-walkable tiles. Rendered in a window around the camera.
+     * Toggle via F12 (non-artist mode).
+     */
+    public void renderReadabilityDebug(int[][] visualMap, int[][] walkMap, MapLoader mapLoader) {
+        if (visualMap == null || visualMap.length == 0) {
+            return;
+        }
+        int mapW = visualMap.length;
+        int mapH = visualMap[0].length;
+
+        int camTileX = (int) camera.position.x;
+        int camTileZ = (int) camera.position.z;
+        int radius = 24;
+        int minX = Math.max(0, camTileX - radius);
+        int maxX = Math.min(mapW - 1, camTileX + radius);
+        int minZ = Math.max(0, camTileZ - radius);
+        int maxZ = Math.min(mapH - 1, camTileZ + radius);
+
+        float gy  = 0.04f;
+        float xgy = 0.05f;
+
+        Gdx.gl.glDisable(GL20.GL_DEPTH_TEST);
+        Gdx.gl.glDepthMask(false);
+        debugShapeRenderer.setProjectionMatrix(camera.combined);
+        debugShapeRenderer.begin(ShapeRenderer.ShapeType.Line);
+
+        for (int x = minX; x <= maxX; x++) {
+            for (int z = minZ; z <= maxZ; z++) {
+                int vType = (z < visualMap[x].length) ? visualMap[x][z] : 0;
+                switch (vType) {
+                    case 1 -> debugShapeRenderer.setColor(0.10f, 0.70f, 1.00f, 1f); // water: cyan
+                    case 2 -> debugShapeRenderer.setColor(0.85f, 0.65f, 0.15f, 1f); // path: yellow
+                    case 3 -> debugShapeRenderer.setColor(0.60f, 0.60f, 0.60f, 1f); // wall: gray
+                    case 4 -> debugShapeRenderer.setColor(0.90f, 0.75f, 0.30f, 1f); // sand: tan
+                    default -> { continue; }                                          // grass: skip
+                }
+                debugShapeRenderer.line(x,   gy, z,   x+1, gy, z  );
+                debugShapeRenderer.line(x+1, gy, z,   x+1, gy, z+1);
+                debugShapeRenderer.line(x+1, gy, z+1, x,   gy, z+1);
+                debugShapeRenderer.line(x,   gy, z+1, x,   gy, z  );
+            }
+        }
+
+        if (walkMap != null && mapLoader != null) {
+            debugShapeRenderer.setColor(1f, 0.15f, 0.15f, 1f);
+            for (int x = minX; x <= maxX; x++) {
+                for (int z = minZ; z <= maxZ; z++) {
+                    if (x >= walkMap.length || z >= walkMap[x].length) {
+                        continue;
+                    }
+                    if (!mapLoader.isWalkableTile(walkMap[x][z])) {
+                        debugShapeRenderer.line(x + 0.1f, xgy, z + 0.1f, x + 0.9f, xgy, z + 0.9f);
+                        debugShapeRenderer.line(x + 0.9f, xgy, z + 0.1f, x + 0.1f, xgy, z + 0.9f);
+                    }
+                }
+            }
+        }
+
+        debugShapeRenderer.end();
+        Gdx.gl.glDepthMask(true);
+        Gdx.gl.glEnable(GL20.GL_DEPTH_TEST);
+    }
+
+    private static float[] densityZoneColor(PropDensityZoneLoader.Density density) {
+        return switch (density) {
+            case SPARSE -> new float[]{0.30f, 0.92f, 0.35f, 1f};
+            case MEDIUM -> new float[]{0.95f, 0.90f, 0.20f, 1f};
+            case DENSE  -> new float[]{0.95f, 0.50f, 0.10f, 1f};
+        };
     }
 
     public void beginStaticPropPass() {
@@ -1294,7 +1455,7 @@ public class Renderer3DExperimental {
             // Create and assign a default skin-tone material to all node parts directly.
             if (instance.materials.isEmpty()) {
                 Material defaultMat = new Material(
-                    ColorAttribute.createDiffuse(0.76f, 0.52f, 0.33f, 1f),
+                    ColorAttribute.createDiffuse(WorldPalette.PLAYER_SKIN_R, WorldPalette.PLAYER_SKIN_G, WorldPalette.PLAYER_SKIN_B, 1f),
                     IntAttribute.createCullFace(GL20.GL_BACK)
                 );
                 instance.materials.add(defaultMat);
@@ -1303,7 +1464,7 @@ public class Renderer3DExperimental {
                 for (Material m : instance.materials) {
                     m.set(IntAttribute.createCullFace(GL20.GL_BACK));
                     if (m.get(ColorAttribute.Diffuse) == null) {
-                        m.set(ColorAttribute.createDiffuse(0.76f, 0.52f, 0.33f, 1f));
+                        m.set(ColorAttribute.createDiffuse(WorldPalette.PLAYER_SKIN_R, WorldPalette.PLAYER_SKIN_G, WorldPalette.PLAYER_SKIN_B, 1f));
                     }
                 }
             }
@@ -1403,6 +1564,9 @@ public class Renderer3DExperimental {
      * Maps canonical clip names to legacy G3DJ clip names for backward compatibility.
      * G3DJ models authored before the canonical naming convention used shorter names
      * (e.g., "sword" instead of "attack_slash"). Returns null if no alias exists.
+     *
+     * TODO: remove once all actor G3DJ files are migrated to GLB with canonical clip names.
+     * See docs/FORMAT_MIGRATION.md — Phase 2.
      */
     private static String getLegacyClipAlias(String clipName) {
         return switch (clipName) {
@@ -1675,6 +1839,57 @@ public class Renderer3DExperimental {
         debugShapeRenderer.line(x1, x2);
         debugShapeRenderer.line(y1, y2);
         debugShapeRenderer.line(z1, z2);
+    }
+
+    /**
+     * Draws the canonical small-building reference gizmo at world origin.
+     * Use in MODEL_PREVIEW workbench mode (F12) to evaluate a shell asset against the standard.
+     *
+     * Cyan  = expected shell bounding box (hw 2.10, hd 1.90, wall 1.50 model units)
+     * Green = player height reference stick (1.80 WU)
+     * White = door template — south face, centered, 0.45 wide × 0.90 tall
+     *
+     * See docs/BUILDING_STANDARD.md for the full standard and placement-scale table.
+     */
+    private void drawBuildingReferenceGizmo() {
+        float hw = BREF_HW;
+        float hd = BREF_HD;
+        float h  = BREF_WALL_H;
+
+        // ── Cyan: expected shell bounding box ───────────────────────────────
+        debugShapeRenderer.setColor(0f, 0.85f, 0.95f, 1f);
+        // bottom rectangle
+        debugShapeRenderer.line(-hw, 0, -hd,  hw, 0, -hd);
+        debugShapeRenderer.line( hw, 0, -hd,  hw, 0,  hd);
+        debugShapeRenderer.line( hw, 0,  hd, -hw, 0,  hd);
+        debugShapeRenderer.line(-hw, 0,  hd, -hw, 0, -hd);
+        // top rectangle
+        debugShapeRenderer.line(-hw, h, -hd,  hw, h, -hd);
+        debugShapeRenderer.line( hw, h, -hd,  hw, h,  hd);
+        debugShapeRenderer.line( hw, h,  hd, -hw, h,  hd);
+        debugShapeRenderer.line(-hw, h,  hd, -hw, h, -hd);
+        // vertical edges
+        debugShapeRenderer.line(-hw, 0, -hd, -hw, h, -hd);
+        debugShapeRenderer.line( hw, 0, -hd,  hw, h, -hd);
+        debugShapeRenderer.line( hw, 0,  hd,  hw, h,  hd);
+        debugShapeRenderer.line(-hw, 0,  hd, -hw, h,  hd);
+
+        // ── Green: player height reference at origin (X=0, Z=0) ─────────────
+        float ph = BREF_PLAYER_H;
+        debugShapeRenderer.setColor(0.2f, 1f, 0.2f, 1f);
+        debugShapeRenderer.line(0, 0, 0, 0, ph, 0);
+        // tick mark at player height
+        debugShapeRenderer.line(-0.15f, ph, 0, 0.15f, ph, 0);
+
+        // ── White: door template on south face (Z = -hd), centered ──────────
+        float dw = BREF_DOOR_HW;
+        float dh = BREF_DOOR_H;
+        float dz = -hd;
+        debugShapeRenderer.setColor(1f, 1f, 1f, 1f);
+        debugShapeRenderer.line(-dw, 0, dz,  dw, 0, dz);   // sill
+        debugShapeRenderer.line(-dw, 0, dz, -dw, dh, dz);  // left jamb
+        debugShapeRenderer.line( dw, 0, dz,  dw, dh, dz);  // right jamb
+        debugShapeRenderer.line(-dw, dh, dz,  dw, dh, dz); // lintel
     }
 
     private void applyPreviewCamera() {
@@ -2339,47 +2554,86 @@ public class Renderer3DExperimental {
 
     /**
      * OSRS-accurate base colors for each tile type (pre-lighting).
-     * Flat palette matching Tutorial Island visual style — minimal variation by design.
+     * Flat palette matching Erynfall starter island visual style — minimal variation by design.
      */
     private static Color tileBaseColor(int type) {
         return switch (type) {
-            case TILE_WATER -> new Color(0.10f, 0.26f, 0.44f, 1f); // water: deep blue
-            case TILE_PATH  -> new Color(0.46f, 0.38f, 0.22f, 1f); // path: warm dirt-brown
-            case TILE_WALL  -> new Color(0.34f, 0.32f, 0.30f, 1f); // wall: stone gray
-            case TILE_SAND  -> new Color(0.60f, 0.52f, 0.28f, 1f); // sand: warm sandy yellow
-            default         -> new Color(0.30f, 0.54f, 0.17f, 1f); // grass: medium OSRS green
+            case TILE_WATER -> new Color(WorldLighting.TILE_WATER_R, WorldLighting.TILE_WATER_G, WorldLighting.TILE_WATER_B, 1f);
+            case TILE_PATH  -> new Color(WorldLighting.TILE_PATH_R,  WorldLighting.TILE_PATH_G,  WorldLighting.TILE_PATH_B,  1f);
+            case TILE_WALL  -> new Color(WorldLighting.TILE_WALL_R,  WorldLighting.TILE_WALL_G,  WorldLighting.TILE_WALL_B,  1f);
+            case TILE_SAND  -> new Color(WorldLighting.TILE_SAND_R,  WorldLighting.TILE_SAND_G,  WorldLighting.TILE_SAND_B,  1f);
+            default         -> new Color(WorldLighting.TILE_GRASS_R, WorldLighting.TILE_GRASS_G, WorldLighting.TILE_GRASS_B, 1f);
         };
     }
 
     /**
-     * Per-corner vertex color: average of up to 4 neighboring tile base colors
-     * plus minimal seeded noise (±1.5%) to prevent perfectly uniform flat shading
-     * without introducing visible speckle variation.
+     * Per-corner vertex color: average of up to 4 neighboring tile base colors plus
+     * seeded noise. Path tiles also receive a worn-centre / dirty-edge shade:
+     *   • corner surrounded by 4 path tiles → +0.05 (interior, sun-worn lighter)
+     *   • corner surrounded by 3 path tiles → +0.02 (near-interior)
+     *   • corner surrounded by 2 path tiles →  0    (neutral transition)
+     *   • corner surrounded by 1 path tile  → -0.04 (edge, packed dirt darker)
+     * Shade applies only to the path color contributions, not to adjacent grass/sand,
+     * so the gradient is strongest at path interiors and fades into blended edges.
+     * Noise amplitude raised to ±2.25% on full-interior corners to break up flat brown.
      */
     private Color tileCornerColor(int[][] tileMap, int cx, int cz) {
-        float r = 0, g = 0, b = 0;
-        int n = 0;
         int[] dxs = {-1, 0, -1, 0};
         int[] dzs = {-1, -1, 0, 0};
+
+        // Pre-pass: count path-tile neighbours so shade is consistent across accumulation.
+        int pathNeighbors = 0;
+        int validNeighbors = 0;
         for (int i = 0; i < 4; i++) {
             int tx = cx + dxs[i], tz = cz + dzs[i];
             if (tx >= 0 && tx < tileMap.length && tz >= 0 && tz < tileMap[0].length) {
-                Color c = tileBaseColor(tileMap[tx][tz]);
-                r += c.r; g += c.g; b += c.b; n++;
+                validNeighbors++;
+                if (tileMap[tx][tz] == TILE_PATH) pathNeighbors++;
+            }
+        }
+        // Worn-centre / dirty-edge shade applied to path tile colour contributions only.
+        float pathShade;
+        if      (pathNeighbors == 4) pathShade =  0.05f;
+        else if (pathNeighbors == 3) pathShade =  0.02f;
+        else if (pathNeighbors == 1) pathShade = -0.04f;
+        else                         pathShade =  0f;
+
+        float r = 0, g = 0, b = 0;
+        int n = 0;
+        for (int i = 0; i < 4; i++) {
+            int tx = cx + dxs[i], tz = cz + dzs[i];
+            if (tx >= 0 && tx < tileMap.length && tz >= 0 && tz < tileMap[0].length) {
+                int type = tileMap[tx][tz];
+                Color c = tileBaseColor(type);
+                float s = (type == TILE_PATH) ? pathShade : 0f;
+                r += c.r + s; g += c.g + s; b += c.b + s; n++;
             }
         }
         if (n == 0) return tileBaseColor(0);
         r /= n; g /= n; b /= n;
-        // Deterministic ±1.5% per-corner noise (subtle, breaks perfect uniformity)
+
+        // Seeded noise: ±2.25% on full-path interior (breaks up flat brown),
+        // ±1.5% elsewhere (existing behaviour).
+        float noiseAmp = (pathNeighbors == 4) ? 0.045f : 0.03f;
         int h = (cx * 374761393) ^ (cz * 668265263);
         h = (h ^ (h >>> 13)) * 1274126177;
         h ^= (h >>> 16);
-        float noise = ((h & 0xFF) / 255f - 0.5f) * 0.03f;
-        return new Color(
-            Math.max(0f, Math.min(1f, r + noise)),
-            Math.max(0f, Math.min(1f, g + noise)),
-            Math.max(0f, Math.min(1f, b + noise)),
-            1f);
+        float noise = ((h & 0xFF) / 255f - 0.5f) * noiseAmp;
+        r = Math.max(0f, Math.min(1f, r + noise));
+        g = Math.max(0f, Math.min(1f, g + noise));
+        b = Math.max(0f, Math.min(1f, b + noise));
+
+        // Apply per-tile theme tint — multiplied after blending and noise so
+        // the gradient across tile boundaries remains smooth.
+        if (tileThemeMap != null && cx >= 0 && cx < mapWidth && cz >= 0 && cz < mapHeight) {
+            WorldTheme theme = tileThemeMap[cx + cz * MapLoader.WIDTH];
+            if (theme != null && theme.hasTint()) {
+                r = Math.min(1f, r * theme.terrainTintR());
+                g = Math.min(1f, g * theme.terrainTintG());
+                b = Math.min(1f, b * theme.terrainTintB());
+            }
+        }
+        return new Color(r, g, b, 1f);
     }
 
     /**
@@ -3060,6 +3314,51 @@ public class Renderer3DExperimental {
         return decal;
     }
 
+    /**
+     * Clamps the HSV saturation and value of every non-white diffuse colour on
+     * a static-prop ModelInstance to the WorldPalette envelope.
+     *
+     * Called once per newly created instance (not per frame). Near-white materials
+     * (r,g,b ≥ 0.95) are skipped — they are texture multipliers and must stay white.
+     */
+    private static final float[] HSV_TMP = new float[3];
+
+    private static void applyPaletteConstraints(ModelInstance instance) {
+        if (instance == null) {
+            return;
+        }
+        for (Material mat : instance.materials) {
+            ColorAttribute diffuse = (ColorAttribute) mat.get(ColorAttribute.Diffuse);
+            if (diffuse == null) {
+                continue;
+            }
+            Color c = diffuse.color;
+            // Skip near-white — these are texture multipliers, not intentional tints
+            if (c.r >= 0.95f && c.g >= 0.95f && c.b >= 0.95f) {
+                continue;
+            }
+            c.toHsv(HSV_TMP);
+            boolean changed = false;
+            if (HSV_TMP[1] > WorldPalette.MAX_SATURATION) {
+                HSV_TMP[1] = WorldPalette.MAX_SATURATION;
+                changed = true;
+            }
+            if (HSV_TMP[2] < WorldPalette.MIN_VALUE) {
+                HSV_TMP[2] = WorldPalette.MIN_VALUE;
+                changed = true;
+            }
+            if (HSV_TMP[2] > WorldPalette.MAX_VALUE) {
+                HSV_TMP[2] = WorldPalette.MAX_VALUE;
+                changed = true;
+            }
+            if (changed) {
+                float alpha = c.a;
+                c.fromHsv(HSV_TMP[0], HSV_TMP[1], HSV_TMP[2]);
+                c.a = alpha;
+            }
+        }
+    }
+
     private ModelInstance obtainStaticPropInstance(String key, Model model) {
         ArrayList<ModelInstance> pool = staticPropInstancePool.computeIfAbsent(key, k -> new ArrayList<>());
         int cursor = staticPropInstanceCursor.getOrDefault(key, 0);
@@ -3068,6 +3367,7 @@ public class Renderer3DExperimental {
             instance = pool.get(cursor);
         } else {
             instance = new ModelInstance(model);
+            applyPaletteConstraints(instance);
             pool.add(instance);
         }
         staticPropInstanceCursor.put(key, cursor + 1);

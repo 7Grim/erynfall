@@ -68,6 +68,9 @@ public final class ManifestEquipmentTransformSaver {
             upsertField(lines, start, endExclusive, "rot_y", formatRotation(transform.rotY()));
             upsertField(lines, start, endExclusive, "rot_z", formatRotation(transform.rotZ()));
 
+            Path backup = manifestPath.resolveSibling(manifestPath.getFileName() + ".bak");
+            Files.copy(manifestPath, backup, StandardCopyOption.REPLACE_EXISTING);
+
             Path temp = manifestPath.resolveSibling(manifestPath.getFileName() + ".tmp");
             Files.write(temp, lines, StandardCharsets.UTF_8);
             try {
@@ -75,7 +78,8 @@ public final class ManifestEquipmentTransformSaver {
             } catch (IOException atomicIgnored) {
                 Files.move(temp, manifestPath, StandardCopyOption.REPLACE_EXISTING);
             }
-            return new SaveResult(true, "Saved manifest entry for key " + key);
+            return new SaveResult(true, "Saved manifest entry for key " + key
+                + " (backup: " + backup.getFileName() + ")");
         } catch (Exception e) {
             return new SaveResult(false, "Manifest save failed: " + e.getMessage());
         }

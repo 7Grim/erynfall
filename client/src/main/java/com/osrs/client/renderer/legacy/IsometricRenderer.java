@@ -943,8 +943,9 @@ public class IsometricRenderer {
     public static String npcSpriteKeyForName(String npcName) {
         if (npcName == null) return "npc_unknown";
         return switch (npcName) {
-            // --- Tutorial staff ---
-            case "Tutorial Guide"    -> "npc_guide";
+            // --- Starter island staff ---
+            case "Arrival Guide"     -> "npc_guide";
+            case "Tutorial Guide"    -> "npc_guide";  // legacy alias
             case "Combat Instructor" -> "npc_instructor";
             case "Banker"            -> "npc_banker";
             case "Fishing Supplier"  -> "npc_supplier";
@@ -1099,8 +1100,9 @@ public class IsometricRenderer {
         boolean ownsShape = !sr.isDrawing();
         if (ownsShape) sr.begin(ShapeRenderer.ShapeType.Filled);
         switch (npcName == null ? "" : npcName) {
-            // --- Tutorial staff ---
-            case "Tutorial Guide"    -> drawGuide(sx, sy);
+            // --- Starter island staff ---
+            case "Arrival Guide"     -> drawGuide(sx, sy);
+            case "Tutorial Guide"    -> drawGuide(sx, sy);  // legacy alias
             case "Combat Instructor" -> drawInstructor(sx, sy);
             case "Banker"            -> drawBanker(sx, sy);
             // --- Combat creatures ---
@@ -1143,7 +1145,7 @@ public class IsometricRenderer {
     // NPC sprite helpers
     // -----------------------------------------------------------------------
 
-    /** Tutorial Guide: green robe, brown hood. */
+    /** Arrival Guide: green robe, brown hood. */
     private void drawGuide(float sx, float sy) {
         sr.setColor(PANTS);
         sr.rect(sx - 4, sy - 8, 3, 6);

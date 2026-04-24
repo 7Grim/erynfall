@@ -197,7 +197,7 @@ public class PlayerRepository {
                 return null;
             }
 
-            // Insert new player at local world spawn (Tutorial Island center)
+            // Insert new player at local world spawn (starter island center)
             PreparedStatement ins = conn.prepareStatement(
                 "INSERT INTO " + table("players") + " (username, password_hash, x, y, hitpoints_xp) " +
                 "VALUES (?, ?, 50, 50, 1154)",

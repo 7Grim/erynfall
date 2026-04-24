@@ -9,12 +9,12 @@ import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.Matrix4;
 
 /**
- * Top-right corner hint panel shown during the tutorial quest (quest ID 1).
+ * Top-right corner hint panel shown during the starter quest (quest ID 1).
  *
  * Stone aesthetic: dark bg + outer border + inner highlight + gold title bar.
  * Dims:  270 x 54 px, 14 px margin from top-right corner.
- * Shows: "TUTORIAL" title row, current incomplete task description below.
- * Hidden once tutorial quest is marked complete.
+ * Shows: quest title row, current incomplete task description below.
+ * Hidden once starter quest is marked complete.
  */
 public class TutorialHintOverlay {
 
@@ -36,17 +36,17 @@ public class TutorialHintOverlay {
     private static final Color DIM_GREY    = new Color(0.55f, 0.55f, 0.55f, 1f);
 
     private String  currentTask      = null;
-    private boolean tutorialComplete = false;
+    private boolean starterComplete = false;
 
     /** Call whenever a QuestUpdate for quest 1 arrives. */
     public void onQuestUpdate(boolean complete, String firstIncompleteTaskDescription) {
-        tutorialComplete = complete;
+        starterComplete = complete;
         currentTask = firstIncompleteTaskDescription;
     }
 
     public void render(ShapeRenderer sr, SpriteBatch batch, BitmapFont font,
                        int screenW, int screenH, Matrix4 projection) {
-        if (tutorialComplete || currentTask == null || currentTask.isBlank()) return;
+        if (starterComplete || currentTask == null || currentTask.isBlank()) return;
 
         int panelX = (screenW - PANEL_W) / 2;   // horizontally centered
         int panelY = screenH - PANEL_H - MARGIN; // top edge with margin
@@ -89,7 +89,7 @@ public class TutorialHintOverlay {
         // title
         font.getData().setScale(TITLE_SCALE);
         font.setColor(GOLD);
-        String title = "TUTORIAL";
+        String title = "ARRIVAL";
         GlyphLayout titleLayout = new GlyphLayout(font, title);
         float titleX = panelX + (PANEL_W - titleLayout.width) * 0.5f;
         float titleY = panelY + PANEL_H - (TITLE_ROW_H - titleLayout.height) * 0.5f;

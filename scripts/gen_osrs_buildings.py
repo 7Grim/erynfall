@@ -18,10 +18,14 @@ Coordinate convention:
     In GLTF: Y = height (was Blender Z), X = Blender X, Z = -Blender Y.
 
 OSRS building proportions (per analysis of existing GLB mesh data):
-    Player model spans Y: ±1.0  →  player height = 2.0 units at scale 1.
+    Canonical player height = 1.80 world units (WorldScale.PLAYER_HEIGHT in WorldScale.java).
+    This script was originally calibrated assuming player height = 2.0 units — an 11% error.
+    Walls are therefore ~11% taller relative to the player than the comments below imply.
+    The proportions are visually acceptable; no rebuild is required. See docs/SCALE_SPEC.md.
+
     At placement scale 2.5 (scene.yaml), buildings are 2.5× model size.
-    Target wall height = 1.5 model units → 3.75 units at scale 2.5 (~1.875× player).
-    Building footprint: small ≈ 4.2 × 3.8 model units (covers ~4 tiles each side).
+    Target wall height = 1.5 model units → 3.75 units at scale 2.5 (~2.08× player at 1.80 WU).
+    Building footprint: small ≈ 4.2 × 3.8 model units → ~10.5 × 9.5 tiles at scale 2.5.
 
 Why previous models were broken:
     base GLB: hollow thin-wall frame → corners gap at scale 2.5.

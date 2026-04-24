@@ -258,7 +258,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
         session.setPlayer(player);
         session.setAuthenticated(true);
         initializeQuestsForSession();
-        applyMainWorldTutorialSpawnGate(player);
+        applyMainWorldStarterSpawnGate(player);
         server.getWorld().getPlayers().put(player.getId(), player);
         LOG.info("Player {} (id={}) entered world at ({},{})", username, player.getId(), player.getX(), player.getY());
 
@@ -381,7 +381,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
         session.setPlayer(player);
         session.setAuthenticated(true);
         initializeQuestsForSession();
-        applyMainWorldTutorialSpawnGate(player);
+        applyMainWorldStarterSpawnGate(player);
         server.getWorld().getPlayers().put(player.getId(), player);
 
         LOG.info("Token login successful for account {} character {} (entityId={})",
@@ -2210,7 +2210,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             case ADMIN_TRAVEL_SANDBOX_GROVE -> new int[]{44, 21};
             case ADMIN_TRAVEL_SANDBOX_FISHING_COVE -> new int[]{54, 21};
             case ADMIN_TRAVEL_SANDBOX_MINING_COVE -> new int[]{32, 18};
-            case ADMIN_TRAVEL_MAIN_WORLD_TUTORIAL -> new int[]{56, 96};
+            case ADMIN_TRAVEL_MAIN_WORLD_STARTER -> new int[]{56, 96};
             case ADMIN_TRAVEL_MAIN_WORLD_MAINLAND -> new int[]{252, 98};
             default -> null;
         };
@@ -2629,7 +2629,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
                         sendChatMessageToPlayer(ctx.channel(),
                             "You have completed: " + updatedQuest.name + "! You earned "
                                 + updatedQuest.totalRewardXp + " XP.", 3);
-                        handleMainWorldTutorialCompletionTransition(ctx.channel(), updatedQuest);
+                        handleMainWorldStarterCompletionTransition(ctx.channel(), updatedQuest);
                         PlayerRepository.saveQuestProgress(
                             session.getPlayer(), session.getQuestManager());
                     }
@@ -2669,7 +2669,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
                         sendChatMessageToPlayer(ctx.channel(),
                             "You have completed: " + updatedQuest.name
                                 + "! You earned " + updatedQuest.totalRewardXp + " XP.", 3);
-                        handleMainWorldTutorialCompletionTransition(ctx.channel(), updatedQuest);
+                        handleMainWorldStarterCompletionTransition(ctx.channel(), updatedQuest);
                         PlayerRepository.saveQuestProgress(
                             session.getPlayer(), session.getQuestManager());
                     }
@@ -2704,7 +2704,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
                     sendChatMessageToPlayer(session.getChannel(),
                         "You have completed: " + updatedQuest.name + "! You earned "
                             + updatedQuest.totalRewardXp + " XP.", 3);
-                    handleMainWorldTutorialCompletionTransition(session.getChannel(), updatedQuest);
+                    handleMainWorldStarterCompletionTransition(session.getChannel(), updatedQuest);
                     PlayerRepository.saveQuestProgress(
                         session.getPlayer(), session.getQuestManager());
                 }
@@ -2720,7 +2720,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
         sendQuestUpdate(session, quest);
     }
 
-    private void applyMainWorldTutorialSpawnGate(Player player) {
+    private void applyMainWorldStarterSpawnGate(Player player) {
         if (player == null || session == null || session.getQuestManager() == null) {
             return;
         }
@@ -2728,20 +2728,20 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             return;
         }
 
-        boolean tutorialComplete = session.getQuestManager().isTutorialComplete();
-        int[] spawn = server.getWorld().getMainWorldSpawnForTutorialState(tutorialComplete);
+        boolean starterComplete = session.getQuestManager().isStarterComplete();
+        int[] spawn = server.getWorld().getMainWorldSpawnForStarterState(starterComplete);
         if (!server.getWorld().canWalkTo(spawn[0], spawn[1])) {
             LOG.warn("main_world gated spawn tile ({},{}) is not walkable; skipping gate for {}",
                 spawn[0], spawn[1], player.getName());
             return;
         }
 
-        boolean inTutorialRegion = server.getWorld().isInMainWorldTutorialRegion(player.getX(), player.getY());
+        boolean inStarterRegion = server.getWorld().isInMainWorldStarterRegion(player.getX(), player.getY());
         boolean inMainlandRegion = server.getWorld().isInMainWorldMainlandRegion(player.getX(), player.getY());
-        if (tutorialComplete && inMainlandRegion) {
+        if (starterComplete && inMainlandRegion) {
             return;
         }
-        if (!tutorialComplete && inTutorialRegion) {
+        if (!starterComplete && inStarterRegion) {
             return;
         }
 
@@ -2750,30 +2750,30 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
         }
 
         player.setPosition(spawn[0], spawn[1]);
-        LOG.info("Applied main_world spawn gate for {}: tutorialComplete={} -> ({},{})",
-            player.getName(), tutorialComplete, spawn[0], spawn[1]);
+        LOG.info("Applied main_world spawn gate for {}: starterComplete={} -> ({},{})",
+            player.getName(), starterComplete, spawn[0], spawn[1]);
     }
 
-    private void handleMainWorldTutorialCompletionTransition(io.netty.channel.Channel channel, Quest quest) {
+    private void handleMainWorldStarterCompletionTransition(io.netty.channel.Channel channel, Quest quest) {
         if (channel == null || session == null || quest == null || session.getPlayer() == null) {
             return;
         }
         if (!"main_world".equals(server.getWorld().getWorldId())) {
             return;
         }
-        if (quest.id != QuestManager.TUTORIAL_ISLAND_QUEST_ID) {
+        if (quest.id != QuestManager.STARTER_QUEST_ID) {
             return;
         }
 
         Player player = session.getPlayer();
-        int[] mainlandSpawn = server.getWorld().getMainWorldSpawnForTutorialState(true);
+        int[] mainlandSpawn = server.getWorld().getMainWorldSpawnForStarterState(true);
         if (!server.getWorld().canWalkTo(mainlandSpawn[0], mainlandSpawn[1])) {
             LOG.warn("Configured mainland spawn ({},{}) is not walkable for {}; falling back to world spawn ({},{})",
                 mainlandSpawn[0], mainlandSpawn[1], player.getName(),
                 server.getWorld().getSpawnX(), server.getWorld().getSpawnY());
             mainlandSpawn = new int[]{server.getWorld().getSpawnX(), server.getWorld().getSpawnY()};
             if (!server.getWorld().canWalkTo(mainlandSpawn[0], mainlandSpawn[1])) {
-                LOG.warn("Cannot move {} after tutorial completion; fallback spawn ({},{}) is not walkable",
+                LOG.warn("Cannot move {} after starter quest completion; fallback spawn ({},{}) is not walkable",
                     player.getName(), mainlandSpawn[0], mainlandSpawn[1]);
                 return;
             }
@@ -2794,7 +2794,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
         if (DatabaseManager.isHealthy()) {
             PlayerRepository.savePlayer(player);
         }
-        LOG.info("Moved {} to main_world mainland spawn after tutorial completion at ({},{})",
+        LOG.info("Moved {} to main_world mainland spawn after starter quest completion at ({},{})",
             player.getName(), mainlandSpawn[0], mainlandSpawn[1]);
     }
 

@@ -965,7 +965,7 @@ public class GameLoop {
     }
 
     /**
-     * Teleport the player to the world spawn point (Lumbridge) and restore full HP.
+     * Teleport the player to the world spawn point and restore full HP.
      * Broadcasts a PlayerDeath packet to only that player's session, and an EntityUpdate
      * (new position) to all clients so they see the player teleport away.
      */

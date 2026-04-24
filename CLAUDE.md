@@ -9,13 +9,14 @@ When building or reviewing changes, prefer this context set:
 1. `AGENTS.md`
 2. `ARTIST_GUIDE.md`
 3. `docs/GRAPHICS_STYLE.md` — authoritative visual/animation style guide (read before any art or rendering work)
-4. `docs/README.md`
-5. `docs/ARCHITECTURE.md`
-6. `docs/PROGRESS.md`
-7. `docs/ART_PIPELINE_IMPLEMENTATION_CHECKLIST.md`
-8. `docs/ART_PIPELINE_IMPLEMENTATION_ORDER.md`
-9. `docs/SKILL_IMPLEMENTATION_BASELINE.md`
-10. `docs/CONTRIBUTING.md`
+4. `docs/SCALE_SPEC.md` — canonical world scale (1 tile = 1 WU, player height, terrain, buildings); read before any geometry or placement work
+5. `docs/README.md`
+6. `docs/ARCHITECTURE.md`
+7. `docs/PROGRESS.md`
+8. `docs/ART_PIPELINE_IMPLEMENTATION_CHECKLIST.md`
+9. `docs/ART_PIPELINE_IMPLEMENTATION_ORDER.md`
+10. `docs/SKILL_IMPLEMENTATION_BASELINE.md`
+11. `docs/CONTRIBUTING.md`
 
 Important:
 - many older docs remain useful as historical design reference

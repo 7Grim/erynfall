@@ -33,11 +33,15 @@ import com.osrs.client.audio.AudioManager;
 import com.osrs.client.renderer.SpriteSheet;
 import com.osrs.client.world.MapLoader;
 import com.osrs.client.world.EntityVisualRegistry;
+import com.osrs.client.world.PropDensityZoneLoader;
+import com.osrs.client.world.PropPlacementValidator;
 import com.osrs.client.world.StaticPropLoader;
 import com.osrs.client.world.TerrainHeightLoader;
 import com.osrs.client.world.TerrainVisualLoader;
+import com.osrs.client.WorldScale;
 import com.osrs.client.ui.AdminToolsPopup;
 import com.osrs.client.ui.ArtWorkbenchPopup;
+import com.osrs.client.ui.CameraTuningPanel;
 import com.osrs.client.ui.ChatBox;
 import com.osrs.client.ui.CombatUI;
 import com.osrs.client.ui.ContextMenu;
@@ -201,7 +205,7 @@ public class GameScreen extends ApplicationAdapter {
     private int worldPlacementHoverTileX = -1;
     private int worldPlacementHoverTileY = -1;
     private int[][] terrainHeightLevels;
-    private float terrainHeightStep = 0.6f;
+    private float terrainHeightStep = WorldScale.TERRAIN_HEIGHT_STEP_DEFAULT;
     private AudioManager     audioManager;
     private BitmapFont       font;
     private Matrix4          screenProjection;
@@ -217,19 +221,16 @@ public class GameScreen extends ApplicationAdapter {
     private float renderZoneTintAlpha = 0f;
     private float renderZoneVignetteAlpha = 0f;
     private String activeMaterialProfile = "neutral";
-    private float cameraYaw = 0f;
-    private float cameraPitch = 0.9f;
-    private float cameraDistance = 12f;
+    private float cameraYaw      = CameraConfig.YAW_DEFAULT;
+    private float cameraPitch    = CameraConfig.PITCH_DEFAULT;
+    private float cameraDistance = CameraConfig.DISTANCE_DEFAULT;
     private boolean inWorldFreeCameraEnabled = false;
     private float freeCameraX = 0f;
     private float freeCameraY = 0f;
     private float freeCameraZ = 0f;
-    private static final float CAMERA_DISTANCE_MIN = 6f;
-    private static final float CAMERA_DISTANCE_MAX = 24f;
-    private static final float PITCH_MIN = 0.3f;
-    private static final float PITCH_MAX = 1.4f;
-    private static final float YAW_SPEED = 1.8f;
-    private static final float PITCH_SPEED = 1.2f;
+    // Fixed rotation speeds (not live-tunable). Clamp limits are read from CameraConfig per-frame.
+    private static final float YAW_SPEED   = CameraConfig.YAW_SPEED;
+    private static final float PITCH_SPEED = CameraConfig.PITCH_SPEED;
     private static final float PICK_RADIUS_HUMANOID = 0.28f;
     private static final float PICK_RADIUS_SMALL_CREATURE = 0.22f;
     private static final float PICK_RADIUS_MEDIUM_CREATURE = 0.38f;
@@ -255,6 +256,10 @@ public class GameScreen extends ApplicationAdapter {
     private boolean debug3DRenderBudget = false;
     private boolean debug3DArtistBoundsAxes = false;
     private boolean debug3DArtistAnchors = false;
+    private boolean debugBuildingReference = false;
+    private boolean debugDensityZones = false;
+    private boolean debugReadability = false;
+    private List<PropDensityZoneLoader.PropDensityZone> densityZones = List.of();
     private float debug3DRenderBudgetTimer = 0f;
     private boolean workbenchPreviewDragging = false;
     private int workbenchPreviewLastMouseX = 0;
@@ -287,6 +292,7 @@ public class GameScreen extends ApplicationAdapter {
     private SkillGuidePopup skillGuidePopup;
     private AdminToolsPopup adminToolsPopup;
     private ArtWorkbenchPopup artWorkbenchPopup;
+    private CameraTuningPanel cameraTuningPanel;
     private boolean loggedAdminButtonVisible = false;
     private int[][]      tileMap;
     private int[][]      visualTerrainTileMap;
@@ -661,10 +667,15 @@ public class GameScreen extends ApplicationAdapter {
         tileMap    = mapLoader.getLayout();
         terrainVisualData = TerrainVisualLoader.loadTerrainVisualData(launchOptions);
         visualTerrainTileMap = TerrainVisualLoader.composeVisualTileMap(tileMap, terrainVisualData, null);
+        renderer3d.setTerrainThemeMap(terrainVisualData.tileThemeMap());
         TerrainHeightLoader.TerrainHeightData terrainHeightData = TerrainHeightLoader.load(launchOptions);
         terrainHeightLevels = terrainHeightData.levels;
         terrainHeightStep = terrainHeightData.heightStep;
         staticPropPlacements = StaticPropLoader.load(launchOptions);
+        PropPlacementValidator.validate(staticPropPlacements, modelLibrary);
+        if (launchOptions != null && launchOptions.artistMode()) {
+            densityZones = PropDensityZoneLoader.load(launchOptions);
+        }
         sceneEditState = new SceneEditState();
         sceneEditState.setPlacements(staticPropPlacements);
         sceneEditState.setPlaceableKeys(collectPlaceableStaticPropKeys());
@@ -691,6 +702,9 @@ public class GameScreen extends ApplicationAdapter {
         levelUpOverlay      = new LevelUpOverlay();
         skillGuidePopup = new SkillGuidePopup();
         adminToolsPopup = new AdminToolsPopup();
+        if (CameraConfig.TUNING_PANEL_ENABLED) {
+            cameraTuningPanel = new CameraTuningPanel();
+        }
         artWorkbenchPopup = new ArtWorkbenchPopup();
         artWorkbenchPopup.setSceneEditState(sceneEditState);
         artWorkbenchPopup.setModelKeys(modelLibrary.getModelKeys());
@@ -890,7 +904,8 @@ public class GameScreen extends ApplicationAdapter {
     private static String npcSpriteKeyForName(String npcName) {
         if (npcName == null) return "npc_unknown";
         return switch (npcName) {
-            case "Tutorial Guide"    -> "npc_guide";
+            case "Arrival Guide"     -> "npc_guide";
+            case "Tutorial Guide"    -> "npc_guide";  // legacy alias
             case "Combat Instructor" -> "npc_instructor";
             case "Banker"            -> "npc_banker";
             case "Fishing Supplier",
@@ -1097,7 +1112,7 @@ public class GameScreen extends ApplicationAdapter {
     }
 
     private void updateRenderZone() {
-        RenderZone zone = RenderZone.findZone(RenderZone.TUTORIAL_ISLAND, playerX, playerY);
+        RenderZone zone = RenderZone.findZone(RenderZone.STARTER_ISLAND, playerX, playerY);
         activeRenderZone = zone;
         if (zone == null) {
             activeMaterialProfile = "neutral";
@@ -1129,7 +1144,7 @@ public class GameScreen extends ApplicationAdapter {
     }
 
     private void renderWorldVignette(int screenW, int screenH) {
-        // Current tutorial/surface zones intentionally keep vignette disabled.
+        // Surface zones intentionally keep vignette disabled.
         // Stronger edge darkening is reserved for future cave/interior-specific mood.
         if (renderZoneVignetteAlpha <= 0f) return;
         final int edge = 48;
@@ -1271,6 +1286,22 @@ public class GameScreen extends ApplicationAdapter {
             debug3DRenderBudgetTimer = 0f;
             LOG.info("3D render budget debug: {}", debug3DRenderBudget ? "enabled" : "disabled");
         }
+        if (artistMode && Gdx.input.isKeyJustPressed(Input.Keys.F12)) {
+            debugBuildingReference = !debugBuildingReference;
+            if (renderer3d != null) {
+                renderer3d.setBuildingReferenceGizmoEnabled(debugBuildingReference);
+            }
+            LOG.info("Building reference gizmo: {}", debugBuildingReference ? "enabled" : "disabled");
+        }
+        if (!artistMode && Gdx.input.isKeyJustPressed(Input.Keys.F12)) {
+            debugReadability = !debugReadability;
+            LOG.info("Readability debug overlay: {}", debugReadability ? "enabled" : "disabled");
+        }
+        if (CameraConfig.TUNING_PANEL_ENABLED && cameraTuningPanel != null
+                && Gdx.input.isKeyJustPressed(Input.Keys.F9)) {
+            cameraTuningPanel.toggle();
+            LOG.info("Camera tuning panel: {}", cameraTuningPanel.isVisible() ? "opened" : "closed");
+        }
         if (artistMode && Gdx.input.isKeyJustPressed(Input.Keys.F6)) {
             artWorkbenchPopup.toggle();
             artWorkbenchPopup.setModelKeys(modelLibrary.getModelKeys());
@@ -1376,6 +1407,15 @@ public class GameScreen extends ApplicationAdapter {
                 renderer3d.endEntityPass();
             }
             renderer3d.renderArtistDebugOverlays();
+            if (debugReadability) {
+                renderer3d.renderReadabilityDebug(visualTerrainTileMap, tileMap, mapLoader);
+            }
+            if (debugDensityZones && !densityZones.isEmpty()) {
+                List<StaticPropLoader.StaticPropPlacement> livePlacements =
+                    sceneEditState != null ? sceneEditState.placements() : staticPropPlacements;
+                renderer3d.renderDensityZoneOverlay(densityZones, livePlacements);
+                renderDensityZoneLabelOverlay(livePlacements);
+            }
             if (!previewMode) {
                 renderHealthBarsLayer3D(actorEntries);
                 renderFireGroundGlows3D(actorEntries);
@@ -1453,6 +1493,9 @@ public class GameScreen extends ApplicationAdapter {
         skillGuidePopup.render(shapeRenderer, screenBatch, font, w, h, screenProjection);
         renderAdminToolsButton(shapeRenderer, screenBatch, font, w, h, screenProjection, mouseScreenX, mouseScreenY);
         adminToolsPopup.render(shapeRenderer, screenBatch, font, w, h, screenProjection, handler());
+        if (CameraConfig.TUNING_PANEL_ENABLED && cameraTuningPanel != null) {
+            cameraTuningPanel.render(shapeRenderer, screenBatch, font, w, h, screenProjection);
+        }
         if (artistMode && artWorkbenchPopup != null && artWorkbenchPopup.isVisible()) {
             artWorkbenchPopup.setInWorldFreeCameraEnabled(shouldUseInWorldFreeCamera());
             artWorkbenchPopup.render(shapeRenderer, screenBatch, font, w, h, screenProjection);
@@ -1504,19 +1547,21 @@ public class GameScreen extends ApplicationAdapter {
     private void updateCameraOrbit(float delta) {
         if (Gdx.input.isKeyPressed(Input.Keys.LEFT)) cameraYaw -= YAW_SPEED * delta;
         if (Gdx.input.isKeyPressed(Input.Keys.RIGHT)) cameraYaw += YAW_SPEED * delta;
-        if (Gdx.input.isKeyPressed(Input.Keys.UP)) cameraPitch = Math.min(cameraPitch + PITCH_SPEED * delta, PITCH_MAX);
-        if (Gdx.input.isKeyPressed(Input.Keys.DOWN)) cameraPitch = Math.max(cameraPitch - PITCH_SPEED * delta, PITCH_MIN);
+        if (Gdx.input.isKeyPressed(Input.Keys.UP))
+            cameraPitch = Math.min(cameraPitch + PITCH_SPEED * delta, CameraConfig.PITCH_MAX);
+        if (Gdx.input.isKeyPressed(Input.Keys.DOWN))
+            cameraPitch = Math.max(cameraPitch - PITCH_SPEED * delta, CameraConfig.PITCH_MIN);
 
         if (pendingScrollAmount != 0) {
-            cameraDistance = Math.max(CAMERA_DISTANCE_MIN, Math.min(CAMERA_DISTANCE_MAX,
-                cameraDistance + pendingScrollAmount * 0.4f));
+            cameraDistance = Math.max(CameraConfig.DISTANCE_MIN, Math.min(CameraConfig.DISTANCE_MAX,
+                cameraDistance + pendingScrollAmount * CameraConfig.SCROLL_ZOOM_SENSITIVITY));
             pendingScrollAmount = 0;
         }
 
         if (Gdx.input.isButtonJustPressed(Input.Buttons.MIDDLE)) {
-            cameraYaw = 0f;
-            cameraPitch = 0.9f;
-            cameraDistance = 12f;
+            cameraYaw      = CameraConfig.YAW_DEFAULT;
+            cameraPitch    = CameraConfig.PITCH_DEFAULT;
+            cameraDistance = CameraConfig.DISTANCE_DEFAULT;
         }
 
         float px = visualX + 0.5f;
@@ -1527,7 +1572,11 @@ public class GameScreen extends ApplicationAdapter {
             pz + (float) (Math.cos(cameraYaw) * Math.cos(cameraPitch)) * cameraDistance
         );
         camera3d.up.set(0f, 1f, 0f);
-        camera3d.lookAt(px, 0f, pz);
+        // Target player torso height, not ground, so player is centred in frame
+        // and distant buildings don't loom above the top edge.
+        camera3d.lookAt(px, CameraConfig.LOOKAT_HEIGHT, pz);
+        // Sync FOV every frame so live tuning via CameraTuningPanel takes effect immediately.
+        camera3d.fieldOfView = CameraConfig.FOV;
         camera3d.update();
     }
 
@@ -1591,8 +1640,10 @@ public class GameScreen extends ApplicationAdapter {
 
         if (Gdx.input.isKeyPressed(Input.Keys.LEFT)) cameraYaw -= YAW_SPEED * delta;
         if (Gdx.input.isKeyPressed(Input.Keys.RIGHT)) cameraYaw += YAW_SPEED * delta;
-        if (Gdx.input.isKeyPressed(Input.Keys.UP)) cameraPitch = Math.min(cameraPitch + PITCH_SPEED * delta, PITCH_MAX);
-        if (Gdx.input.isKeyPressed(Input.Keys.DOWN)) cameraPitch = Math.max(cameraPitch - PITCH_SPEED * delta, PITCH_MIN);
+        if (Gdx.input.isKeyPressed(Input.Keys.UP))
+            cameraPitch = Math.min(cameraPitch + PITCH_SPEED * delta, CameraConfig.PITCH_MAX);
+        if (Gdx.input.isKeyPressed(Input.Keys.DOWN))
+            cameraPitch = Math.max(cameraPitch - PITCH_SPEED * delta, CameraConfig.PITCH_MIN);
 
         float speed = FREE_CAMERA_MOVE_SPEED * delta;
         if (Gdx.input.isKeyPressed(Input.Keys.SHIFT_LEFT) || Gdx.input.isKeyPressed(Input.Keys.SHIFT_RIGHT)) {
@@ -1634,6 +1685,7 @@ public class GameScreen extends ApplicationAdapter {
         float dirZ = (float) (Math.cos(cameraYaw) * Math.cos(cameraPitch));
         camera3d.up.set(0f, 1f, 0f);
         camera3d.lookAt(freeCameraX + dirX, freeCameraY + dirY, freeCameraZ + dirZ);
+        camera3d.fieldOfView = CameraConfig.FOV;
         camera3d.update();
     }
 
@@ -1962,7 +2014,7 @@ public class GameScreen extends ApplicationAdapter {
         if ("Banker".equals(name)) {
             return npcAnimMoving.getOrDefault(entry.entityId(), false) ? "npc_banker_walk" : "npc_banker_idle";
         }
-        if ("Tutorial Guide".equals(name)) {
+        if ("Arrival Guide".equals(name) || "Tutorial Guide".equals(name)) {
             return npcAnimMoving.getOrDefault(entry.entityId(), false) ? "npc_guide_walk" : "npc_guide_idle";
         }
         if ("Combat Instructor".equals(name)) {
@@ -2298,6 +2350,64 @@ public class GameScreen extends ApplicationAdapter {
             worldPlacementHoverTileX = tile[0];
             worldPlacementHoverTileY = tile[1];
         }
+    }
+
+    private void renderDensityZoneLabelOverlay(List<StaticPropLoader.StaticPropPlacement> livePlacements) {
+        if (densityZones.isEmpty() || camera3d == null) {
+            return;
+        }
+        int w = Gdx.graphics.getWidth();
+        int h = Gdx.graphics.getHeight();
+
+        // Panel: top-left corner summary of all zones
+        int panelX = 10;
+        int panelY = h - 10;
+        int lineH = 14;
+        int panelW = 220;
+        int panelH = 14 + densityZones.size() * lineH + 6;
+
+        shapeRenderer.setProjectionMatrix(screenProjection);
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+        shapeRenderer.setColor(0f, 0f, 0f, 0.65f);
+        shapeRenderer.rect(panelX, panelY - panelH, panelW, panelH);
+        shapeRenderer.end();
+
+        screenBatch.setProjectionMatrix(screenProjection);
+        screenBatch.begin();
+        font.setColor(0.9f, 0.9f, 0.9f, 1f);
+        font.draw(screenBatch, "[DENSITY ZONES]", panelX + 4, panelY - 4);
+        int row = 1;
+        for (PropDensityZoneLoader.PropDensityZone zone : densityZones) {
+            int current = zone.countPropsInside(livePlacements);
+            int target  = zone.propTarget();
+            String densityTag = switch (zone.density()) {
+                case SPARSE -> "[#4deb5e]S";
+                case MEDIUM -> "[#f0e430]M";
+                case DENSE  -> "[#f07a18]D";
+            };
+            String fill = current >= target ? "[#4deb5e]" : (current >= target / 2 ? "[#f0e430]" : "[#f07a18]");
+            String label = densityTag + "[] " + zone.name() + ": " + fill + current + "/" + target + "[]";
+            font.draw(screenBatch, label, panelX + 4, panelY - 4 - row * lineH);
+            row++;
+        }
+        screenBatch.end();
+        font.setColor(1f, 1f, 1f, 1f);
+
+        // Zone name labels projected into 3D world — shown near zone center
+        screenBatch.setProjectionMatrix(screenProjection);
+        screenBatch.begin();
+        Vector3 tmp = new Vector3();
+        for (PropDensityZoneLoader.PropDensityZone zone : densityZones) {
+            float cx = (zone.minX() + zone.maxX()) * 0.5f;
+            float cy = (zone.minY() + zone.maxY()) * 0.5f;
+            if (!projectWorldToScreen3D(cx, cy, 0.3f, tmp)) {
+                continue;
+            }
+            font.setColor(0.95f, 0.95f, 0.95f, 0.9f);
+            font.draw(screenBatch, zone.name(), tmp.x - 30f, tmp.y);
+        }
+        screenBatch.end();
+        font.setColor(1f, 1f, 1f, 1f);
     }
 
     private void renderTerrainPaintHoverOverlay() {
@@ -3175,7 +3285,7 @@ public class GameScreen extends ApplicationAdapter {
                 tasks
             ), evt.playerTotalQuestPoints);
 
-            // Tutorial hint overlay — only care about quest 1 (Tutorial Island)
+            // Tutorial hint overlay — only care about quest 1 (starter quest)
             if (evt.questId == 1) {
                 String firstIncomplete = null;
                 for (ClientPacketHandler.QuestUpdateEvent.TaskEvent task : evt.tasks) {
@@ -3619,7 +3729,12 @@ public class GameScreen extends ApplicationAdapter {
                     return;
                 }
                 if (Gdx.input.isKeyJustPressed(Input.Keys.P)) {
-                    saveTerrainVisualScene();
+                    if (Gdx.input.isKeyPressed(Input.Keys.CONTROL_LEFT)
+                            || Gdx.input.isKeyPressed(Input.Keys.CONTROL_RIGHT)) {
+                        dryRunTerrainVisualScene();
+                    } else {
+                        saveTerrainVisualScene();
+                    }
                     return;
                 }
 
@@ -3673,6 +3788,12 @@ public class GameScreen extends ApplicationAdapter {
                     artWorkbenchPopup.setWorldPlacementStatus("Cycled visibility filter");
                     return;
                 }
+                if (Gdx.input.isKeyJustPressed(Input.Keys.Z)) {
+                    debugDensityZones = !debugDensityZones;
+                    artWorkbenchPopup.setWorldPlacementStatus(
+                        "Density zones overlay: " + (debugDensityZones ? "ON (" + densityZones.size() + " zone(s))" : "OFF"));
+                    return;
+                }
                 if (Gdx.input.isKeyJustPressed(Input.Keys.D)) {
                     boolean duplicated = artWorkbenchPopup.duplicateWorldPlacementSelectedToPreview();
                     artWorkbenchPopup.setWorldPlacementStatus(duplicated
@@ -3681,7 +3802,12 @@ public class GameScreen extends ApplicationAdapter {
                     return;
                 }
                 if (Gdx.input.isKeyJustPressed(Input.Keys.P)) {
-                    saveWorldPlacementScene();
+                    if (Gdx.input.isKeyPressed(Input.Keys.CONTROL_LEFT)
+                            || Gdx.input.isKeyPressed(Input.Keys.CONTROL_RIGHT)) {
+                        dryRunWorldPlacementScene();
+                    } else {
+                        saveWorldPlacementScene();
+                    }
                     return;
                 }
                 if (Gdx.input.isKeyJustPressed(Input.Keys.N)) {
@@ -3830,6 +3956,17 @@ public class GameScreen extends ApplicationAdapter {
             }
 
             return;
+        }
+
+        // Camera tuning panel has priority over all game clicks inside its bounds.
+        if (CameraConfig.TUNING_PANEL_ENABLED && cameraTuningPanel != null
+                && cameraTuningPanel.isVisible()
+                && Gdx.input.isButtonJustPressed(Input.Buttons.LEFT)) {
+            int mx = Gdx.input.getX();
+            int screenMy = Gdx.graphics.getHeight() - Gdx.input.getY();
+            if (cameraTuningPanel.handleClick(mx, screenMy)) {
+                return;
+            }
         }
 
         if (dialogueUI.isVisible()) {
@@ -4571,6 +4708,19 @@ public class GameScreen extends ApplicationAdapter {
         LOG.info("Workbench manifest save succeeded for key {}", meta.key());
     }
 
+    private void dryRunWorldPlacementScene() {
+        if (!isWorldPlacementModeActive() || sceneEditState == null) {
+            artWorkbenchPopup.setWorldPlacementStatus("[DRY-RUN] No active placement mode");
+            return;
+        }
+        java.nio.file.Path scenePath = launchOptions.repoRootPath()
+            .resolve("art/worlds/" + launchOptions.worldId() + "/scene.yaml");
+        ScenePersistence.SaveResult result = ScenePersistence.saveStaticProps(
+            scenePath, sceneEditState.placements(), true);
+        artWorkbenchPopup.setWorldPlacementStatus(result.message());
+        LOG.info("World placement dry-run: {}", result.message());
+    }
+
     private void saveWorldPlacementScene() {
         if (!isWorldPlacementModeActive()) {
             if (artWorkbenchPopup != null) {
@@ -4596,6 +4746,19 @@ public class GameScreen extends ApplicationAdapter {
         reloadRuntimeAssets();
         artWorkbenchPopup.setWorldPlacementStatus("Scene saved and reloaded");
         LOG.info("World placement save succeeded: {}", scenePath);
+    }
+
+    private void dryRunTerrainVisualScene() {
+        if (!isTerrainPaintModeActive() || sceneEditState == null) {
+            artWorkbenchPopup.setTerrainPaintStatus("[DRY-RUN] No active terrain paint mode");
+            return;
+        }
+        java.nio.file.Path scenePath = launchOptions.repoRootPath()
+            .resolve("art/worlds/" + launchOptions.worldId() + "/scene.yaml");
+        ScenePersistence.SaveResult result = ScenePersistence.saveTerrainVisualOverrides(
+            scenePath, sceneEditState.terrainTileOverrides(), true);
+        artWorkbenchPopup.setTerrainPaintStatus(result.message());
+        LOG.info("Terrain visual dry-run: {}", result.message());
     }
 
     private void saveTerrainVisualScene() {
@@ -4715,7 +4878,12 @@ public class GameScreen extends ApplicationAdapter {
         entityVisualRegistry = EntityVisualRegistry.load(launchOptions);
         terrainVisualData = TerrainVisualLoader.loadTerrainVisualData(launchOptions);
         visualTerrainTileMap = TerrainVisualLoader.composeVisualTileMap(tileMap, terrainVisualData, null);
+        renderer3d.setTerrainThemeMap(terrainVisualData.tileThemeMap());
         staticPropPlacements = StaticPropLoader.load(launchOptions);
+        PropPlacementValidator.validate(staticPropPlacements, modelLibrary);
+        if (launchOptions != null && launchOptions.artistMode()) {
+            densityZones = PropDensityZoneLoader.load(launchOptions);
+        }
         if (sceneEditState != null) {
             sceneEditState.setPlacements(staticPropPlacements);
             sceneEditState.setPlaceableKeys(collectPlaceableStaticPropKeys());
@@ -4728,6 +4896,7 @@ public class GameScreen extends ApplicationAdapter {
         renderer3d.setSpriteSheet(spriteSheet);
         renderer3d.setModelLibrary(modelLibrary);
         renderer3d.setArtistDebugVisualization(debug3DArtistBoundsAxes, debug3DArtistAnchors);
+        renderer3d.setBuildingReferenceGizmoEnabled(debugBuildingReference);
         renderer3d.setTerrainHeightData(terrainHeightLevels, terrainHeightStep);
         renderer3d.rebuildTerrain(activeTerrainRenderMap());
         if (artWorkbenchPopup != null) {
@@ -6833,7 +7002,7 @@ public class GameScreen extends ApplicationAdapter {
         // Subtitle
         font.setColor(COLOR_WHITE);
         font.getData().setScale(FontManager.getScale(FontManager.FontContext.BASE_UI) * 1.2f);
-        font.draw(screenBatch, "You have been teleported back to Lumbridge.", w / 2f - 200, h / 2f + 10);
+        font.draw(screenBatch, "You have been teleported to the settlement.", w / 2f - 200, h / 2f + 10);
 
         // Countdown
         font.setColor(new Color(0.8f, 0.8f, 0.8f, 1f));

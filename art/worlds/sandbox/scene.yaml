@@ -220,7 +220,7 @@ terrain_height:
     level: 1
 terrain_visual:
   regions:
-  - name: "tutorial_paths"
+  - name: "starter_paths"
     min_x: 42
     min_y: 42
     max_x: 66

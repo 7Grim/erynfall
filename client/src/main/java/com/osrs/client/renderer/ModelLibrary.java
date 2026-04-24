@@ -12,7 +12,6 @@ import com.badlogic.gdx.graphics.g3d.loader.G3dModelLoader;
 import com.badlogic.gdx.utils.Disposable;
 import com.badlogic.gdx.utils.JsonReader;
 import com.badlogic.gdx.utils.JsonValue;
-import com.badlogic.gdx.utils.UBJsonReader;
 import com.osrs.client.LaunchOptions;
 import net.mgsx.gltf.loaders.glb.GLBLoader;
 import net.mgsx.gltf.scene3d.attributes.PBRColorAttribute;
@@ -25,6 +24,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -291,6 +291,8 @@ public class ModelLibrary {
         }
     }
 
+    private static final Set<String> VALID_CATEGORIES = Set.of("prop", "resource", "shell", "actor", "equipment");
+
     private void loadSourceMetadata() {
         FileHandle manifestHandle = resolveSourceManifestHandle();
         if (manifestHandle == null || !manifestHandle.exists()) {
@@ -305,11 +307,33 @@ public class ModelLibrary {
                 if (key.isBlank() || file.isBlank()) {
                     continue;
                 }
+
+                // Duplicate key detection — Python validator should catch this at build time,
+                // but guard here too since loadSourceMetadata runs directly from the manifest file.
+                if (metaByKey.containsKey(key)) {
+                    Gdx.app.log("ModelLibrary", "ERROR: duplicate manifest key '" + key
+                        + "' — second entry for file '" + file + "' will be ignored");
+                    continue;
+                }
+
+                String category = text(asset, "category", "");
+                if (!category.isBlank() && !VALID_CATEGORIES.contains(category)) {
+                    Gdx.app.log("ModelLibrary", "WARN: unknown category '" + category
+                        + "' for key '" + key + "' — expected one of: " + VALID_CATEGORIES);
+                }
+
+                String format = text(asset, "format", "g3dj");
+                String lowerFile = file.toLowerCase();
+                if (!lowerFile.endsWith("." + format.toLowerCase())) {
+                    Gdx.app.log("ModelLibrary", "WARN: format/extension mismatch for key '" + key
+                        + "': manifest says format='" + format + "' but file='" + file + "'");
+                }
+
                 ModelMeta meta = new ModelMeta(
                     key,
                     file,
-                    text(asset, "category", ""),
-                    text(asset, "format", "g3dj"),
+                    category,
+                    format,
                     floatValue(asset, "scale", 1f),
                     text(asset, "origin", "tile-center"),
                     boolValue(asset, "required", false),
@@ -331,7 +355,7 @@ public class ModelLibrary {
                 }
             }
         } catch (Exception e) {
-            Gdx.app.log("ModelLibrary", "WARN: failed parsing source model manifest: " + e.getMessage());
+            Gdx.app.log("ModelLibrary", "ERROR: failed parsing source model manifest: " + e.getMessage());
             metaByKey.clear();
             equipmentMetaBySlotItem.clear();
         }
@@ -451,7 +475,6 @@ public class ModelLibrary {
 
     private void loadModels() {
         G3dModelLoader g3djLoader = new G3dModelLoader(new JsonReader());
-        G3dModelLoader g3dbLoader = new G3dModelLoader(new UBJsonReader());
 
         loadedAssetByKey.clear();
         failedModelSummaryByKey.clear();
@@ -471,10 +494,7 @@ public class ModelLibrary {
             try {
                 LoadedAsset loadedAsset;
                 String lowerFile = meta.file().toLowerCase();
-                if (lowerFile.endsWith(".g3db")) {
-                    Model model = g3dbLoader.loadModel(handle);
-                    loadedAsset = new LoadedAsset(model, model);
-                } else if (lowerFile.endsWith(".glb")) {
+                if (lowerFile.endsWith(".glb")) {
                     GLBLoader glbLoader = new GLBLoader();
                     SceneAsset sceneAsset = glbLoader.load(handle);
                     if (sceneAsset == null || sceneAsset.scene == null || sceneAsset.scene.model == null) {
@@ -519,6 +539,36 @@ public class ModelLibrary {
         Gdx.app.log("ModelLibrary", "Model load summary: declared=" + declaredModelCount
             + " loaded=" + loadedModelCount
             + " failed=" + failedModelCount);
+
+        // In dev/artist mode, print a prominent banner when any models failed to load
+        // so errors are impossible to miss in the console.
+        if (repoBacked && failedModelCount > 0) {
+            List<String> requiredFailures = new ArrayList<>();
+            List<String> optionalFailures = new ArrayList<>();
+            for (Map.Entry<String, String> entry : failedModelSummaryByKey.entrySet()) {
+                ModelMeta meta = metaByKey.get(entry.getKey());
+                if (meta != null && meta.required()) {
+                    requiredFailures.add("  [REQUIRED] " + entry.getKey() + ": " + entry.getValue());
+                } else {
+                    optionalFailures.add("  [optional] " + entry.getKey() + ": " + entry.getValue());
+                }
+            }
+            String level = requiredFailures.isEmpty() ? "WARN" : "ERROR";
+            Gdx.app.log("ModelLibrary", level + ": ╔══════════════════════════════════════════════╗");
+            Gdx.app.log("ModelLibrary", level + ": ║        ASSET LOAD FAILURES (" + failedModelCount + " models)       ║");
+            Gdx.app.log("ModelLibrary", level + ": ╚══════════════════════════════════════════════╝");
+            for (String msg : requiredFailures) {
+                Gdx.app.log("ModelLibrary", level + ": " + msg);
+            }
+            for (String msg : optionalFailures) {
+                Gdx.app.log("ModelLibrary", level + ": " + msg);
+            }
+            if (!requiredFailures.isEmpty()) {
+                Gdx.app.log("ModelLibrary", level + ": "
+                    + requiredFailures.size() + " REQUIRED model(s) missing — "
+                    + "run `python3 scripts/validate-models.py` for details");
+            }
+        }
     }
 
     private void normalizeGlbMaterials(Model model, ModelMeta meta, String resolvedPath) {

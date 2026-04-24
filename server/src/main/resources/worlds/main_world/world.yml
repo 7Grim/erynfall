@@ -1,15 +1,15 @@
 world:
   spawn_x: 56
   spawn_y: 96
-  tutorial_spawn_x: 56
-  tutorial_spawn_y: 96
+  starter_spawn_x: 56
+  starter_spawn_y: 96
   mainland_spawn_x: 252
   mainland_spawn_y: 98
   spawn_location: "main_world"
 
 maps:
-  tutorial_island_region:
-    name: "Tutorial Island Region"
+  starter_island_region:
+    name: "Starter Island Region"
     min_x: 20
     min_y: 62
     max_x: 92
@@ -25,14 +25,14 @@ maps:
 
 npcs:
   - id: 1
-    name: "Tutorial Guide"
+    name: "Arrival Guide"
     combat_level: 0
     max_hp: 10
     max_hit: 0
-    location: "tutorial_island_region"
+    location: "starter_island_region"
     x: 56
     y: 95
-    examine: "The first mentor on Tutorial Island."
+    examine: "The first mentor you meet in Erynfall."
     wander_radius: 0
     is_aggressive: false
 
@@ -41,7 +41,7 @@ npcs:
     combat_level: 0
     max_hp: 10
     max_hit: 0
-    location: "tutorial_island_region"
+    location: "starter_island_region"
     x: 70
     y: 108
     examine: "A veteran trainer for your first combat drills."
@@ -53,10 +53,10 @@ npcs:
     combat_level: 0
     max_hp: 10
     max_hit: 0
-    location: "tutorial_island_region"
+    location: "starter_island_region"
     x: 60
     y: 95
-    examine: "A helpful banker supporting the tutorial outpost."
+    examine: "A helpful banker at the starter outpost."
     wander_radius: 0
     is_aggressive: false
     is_banker: true
@@ -68,7 +68,7 @@ npcs:
     max_hp: 35
     max_hit: 1
     respawn_delay_ticks: 1100
-    location: "tutorial_island_region"
+    location: "starter_island_region"
     x: 73
     y: 111
     loot_table: "rat"
@@ -83,7 +83,7 @@ npcs:
     max_hp: 35
     max_hit: 1
     respawn_delay_ticks: 1100
-    location: "tutorial_island_region"
+    location: "starter_island_region"
     x: 77
     y: 113
     loot_table: "rat"
@@ -98,7 +98,7 @@ npcs:
     max_hp: 35
     max_hit: 1
     respawn_delay_ticks: 1100
-    location: "tutorial_island_region"
+    location: "starter_island_region"
     x: 79
     y: 110
     loot_table: "rat"
@@ -113,11 +113,11 @@ npcs:
     max_hp: 80
     max_hit: 1
     respawn_delay_ticks: 1200
-    location: "tutorial_island_region"
+    location: "starter_island_region"
     x: 46
     y: 116
     loot_table: "cow"
-    examine: "A calm cow grazing near the tutorial grove."
+    examine: "A calm cow grazing near the grove."
     wander_radius: 3
     is_aggressive: false
 
@@ -127,7 +127,7 @@ npcs:
     combat_level: 0
     max_hp: 1
     max_hit: 0
-    location: "tutorial_island_region"
+    location: "starter_island_region"
     x: 46
     y: 106
     examine: "A tree for woodcutting practice."
@@ -140,7 +140,7 @@ npcs:
     combat_level: 0
     max_hp: 1
     max_hit: 0
-    location: "tutorial_island_region"
+    location: "starter_island_region"
     x: 40
     y: 110
     examine: "A sturdy oak tree."
@@ -153,7 +153,7 @@ npcs:
     combat_level: 0
     max_hp: 1
     max_hit: 0
-    location: "tutorial_island_region"
+    location: "starter_island_region"
     x: 38
     y: 114
     examine: "A willow tree near the grove edge."
@@ -166,7 +166,7 @@ npcs:
     combat_level: 0
     max_hp: 1
     max_hit: 0
-    location: "tutorial_island_region"
+    location: "starter_island_region"
     x: 42
     y: 104
     examine: "A tree for woodcutting practice."
@@ -179,7 +179,7 @@ npcs:
     combat_level: 0
     max_hp: 1
     max_hit: 0
-    location: "tutorial_island_region"
+    location: "starter_island_region"
     x: 63
     y: 84
     examine: "A rock containing copper ore."
@@ -192,7 +192,7 @@ npcs:
     combat_level: 0
     max_hp: 1
     max_hit: 0
-    location: "tutorial_island_region"
+    location: "starter_island_region"
     x: 66
     y: 83
     examine: "A rock containing tin ore."
@@ -205,7 +205,7 @@ npcs:
     combat_level: 0
     max_hp: 1
     max_hit: 0
-    location: "tutorial_island_region"
+    location: "starter_island_region"
     x: 32
     y: 82
     examine: "A calm fishing spot near the cove."
@@ -218,7 +218,7 @@ npcs:
     combat_level: 0
     max_hp: 1
     max_hit: 0
-    location: "tutorial_island_region"
+    location: "starter_island_region"
     x: 34
     y: 84
     examine: "A calm fishing spot near the cove."
@@ -231,7 +231,7 @@ npcs:
     combat_level: 0
     max_hp: 1
     max_hit: 0
-    location: "tutorial_island_region"
+    location: "starter_island_region"
     x: 47
     y: 109
     examine: "A fire for cooking your first catches."
@@ -244,7 +244,7 @@ npcs:
     combat_level: 0
     max_hp: 1
     max_hit: 0
-    location: "tutorial_island_region"
+    location: "starter_island_region"
     x: 49
     y: 109
     examine: "A range for cleaner cooking sessions."
@@ -257,7 +257,7 @@ npcs:
     combat_level: 0
     max_hp: 1
     max_hit: 0
-    location: "tutorial_island_region"
+    location: "starter_island_region"
     x: 70
     y: 86
     examine: "A furnace used to smelt ore into bars."
@@ -270,7 +270,7 @@ npcs:
     combat_level: 0
     max_hp: 1
     max_hit: 0
-    location: "tutorial_island_region"
+    location: "starter_island_region"
     x: 67
     y: 86
     examine: "A sturdy anvil for basic smithing."
@@ -282,7 +282,7 @@ npcs:
     combat_level: 0
     max_hp: 10
     max_hit: 0
-    location: "tutorial_island_region"
+    location: "starter_island_region"
     x: 37
     y: 85
     examine: "Supplies starter fishing tackle."
@@ -295,7 +295,7 @@ npcs:
     combat_level: 0
     max_hp: 10
     max_hit: 0
-    location: "tutorial_island_region"
+    location: "starter_island_region"
     x: 73
     y: 88
     examine: "Supplies hammers and ore for basic smithing."
@@ -311,7 +311,7 @@ npcs:
     combat_level: 0
     max_hp: 10
     max_hit: 0
-    location: "tutorial_island_region"
+    location: "starter_island_region"
     x: 50
     y: 108
     examine: "An expert who teaches survival skills — woodcutting, fishing, firemaking, and cooking."
@@ -324,7 +324,7 @@ npcs:
     combat_level: 0
     max_hp: 10
     max_hit: 0
-    location: "tutorial_island_region"
+    location: "starter_island_region"
     x: 65
     y: 90
     examine: "A grizzled miner who teaches ore extraction and metalworking."
@@ -337,7 +337,7 @@ npcs:
     combat_level: 0
     max_hp: 10
     max_hit: 0
-    location: "tutorial_island_region"
+    location: "starter_island_region"
     x: 58
     y: 94
     examine: "A guide who explains the quest journal and how to track objectives."
@@ -353,7 +353,7 @@ npcs:
     max_hp: 35
     max_hit: 1
     respawn_delay_ticks: 1100
-    location: "tutorial_island_region"
+    location: "starter_island_region"
     x: 76
     y: 116
     loot_table: "rat_ranged"
@@ -368,7 +368,7 @@ npcs:
     max_hp: 35
     max_hit: 1
     respawn_delay_ticks: 1100
-    location: "tutorial_island_region"
+    location: "starter_island_region"
     x: 78
     y: 117
     loot_table: "rat_ranged"
@@ -385,7 +385,7 @@ npcs:
     max_hp: 35
     max_hit: 1
     respawn_delay_ticks: 1100
-    location: "tutorial_island_region"
+    location: "starter_island_region"
     x: 74
     y: 118
     loot_table: "rat_magic"
@@ -460,7 +460,7 @@ loot_tables:
 
 # ── Doors ─────────────────────────────────────────────────────────────────────
 # Each entry defines a door world-object.  The tile x/y matches the ROCK wall
-# gap left by gen_tutorial_map.py for that building's door opening.
+# gap left by gen_starter_map.py for that building's door opening.
 # visual_key references a prop from the model library (door_wood_closed = TBD).
 # start_open: false means the door tile is non-walkable until opened.
 #

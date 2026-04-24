@@ -2,12 +2,13 @@ package com.osrs.client.world;
 
 import com.badlogic.gdx.Gdx;
 import com.osrs.client.LaunchOptions;
+import com.osrs.client.WorldScale;
 
 import java.util.List;
 import java.util.Map;
 
 public final class TerrainHeightLoader {
-    private static final float DEFAULT_HEIGHT_STEP = 0.6f;
+    private static final float DEFAULT_HEIGHT_STEP = WorldScale.TERRAIN_HEIGHT_STEP_DEFAULT;
 
     private TerrainHeightLoader() {}
 

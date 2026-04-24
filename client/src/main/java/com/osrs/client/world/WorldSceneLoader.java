@@ -19,6 +19,8 @@ public final class WorldSceneLoader {
     public record WorldSceneData(Map<String, Object> terrainHeight,
                                  Map<String, Object> terrainVisual,
                                  List<Map<String, Object>> staticProps,
+                                 List<Map<String, Object>> densityZones,
+                                 Map<String, Object> rawThemes,
                                  boolean repoBacked,
                                  String sourcePath) {}
 
@@ -39,7 +41,7 @@ public final class WorldSceneLoader {
         if (!sceneHandle.exists()) {
             String source = repoBacked ? "repo" : "classpath";
             Gdx.app.log("WorldSceneLoader", "WARN: world scene file missing for world '" + worldId + "' in " + source + ": " + sceneHandle.path());
-            return new WorldSceneData(Map.of(), Map.of(), List.of(), repoBacked, sceneHandle.path());
+            return new WorldSceneData(Map.of(), Map.of(), List.of(), List.of(), Map.of(), repoBacked, sceneHandle.path());
         }
 
         ObjectMapper mapper = new ObjectMapper(new YAMLFactory());
@@ -62,11 +64,21 @@ public final class WorldSceneLoader {
                 ? (List<Map<String, Object>>) root.get("static_props")
                 : List.of();
 
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> densityZones = root.get("density_zones") instanceof List<?>
+                ? (List<Map<String, Object>>) root.get("density_zones")
+                : List.of();
+
+            @SuppressWarnings("unchecked")
+            Map<String, Object> rawThemes = root.get("themes") instanceof Map<?, ?>
+                ? (Map<String, Object>) root.get("themes")
+                : Map.of();
+
             Gdx.app.log("WorldSceneLoader", "Loaded world scene for world '" + worldId + "' from " + sceneHandle.path());
-            return new WorldSceneData(terrainHeight, terrainVisual, staticProps, repoBacked, sceneHandle.path());
+            return new WorldSceneData(terrainHeight, terrainVisual, staticProps, densityZones, rawThemes, repoBacked, sceneHandle.path());
         } catch (Exception e) {
             Gdx.app.log("WorldSceneLoader", "WARN: failed to parse scene data from " + sceneHandle.path() + ": " + e.getMessage());
-            return new WorldSceneData(Map.of(), Map.of(), List.of(), repoBacked, sceneHandle.path());
+            return new WorldSceneData(Map.of(), Map.of(), List.of(), List.of(), Map.of(), repoBacked, sceneHandle.path());
         }
     }
 }

@@ -1,7 +1,6 @@
-# OSRS-MMORP World Configuration
+# Erynfall Sandbox World Configuration
 # All coordinates use the client 0-104 tile system.
 # Player spawns at (50, 50) — the centre of the sandbox map.
-# All stats sourced from https://oldschool.runescape.wiki
 
 world:
   spawn_x: 50
@@ -18,7 +17,7 @@ maps:
     description: "Development sandbox with full skill testbeds"
 
 npcs:
-  # --- Tutorial staff (non-combat, stay near their post) ---
+  # --- Starter area staff (non-combat, stay near their post) ---
   - id: 1
     name: "Tutorial Guide"
     combat_level: 0
@@ -329,7 +328,7 @@ npcs:
   # One of each fishing family west to east, 4-tile spacing from x=14.
   # ==========================================================================
 
-  # Tutorial net-only spot — shrimps only
+  # Starter net-only spot — small fish only
   - id: 30
     definition_id: 200
     name: "Fishing Spot"
@@ -854,7 +853,7 @@ spawns:
     respawn_ticks: 1200
     max_alive: 2
 
-  goblin_spawn:
+  creature_spawn:
     npc_ids: [62]
     respawn_ticks: 900
     max_alive: 1

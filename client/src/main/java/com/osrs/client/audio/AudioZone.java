@@ -40,7 +40,7 @@ public final class AudioZone {
     }
 
     // -----------------------------------------------------------------------
-    // Zone registry — Tutorial Island (104×104 grid)
+    // Zone registry — Starter Island (104×104 grid)
     //
     // Zone rows from map.yaml / world.yml:
     //   y= 8–11  North road
@@ -56,7 +56,7 @@ public final class AudioZone {
     //   y=79–83  Future Combat A
     //   y=85–89  Future Combat B
     // -----------------------------------------------------------------------
-    public static final List<AudioZone> TUTORIAL_ISLAND = Arrays.asList(
+    public static final List<AudioZone> STARTER_ISLAND = Arrays.asList(
         // Skill zones north → south (checked before the broad town zone)
         new AudioZone("skill_north",  0,  8, 104, 23, MusicTrack.NEWBIE_MELODY,     AmbientLayer.FOREST_BIRDS),
         new AudioZone("cooking",      0, 24, 104, 27, MusicTrack.COOKING_WITH_FIRE,  AmbientLayer.FIRE_CRACKLE),

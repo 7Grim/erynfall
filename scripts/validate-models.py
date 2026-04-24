@@ -41,6 +41,24 @@ class ModelEntry:
     rot_z: float | None
     hide_nodes: tuple[str, ...]
     source_blend: str | None
+    animation_clips: tuple[str, ...]   # optional declared clip names; validated against canonical set
+
+
+# Canonical clip names from docs/GRAPHICS_STYLE.md — Animation Clip Standard.
+# These are the names GLB NLA tracks must use exactly.
+CANONICAL_PLAYER_CLIPS: frozenset[str] = frozenset({
+    "idle", "walk", "run",
+    "pickup", "chop", "mine", "fish", "smith", "cook",
+    "attack_slash", "attack_stab", "attack_shoot", "attack_throw",
+    "block", "death",
+})
+
+CANONICAL_NPC_CLIPS: frozenset[str] = frozenset({
+    "idle", "walk", "action",
+})
+
+# All known canonical names across all actor types (used for open-ended warning).
+ALL_CANONICAL_CLIPS: frozenset[str] = CANONICAL_PLAYER_CLIPS | CANONICAL_NPC_CLIPS
 
 
 SLOT_NAME_TO_ID = {
@@ -234,8 +252,9 @@ def parse_manifest(manifest_path: Path) -> list[ModelEntry]:
         if file_lower in seen_files_lower:
             raise ValueError(f"Duplicate file differs only by case: {file_name}")
 
-        if fmt not in {"g3dj", "g3db", "glb", "gltf"}:
-            raise ValueError(f"Unsupported format for '{key}': {fmt}")
+        if fmt not in {"g3dj", "glb", "gltf"}:
+            # g3db removed: loader was deleted (see docs/FORMAT_MIGRATION.md)
+            raise ValueError(f"Unsupported format for '{key}': '{fmt}' — allowed: g3dj (legacy), glb, gltf")
         if not file_name.lower().endswith(f".{fmt}"):
             raise ValueError(f"File extension does not match format for '{key}': {file_name} vs {fmt}")
 
@@ -244,6 +263,13 @@ def parse_manifest(manifest_path: Path) -> list[ModelEntry]:
 
         animated_raw = item.get("animated")
         animated = as_bool(animated_raw, "animated", key) if animated_raw is not None else False
+
+        animation_clips_raw = item.get("animation_clips")
+        if animation_clips_raw is not None and not isinstance(animation_clips_raw, list):
+            raise ValueError(f"Field 'animation_clips' for key '{key}' must be a list of strings")
+        animation_clips_list: list[str] = [
+            str(c).strip() for c in (animation_clips_raw or []) if str(c).strip()
+        ]
 
         entry = ModelEntry(
             key=key,
@@ -271,6 +297,7 @@ def parse_manifest(manifest_path: Path) -> list[ModelEntry]:
                 if str(node).strip()
             ),
             source_blend=str(item["source_blend"]).strip() if item.get("source_blend") not in (None, "") else None,
+            animation_clips=tuple(animation_clips_list),
         )
         if entry.scale <= 0:
             raise ValueError(f"Scale must be > 0 for key '{key}'")
@@ -331,10 +358,49 @@ def validate(entries: list[ModelEntry], models_dir: Path, blender_dir: Path) -> 
     g3dj_cache: dict[Path, tuple[set[str], set[str]]] = {}
     supported_categories = {"prop", "resource", "shell", "actor", "equipment"}
 
+    # ── Equipment (slot, item_id) uniqueness ─────────────────────────────────
+    seen_slot_item: dict[tuple[int, int], str] = {}
+    for entry in entries:
+        if entry.category == "equipment" and entry.equip_slot is not None and entry.item_id is not None:
+            combo = (entry.equip_slot, entry.item_id)
+            if combo in seen_slot_item:
+                errors.append(
+                    f"duplicate (equip_slot={entry.equip_slot}, item_id={entry.item_id}): "
+                    f"keys '{seen_slot_item[combo]}' and '{entry.key}' — second will silently overwrite first at runtime"
+                )
+            else:
+                seen_slot_item[combo] = entry.key
+
+    # ── Shell base/roof pairing ───────────────────────────────────────────────
+    # Collect all keys whose file ends in _base.<ext> or _roof.<ext>
+    shell_bases: set[str] = set()
+    shell_roofs: set[str] = set()
+    for entry in entries:
+        if entry.category != "shell":
+            continue
+        stem = Path(entry.file).stem   # e.g. building_shell_small_base
+        if stem.endswith("_base"):
+            shell_bases.add(stem[:-5])   # strip "_base"
+        elif stem.endswith("_roof"):
+            shell_roofs.add(stem[:-5])   # strip "_roof"
+    for prefix in sorted(shell_bases - shell_roofs):
+        errors.append(
+            f"shell '{prefix}_base' has no matching '{prefix}_roof' entry — "
+            "roof GLB must be declared separately for interior visibility to work"
+        )
+    for prefix in sorted(shell_roofs - shell_bases):
+        errors.append(
+            f"shell '{prefix}_roof' has no matching '{prefix}_base' entry"
+        )
+
+    # ── Per-entry checks ─────────────────────────────────────────────────────
     for entry in entries:
         model_path = models_dir / entry.file
         if not model_path.exists():
-            msg = f"missing model file for key '{entry.key}': {entry.file}"
+            msg = (
+                f"missing model file for key '{entry.key}': {entry.file} — "
+                f"run the appropriate generator script or export from Blender"
+            )
             if entry.required:
                 errors.append(msg)
             else:
@@ -342,15 +408,28 @@ def validate(entries: list[ModelEntry], models_dir: Path, blender_dir: Path) -> 
             continue
 
         if entry.category not in supported_categories:
-            warnings.append(f"unknown category '{entry.category}' for key '{entry.key}'")
+            errors.append(
+                f"unknown category '{entry.category}' for key '{entry.key}' — "
+                f"allowed: {', '.join(sorted(supported_categories))}"
+            )
 
-        if entry.format in {"g3dj", "g3db"}:
+        if entry.format in {"g3dj"}:
             warnings.append(
                 f"DEPRECATED: entry '{entry.key}' uses legacy format '{entry.format}' — migrate to GLB"
             )
 
+        # animated: true on non-actor is almost certainly wrong
+        if entry.animated and entry.category not in {"actor"}:
+            errors.append(
+                f"key '{entry.key}' (category={entry.category}) sets animated: true — "
+                "only actor models carry animation clips; remove this flag"
+            )
+
         if entry.category == "equipment" and not entry.anchor_name:
-            errors.append(f"equipment key '{entry.key}' is missing anchor_name")
+            errors.append(
+                f"equipment key '{entry.key}' is missing anchor_name — "
+                "renderer uses this name to find the attachment node in player_base"
+            )
 
         if entry.category == "equipment" and entry.origin != "actor-center":
             warnings.append(
@@ -362,6 +441,21 @@ def validate(entries: list[ModelEntry], models_dir: Path, blender_dir: Path) -> 
                 warnings.append(
                     f"GLB actor '{entry.key}' should set animated: true if it contains animation clips"
                 )
+            if not entry.animation_clips:
+                warnings.append(
+                    f"GLB actor '{entry.key}' has no animation_clips declared — "
+                    "add 'animation_clips:' list to manifest so clip names can be validated. "
+                    f"Expected player clips: {', '.join(sorted(CANONICAL_PLAYER_CLIPS))}"
+                )
+            else:
+                non_canonical = sorted(c for c in entry.animation_clips if c not in ALL_CANONICAL_CLIPS)
+                if non_canonical:
+                    errors.append(
+                        f"actor '{entry.key}' declares non-canonical animation_clips: {', '.join(non_canonical)} — "
+                        f"valid player clips: {', '.join(sorted(CANONICAL_PLAYER_CLIPS))}; "
+                        f"valid NPC clips: {', '.join(sorted(CANONICAL_NPC_CLIPS))}. "
+                        "Rename NLA tracks in Blender to match exactly."
+                    )
 
         if entry.format in {"glb", "gltf"}:
             if not entry.source_blend:
@@ -383,9 +477,11 @@ def validate(entries: list[ModelEntry], models_dir: Path, blender_dir: Path) -> 
                 source_path = blender_dir / source_rel
                 if not source_path.exists():
                     warnings.append(
-                        f"source_blend file missing for key '{entry.key}': {entry.source_blend}"
+                        f"source_blend file missing for key '{entry.key}': {entry.source_blend} — "
+                        "commit the .blend source file to art/blender/ or update the path"
                     )
 
+    # ── Equipment anchor cross-check against player_base ─────────────────────
     referenced_anchors = {
         entry.anchor_name.strip()
         for entry in entries
@@ -397,7 +493,7 @@ def validate(entries: list[ModelEntry], models_dir: Path, blender_dir: Path) -> 
             errors.append("equipment anchor validation requires 'player_base' manifest entry")
         else:
             player_base_path = models_dir / player_base.file
-            if player_base.format in {"g3dj", "g3db"} and player_base_path.exists():
+            if player_base.format in {"g3dj"} and player_base_path.exists():
                 try:
                     if player_base_path not in g3dj_cache:
                         g3dj_cache[player_base_path] = inspect_g3dj(player_base_path)
@@ -407,10 +503,12 @@ def validate(entries: list[ModelEntry], models_dir: Path, blender_dir: Path) -> 
                         errors.append(
                             "player_base is missing anchor nodes referenced by equipment entries: "
                             + ", ".join(missing_anchors)
+                            + " — add these bones/empties to the player_base armature"
                         )
                 except Exception as exc:
                     warnings.append(f"could not inspect player_base anchors: {exc}")
 
+    # ── Orphaned files not declared in manifest ───────────────────────────────
     known_extensions = {".g3dj", ".g3db", ".glb", ".gltf"}
     for model_path in sorted(models_dir.iterdir()):
         if model_path.is_dir():
@@ -420,7 +518,10 @@ def validate(entries: list[ModelEntry], models_dir: Path, blender_dir: Path) -> 
         if model_path.suffix.lower() not in known_extensions:
             continue
         if model_path.name not in manifest_files:
-            errors.append(f"model file present but not declared in manifest: {model_path.name}")
+            errors.append(
+                f"model file present but not declared in manifest: {model_path.name} — "
+                "add a manifest entry or delete the file"
+            )
 
     return errors, warnings
 
@@ -467,6 +568,8 @@ def write_runtime_metadata(entries: Iterable[ModelEntry], output_path: Path) -> 
             asset["rot_z"] = entry.rot_z
         if entry.hide_nodes:
             asset["hide_nodes"] = list(entry.hide_nodes)
+        if entry.animation_clips:
+            asset["animation_clips"] = list(entry.animation_clips)
         assets.append(asset)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(json.dumps({"assets": assets}, sort_keys=True, separators=(",", ":")), encoding="utf-8")

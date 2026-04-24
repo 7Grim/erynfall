@@ -61,9 +61,9 @@ public final class FishingRegistry {
     private static final CatchTier RAW_TUNA = new CatchTier(359, "Raw tuna", 35, 800, 8, 64);
     private static final CatchTier RAW_SWORDFISH = new CatchTier(371, "Raw swordfish", 50, 1000, 4, 48);
 
-    private static final SpotType TUTORIAL_NET_SPOT = new SpotType(
+    private static final SpotType STARTER_NET_SPOT = new SpotType(
         200,
-        "Tutorial Fishing Spot",
+        "Starter Fishing Spot",
         0,
         0,
         false,
@@ -109,14 +109,14 @@ public final class FishingRegistry {
     );
 
     private static final List<SpotType> SPOT_TYPES = List.of(
-        TUTORIAL_NET_SPOT,
+        STARTER_NET_SPOT,
         NET_BAIT_SPOT,
         LURE_BAIT_SPOT,
         CAGE_HARPOON_SPOT
     );
 
     private static final Map<Integer, SpotType> SPOTS_BY_DEFINITION_ID = Map.of(
-        TUTORIAL_NET_SPOT.definitionId(), TUTORIAL_NET_SPOT,
+        STARTER_NET_SPOT.definitionId(), STARTER_NET_SPOT,
         NET_BAIT_SPOT.definitionId(), NET_BAIT_SPOT,
         LURE_BAIT_SPOT.definitionId(), LURE_BAIT_SPOT,
         CAGE_HARPOON_SPOT.definitionId(), CAGE_HARPOON_SPOT

@@ -5,56 +5,56 @@ terrain_height:
   height_step: 0.6
   regions:
     # Fishing cove inlet — lowest level (sea level)
-    - name: "tutorial_coastal_low"
+    - name: "starter_coastal_low"
       min_x: 24
       min_y: 76
       max_x: 42
       max_y: 90
       level: 0
     # Arrival beach rise — slight elevation from beach to island interior
-    - name: "tutorial_arrival_rise"
+    - name: "starter_arrival_rise"
       min_x: 42
       min_y: 88
       max_x: 60
       max_y: 100
       level: 1
     # Hub building pad — slightly elevated town square
-    - name: "tutorial_guide_square"
+    - name: "starter_guide_square"
       min_x: 52
       min_y: 92
       max_x: 62
       max_y: 100
       level: 2
     # Artisan terrace — forge + mine area is naturally elevated rocky ground
-    - name: "tutorial_resource_terrace"
+    - name: "starter_resource_terrace"
       min_x: 56
       min_y: 82
       max_x: 76
       max_y: 94
       level: 1
     # Forge workshop pad — slightly higher than surrounding terrace
-    - name: "tutorial_service_pad"
+    - name: "starter_service_pad"
       min_x: 65
       min_y: 84
       max_x: 77
       max_y: 93
       level: 2
     # Grove and survival area — gentle slope
-    - name: "tutorial_grove"
+    - name: "starter_grove"
       min_x: 34
       min_y: 102
       max_x: 52
       max_y: 122
       level: 1
     # Combat yard area — open flat ground
-    - name: "tutorial_combat_area"
+    - name: "starter_combat_area"
       min_x: 64
       min_y: 104
       max_x: 84
       max_y: 122
       level: 1
     # Combat lane interior — slightly lower
-    - name: "tutorial_combat_lane"
+    - name: "starter_combat_lane"
       min_x: 70
       min_y: 106
       max_x: 82
@@ -77,6 +77,23 @@ terrain_height:
 terrain_visual:
   default_type: "water"
   regions:
+    # ── Polygon regions ───────────────────────────────────────────────────────
+    # Entries with a `polygon` key are filled by scanline (irregular shapes).
+    # Vertex format: [[x, y], [x, y], ...] — at least 3 vertices required.
+    # Example (commented out):
+    #
+    #   - name: "irregular_shore"
+    #     type: "sand"
+    #     polygon:
+    #       - [20, 62]
+    #       - [55, 58]
+    #       - [92, 65]
+    #       - [88, 72]
+    #       - [24, 70]
+    #
+    # Polygon regions are applied after rectangular regions and before
+    # tile_overrides, so they can be refined tile-by-tile after placement.
+
     # ── Tutorial Island: base layers ──────────────────────────────────────────
 
     # Sandy beach — island perimeter ring
@@ -188,6 +205,7 @@ terrain_visual:
       max_x: 83
       max_y: 121
       type: "path"
+      theme: "frontier_settlement"
 
     # ── Mainland scaffold ─────────────────────────────────────────────────────
     - name: "mainland_shore"
@@ -210,6 +228,7 @@ terrain_visual:
       max_x: 262
       max_y: 106
       type: "path"
+      theme: "frontier_settlement"
 
   tile_overrides:
     # Fishing cove — sandy shore transition on east edge of water inlet
@@ -730,3 +749,106 @@ static_props:
     rotation_y_degrees: 0.0
     scale: 1.4
     visibility_group: "base"
+
+# ── Density zones ─────────────────────────────────────────────────────────────
+# Authoring-only metadata. Not used at gameplay runtime.
+# Visible in artist mode via Z key (WORLD_PLACEMENT).
+#
+# density: sparse | medium | dense
+# Prop targets (approximate): sparse=area/8, medium=area/4, dense=area/2
+density_zones:
+
+  # Dock storage cluster — crates, barrels, sacks around the pier
+  - name: "dock_storage"
+    min_x: 34
+    min_y: 73
+    max_x: 42
+    max_y: 82
+    density: "dense"
+    note: "Pile of cargo unloaded at the dock: crate_small, barrel_small, sack_stack_small"
+
+  # Market / service row — modest litter along the main path
+  - name: "market_row"
+    min_x: 42
+    min_y: 85
+    max_x: 60
+    max_y: 96
+    density: "medium"
+    note: "Signposts, benches, scattered clutter along the central path"
+
+  # Mining site scatter — rock and ore surroundings
+  - name: "mining_scatter"
+    min_x: 60
+    min_y: 80
+    max_x: 70
+    max_y: 90
+    density: "medium"
+    note: "Rock chips, crates, sacks near copper/tin outcrops"
+
+  # Fishing cove shore — sparse beach dressing
+  - name: "fishing_shore"
+    min_x: 24
+    min_y: 76
+    max_x: 38
+    max_y: 92
+    density: "sparse"
+    note: "A few crates and barrels; keep it airy — mostly open shore"
+
+  # Settlement interior — grass area with benches, signs
+  - name: "settlement_interior"
+    min_x: 44
+    min_y: 95
+    max_x: 80
+    max_y: 118
+    density: "medium"
+    note: "Central starter village; building surrounds plus signposts, benches, clutter"
+
+# ── World themes ──────────────────────────────────────────────────────────────
+#
+# Themes define the visual identity of a region:
+#   terrain_tint:   [R, G, B] multipliers on tile base colors (default 1.0 each)
+#   lighting_bias:  [R, G, B] additive offsets to ambient light (default 0.0 each)
+#   clutter_tags:   prop keys preferred for density-zone fills in this region
+#   foliage_tags:   tree/bush/shrub prop keys that belong here
+#   rock_tags:      ore/rock prop keys that fit this region
+#   ambient_layer:  advisory audio layer name (see AmbientLayer enum)
+#
+# Reference a theme on a terrain_visual region by adding:
+#   theme: <theme_id>
+#
+# Regions without a theme key inherit no tint or bias override.
+
+themes:
+  frontier_settlement:
+    # Warm, sunbaked frontier town — dried grass, dusty paths, worn timber.
+    # Slight warm push to everything; paths read browner, grass reads drier.
+    terrain_tint: [1.05, 0.92, 0.80]
+    lighting_bias: [0.03, 0.01, -0.02]
+    clutter_tags:
+      - crate_small
+      - barrel_small
+      - cart_small
+      - signpost_small
+      - bench_small
+    foliage_tags:
+      - tree_oak
+      - fence_post_small
+    rock_tags:
+      - rock_copper
+      - rock_tin
+    ambient_layer: FOREST_BIRDS
+
+  hell_scarred_badlands:
+    # Charred, ember-lit wasteland — corrupted terrain, cracked stone, ashen earth.
+    # Orange-red tint strips out green and blue; amber fill light replaces sky.
+    terrain_tint: [1.20, 0.65, 0.45]
+    lighting_bias: [0.06, -0.03, -0.06]
+    clutter_tags:
+      - rock_copper
+      - rock_iron
+    foliage_tags:
+      - tree_dead
+    rock_tags:
+      - rock_coal
+      - rock_iron
+    ambient_layer: null

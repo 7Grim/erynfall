@@ -14,7 +14,7 @@ public enum MusicTrack {
     // Login / title screen
     SCAPE_MAIN        ("scape_main",         "Scape Main"),
 
-    // Tutorial Island — town / spawn area
+    // Starter island — town / spawn area
     NEWBIE_MELODY     ("newbie_melody",       "Newbie Melody"),
 
     // Skill zones

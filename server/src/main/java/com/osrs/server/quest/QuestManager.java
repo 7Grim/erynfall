@@ -12,7 +12,7 @@ import java.util.Map;
  */
 public class QuestManager {
 
-    public static final int TUTORIAL_ISLAND_QUEST_ID = 1;
+    public static final int STARTER_QUEST_ID = 1;
     
     private static final Logger LOG = LoggerFactory.getLogger(QuestManager.class);
     
@@ -99,8 +99,8 @@ public class QuestManager {
         return quest != null && quest.allTasksCompleted();
     }
 
-    public boolean isTutorialComplete() {
-        return isQuestComplete(TUTORIAL_ISLAND_QUEST_ID);
+    public boolean isStarterComplete() {
+        return isQuestComplete(STARTER_QUEST_ID);
     }
     
     /**
