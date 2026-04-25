@@ -148,6 +148,8 @@ public class Player extends Entity {
         // Hitpoints starts at level 10 in OSRS (1,154 XP = level 10; stored as tenths = 11540)
         skillXp[SKILL_HITPOINTS]    = 11540L;
         skillLevel[SKILL_HITPOINTS] = 10;
+        // New accounts start with full prayer points (= prayer level = 1)
+        this.prayerPoints = skillLevel[SKILL_PRAYER];
     }
     
     public int getCombatTarget() {
@@ -438,7 +440,7 @@ public class Player extends Entity {
     public boolean isPrayerActive(int id)   { return activePrayers.contains(id); }
     public void activatePrayer(int id)      { activePrayers.add(id); }
     public void deactivatePrayer(int id)    { activePrayers.remove(id); }
-    public void deactivateAllPrayers()      { activePrayers.clear(); }
+    public void deactivateAllPrayers()      { activePrayers.clear(); prayerDrainAccumulator = 0; }
     public boolean hasAnyActivePrayer()     { return !activePrayers.isEmpty(); }
     public java.util.Set<Integer> getActivePrayers() {
         return java.util.Collections.unmodifiableSet(activePrayers);
@@ -446,12 +448,21 @@ public class Player extends Entity {
 
     /** Current prayer points. Range: 0 .. getMaxPrayerPoints(). */
     private int prayerPoints = 0;
+    /**
+     * Drain accumulator for per-OSRS-tick prayer drain.
+     * Incremented each OSRS tick by the sum of active prayers' drainRate values.
+     * When it reaches PrayerRegistry.DRAIN_THRESHOLD, 1 prayer point is consumed
+     * and the threshold is subtracted.
+     */
+    private int prayerDrainAccumulator = 0;
 
     public int getPrayerPoints()  { return prayerPoints; }
     public int getMaxPrayerPoints() { return skillLevel[SKILL_PRAYER]; }
     public void setPrayerPoints(int points) {
         this.prayerPoints = Math.max(0, Math.min(points, getMaxPrayerPoints()));
     }
+    public int getPrayerDrainAccumulator() { return prayerDrainAccumulator; }
+    public void setPrayerDrainAccumulator(int acc) { this.prayerDrainAccumulator = Math.max(0, acc); }
 
     // -----------------------------------------------------------------------
     // Friends list

@@ -137,6 +137,7 @@ public class WorldLoader {
                     npcDef2.isBanker        = getBoolean(npcDef, "is_banker", false);
                     npcDef2.isFishingSupplier = getBoolean(npcDef, "is_fishing_supplier", false);
                     npcDef2.isSmithingSupplier = getBoolean(npcDef, "is_smithing_supplier", false);
+                    npcDef2.attackType      = getString(npcDef, "attack_type", "melee");
 
                     worldData.npcs.add(npcDef2);
                 }
@@ -282,6 +283,8 @@ class WorldData {
         public boolean isBanker;
         public boolean isFishingSupplier;
         public boolean isSmithingSupplier;
+        /** "melee" | "ranged" | "magic" — determines which protect prayer blocks this NPC. */
+        public String attackType = "melee";
     }
     
     static class LootTable {

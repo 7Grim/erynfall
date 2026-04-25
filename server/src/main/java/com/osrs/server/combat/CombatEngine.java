@@ -100,7 +100,14 @@ public class CombatEngine {
 
         int maxHit = attacker.getMaxHit();
 
-        return resolve(hitChance, maxHit, serverTick, attacker.getId(), target.getId());
+        HitResult raw = resolve(hitChance, maxHit, serverTick, attacker.getId(), target.getId());
+
+        // Protect prayers block 100% of NPC damage (PvM behaviour).
+        if (raw.damage > 0
+                && PrayerRegistry.isProtected(target.getActivePrayers(), attacker.getAttackType())) {
+            return new HitResult(raw.hit, 0);
+        }
+        return raw;
     }
 
     // -----------------------------------------------------------------------

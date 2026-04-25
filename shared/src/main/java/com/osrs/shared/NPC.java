@@ -24,6 +24,8 @@ public class NPC extends Entity {
     private int maxHit = 1;
     /** Attack range in tiles (1 = melee, higher = ranged/magic). Default 1. */
     private int attackRange = 1;
+    /** Attack type for protect-prayer matching: "melee", "ranged", or "magic". */
+    private PrayerRegistry.ProtectionType attackType = PrayerRegistry.ProtectionType.MELEE;
 
     // OSRS-accurate combat stats (loaded from world.yml; default to combatLevel if omitted)
     private int combatLevel  = 1;
@@ -151,6 +153,10 @@ public class NPC extends Entity {
 
     public int getAttackRange() { return attackRange; }
     public void setAttackRange(int range) { this.attackRange = Math.max(1, range); }
+    public PrayerRegistry.ProtectionType getAttackType() { return attackType; }
+    public void setAttackType(PrayerRegistry.ProtectionType type) {
+        this.attackType = type == null ? PrayerRegistry.ProtectionType.MELEE : type;
+    }
 
     // OSRS combat stats
     public int getCombatLevel()  { return combatLevel; }

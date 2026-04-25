@@ -175,6 +175,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             case CLOSE_SHOP              -> handleCloseShop(ctx, packet.getCloseShop());
             case LIGHT_GROUND_ITEM       -> handleLightGroundItem(ctx, packet.getLightGroundItem());
             case OBJECT_INTERACT         -> handleObjectInteract(ctx, packet.getObjectInteract());
+            case USE_ITEM_ON_NPC         -> handleUseItemOnNpc(ctx, packet.getUseItemOnNpc());
             case CLOSE_BANK_REQUEST      -> handleCloseBankRequest(ctx, packet.getCloseBankRequest());
             case DEPOSIT_BANK_ITEM       -> handleDepositBankItem(ctx, packet.getDepositBankItem());
             case WITHDRAW_BANK_ITEM      -> handleWithdrawBankItem(ctx, packet.getWithdrawBankItem());
@@ -534,13 +535,17 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
                     .setLeveledUp(false))
                 .build());
         }
-        // Initialise prayer points to prayer level on login
-        int prayerLevel = player.getSkillLevel(Player.SKILL_PRAYER);
-        player.setPrayerPoints(prayerLevel);
+        // Sync prayer points: use loaded value (already set from DB in mapPlayerFromRow, or
+        // initialized to max in Player constructor for new accounts). Cap to current max in
+        // case the prayer level dropped since last save (admin action, etc.).
+        int prayerMax = player.getSkillLevel(Player.SKILL_PRAYER);
+        player.setPrayerPoints(Math.min(player.getPrayerPoints(), prayerMax));
+        NetworkProto.PrayerPointsUpdate.Builder loginPrayer = NetworkProto.PrayerPointsUpdate.newBuilder()
+            .setCurrent(player.getPrayerPoints())
+            .setMaximum(prayerMax)
+            .addAllActivePrayerIds(player.getActivePrayers());
         ctx.writeAndFlush(NetworkProto.ServerMessage.newBuilder()
-            .setPrayerPointsUpdate(NetworkProto.PrayerPointsUpdate.newBuilder()
-                .setCurrent(prayerLevel)
-                .setMaximum(prayerLevel))
+            .setPrayerPointsUpdate(loginPrayer)
             .build());
 
         // Sync HP state so the client's health display is correct immediately on login.
@@ -732,7 +737,8 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             ctx.writeAndFlush(NetworkProto.ServerMessage.newBuilder()
                 .setPrayerPointsUpdate(NetworkProto.PrayerPointsUpdate.newBuilder()
                     .setCurrent(prayerLevel)
-                    .setMaximum(prayerLevel))
+                    .setMaximum(prayerLevel)
+                    .addAllActivePrayerIds(player.getActivePrayers()))
                 .build());
         }
     }
@@ -2566,7 +2572,8 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             ctx.writeAndFlush(NetworkProto.ServerMessage.newBuilder()
                 .setPrayerPointsUpdate(NetworkProto.PrayerPointsUpdate.newBuilder()
                     .setCurrent(player.getPrayerPoints())
-                    .setMaximum(maxPrayer))
+                    .setMaximum(maxPrayer)
+                    .addAllActivePrayerIds(player.getActivePrayers()))
                 .build());
             sendChatMessage(ctx, "You recharge your Prayer points at the altar.", 0);
             return true;
@@ -3067,6 +3074,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
                 .setMaxHealth(npc.getMaxHealth())
                 .setCombatLevel(npc.getCombatLevel())
                 .setDefinitionId(npc.getDefinitionId())
+                .setIsAggressive(npc.isAggressive())
                 .setIsPlayer(false));
         }
 
@@ -3974,14 +3982,26 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
         } else {
             if (player.getSkillLevel(Player.SKILL_PRAYER) < levelReq) {
                 sendChatMessage(ctx, "You need level " + levelReq + " Prayer to use this.", 1);
+                sendPrayerState(ctx, player);
                 return;
             }
             if (player.getPrayerPoints() <= 0) {
                 sendChatMessage(ctx, "You have run out of Prayer points.", 1);
+                sendPrayerState(ctx, player);
                 return;
             }
             player.activatePrayer(prayerId);
         }
+        sendPrayerState(ctx, player);
+    }
+
+    private void sendPrayerState(ChannelHandlerContext ctx, Player player) {
+        ctx.writeAndFlush(NetworkProto.ServerMessage.newBuilder()
+            .setPrayerPointsUpdate(NetworkProto.PrayerPointsUpdate.newBuilder()
+                .setCurrent(player.getPrayerPoints())
+                .setMaximum(player.getMaxPrayerPoints())
+                .addAllActivePrayerIds(player.getActivePrayers()))
+            .build());
     }
 
     private void sendSkillingStateUpdate(ChannelHandlerContext ctx,
@@ -4050,6 +4070,36 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
     }
 
     // ── Door / world-object handling ──────────────────────────────────────────
+
+    private void handleUseItemOnNpc(ChannelHandlerContext ctx, NetworkProto.UseItemOnNpc req) {
+        Player player = session != null ? session.getPlayer() : null;
+        if (player == null) return;
+
+        int slot = req.getInventorySlot();
+        if (slot < 0 || slot >= 28) return;
+
+        int itemId = player.getInventoryItemId(slot);
+        if (itemId <= 0) return;
+
+        int npcId = req.getNpcId();
+        com.osrs.shared.NPC npc = server.getWorld().getNPC(npcId);
+        if (npc == null) {
+            sendChatMessage(ctx, "Nothing interesting happens.", 0);
+            return;
+        }
+
+        // Tinderbox (590) on a Cooking Fire or Cooking Range lights the fire (same as light_log flow).
+        String npcName = npc.getName();
+        boolean isCookingStation = "Cooking Fire".equalsIgnoreCase(npcName)
+            || "Cooking Range".equalsIgnoreCase(npcName);
+        if (itemId == 590 && isCookingStation) {
+            sendChatMessage(ctx, "The fire is already lit.", 0);
+            return;
+        }
+
+        // No other use-item-on-NPC combinations are defined yet.
+        sendChatMessage(ctx, "Nothing interesting happens.", 0);
+    }
 
     private void handleObjectInteract(ChannelHandlerContext ctx, NetworkProto.ObjectInteract req) {
         Player player = session != null ? session.getPlayer() : null;

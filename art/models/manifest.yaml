@@ -1,9 +1,9 @@
 version: 1
 assets:
   - key: furnace
-    file: furnace.g3dj
+    file: furnace.glb
     category: prop
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: tile-center
     required: false
@@ -18,17 +18,17 @@ assets:
     notes: Static anvil prop for smithing services.
     source_blend: props/anvil.blend
   - key: cooking_range
-    file: cooking_range.g3dj
+    file: cooking_range.glb
     category: prop
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: tile-center
     required: false
     notes: Static cooking range prop.
   - key: fishing_spot
-    file: fishing_spot.g3dj
+    file: fishing_spot.glb
     category: resource
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: tile-center
     required: false
@@ -52,121 +52,121 @@ assets:
     notes: Static oak tree model used by the experimental 3D renderer.
     source_blend: nature/tree_oak.blend
   - key: rock_copper
-    file: rock_copper.g3dj
+    file: rock_copper.glb
     category: resource
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: tile-center
     required: false
     notes: Static copper rock model.
   - key: rock_tin
-    file: rock_tin.g3dj
+    file: rock_tin.glb
     category: resource
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: tile-center
     required: false
     notes: Static tin rock model.
   - key: rock_iron
-    file: rock_iron.g3dj
+    file: rock_iron.glb
     category: resource
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: tile-center
     required: false
     notes: Static iron rock model.
   - key: tree_willow
-    file: tree_willow.g3dj
+    file: tree_willow.glb
     category: resource
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: tile-center
     required: false
     notes: Static willow tree model used by the experimental 3D renderer.
   - key: tree_maple
-    file: tree_maple.g3dj
+    file: tree_maple.glb
     category: resource
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: tile-center
     required: false
     notes: Static maple tree model used by the experimental 3D renderer.
   - key: tree_mahogany
-    file: tree_mahogany.g3dj
+    file: tree_mahogany.glb
     category: resource
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: tile-center
     required: false
     notes: Static mahogany tree model used by the experimental 3D renderer.
   - key: tree_yew
-    file: tree_yew.g3dj
+    file: tree_yew.glb
     category: resource
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: tile-center
     required: false
     notes: Static yew tree model used by the experimental 3D renderer.
   - key: tree_magic
-    file: tree_magic.g3dj
+    file: tree_magic.glb
     category: resource
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: tile-center
     required: false
     notes: Static magic tree model used by the experimental 3D renderer.
   - key: rock_silver
-    file: rock_silver.g3dj
+    file: rock_silver.glb
     category: resource
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: tile-center
     required: false
     notes: Static silver rock model.
   - key: rock_coal
-    file: rock_coal.g3dj
+    file: rock_coal.glb
     category: resource
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: tile-center
     required: false
     notes: Static coal rock model.
   - key: rock_gold
-    file: rock_gold.g3dj
+    file: rock_gold.glb
     category: resource
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: tile-center
     required: false
     notes: Static gold rock model.
   - key: rock_mithril
-    file: rock_mithril.g3dj
+    file: rock_mithril.glb
     category: resource
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: tile-center
     required: false
     notes: Static mithril rock model.
   - key: rock_adamantite
-    file: rock_adamantite.g3dj
+    file: rock_adamantite.glb
     category: resource
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: tile-center
     required: false
     notes: Static adamantite rock model.
   - key: rock_runite
-    file: rock_runite.g3dj
+    file: rock_runite.glb
     category: resource
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: tile-center
     required: false
     notes: Static runite rock model.
   - key: building_shell_small
-    file: building_shell_small.g3dj
+    file: building_shell_small.glb
     category: shell
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: tile-center
     required: false
@@ -190,49 +190,49 @@ assets:
     notes: Upper roof/foreground piece of the small shell.
     source_blend: shells/building_shell_small_roof.blend
   - key: dock_platform
-    file: dock_platform.g3dj
+    file: dock_platform.glb
     category: prop
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: tile-center
     required: false
     notes: Small dock platform section for shoreline/town dressing.
   - key: dock_stairs
-    file: dock_stairs.g3dj
+    file: dock_stairs.glb
     category: prop
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: tile-center
     required: false
     notes: Small dock stair/ramp section.
   - key: table_small
-    file: table_small.g3dj
+    file: table_small.glb
     category: prop
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: tile-center
     required: false
     notes: Small static table prop.
   - key: crate_small
-    file: crate_small.g3dj
+    file: crate_small.glb
     category: prop
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: tile-center
     required: false
     notes: Small crate prop.
   - key: barrel_small
-    file: barrel_small.g3dj
+    file: barrel_small.glb
     category: prop
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: tile-center
     required: false
     notes: Small barrel prop.
   - key: building_shell_service
-    file: building_shell_service.g3dj
+    file: building_shell_service.glb
     category: shell
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: tile-center
     required: false
@@ -256,9 +256,9 @@ assets:
     notes: Upper roof/foreground piece of the service-area shell.
     source_blend: shells/building_shell_service_roof.blend
   - key: building_shell_coastal
-    file: building_shell_coastal.g3dj
+    file: building_shell_coastal.glb
     category: shell
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: tile-center
     required: false
@@ -282,65 +282,65 @@ assets:
     notes: Upper roof/foreground piece of the coastal shell.
     source_blend: shells/building_shell_coastal_roof.blend
   - key: dock_pier_small
-    file: dock_pier_small.g3dj
+    file: dock_pier_small.glb
     category: prop
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: tile-center
     required: false
     notes: Small shoreline dock/pier segment.
   - key: fence_post_small
-    file: fence_post_small.g3dj
+    file: fence_post_small.glb
     category: prop
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: tile-center
     required: false
     notes: Small fence post world prop.
   - key: signpost_small
-    file: signpost_small.g3dj
+    file: signpost_small.glb
     category: prop
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: tile-center
     required: false
     notes: Small signpost world prop.
   - key: bench_small
-    file: bench_small.g3dj
+    file: bench_small.glb
     category: prop
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: tile-center
     required: false
     notes: Small bench prop.
   - key: sack_stack_small
-    file: sack_stack_small.g3dj
+    file: sack_stack_small.glb
     category: prop
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: tile-center
     required: false
     notes: Sack stack prop for service/trade areas.
   - key: cart_small
-    file: cart_small.g3dj
+    file: cart_small.glb
     category: prop
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: tile-center
     required: false
     notes: Small cart prop for town/services areas.
   - key: player_idle
-    file: player_idle.g3dj
+    file: player_idle.glb
     category: actor
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: tile-center
     required: false
     notes: Low-poly player idle pose for 3D prototype evaluation.
   - key: player_walk
-    file: player_walk.g3dj
+    file: player_walk.glb
     category: actor
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: tile-center
     required: false
@@ -372,89 +372,89 @@ assets:
       - death
     notes: Skinned animated player base — 15 canonical clips + attack_shoot_bow variant. Generated by scripts/blender_build_rig.py.
   - key: player_pickup
-    file: player_pickup.g3dj
+    file: player_pickup.glb
     category: actor
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: tile-center
     required: false
     notes: Low-poly player pickup pose.
   - key: player_chop
-    file: player_chop.g3dj
+    file: player_chop.glb
     category: actor
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: tile-center
     required: false
     notes: Low-poly player woodcutting pose.
   - key: player_mine
-    file: player_mine.g3dj
+    file: player_mine.glb
     category: actor
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: tile-center
     required: false
     notes: Low-poly player mining pose.
   - key: player_fish
-    file: player_fish.g3dj
+    file: player_fish.glb
     category: actor
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: tile-center
     required: false
     notes: Low-poly player fishing pose.
   - key: player_sword
-    file: player_sword.g3dj
+    file: player_sword.glb
     category: actor
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: tile-center
     required: false
     notes: Low-poly player sword combat pose.
   - key: player_spear
-    file: player_spear.g3dj
+    file: player_spear.glb
     category: actor
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: tile-center
     required: false
     notes: Low-poly player spear/staff combat pose.
   - key: npc_banker_idle
-    file: npc_banker_idle.g3dj
+    file: npc_banker_idle.glb
     category: actor
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: tile-center
     required: false
     notes: Low-poly banker idle pose.
   - key: npc_banker_walk
-    file: npc_banker_walk.g3dj
+    file: npc_banker_walk.glb
     category: actor
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: tile-center
     required: false
     notes: Low-poly banker walk pose.
   - key: npc_goblin_idle
-    file: npc_goblin_idle.g3dj
+    file: npc_goblin_idle.glb
     category: actor
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: tile-center
     required: false
     notes: Low-poly goblin idle pose.
   - key: npc_goblin_walk
-    file: npc_goblin_walk.g3dj
+    file: npc_goblin_walk.glb
     category: actor
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: tile-center
     required: false
     notes: Low-poly goblin walk pose.
   - key: npc_goblin_action
-    file: npc_goblin_action.g3dj
+    file: npc_goblin_action.glb
     category: actor
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: tile-center
     required: false
@@ -481,9 +481,9 @@ assets:
       - head
       - hair
   - key: equip_head_iron_full_helm
-    file: equip_head_iron_full_helm.g3dj
+    file: equip_head_iron_full_helm.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
@@ -498,9 +498,9 @@ assets:
     rot_y: 0.0
     rot_z: 0.0
   - key: equip_head_steel_full_helm
-    file: equip_head_steel_full_helm.g3dj
+    file: equip_head_steel_full_helm.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
@@ -515,9 +515,9 @@ assets:
     rot_y: 0.0
     rot_z: 0.0
   - key: equip_head_mithril_full_helm
-    file: equip_head_mithril_full_helm.g3dj
+    file: equip_head_mithril_full_helm.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
@@ -532,9 +532,9 @@ assets:
     rot_y: 0.0
     rot_z: 0.0
   - key: equip_head_adamant_full_helm
-    file: equip_head_adamant_full_helm.g3dj
+    file: equip_head_adamant_full_helm.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
@@ -549,9 +549,9 @@ assets:
     rot_y: 0.0
     rot_z: 0.0
   - key: equip_head_rune_full_helm
-    file: equip_head_rune_full_helm.g3dj
+    file: equip_head_rune_full_helm.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
@@ -566,9 +566,9 @@ assets:
     rot_y: 0.0
     rot_z: 0.0
   - key: equip_head_black_full_helm
-    file: equip_head_black_full_helm.g3dj
+    file: equip_head_black_full_helm.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
@@ -583,9 +583,9 @@ assets:
     rot_y: 0.0
     rot_z: 0.0
   - key: equip_head_dragon_full_helm
-    file: equip_head_dragon_full_helm.g3dj
+    file: equip_head_dragon_full_helm.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
@@ -620,9 +620,9 @@ assets:
     hide_nodes:
       - torso
   - key: equip_body_iron_platebody
-    file: equip_body_iron_platebody.g3dj
+    file: equip_body_iron_platebody.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
@@ -637,9 +637,9 @@ assets:
     rot_y: 0.0
     rot_z: 0.0
   - key: equip_body_steel_platebody
-    file: equip_body_steel_platebody.g3dj
+    file: equip_body_steel_platebody.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
@@ -654,9 +654,9 @@ assets:
     rot_y: 0.0
     rot_z: 0.0
   - key: equip_body_mithril_platebody
-    file: equip_body_mithril_platebody.g3dj
+    file: equip_body_mithril_platebody.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
@@ -671,9 +671,9 @@ assets:
     rot_y: 0.0
     rot_z: 0.0
   - key: equip_body_adamant_platebody
-    file: equip_body_adamant_platebody.g3dj
+    file: equip_body_adamant_platebody.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
@@ -688,9 +688,9 @@ assets:
     rot_y: 0.0
     rot_z: 0.0
   - key: equip_body_rune_platebody
-    file: equip_body_rune_platebody.g3dj
+    file: equip_body_rune_platebody.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
@@ -705,9 +705,9 @@ assets:
     rot_y: 0.0
     rot_z: 0.0
   - key: equip_body_black_platebody
-    file: equip_body_black_platebody.g3dj
+    file: equip_body_black_platebody.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
@@ -722,9 +722,9 @@ assets:
     rot_y: 0.0
     rot_z: 0.0
   - key: equip_body_dragon_chainbody
-    file: equip_body_dragon_chainbody.g3dj
+    file: equip_body_dragon_chainbody.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
@@ -762,9 +762,9 @@ assets:
       - upper_leg_r
       - lower_leg_r
   - key: equip_legs_iron_platelegs
-    file: equip_legs_iron_platelegs.g3dj
+    file: equip_legs_iron_platelegs.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
@@ -784,9 +784,9 @@ assets:
       - upper_leg_r
       - lower_leg_r
   - key: equip_legs_steel_platelegs
-    file: equip_legs_steel_platelegs.g3dj
+    file: equip_legs_steel_platelegs.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
@@ -806,9 +806,9 @@ assets:
       - upper_leg_r
       - lower_leg_r
   - key: equip_legs_mithril_platelegs
-    file: equip_legs_mithril_platelegs.g3dj
+    file: equip_legs_mithril_platelegs.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
@@ -828,9 +828,9 @@ assets:
       - upper_leg_r
       - lower_leg_r
   - key: equip_legs_adamant_platelegs
-    file: equip_legs_adamant_platelegs.g3dj
+    file: equip_legs_adamant_platelegs.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
@@ -850,9 +850,9 @@ assets:
       - upper_leg_r
       - lower_leg_r
   - key: equip_legs_rune_platelegs
-    file: equip_legs_rune_platelegs.g3dj
+    file: equip_legs_rune_platelegs.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
@@ -872,9 +872,9 @@ assets:
       - upper_leg_r
       - lower_leg_r
   - key: equip_legs_black_platelegs
-    file: equip_legs_black_platelegs.g3dj
+    file: equip_legs_black_platelegs.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
@@ -894,9 +894,9 @@ assets:
       - upper_leg_r
       - lower_leg_r
   - key: equip_legs_dragon_platelegs
-    file: equip_legs_dragon_platelegs.g3dj
+    file: equip_legs_dragon_platelegs.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
@@ -934,9 +934,9 @@ assets:
     rot_y: 0.0
     rot_z: 0.0
   - key: equip_shield_iron_sq
-    file: equip_shield_iron_sq.g3dj
+    file: equip_shield_iron_sq.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
@@ -951,9 +951,9 @@ assets:
     rot_y: 0.0
     rot_z: 0.0
   - key: equip_shield_steel_sq
-    file: equip_shield_steel_sq.g3dj
+    file: equip_shield_steel_sq.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
@@ -968,9 +968,9 @@ assets:
     rot_y: 0.0
     rot_z: 0.0
   - key: equip_shield_mithril_sq
-    file: equip_shield_mithril_sq.g3dj
+    file: equip_shield_mithril_sq.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
@@ -985,9 +985,9 @@ assets:
     rot_y: 0.0
     rot_z: 0.0
   - key: equip_shield_adamant_sq
-    file: equip_shield_adamant_sq.g3dj
+    file: equip_shield_adamant_sq.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
@@ -1002,9 +1002,9 @@ assets:
     rot_y: 0.0
     rot_z: 0.0
   - key: equip_shield_rune_sq
-    file: equip_shield_rune_sq.g3dj
+    file: equip_shield_rune_sq.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
@@ -1019,9 +1019,9 @@ assets:
     rot_y: 0.0
     rot_z: 0.0
   - key: equip_shield_black_sq
-    file: equip_shield_black_sq.g3dj
+    file: equip_shield_black_sq.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
@@ -1036,9 +1036,9 @@ assets:
     rot_y: 0.0
     rot_z: 0.0
   - key: equip_shield_dragon_sq
-    file: equip_shield_dragon_sq.g3dj
+    file: equip_shield_dragon_sq.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
@@ -1053,9 +1053,9 @@ assets:
     rot_y: 0.0
     rot_z: 0.0
   - key: equip_shield_wooden
-    file: equip_shield_wooden.g3dj
+    file: equip_shield_wooden.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
@@ -1070,9 +1070,9 @@ assets:
     rot_y: 0.0
     rot_z: 0.0
   - key: equip_weapon_bronze_scimitar
-    file: equip_weapon_bronze_scimitar.g3dj
+    file: equip_weapon_bronze_scimitar.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
@@ -1087,9 +1087,9 @@ assets:
     rot_y: 6.0
     rot_z: -27.0
   - key: equip_weapon_iron_scimitar
-    file: equip_weapon_iron_scimitar.g3dj
+    file: equip_weapon_iron_scimitar.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
@@ -1104,9 +1104,9 @@ assets:
     rot_y: 0.0
     rot_z: -22.0
   - key: equip_weapon_steel_scimitar
-    file: equip_weapon_steel_scimitar.g3dj
+    file: equip_weapon_steel_scimitar.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
@@ -1121,9 +1121,9 @@ assets:
     rot_y: 0.0
     rot_z: -22.0
   - key: equip_weapon_mithril_scimitar
-    file: equip_weapon_mithril_scimitar.g3dj
+    file: equip_weapon_mithril_scimitar.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
@@ -1138,9 +1138,9 @@ assets:
     rot_y: 0.0
     rot_z: -22.0
   - key: equip_weapon_adamant_scimitar
-    file: equip_weapon_adamant_scimitar.g3dj
+    file: equip_weapon_adamant_scimitar.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
@@ -1155,9 +1155,9 @@ assets:
     rot_y: 0.0
     rot_z: -22.0
   - key: equip_weapon_rune_scimitar
-    file: equip_weapon_rune_scimitar.g3dj
+    file: equip_weapon_rune_scimitar.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
@@ -1172,9 +1172,9 @@ assets:
     rot_y: 0.0
     rot_z: -22.0
   - key: equip_weapon_black_scimitar
-    file: equip_weapon_black_scimitar.g3dj
+    file: equip_weapon_black_scimitar.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
@@ -1189,9 +1189,9 @@ assets:
     rot_y: 0.0
     rot_z: -22.0
   - key: equip_weapon_dragon_scimitar
-    file: equip_weapon_dragon_scimitar.g3dj
+    file: equip_weapon_dragon_scimitar.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
@@ -1224,9 +1224,9 @@ assets:
     rot_y: 0.0
     rot_z: -16.0
   - key: equip_weapon_bronze_longsword
-    file: equip_weapon_bronze_longsword.g3dj
+    file: equip_weapon_bronze_longsword.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
@@ -1241,9 +1241,9 @@ assets:
     rot_y: 0.0
     rot_z: -16.0
   - key: equip_weapon_iron_longsword
-    file: equip_weapon_iron_longsword.g3dj
+    file: equip_weapon_iron_longsword.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
@@ -1258,9 +1258,9 @@ assets:
     rot_y: 0.0
     rot_z: -16.0
   - key: equip_weapon_steel_longsword
-    file: equip_weapon_steel_longsword.g3dj
+    file: equip_weapon_steel_longsword.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
@@ -1275,9 +1275,9 @@ assets:
     rot_y: 0.0
     rot_z: -16.0
   - key: equip_weapon_black_longsword
-    file: equip_weapon_black_longsword.g3dj
+    file: equip_weapon_black_longsword.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
@@ -1292,9 +1292,9 @@ assets:
     rot_y: 0.0
     rot_z: -16.0
   - key: equip_weapon_mithril_longsword
-    file: equip_weapon_mithril_longsword.g3dj
+    file: equip_weapon_mithril_longsword.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
@@ -1309,9 +1309,9 @@ assets:
     rot_y: 0.0
     rot_z: -16.0
   - key: equip_weapon_adamant_longsword
-    file: equip_weapon_adamant_longsword.g3dj
+    file: equip_weapon_adamant_longsword.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
@@ -1326,9 +1326,9 @@ assets:
     rot_y: 0.0
     rot_z: -16.0
   - key: equip_weapon_rune_longsword
-    file: equip_weapon_rune_longsword.g3dj
+    file: equip_weapon_rune_longsword.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
@@ -1343,9 +1343,9 @@ assets:
     rot_y: 0.0
     rot_z: -16.0
   - key: equip_weapon_dragon_longsword
-    file: equip_weapon_dragon_longsword.g3dj
+    file: equip_weapon_dragon_longsword.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
@@ -1360,9 +1360,9 @@ assets:
     rot_y: 0.0
     rot_z: -16.0
   - key: equip_weapon_bronze_axe
-    file: equip_weapon_bronze_axe.g3dj
+    file: equip_weapon_bronze_axe.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
@@ -1377,9 +1377,9 @@ assets:
     rot_y: 16.0
     rot_z: -44.0
   - key: equip_weapon_iron_axe
-    file: equip_weapon_iron_axe.g3dj
+    file: equip_weapon_iron_axe.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
@@ -1394,9 +1394,9 @@ assets:
     rot_y: 0.0
     rot_z: -18.0
   - key: equip_weapon_steel_axe
-    file: equip_weapon_steel_axe.g3dj
+    file: equip_weapon_steel_axe.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
@@ -1411,9 +1411,9 @@ assets:
     rot_y: 0.0
     rot_z: -18.0
   - key: equip_weapon_mithril_axe
-    file: equip_weapon_mithril_axe.g3dj
+    file: equip_weapon_mithril_axe.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
@@ -1428,9 +1428,9 @@ assets:
     rot_y: 0.0
     rot_z: -18.0
   - key: equip_weapon_adamant_axe
-    file: equip_weapon_adamant_axe.g3dj
+    file: equip_weapon_adamant_axe.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
@@ -1445,9 +1445,9 @@ assets:
     rot_y: 0.0
     rot_z: -18.0
   - key: equip_weapon_rune_axe
-    file: equip_weapon_rune_axe.g3dj
+    file: equip_weapon_rune_axe.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
@@ -1462,9 +1462,9 @@ assets:
     rot_y: 0.0
     rot_z: -18.0
   - key: equip_weapon_black_axe
-    file: equip_weapon_black_axe.g3dj
+    file: equip_weapon_black_axe.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
@@ -1497,9 +1497,9 @@ assets:
     rot_y: 0.0
     rot_z: -18.0
   - key: equip_weapon_bronze_pickaxe
-    file: equip_weapon_bronze_pickaxe.g3dj
+    file: equip_weapon_bronze_pickaxe.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
@@ -1514,9 +1514,9 @@ assets:
     rot_y: -18.0
     rot_z: -40.0
   - key: equip_weapon_iron_pickaxe
-    file: equip_weapon_iron_pickaxe.g3dj
+    file: equip_weapon_iron_pickaxe.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
@@ -1531,9 +1531,9 @@ assets:
     rot_y: 0.0
     rot_z: -18.0
   - key: equip_weapon_steel_pickaxe
-    file: equip_weapon_steel_pickaxe.g3dj
+    file: equip_weapon_steel_pickaxe.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
@@ -1548,9 +1548,9 @@ assets:
     rot_y: 0.0
     rot_z: -18.0
   - key: equip_weapon_mithril_pickaxe
-    file: equip_weapon_mithril_pickaxe.g3dj
+    file: equip_weapon_mithril_pickaxe.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
@@ -1565,9 +1565,9 @@ assets:
     rot_y: 0.0
     rot_z: -18.0
   - key: equip_weapon_adamant_pickaxe
-    file: equip_weapon_adamant_pickaxe.g3dj
+    file: equip_weapon_adamant_pickaxe.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
@@ -1582,9 +1582,9 @@ assets:
     rot_y: 0.0
     rot_z: -18.0
   - key: equip_weapon_rune_pickaxe
-    file: equip_weapon_rune_pickaxe.g3dj
+    file: equip_weapon_rune_pickaxe.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
@@ -1599,9 +1599,9 @@ assets:
     rot_y: 0.0
     rot_z: -18.0
   - key: equip_weapon_black_pickaxe
-    file: equip_weapon_black_pickaxe.g3dj
+    file: equip_weapon_black_pickaxe.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
@@ -1616,9 +1616,9 @@ assets:
     rot_y: 0.0
     rot_z: -18.0
   - key: equip_weapon_dragon_pickaxe
-    file: equip_weapon_dragon_pickaxe.g3dj
+    file: equip_weapon_dragon_pickaxe.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
@@ -1633,9 +1633,9 @@ assets:
     rot_y: 0.0
     rot_z: -18.0
   - key: equip_weapon_shortbow
-    file: equip_weapon_shortbow.g3dj
+    file: equip_weapon_shortbow.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
@@ -1650,9 +1650,9 @@ assets:
     rot_y: 0.0
     rot_z: 0.0
   - key: equip_weapon_oak_shortbow
-    file: equip_weapon_oak_shortbow.g3dj
+    file: equip_weapon_oak_shortbow.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
@@ -1667,9 +1667,9 @@ assets:
     rot_y: 0.0
     rot_z: 0.0
   - key: equip_weapon_willow_shortbow
-    file: equip_weapon_willow_shortbow.g3dj
+    file: equip_weapon_willow_shortbow.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
@@ -1684,9 +1684,9 @@ assets:
     rot_y: 0.0
     rot_z: 0.0
   - key: equip_weapon_maple_shortbow
-    file: equip_weapon_maple_shortbow.g3dj
+    file: equip_weapon_maple_shortbow.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
@@ -1701,9 +1701,9 @@ assets:
     rot_y: 0.0
     rot_z: 0.0
   - key: equip_weapon_yew_shortbow
-    file: equip_weapon_yew_shortbow.g3dj
+    file: equip_weapon_yew_shortbow.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
@@ -1718,9 +1718,9 @@ assets:
     rot_y: 0.0
     rot_z: 0.0
   - key: equip_weapon_magic_shortbow
-    file: equip_weapon_magic_shortbow.g3dj
+    file: equip_weapon_magic_shortbow.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
@@ -1735,9 +1735,9 @@ assets:
     rot_y: 0.0
     rot_z: 0.0
   - key: equip_weapon_longbow
-    file: equip_weapon_longbow.g3dj
+    file: equip_weapon_longbow.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
@@ -1752,9 +1752,9 @@ assets:
     rot_y: 0.0
     rot_z: 0.0
   - key: equip_weapon_oak_longbow
-    file: equip_weapon_oak_longbow.g3dj
+    file: equip_weapon_oak_longbow.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
@@ -1769,9 +1769,9 @@ assets:
     rot_y: 0.0
     rot_z: 0.0
   - key: equip_weapon_willow_longbow
-    file: equip_weapon_willow_longbow.g3dj
+    file: equip_weapon_willow_longbow.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
@@ -1786,9 +1786,9 @@ assets:
     rot_y: 0.0
     rot_z: 0.0
   - key: equip_weapon_maple_longbow
-    file: equip_weapon_maple_longbow.g3dj
+    file: equip_weapon_maple_longbow.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
@@ -1803,9 +1803,9 @@ assets:
     rot_y: 0.0
     rot_z: 0.0
   - key: equip_weapon_yew_longbow
-    file: equip_weapon_yew_longbow.g3dj
+    file: equip_weapon_yew_longbow.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
@@ -1820,9 +1820,9 @@ assets:
     rot_y: 0.0
     rot_z: 0.0
   - key: equip_weapon_magic_longbow
-    file: equip_weapon_magic_longbow.g3dj
+    file: equip_weapon_magic_longbow.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
@@ -1837,9 +1837,9 @@ assets:
     rot_y: 0.0
     rot_z: 0.0
   - key: equip_weapon_air_staff
-    file: equip_weapon_air_staff.g3dj
+    file: equip_weapon_air_staff.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
@@ -1854,9 +1854,9 @@ assets:
     rot_y: 0.0
     rot_z: 0.0
   - key: equip_weapon_water_staff
-    file: equip_weapon_water_staff.g3dj
+    file: equip_weapon_water_staff.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
@@ -1871,9 +1871,9 @@ assets:
     rot_y: 0.0
     rot_z: 0.0
   - key: equip_weapon_earth_staff
-    file: equip_weapon_earth_staff.g3dj
+    file: equip_weapon_earth_staff.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
@@ -1888,9 +1888,9 @@ assets:
     rot_y: 0.0
     rot_z: 0.0
   - key: equip_weapon_fire_staff
-    file: equip_weapon_fire_staff.g3dj
+    file: equip_weapon_fire_staff.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
@@ -1905,9 +1905,9 @@ assets:
     rot_y: 0.0
     rot_z: 0.0
   - key: equip_head_leather_cowl
-    file: equip_head_leather_cowl.g3dj
+    file: equip_head_leather_cowl.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
@@ -1922,9 +1922,9 @@ assets:
     rot_y: 0.0
     rot_z: 0.0
   - key: equip_body_leather_body
-    file: equip_body_leather_body.g3dj
+    file: equip_body_leather_body.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
@@ -1939,9 +1939,9 @@ assets:
     rot_y: 0.0
     rot_z: 0.0
   - key: equip_legs_leather_chaps
-    file: equip_legs_leather_chaps.g3dj
+    file: equip_legs_leather_chaps.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
@@ -1956,9 +1956,9 @@ assets:
     rot_y: 0.0
     rot_z: 0.0
   - key: equip_hands_leather_gloves
-    file: equip_hands_leather_gloves.g3dj
+    file: equip_hands_leather_gloves.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
@@ -1973,9 +1973,9 @@ assets:
     rot_y: 0.0
     rot_z: 0.0
   - key: equip_feet_leather_boots
-    file: equip_feet_leather_boots.g3dj
+    file: equip_feet_leather_boots.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
@@ -1990,9 +1990,9 @@ assets:
     rot_y: 0.0
     rot_z: 0.0
   - key: equip_head_blue_wizard_hat
-    file: equip_head_blue_wizard_hat.g3dj
+    file: equip_head_blue_wizard_hat.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
@@ -2007,9 +2007,9 @@ assets:
     rot_y: 0.0
     rot_z: 0.0
   - key: equip_body_blue_wizard_robe
-    file: equip_body_blue_wizard_robe.g3dj
+    file: equip_body_blue_wizard_robe.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
@@ -2024,9 +2024,9 @@ assets:
     rot_y: 0.0
     rot_z: 0.0
   - key: equip_legs_blue_wizard_skirt
-    file: equip_legs_blue_wizard_skirt.g3dj
+    file: equip_legs_blue_wizard_skirt.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
@@ -2041,9 +2041,9 @@ assets:
     rot_y: 0.0
     rot_z: 0.0
   - key: equip_cape_black_cape
-    file: equip_cape_black_cape.g3dj
+    file: equip_cape_black_cape.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
@@ -2058,9 +2058,9 @@ assets:
     rot_y: 0.0
     rot_z: 0.0
   - key: equip_ammo_quiver_bronze
-    file: equip_ammo_quiver_bronze.g3dj
+    file: equip_ammo_quiver_bronze.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
@@ -2075,9 +2075,9 @@ assets:
     rot_y: 0.0
     rot_z: 0.0
   - key: equip_ammo_quiver_iron
-    file: equip_ammo_quiver_iron.g3dj
+    file: equip_ammo_quiver_iron.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
@@ -2092,9 +2092,9 @@ assets:
     rot_y: 0.0
     rot_z: 0.0
   - key: equip_ammo_quiver_steel
-    file: equip_ammo_quiver_steel.g3dj
+    file: equip_ammo_quiver_steel.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
@@ -2109,9 +2109,9 @@ assets:
     rot_y: 0.0
     rot_z: 0.0
   - key: equip_ammo_quiver_mithril
-    file: equip_ammo_quiver_mithril.g3dj
+    file: equip_ammo_quiver_mithril.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
@@ -2126,9 +2126,9 @@ assets:
     rot_y: 0.0
     rot_z: 0.0
   - key: equip_ammo_quiver_adamant
-    file: equip_ammo_quiver_adamant.g3dj
+    file: equip_ammo_quiver_adamant.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
@@ -2143,9 +2143,9 @@ assets:
     rot_y: 0.0
     rot_z: 0.0
   - key: equip_ammo_quiver_rune
-    file: equip_ammo_quiver_rune.g3dj
+    file: equip_ammo_quiver_rune.glb
     category: equipment
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: actor-center
     required: false
@@ -2160,194 +2160,214 @@ assets:
     rot_y: 0.0
     rot_z: 0.0
   - key: npc_guide_idle
-    file: npc_guide_idle.g3dj
+    file: npc_guide_idle.glb
     category: actor
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: tile-center
     required: false
     notes: Low-poly tutorial guide idle pose.
   - key: npc_guide_walk
-    file: npc_guide_walk.g3dj
+    file: npc_guide_walk.glb
     category: actor
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: tile-center
     required: false
     notes: Low-poly tutorial guide walk pose.
   - key: npc_instructor_idle
-    file: npc_instructor_idle.g3dj
+    file: npc_instructor_idle.glb
     category: actor
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: tile-center
     required: false
     notes: Low-poly combat instructor idle pose.
   - key: npc_instructor_walk
-    file: npc_instructor_walk.g3dj
+    file: npc_instructor_walk.glb
     category: actor
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: tile-center
     required: false
     notes: Low-poly combat instructor walk pose.
   - key: npc_rat_idle
-    file: npc_rat_idle.g3dj
+    file: npc_rat_idle.glb
     category: actor
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: tile-center
     required: false
     notes: Low-poly rat idle pose.
   - key: npc_rat_walk
-    file: npc_rat_walk.g3dj
+    file: npc_rat_walk.glb
     category: actor
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: tile-center
     required: false
     notes: Low-poly rat walk pose.
   - key: npc_rat_action
-    file: npc_rat_action.g3dj
+    file: npc_rat_action.glb
     category: actor
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: tile-center
     required: false
     notes: Low-poly rat action pose.
   - key: npc_giant_rat_idle
-    file: npc_giant_rat_idle.g3dj
+    file: npc_giant_rat_idle.glb
     category: actor
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: tile-center
     required: false
     notes: Low-poly giant rat idle pose.
   - key: npc_giant_rat_walk
-    file: npc_giant_rat_walk.g3dj
+    file: npc_giant_rat_walk.glb
     category: actor
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: tile-center
     required: false
     notes: Low-poly giant rat walk pose.
   - key: npc_giant_rat_action
-    file: npc_giant_rat_action.g3dj
+    file: npc_giant_rat_action.glb
     category: actor
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: tile-center
     required: false
     notes: Low-poly giant rat action pose.
   - key: npc_chicken_idle
-    file: npc_chicken_idle.g3dj
+    file: npc_chicken_idle.glb
     category: actor
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: tile-center
     required: false
     notes: Low-poly chicken idle pose.
   - key: npc_chicken_walk
-    file: npc_chicken_walk.g3dj
+    file: npc_chicken_walk.glb
     category: actor
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: tile-center
     required: false
     notes: Low-poly chicken walk pose.
   - key: npc_chicken_action
-    file: npc_chicken_action.g3dj
+    file: npc_chicken_action.glb
     category: actor
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: tile-center
     required: false
     notes: Low-poly chicken action pose.
   - key: npc_cow_idle
-    file: npc_cow_idle.g3dj
+    file: npc_cow_idle.glb
     category: actor
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: tile-center
     required: false
     notes: Low-poly cow idle pose.
   - key: npc_cow_walk
-    file: npc_cow_walk.g3dj
+    file: npc_cow_walk.glb
     category: actor
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: tile-center
     required: false
     notes: Low-poly cow walk pose.
   - key: npc_cow_action
-    file: npc_cow_action.g3dj
+    file: npc_cow_action.glb
     category: actor
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: tile-center
     required: false
     notes: Low-poly cow action pose.
   - key: npc_banker_base
-    file: npc_banker_base.g3dj
+    file: npc_banker_base.glb
     category: actor
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: tile-center
     required: false
-    notes: Animated banker base model with clips: idle, walk, action.
+    notes: Animated banker base model (clips: idle, walk, action)
   - key: npc_guide_base
-    file: npc_guide_base.g3dj
+    file: npc_guide_base.glb
     category: actor
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: tile-center
     required: false
-    notes: Animated tutorial guide base model with clips: idle, walk, action.
+    notes: Animated tutorial guide base model (clips: idle, walk, action)
   - key: npc_instructor_base
-    file: npc_instructor_base.g3dj
+    file: npc_instructor_base.glb
     category: actor
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: tile-center
     required: false
-    notes: Animated combat instructor base model with clips: idle, walk, action.
+    notes: Animated combat instructor base model (clips: idle, walk, action)
   - key: npc_goblin_base
-    file: npc_goblin_base.g3dj
+    file: npc_goblin_base.glb
     category: actor
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: tile-center
     required: false
-    notes: Animated goblin base model with clips: idle, walk, action.
+    notes: Animated goblin base model (clips: idle, walk, action)
   - key: npc_rat_base
-    file: npc_rat_base.g3dj
+    file: npc_rat_base.glb
     category: actor
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: tile-center
+    animated: true
+    animation_clips:
+      - idle
+      - walk
+      - action
     required: false
-    notes: Animated rat base model with clips: idle, walk, action.
+    notes: Animated rat base model (clips: idle, walk, action)
   - key: npc_giant_rat_base
-    file: npc_giant_rat_base.g3dj
+    file: npc_giant_rat_base.glb
     category: actor
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: tile-center
+    animated: true
+    animation_clips:
+      - idle
+      - walk
+      - action
     required: false
-    notes: Animated giant rat base model with clips: idle, walk, action.
+    notes: Animated giant rat base model (clips: idle, walk, action)
   - key: npc_chicken_base
-    file: npc_chicken_base.g3dj
+    file: npc_chicken_base.glb
     category: actor
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: tile-center
+    animated: true
+    animation_clips:
+      - idle
+      - walk
+      - action
     required: false
-    notes: Animated chicken base model with clips: idle, walk, action.
+    notes: Animated chicken base model (clips: idle, walk, action)
   - key: npc_cow_base
-    file: npc_cow_base.g3dj
+    file: npc_cow_base.glb
     category: actor
-    format: g3dj
+    format: glb
     scale: 1.0
     origin: tile-center
+    animated: true
+    animation_clips:
+      - idle
+      - walk
+      - action
     required: false
-    notes: Animated cow base model with clips: idle, walk, action.
+    notes: Animated cow base model (clips: idle, walk, action)

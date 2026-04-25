@@ -23,6 +23,7 @@ import com.osrs.shared.MiningRegistry;
 import com.osrs.shared.RangedRegistry;
 import com.osrs.shared.SmithingRegistry;
 import com.osrs.shared.SpellRegistry;
+import com.osrs.shared.TickConstants;
 import com.osrs.shared.WeaponRegistry;
 import com.osrs.shared.WoodcuttingRegistry;
 import org.slf4j.Logger;
@@ -61,45 +62,35 @@ public class GameLoop {
     private final CombatEngine combatEngine;
 
     // NPC wander: per-NPC tick counter for next random step
-    // At 256 Hz, 200-450 ticks ≈ 0.78–1.76 seconds between steps (OSRS-like cadence)
-    private static final int WANDER_MIN = 200;
-    private static final int WANDER_MAX = 450;
+    private static final int WANDER_MIN = TickConstants.WANDER_MIN;
+    private static final int WANDER_MAX = TickConstants.WANDER_MAX;
 
-    // Autosave every 60 seconds (256 Hz × 60 = 15,360 ticks)
-    private static final long AUTOSAVE_INTERVAL = 15_360L;
+    private static final long AUTOSAVE_INTERVAL = TickConstants.AUTOSAVE_INTERVAL;
     private final Map<Integer, Long> npcNextWanderTick = new HashMap<>();
     private final Random random = new Random();
 
-    // Prayer drain: 1 prayer point every 9,240 server ticks (~36 s) — OSRS tier-1 rate.
-    private static final long PRAYER_DRAIN_TICKS = 9_240L;
+    private static final int OSRS_TICK = TickConstants.OSRS_TICK;
 
-    // NPC combat movement: 1 tile per ~0.6s = 154 ticks at 256 Hz
-    private static final int NPC_MOVE_SPEED   = 154;
-    // NPC attack speed: 4 OSRS ticks = 2.4s = 615 server ticks
-    private static final int NPC_ATTACK_SPEED = 615;
+    private static final int NPC_MOVE_SPEED   = TickConstants.NPC_MOVE_SPEED;
+    private static final int NPC_ATTACK_SPEED = TickConstants.NPC_ATTACK_SPEED;
 
     // NPC de-aggro chase limit: wander_radius + 5 tiles beyond spawn
     private static final int NPC_CHASE_EXTRA  = 5;
 
-    // PID rotation: every 100-150 OSRS ticks (15400-23100 server ticks)
-    // OSRS: PID re-randomizes each cycle; lower PID = higher priority in simultaneous actions
-    private static final long PID_ROTATE_MIN = 15400L;
-    private static final long PID_ROTATE_MAX = 23100L;
+    // PID rotation: every 100-150 OSRS ticks
+    private static final long PID_ROTATE_MIN = TickConstants.PID_ROTATE_MIN;
+    private static final long PID_ROTATE_MAX = TickConstants.PID_ROTATE_MAX;
     private long nextPidRotateTick = 0;
 
-    // Server tick ↔ OSRS tick conversion: 256 Hz × 0.6 s/tick = 153.6 ≈ 154 server ticks per OSRS tick
-    private static final int OSRS_TICKS_TO_SERVER = 154;
-    // Fixed chop attempt interval: 4 OSRS ticks per roll (OSRS standard)
-    private static final int CHOP_ATTEMPT_INTERVAL = WoodcuttingRegistry.CHOP_ATTEMPT_OSRS_TICKS * OSRS_TICKS_TO_SERVER;
-    // Fixed mine attempt interval: 3 OSRS ticks per roll (OSRS standard)
-    private static final int MINE_ATTEMPT_INTERVAL = MiningRegistry.MINE_ATTEMPT_OSRS_TICKS * OSRS_TICKS_TO_SERVER;
-    private static final int SMITH_ITEM_ATTEMPT_INTERVAL = 5 * OSRS_TICKS_TO_SERVER;
-    private static final int FIREMAKING_ATTEMPT_INTERVAL = 2 * OSRS_TICKS_TO_SERVER;
+    private static final int CHOP_ATTEMPT_INTERVAL     = TickConstants.CHOP_ATTEMPT_INTERVAL;
+    private static final int MINE_ATTEMPT_INTERVAL     = TickConstants.MINE_ATTEMPT_INTERVAL;
+    private static final int SMITH_ITEM_ATTEMPT_INTERVAL = TickConstants.SMITH_ITEM_ATTEMPT_INTERVAL;
+    private static final int FIREMAKING_ATTEMPT_INTERVAL = TickConstants.FIREMAKING_ATTEMPT_INTERVAL;
     private static final int COAL_ITEM_ID = 453;
     private static final int TINDERBOX_ITEM_ID = 590;
     private static final int COOKING_FIRE_DEFINITION_ID = 400;
     private static final String COOKING_FIRE_NAME = "Cooking Fire";
-    private static final long TEMP_FIRE_LIFETIME_TICKS = 15_360L;
+    private static final long TEMP_FIRE_LIFETIME_TICKS = TickConstants.TEMP_FIRE_LIFETIME_TICKS;
     private static int nextTemporaryFireNpcId = 1_000_000;
 
     
@@ -179,6 +170,12 @@ public class GameLoop {
         LOG.info("Game loop exited at tick {}", tickCount);
     }
     
+    /** Advances one tick. Package-private — deterministic testing only. */
+    void tickOnce() {
+        processTick();
+        tickCount++;
+    }
+
     /**
      * 6-stage tick processing (EXACT ORDER MATTERS for determinism)
      * See EXHAUSTIVE_DEVELOPMENT_ROADMAP.md for stage definitions
@@ -234,6 +231,7 @@ public class GameLoop {
                         PlayerRepository.saveBank(p);
                     }
                     PlayerRepository.saveEquipment(p);
+                    PlayerRepository.saveFriends(p);
                     if (ps != null) {
                         PlayerRepository.saveQuestProgress(p, ps.getQuestManager());
                     }
@@ -471,7 +469,9 @@ public class GameLoop {
                         .setAttackerHealth(npc.getHealth())
                         .setTargetHealth(newTargetHealth)
                         .setTargetX(target.getX())
-                        .setTargetY(target.getY()))
+                        .setTargetY(target.getY())
+                        .setAttackerX(npc.getX())
+                        .setAttackerY(npc.getY()))
                     .build());
 
                 // Broadcast HealthUpdate for the player
@@ -876,26 +876,47 @@ public class GameLoop {
     }
 
     /**
-     * Drains 1 prayer point from every online player who has an active prayer,
-     * at the rate of 1 point per PRAYER_DRAIN_TICKS server ticks (~36 s).
-     * Deactivates all prayers and notifies the player when points reach 0.
+     * Accumulates prayer drain for every online player with active prayers.
+     * Runs once per OSRS game tick (every OSRS_TICK server ticks).
+     *
+     * Each prayer contributes its drainRate to the player's accumulator.
+     * When the accumulator reaches PrayerRegistry.DRAIN_THRESHOLD (100), 1 prayer point
+     * is consumed. This gives per-prayer accurate drain speeds:
+     *   tier-1 prayers (rate 3):  ~20 s/pt  (3 pts/min)
+     *   tier-2 prayers (rate 6):  ~10 s/pt  (6 pts/min)
+     *   protect prayers (rate 18): ~3.3 s/pt (18 pts/min)
      */
     private void processPrayerDrain() {
-        if (tickCount == 0 || tickCount % PRAYER_DRAIN_TICKS != 0) return;
+        if (tickCount % OSRS_TICK != 0) return;
         for (PlayerSession ps : nettyServer.getSessions().values()) {
             if (!ps.isAuthenticated() || ps.getPlayer() == null) continue;
             Player p = ps.getPlayer();
             if (!p.hasAnyActivePrayer() || p.getPrayerPoints() <= 0) continue;
-            p.setPrayerPoints(p.getPrayerPoints() - 1);
+
+            int rate = com.osrs.shared.PrayerRegistry.totalDrainRate(p.getActivePrayers());
+            if (rate <= 0) continue;
+
+            int acc = p.getPrayerDrainAccumulator() + rate;
+            int pointsDrained = acc / com.osrs.shared.PrayerRegistry.DRAIN_THRESHOLD;
+            p.setPrayerDrainAccumulator(acc % com.osrs.shared.PrayerRegistry.DRAIN_THRESHOLD);
+
+            if (pointsDrained <= 0) continue;
+
+            p.setPrayerPoints(p.getPrayerPoints() - pointsDrained);
             io.netty.channel.Channel ch = ps.getChannel();
             if (ch == null) continue;
+            boolean justDepleted = p.getPrayerPoints() == 0;
+            if (justDepleted) {
+                p.deactivateAllPrayers();
+                p.setPrayerDrainAccumulator(0);
+            }
             ch.writeAndFlush(NetworkProto.ServerMessage.newBuilder()
                 .setPrayerPointsUpdate(NetworkProto.PrayerPointsUpdate.newBuilder()
                     .setCurrent(p.getPrayerPoints())
-                    .setMaximum(p.getMaxPrayerPoints()))
+                    .setMaximum(p.getMaxPrayerPoints())
+                    .addAllActivePrayerIds(p.getActivePrayers()))
                 .build());
-            if (p.getPrayerPoints() == 0) {
-                p.deactivateAllPrayers();
+            if (justDepleted) {
                 ch.writeAndFlush(NetworkProto.ServerMessage.newBuilder()
                     .setChatMessage(NetworkProto.ChatMessage.newBuilder()
                         .setText("You have run out of Prayer points.")
@@ -934,7 +955,8 @@ public class GameLoop {
                     .setHealth(npc.getMaxHealth())
                     .setMaxHealth(npc.getMaxHealth())
                     .setCombatLevel(npc.getCombatLevel())
-                    .setDefinitionId(npc.getDefinitionId()))
+                    .setDefinitionId(npc.getDefinitionId())
+                    .setIsAggressive(npc.isAggressive()))
                 .build());
         }
     }
@@ -1855,7 +1877,7 @@ public class GameLoop {
                 : treeTier.respawnMinOsrsTicks()
                     + random.nextInt(treeTier.respawnMaxOsrsTicks() - treeTier.respawnMinOsrsTicks() + 1);
             tree.setDead(true);
-            tree.setRespawnAtTick(tickCount + (long) respawnOsrsTicks * OSRS_TICKS_TO_SERVER);
+            tree.setRespawnAtTick(tickCount + (long) respawnOsrsTicks * TickConstants.OSRS_TICK);
             nettyServer.broadcastToAll(NetworkProto.ServerMessage.newBuilder()
                 .setNpcDespawn(NetworkProto.NpcDespawn.newBuilder().setNpcId(tree.getId()))
                 .build());
@@ -2342,6 +2364,7 @@ public class GameLoop {
         return low + Math.floor((high - low) * (double) clampedLevel / 99.0);
     }
 
+    // Values are raw server ticks (sub-OSRS-tick), tuned for feel — not OSRS multiples.
     private int nextFishingAttemptTicks(FishingRegistry.ActionType actionType, int fishingLevel) {
         int speedBonus = Math.min(40, Math.max(0, fishingLevel / 2));
         return switch (actionType) {
@@ -2585,7 +2608,7 @@ public class GameLoop {
                 : rockTier.respawnMinOsrsTicks()
                     + random.nextInt(rockTier.respawnMaxOsrsTicks() - rockTier.respawnMinOsrsTicks() + 1);
             rock.setDead(true);
-            rock.setRespawnAtTick(tickCount + (long) respawnOsrsTicks * OSRS_TICKS_TO_SERVER);
+            rock.setRespawnAtTick(tickCount + (long) respawnOsrsTicks * TickConstants.OSRS_TICK);
             nettyServer.broadcastToAll(NetworkProto.ServerMessage.newBuilder()
                 .setNpcDespawn(NetworkProto.NpcDespawn.newBuilder().setNpcId(rock.getId()))
                 .build());

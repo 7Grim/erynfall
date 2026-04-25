@@ -276,6 +276,8 @@ public class GameScreen extends ApplicationAdapter {
     // -----------------------------------------------------------------------
     private NettyClient  nettyClient;
     private ContextMenu  contextMenu;
+    /** OSRS-style hover label: text shown at top of screen indicating left-click default action. */
+    private String hoverActionLabel = "";
     private CombatUI     combatUI;
     private SidePanel         sidePanel;
     private ClientPreferences clientPreferences;
@@ -365,7 +367,9 @@ public class GameScreen extends ApplicationAdapter {
     private final Map<Integer, Float> npcAnimTime = new HashMap<>();
     private final Map<Integer, Boolean> npcAnimMoving = new HashMap<>();
     private final Map<Integer, Float> npcActionAnimTimer = new HashMap<>();
-    private static final float NPC_ACTION_ANIM_DURATION = 0.35f;
+    // 4 OSRS ticks = 2.4 s — matches the default NPC attack cycle so the action
+    // animation covers the full swing window and re-triggers on the next CombatHit.
+    private static final float NPC_ACTION_ANIM_DURATION = 4 * 0.6f;
 
     // -----------------------------------------------------------------------
     // Ground items (synced from ClientPacketHandler each frame)
@@ -377,9 +381,9 @@ public class GameScreen extends ApplicationAdapter {
     // Attack animation state
     private float attackAnimTimer = 0f;
     private static final float ATTACK_ANIM_DURATION = 0.6f; // 1 OSRS tick
-    private static final int PRAYER_ID_PROTECT_FROM_MAGIC = 15;
-    private static final int PRAYER_ID_PROTECT_FROM_MISSILES = 16;
-    private static final int PRAYER_ID_PROTECT_FROM_MELEE = 17;
+    private static final int PRAYER_ID_PROTECT_FROM_MAGIC    = 7;
+    private static final int PRAYER_ID_PROTECT_FROM_MISSILES = 8;
+    private static final int PRAYER_ID_PROTECT_FROM_MELEE    = 9;
     private String currentAttackPose = "idle";
 
     public enum PendingAction {
@@ -521,6 +525,8 @@ public class GameScreen extends ApplicationAdapter {
     private boolean isWoodcuttingActive = false;
     /** True while the server has confirmed mining is active. Drives looping mine animation. */
     private boolean isMiningActive = false;
+    /** True while the server has confirmed fishing is active. Drives looping fish animation. */
+    private boolean isFishingActive = false;
 
     // Firemaking animation
     /** Seconds remaining in the fire animation; 0 = not playing. */
@@ -1014,12 +1020,23 @@ public class GameScreen extends ApplicationAdapter {
     }
 
     private void triggerNpcActionFromCombatHit(ClientPacketHandler h, ClientPacketHandler.CombatHitEvent evt) {
+        // NPC is the target (player or NPC attacked it)
         int targetId = evt.targetId;
         if (targetId >= 0 && npcVisual.containsKey(targetId) && !h.isPlayer(targetId)) {
             String targetName = h.getEntityName(targetId);
             int definitionId = h.getNpcDefinitionId(targetId);
             if (isNpcActionAnimated(definitionId, targetName)) {
                 npcActionAnimTimer.put(targetId, NPC_ACTION_ANIM_DURATION);
+            }
+        }
+        // NPC is the attacker (it hit the player or another entity)
+        int attackerId = evt.attackerId;
+        if (attackerId >= 0 && attackerId != targetId
+                && npcVisual.containsKey(attackerId) && !h.isPlayer(attackerId)) {
+            String attackerName = h.getEntityName(attackerId);
+            int definitionId = h.getNpcDefinitionId(attackerId);
+            if (isNpcActionAnimated(definitionId, attackerName)) {
+                npcActionAnimTimer.put(attackerId, NPC_ACTION_ANIM_DURATION);
             }
         }
     }
@@ -1255,6 +1272,7 @@ public class GameScreen extends ApplicationAdapter {
 
         processServerEvents();
         handleInput();
+        updateHoverActionLabel(Gdx.input.getX(), Gdx.input.getY());
         processApproach();
         processCombatFollow();
         processGroundItemApproach();
@@ -1272,9 +1290,15 @@ public class GameScreen extends ApplicationAdapter {
             // Loop the mine animation for as long as the server says we're actively mining.
             if (attackAnimTimer == 0f) triggerAttackPose("mine");
         }
+        if (isFishingActive) {
+            // Loop the fish animation for as long as the server says fishing is active.
+            if (attackAnimTimer == 0f) triggerAttackPose("fish");
+        }
         if (attackAnimTimer > 0f) {
             attackAnimTimer = Math.max(0f, attackAnimTimer - delta);
-            if (attackAnimTimer == 0f && !isWoodcuttingActive && !isMiningActive) currentAttackPose = "idle";
+            if (attackAnimTimer == 0f && !isWoodcuttingActive && !isMiningActive && !isFishingActive) {
+                currentAttackPose = "idle";
+            }
         }
 
         if (Gdx.input.isKeyJustPressed(Input.Keys.F10)) {
@@ -1511,6 +1535,7 @@ public class GameScreen extends ApplicationAdapter {
                 bankDragging ? bankDragMouseY : bankInventoryDragMouseY);
         }
         if (contextMenu.isVisible()) renderContextMenu();
+        if (!contextMenu.isVisible() && !hoverActionLabel.isEmpty()) renderHoverActionLabel(w, h);
         if (deathScreenTimer > 0) renderDeathScreen(delta);
 
         Gdx.gl.glDisable(GL20.GL_BLEND);
@@ -3016,6 +3041,19 @@ public class GameScreen extends ApplicationAdapter {
                 }
             }
 
+            boolean isFishEvent = skillingEvent.type == NetworkProto.SkillingType.SKILLING_FISHING;
+            if (isFishEvent && skillingEvent.state == NetworkProto.SkillingState.SKILLING_STATE_ACTIVE) {
+                isFishingActive = true;
+                triggerAttackPose("fish");
+            }
+            if (isFishEvent && skillingEvent.state == NetworkProto.SkillingState.SKILLING_STATE_STOPPED) {
+                isFishingActive = false;
+                attackAnimTimer = 0f;
+                if ("fish".equals(currentAttackPose) || (currentAttackPose != null && currentAttackPose.startsWith("fish"))) {
+                    currentAttackPose = "idle";
+                }
+            }
+
             if (pendingAction == null) {
                 continue;
             }
@@ -3173,6 +3211,13 @@ public class GameScreen extends ApplicationAdapter {
 
         for (ClientPacketHandler.CombatHitEvent evt : h.drainCombatHits()) {
             triggerNpcActionFromCombatHit(h, evt);
+            // Server confirmed our attack: re-trigger the correct animation pose.
+            // This drives the continuous attack loop at the server's actual tick rate
+            // rather than a fixed client-side timer. Works for both first and
+            // subsequent swings.
+            if (evt.attackerId == h.getMyPlayerId()) {
+                triggerAttackPose(attackPoseForProjectileType(evt.projectileType));
+            }
             boolean npcHitMe = (evt.targetId == h.getMyPlayerId());
             String chatMsg = npcHitMe
                 ? (evt.hit ? String.format("You were hit for %d!", evt.damage) : "The attack missed you.")
@@ -3215,7 +3260,12 @@ public class GameScreen extends ApplicationAdapter {
         for (ClientPacketHandler.PrayerPointsEvent pp : h.drainPrayerPoints()) {
             playerPrayer    = pp.current;
             playerMaxPrayer = pp.maximum;
-            if (playerPrayer == 0) localActivePrayers.clear();
+            if (!pp.activePrayerIds.isEmpty()) {
+                localActivePrayers.clear();
+                localActivePrayers.addAll(pp.activePrayerIds);
+            } else if (playerPrayer == 0) {
+                localActivePrayers.clear();
+            }
         }
         // Keep SidePanel prayer tab in sync with latest values
         sidePanel.setPrayerState(playerPrayer, playerMaxPrayer, localActivePrayers);
@@ -4535,24 +4585,42 @@ public class GameScreen extends ApplicationAdapter {
                     requestLogout();
                 }
             } else {
-                if (selectedInventorySlot >= 0) {
+                Integer pickedEntityId = pick3DEntityId(mx, my);
+                ClientPacketHandler leftClickH = handler();
+                // Use-item-on-NPC: if item is selected and we clicked a non-player entity, route it.
+                if (selectedInventorySlot >= 0
+                        && pickedEntityId != null
+                        && leftClickH != null
+                        && !leftClickH.isPlayer(pickedEntityId)) {
+                    if (nettyClient != null) {
+                        nettyClient.sendUseItemOnNpc(selectedInventorySlot, pickedEntityId);
+                    }
                     selectedInventorySlot = -1;
                     sidePanel.setSelectedInventorySlot(-1);
-                }
-                Integer pickedEntityId = pick3DEntityId(mx, my);
-                if (pickedEntityId != null && handleWorldLeftClickEntity(pickedEntityId)) {
                     int[] entityPos = entityLogicalPosition(pickedEntityId);
                     if (entityPos != null) {
                         clickMarkers.add(new ClickMarker(entityPos[0], entityPos[1], true));
                     }
                 } else {
-                    int[] tile = screenToTile(mx, my);
-                    if (isValidMapTile(tile[0], tile[1])) {
-                        boolean didAction = handleWorldLeftClick(tile[0], tile[1]);
-                        if (!didAction) {
-                            walkTo(tile[0], tile[1]);
+                    // Default left-click: clear any pending item selection, then act.
+                    if (selectedInventorySlot >= 0) {
+                        selectedInventorySlot = -1;
+                        sidePanel.setSelectedInventorySlot(-1);
+                    }
+                    if (pickedEntityId != null && handleWorldLeftClickEntity(pickedEntityId)) {
+                        int[] entityPos = entityLogicalPosition(pickedEntityId);
+                        if (entityPos != null) {
+                            clickMarkers.add(new ClickMarker(entityPos[0], entityPos[1], true));
                         }
-                        clickMarkers.add(new ClickMarker(tile[0], tile[1], didAction));
+                    } else {
+                        int[] tile = screenToTile(mx, my);
+                        if (isValidMapTile(tile[0], tile[1])) {
+                            boolean didAction = handleWorldLeftClick(tile[0], tile[1]);
+                            if (!didAction) {
+                                walkTo(tile[0], tile[1]);
+                            }
+                            clickMarkers.add(new ClickMarker(tile[0], tile[1], didAction));
+                        }
                     }
                 }
             }
@@ -5759,7 +5827,7 @@ public class GameScreen extends ApplicationAdapter {
                     default -> NetworkProto.FishingActionType.FISHING_ACTION_NONE;
                 };
                 nettyClient.sendStartSkilling(pendingNpcId, NetworkProto.SkillingType.SKILLING_FISHING, actionType);
-                triggerAttackPose("fish");
+                // Animation triggered when server confirms SKILLING_STATE_ACTIVE, not here
                 pendingActionRetryTimer = 0.25f;
             } else if ("mine".equals(pendingAction)) {
                 nettyClient.sendStartSkilling(pendingNpcId, NetworkProto.SkillingType.SKILLING_MINING);
@@ -5790,6 +5858,12 @@ public class GameScreen extends ApplicationAdapter {
     private void triggerAttackPose(String pose) {
         currentAttackPose = pose;
         attackAnimTimer = ATTACK_ANIM_DURATION;
+    }
+
+    private String attackPoseForProjectileType(int projectileType) {
+        if (projectileType == 1 || projectileType == 2) return "bow";    // arrow / bolt
+        if (projectileType >= 3)                         return "shoot";  // spell
+        return "sword";  // melee
     }
 
     private void clearPendingAction() {
@@ -6105,10 +6179,8 @@ public class GameScreen extends ApplicationAdapter {
             return opts;
         }
 
+        // Walk here is computed now but added last (OSRS: always the bottom option).
         int[] tile = entityLogicalPosition(entityId);
-        if (tile != null && isValidMapTile(tile[0], tile[1])) {
-            opts.add(new ContextMenu.MenuItem(ContextMenu.Action.WALK_HERE, null, new int[]{tile[0], tile[1]}));
-        }
 
         if (h.isPlayer(entityId)) {
             if (localPlayerId >= 0 && entityId == localPlayerId) {
@@ -6128,10 +6200,16 @@ public class GameScreen extends ApplicationAdapter {
                 yellow,
                 entityId
             ));
+            if (tile != null && isValidMapTile(tile[0], tile[1])) {
+                opts.add(new ContextMenu.MenuItem(ContextMenu.Action.WALK_HERE, null, new int[]{tile[0], tile[1]}));
+            }
             return opts;
         }
 
         appendNpcContextMenuOptions(opts, entityId);
+        if (tile != null && isValidMapTile(tile[0], tile[1])) {
+            opts.add(new ContextMenu.MenuItem(ContextMenu.Action.WALK_HERE, null, new int[]{tile[0], tile[1]}));
+        }
         return opts;
     }
 
@@ -6139,9 +6217,7 @@ public class GameScreen extends ApplicationAdapter {
         List<ContextMenu.MenuItem> opts = new ArrayList<>();
         if (!isValidMapTile(tileX, tileY)) return opts;
 
-        opts.add(new ContextMenu.MenuItem(ContextMenu.Action.WALK_HERE, null, new int[]{tileX, tileY}));
-
-        // Door at this tile — show Open or Close depending on current state
+        // Door at this tile — primary object action near the top
         ClientPacketHandler doorHandler = handler();
         if (doorHandler != null) {
             ClientPacketHandler.WorldObjectState door = doorHandler.getDoorAt(tileX, tileY);
@@ -6154,7 +6230,7 @@ public class GameScreen extends ApplicationAdapter {
             }
         }
 
-        // Ground items at this tile
+        // Ground items at this tile (Take is the default left-click action)
         for (Map.Entry<Integer, int[]> entry : groundItemsOnMap.entrySet()) {
             int[] data = entry.getValue();  // {itemId, qty, x, y}
             if (data[2] == tileX && data[3] == tileY) {
@@ -6167,15 +6243,13 @@ public class GameScreen extends ApplicationAdapter {
             }
         }
 
-        // Check all server-tracked NPCs — show options for whichever NPC the
-        // player right-clicked (their current rendered tile, rounded).
-        // OSRS format: verb in white, NPC name in yellow (#ffff00), level appended.
+        // NPCs/players on this tile — appended after ground items, NPC options
+        // include Examine; Walk here is always the final entry.
         ClientPacketHandler h = handler();
         if (h != null) {
             for (Map.Entry<Integer, int[]> entry : h.getEntityPositions().entrySet()) {
                 int id = entry.getKey();
                 if (h.isPlayer(id)) {
-                    // Other player — add Trade/Follow options if standing on this tile
                     if (localPlayerId >= 0 && id == localPlayerId) continue;
                     float[] vis = npcVisual.get(id);
                     if (vis == null) continue;
@@ -6195,7 +6269,6 @@ public class GameScreen extends ApplicationAdapter {
                         id));
                     continue;
                 }
-                // Use visual (rounded) position so click target matches the sprite
                 float[] vis = npcVisual.get(id);
                 if (vis == null) continue;
                 int vx = (int) Math.round(vis[0]);
@@ -6205,6 +6278,9 @@ public class GameScreen extends ApplicationAdapter {
                 }
             }
         }
+
+        // Walk here — always the last option (OSRS standard)
+        opts.add(new ContextMenu.MenuItem(ContextMenu.Action.WALK_HERE, null, new int[]{tileX, tileY}));
         return opts;
     }
 
@@ -6216,6 +6292,7 @@ public class GameScreen extends ApplicationAdapter {
         String rawName = h.getEntityName(npcId);
         if (rawName == null || rawName.isEmpty()) rawName = "NPC " + npcId;
         int level = h.getEntityCombatLevel(npcId);
+        boolean isHostile = h.isNpcHostile(npcId);
 
         String yellowName = "[#ffff00]" + rawName + "[]";
         String levelSuffix = level > 0 ? " (level-" + level + ")" : "";
@@ -6236,10 +6313,8 @@ public class GameScreen extends ApplicationAdapter {
         boolean isShopkeeper = isFishingSupplier || isSmithingSupplier || isMagicSupplier
             || isRangedSupplier || isCraftingSupplier || isRunecraftSupplier;
 
-        if (level > 0) {
-            opts.add(new ContextMenu.MenuItem(
-                "Attack " + yellowName + levelSuffix, ContextMenu.Action.ATTACK.id, npcId));
-        }
+        // Options in OSRS priority order: primary action first, Examine last.
+        // Walk here is appended by the caller after all NPC options.
         if (isTreeResource) {
             opts.add(new ContextMenu.MenuItem(ContextMenu.Action.CHOP, yellowName, npcId));
         } else if (isMiningRock) {
@@ -6276,9 +6351,20 @@ public class GameScreen extends ApplicationAdapter {
                 opts.add(new ContextMenu.MenuItem(ContextMenu.Action.SUPPLIES, yellowName, npcId));
             }
             opts.add(new ContextMenu.MenuItem(ContextMenu.Action.TALK_TO, yellowName, npcId));
+        } else if (isHostile) {
+            // Combat NPC: Attack is the default. No Talk-to (enemies don't have dialogue).
+            opts.add(new ContextMenu.MenuItem(
+                "Attack " + yellowName + levelSuffix, ContextMenu.Action.ATTACK.id, npcId));
         } else {
+            // Regular dialogue NPC: Talk-to is the default.
             opts.add(new ContextMenu.MenuItem(ContextMenu.Action.TALK_TO, yellowName, npcId));
+            // If it has a combat level but isn't considered hostile, Attack is available as secondary.
+            if (level > 0) {
+                opts.add(new ContextMenu.MenuItem(
+                    "Attack " + yellowName + levelSuffix, ContextMenu.Action.ATTACK.id, npcId));
+            }
         }
+        // Examine is always second-to-last; Walk here is added by the caller.
         opts.add(new ContextMenu.MenuItem(ContextMenu.Action.EXAMINE_NPC, yellowName, npcId));
     }
 
@@ -6484,6 +6570,117 @@ public class GameScreen extends ApplicationAdapter {
             startApproach(entityId, "talk");
         }
         return true;
+    }
+
+    /**
+     * Computes what left-click at the current mouse position would do and stores
+     * it in hoverActionLabel. Shown at the top of the screen as OSRS-style feedback.
+     * rawMouseY is LibGDX's raw Y (0=top); converted internally.
+     */
+    private void updateHoverActionLabel(int rawMouseX, int rawMouseY) {
+        int h = Gdx.graphics.getHeight();
+        int mx = rawMouseX;
+        int my = h - rawMouseY;
+
+        ClientPacketHandler handler = handler();
+        if (handler == null || sidePanel.isOverPanel(mx, my)) {
+            hoverActionLabel = "";
+            return;
+        }
+
+        // Use-item mode: show "Use <item> on <target>"
+        if (selectedInventorySlot >= 0) {
+            String itemName = sidePanel.getInventoryItemName(selectedInventorySlot);
+            if (itemName == null || itemName.isEmpty()) itemName = "item";
+            Integer pickedId = pick3DEntityId(mx, rawMouseY);
+            if (pickedId != null && !handler.isPlayer(pickedId)) {
+                String targetName = handler.getEntityName(pickedId);
+                if (targetName == null || targetName.isEmpty()) targetName = "NPC";
+                hoverActionLabel = "Use " + itemName + " on " + targetName;
+            } else {
+                hoverActionLabel = "Use " + itemName;
+            }
+            return;
+        }
+
+        // Check 3D entity pick first (matches what left-click would do)
+        Integer pickedId = pick3DEntityId(mx, rawMouseY);
+        if (pickedId != null && handler.isPlayer(pickedId) && pickedId != handler.getMyPlayerId()) {
+            String name = handler.getEntityName(pickedId);
+            if (name == null || name.isEmpty()) name = "Player";
+            hoverActionLabel = "Follow " + name;
+            return;
+        }
+        if (pickedId != null && !handler.isPlayer(pickedId)) {
+            String name = handler.getEntityName(pickedId);
+            if (name == null || name.isEmpty()) name = "NPC";
+            String skill = handler.getResourcePrimarySkill(pickedId);
+            if (skill != null) {
+                String verb = switch (skill) {
+                    case "chop"      -> "Chop down";
+                    case "mine"      -> "Mine";
+                    case "cook_at"   -> "Cook-at";
+                    case "pray_at"   -> "Pray-at";
+                    case "smelt_at"  -> "Smelt";
+                    case "smith_at"  -> "Smith";
+                    case "fish_net"  -> "Net";
+                    case "fish_bait" -> "Bait";
+                    case "fish_lure" -> "Lure";
+                    case "fish_cage" -> "Cage";
+                    case "fish_harpoon" -> "Harpoon";
+                    default -> skill;
+                };
+                hoverActionLabel = verb + " " + name;
+            } else if (handler.isNpcHostile(pickedId)) {
+                int level = handler.getEntityCombatLevel(pickedId);
+                hoverActionLabel = "Attack " + name + (level > 0 ? " (level-" + level + ")" : "");
+            } else {
+                hoverActionLabel = "Talk-to " + name;
+            }
+            return;
+        }
+
+        // Tile-based: ground item or walk
+        int[] tile = screenToTile(mx, rawMouseY);
+        if (tile != null && isValidMapTile(tile[0], tile[1])) {
+            Integer groundItemId = handler.getGroundItemAt(tile[0], tile[1]);
+            if (groundItemId != null) {
+                String name = groundItemNamesMap.getOrDefault(groundItemId, "item");
+                hoverActionLabel = "Take " + name;
+                return;
+            }
+            Integer npcId = handler.getNpcAt(tile[0], tile[1]);
+            if (npcId != null) {
+                String name = handler.getEntityName(npcId);
+                if (name == null || name.isEmpty()) name = "NPC";
+                hoverActionLabel = handler.isNpcHostile(npcId) ? "Attack " + name : "Talk-to " + name;
+                return;
+            }
+        }
+        hoverActionLabel = "Walk here";
+    }
+
+    /** Renders the hover action label at the top-center of the screen. */
+    private void renderHoverActionLabel(int screenW, int screenH) {
+        if (hoverActionLabel.isEmpty()) return;
+        int labelY = screenH - 4;
+        int barH = 18;
+        int barY = screenH - barH;
+
+        shapeRenderer.setProjectionMatrix(screenProjection);
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+        shapeRenderer.setColor(0f, 0f, 0f, 0.55f);
+        shapeRenderer.rect(0, barY, screenW, barH);
+        shapeRenderer.end();
+
+        screenBatch.setProjectionMatrix(screenProjection);
+        screenBatch.begin();
+        font.setColor(COLOR_YELLOW);
+        GlyphLayout layout = new GlyphLayout(font, hoverActionLabel);
+        float textX = (screenW - layout.width) / 2f;
+        font.draw(screenBatch, hoverActionLabel, textX, labelY);
+        screenBatch.end();
+        font.setColor(COLOR_WHITE);
     }
 
     private int[] entityLogicalPosition(int entityId) {

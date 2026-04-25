@@ -180,6 +180,7 @@ public class World {
             npc.setBanker(npcDef.isBanker);
             npc.setFishingSupplier(npcDef.isFishingSupplier);
             npc.setSmithingSupplier(npcDef.isSmithingSupplier);
+            npc.setAttackType(parseAttackType(npcDef.attackType));
             npcs.put(npcDef.id, npc);
             npcExamineTexts.put(npcDef.id, npcDef.examine);
             LOG.debug("Spawned NPC: {} (id={}, level={}, pos=({}, {}))", 
@@ -187,6 +188,15 @@ public class World {
         }
     }
     
+    private static com.osrs.shared.PrayerRegistry.ProtectionType parseAttackType(String s) {
+        if (s == null) return com.osrs.shared.PrayerRegistry.ProtectionType.MELEE;
+        return switch (s.toLowerCase()) {
+            case "ranged" -> com.osrs.shared.PrayerRegistry.ProtectionType.RANGED;
+            case "magic"  -> com.osrs.shared.PrayerRegistry.ProtectionType.MAGIC;
+            default       -> com.osrs.shared.PrayerRegistry.ProtectionType.MELEE;
+        };
+    }
+
     private void initializeDoors() {
         for (WorldData.DoorDefinition def : worldData.doors) {
             doorDefinitions.put(def.id, def);

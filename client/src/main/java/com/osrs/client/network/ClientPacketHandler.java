@@ -11,6 +11,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
@@ -46,6 +47,9 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
 
     /** Current health of each entity. int[]{hp, maxHp} */
     private final Map<Integer, int[]> entityHealth = new ConcurrentHashMap<>();
+
+    /** NPC IDs that are flagged aggressive (attacks on sight) by the server. */
+    private final Set<Integer> aggressiveNpcIds = ConcurrentHashMap.newKeySet();
 
     /** The local player's entity ID (from HandshakeResponse). */
     private int myPlayerId = -1;
@@ -91,6 +95,7 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
 
     /** Queued hitsplat events — drained by GameScreen each frame. */
     public static class CombatHitEvent {
+        public final int attackerId;
         public final int targetId;
         public final int targetX, targetY;
         public final int attackerX, attackerY;
@@ -99,9 +104,10 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
         public final boolean hit;
         public final int xpAwarded;
 
-        public CombatHitEvent(int targetId, int targetX, int targetY,
+        public CombatHitEvent(int attackerId, int targetId, int targetX, int targetY,
                               int attackerX, int attackerY, int projectileType,
                               int damage, boolean hit, int xpAwarded) {
+            this.attackerId    = attackerId;
             this.targetId      = targetId;
             this.targetX       = targetX;
             this.targetY       = targetY;
@@ -461,9 +467,13 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
             case COMBAT_HIT          -> handleCombatHit(packet.getCombatHit());
             case HEALTH_UPDATE       -> handleHealthUpdate(packet.getHealthUpdate());
             case SKILL_UPDATE           -> handleSkillUpdate(packet.getSkillUpdate());
-            case PRAYER_POINTS_UPDATE   -> pendingPrayerPoints.add(new PrayerPointsEvent(
-                packet.getPrayerPointsUpdate().getCurrent(),
-                packet.getPrayerPointsUpdate().getMaximum()));
+            case PRAYER_POINTS_UPDATE   -> {
+                NetworkProto.PrayerPointsUpdate ppu = packet.getPrayerPointsUpdate();
+                pendingPrayerPoints.add(new PrayerPointsEvent(
+                    ppu.getCurrent(),
+                    ppu.getMaximum(),
+                    ppu.getActivePrayerIdsList().isEmpty() ? null : ppu.getActivePrayerIdsList()));
+            }
             case DIALOGUE_PROMPT     -> handleDialoguePrompt(packet.getDialoguePrompt());
             case QUEST_UPDATE        -> handleQuestUpdate(packet.getQuestUpdate());
             case PLAYER_DEATH        -> handlePlayerDeath(packet.getPlayerDeath());
@@ -560,6 +570,11 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
             entityCombatLevels.put(e.getId(), e.getCombatLevel());
             entityDefinitionIds.put(e.getId(), e.getDefinitionId());
             entityHealth.put(e.getId(), new int[]{e.getHealth(), e.getMaxHealth()});
+            if (e.getIsAggressive()) {
+                aggressiveNpcIds.add(e.getId());
+            } else {
+                aggressiveNpcIds.remove(e.getId());
+            }
         }
         LOG.info("WorldState received: {} entities loaded", worldState.getEntitiesCount());
         suppressSkillDropsUntilWorldState = false;
@@ -599,6 +614,7 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
         entityHealth.put(hit.getTargetId(), hp);
 
         pendingCombatHits.add(new CombatHitEvent(
+            hit.getAttackerId(),
             hit.getTargetId(),
             hit.getTargetX(), hit.getTargetY(),
             hit.getAttackerX(), hit.getAttackerY(),
@@ -793,9 +809,10 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
         return null;
     }
 
-    // Returns true if an NPC is hostile (attacks player on sight / is a combat target).
+    // Returns true if an NPC is aggressive (attacks on sight), based on the server flag.
+    // Falls back to combat level > 0 for entities received before the flag was introduced.
     public boolean isNpcHostile(int npcId) {
-        return getEntityCombatLevel(npcId) > 0;
+        return aggressiveNpcIds.contains(npcId);
     }
 
     // Returns a resource NPC ID at the tile if it is a skilling target, null otherwise.
@@ -1076,9 +1093,14 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
         entityCombatLevels.put(id, respawn.getCombatLevel());
         entityDefinitionIds.put(id, respawn.getDefinitionId());
         entityHealth.put(id, new int[]{respawn.getHealth(), respawn.getMaxHealth()});
-        LOG.info("NpcRespawn: id={} name={} pos=({},{}) hp={}/{}",
+        if (respawn.getIsAggressive()) {
+            aggressiveNpcIds.add(id);
+        } else {
+            aggressiveNpcIds.remove(id);
+        }
+        LOG.info("NpcRespawn: id={} name={} pos=({},{}) hp={}/{} aggressive={}",
             id, respawn.getName(), respawn.getX(), respawn.getY(),
-            respawn.getHealth(), respawn.getMaxHealth());
+            respawn.getHealth(), respawn.getMaxHealth(), respawn.getIsAggressive());
     }
 
     // -----------------------------------------------------------------------
@@ -1234,9 +1256,11 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
 
     public static class PrayerPointsEvent {
         public final int current, maximum;
-        public PrayerPointsEvent(int current, int maximum) {
+        public final java.util.List<Integer> activePrayerIds;
+        public PrayerPointsEvent(int current, int maximum, java.util.List<Integer> activePrayerIds) {
             this.current = current;
             this.maximum = maximum;
+            this.activePrayerIds = activePrayerIds == null ? java.util.List.of() : activePrayerIds;
         }
     }
 
