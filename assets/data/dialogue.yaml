@@ -210,3 +210,71 @@ dialogues:
       - option_id: 1
         text: "[Back]"
         next_dialogue: "dialogue_mining_instr_intro"
+
+  # ── Elara (NPC 9005) — The Iron Coast quest ───────────────────────────────
+
+  dialogue_mainland_elara_intro:
+    npc_id: 9005
+    npc_name: "Elara"
+    npc_says: "Thank goodness you're here. A goblin warband has set up camp south of Ironhaven — they've been raiding the town and blocking the road to the Iron Coast mine. I need someone who isn't afraid of a fight."
+    options:
+      - option_id: 1
+        text: "I'll help. What needs to be done?"
+        next_dialogue: "dialogue_mainland_elara_quest"
+      - option_id: 2
+        text: "Tell me about Ironhaven."
+        next_dialogue: "dialogue_mainland_elara_town"
+      - option_id: 3
+        text: "Not right now."
+        next_dialogue: null
+
+  dialogue_mainland_elara_quest:
+    npc_id: 9005
+    npc_name: "Elara"
+    npc_says: "Push into the goblin camp and defeat five of them to scatter the warband. Then head to the Iron Coast mine to the northeast and bring back three iron ore — we need the supply running again. Once that's done, find and defeat their Warchief. Without him, they'll fall apart."
+    options:
+      - option_id: 1
+        text: "Where exactly is the goblin camp?"
+        next_dialogue: "dialogue_mainland_elara_goblin_location"
+      - option_id: 2
+        text: "Where is the mine?"
+        next_dialogue: "dialogue_mainland_elara_mine_location"
+      - option_id: 3
+        text: "I'll get started."
+        next_dialogue: null
+
+  dialogue_mainland_elara_town:
+    npc_id: 9005
+    npc_name: "Elara"
+    npc_says: "Ironhaven is a small but growing settlement. We have a bank, a merchant who sells iron gear, and a smithy with furnace and anvil. The Iron Coast mine to the northeast is our livelihood — which is why the goblin problem is so urgent."
+    options:
+      - option_id: 1
+        text: "[Back]"
+        next_dialogue: "dialogue_mainland_elara_intro"
+
+  dialogue_mainland_elara_goblin_location:
+    npc_id: 9005
+    npc_name: "Elara"
+    npc_says: "Head south from the town square. You'll hear them before you see them — they're loud and they stink. The Warchief camps deeper in, at the centre of the warband. Be careful: he hits hard."
+    options:
+      - option_id: 1
+        text: "[Back]"
+        next_dialogue: "dialogue_mainland_elara_quest"
+
+  dialogue_mainland_elara_mine_location:
+    npc_id: 9005
+    npc_name: "Elara"
+    npc_says: "Follow the road northeast from the smithy. You'll find iron and coal rocks along the cliff face. Bring a pickaxe — the merchant sells iron ones if you need one."
+    options:
+      - option_id: 1
+        text: "[Back]"
+        next_dialogue: "dialogue_mainland_elara_quest"
+
+  dialogue_mainland_elara_complete:
+    npc_id: 9005
+    npc_name: "Elara"
+    npc_says: "The Warchief is dead and the mine is open again. You've done Ironhaven a great service. Take this as a reward — and know that this land has more work for those willing to do it."
+    options:
+      - option_id: 1
+        text: "Happy to help."
+        next_dialogue: null

@@ -156,4 +156,58 @@ quests:
     requirements: []
 
     # Next quest after completion
+    next_quest_id: 2
+
+  # ── Quest 2: The Iron Coast ────────────────────────────────────────────────
+
+  - id: 2
+    name: "The Iron Coast"
+    description: "Elara needs someone to push back the goblin warband threatening Ironhaven, and the mine to the east needs a brave hand."
+    miniquest: false
+    quest_points: 1
+    free_to_play: true
+    reward_skill_index: 3
+
+    tasks:
+
+      - id: "speak_elara"
+        type: "dialogue"
+        description: "Speak to Elara in Ironhaven to learn what is happening."
+        npc_id: 9005
+        dialogue_id: "dialogue_mainland_elara_intro"
+        reward_xp: 25
+
+      - id: "kill_goblins"
+        type: "kill"
+        description: "Defeat 5 goblins in the warband camp south of town."
+        npc_id: 62
+        count: 5
+        reward_xp: 500
+
+      - id: "mine_iron"
+        type: "collect"
+        description: "Mine 3 iron ore from the Iron Coast mine."
+        item_id: 440
+        count: 3
+        reward_xp: 225
+
+      - id: "defeat_warchief"
+        type: "kill"
+        description: "Defeat the Goblin Warchief at the heart of the camp."
+        npc_id: 63
+        count: 1
+        reward_xp: 250
+
+      - id: "return_elara"
+        type: "hand_in"
+        description: "Return to Elara with news of your victory."
+        npc_id: 9005
+        reward_xp: 1000
+
+    total_reward_xp: 2000
+    total_reward_gold: 500
+
+    requirements:
+      - quest_id: 1
+
     next_quest_id: null

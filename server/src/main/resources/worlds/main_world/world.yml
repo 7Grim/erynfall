@@ -425,6 +425,218 @@ npcs:
     is_aggressive: false
     is_banker: true
 
+  # ── Ironhaven Town ────────────────────────────────────────────────────────
+
+  - id: 9005
+    name: "Elara"
+    combat_level: 0
+    max_hp: 10
+    max_hit: 0
+    location: "mainland_region"
+    x: 250
+    y: 100
+    examine: "A seasoned adventurer who knows the mainland well."
+    wander_radius: 0
+    is_aggressive: false
+
+  - id: 9006
+    name: "Merchant"
+    combat_level: 0
+    max_hp: 10
+    max_hit: 0
+    location: "mainland_region"
+    x: 256
+    y: 100
+    examine: "A general goods trader stocking iron-tier equipment."
+    wander_radius: 0
+    is_aggressive: false
+    shop_id: "mainland_general"
+
+  - id: 9007
+    definition_id: 500
+    name: "Furnace"
+    combat_level: 0
+    max_hp: 1
+    max_hit: 0
+    location: "mainland_region"
+    x: 260
+    y: 98
+    examine: "A furnace for smelting ore into metal bars."
+    wander_radius: 0
+    is_aggressive: false
+
+  - id: 9008
+    definition_id: 501
+    name: "Anvil"
+    combat_level: 0
+    max_hp: 1
+    max_hit: 0
+    location: "mainland_region"
+    x: 261
+    y: 98
+    examine: "An anvil for smithing metal items."
+    wander_radius: 0
+    is_aggressive: false
+
+  # ── Goblin Warband (combat zone, south of town) ───────────────────────────
+
+  - id: 9010
+    definition_id: 62
+    name: "Goblin"
+    combat_level: 5
+    max_hp: 75
+    max_hit: 4
+    respawn_delay_ticks: 1500
+    location: "mainland_region"
+    x: 242
+    y: 118
+    loot_table: "goblin"
+    examine: "A squat and aggressive goblin."
+    wander_radius: 3
+    is_aggressive: true
+
+  - id: 9011
+    definition_id: 62
+    name: "Goblin"
+    combat_level: 5
+    max_hp: 75
+    max_hit: 4
+    respawn_delay_ticks: 1500
+    location: "mainland_region"
+    x: 246
+    y: 120
+    loot_table: "goblin"
+    examine: "A squat and aggressive goblin."
+    wander_radius: 3
+    is_aggressive: true
+
+  - id: 9012
+    definition_id: 62
+    name: "Goblin"
+    combat_level: 5
+    max_hp: 75
+    max_hit: 4
+    respawn_delay_ticks: 1500
+    location: "mainland_region"
+    x: 250
+    y: 122
+    loot_table: "goblin"
+    examine: "A squat and aggressive goblin."
+    wander_radius: 3
+    is_aggressive: true
+
+  - id: 9013
+    definition_id: 62
+    name: "Goblin"
+    combat_level: 5
+    max_hp: 75
+    max_hit: 4
+    respawn_delay_ticks: 1500
+    location: "mainland_region"
+    x: 255
+    y: 119
+    loot_table: "goblin"
+    examine: "A squat and aggressive goblin."
+    wander_radius: 3
+    is_aggressive: true
+
+  - id: 9014
+    definition_id: 62
+    name: "Goblin"
+    combat_level: 5
+    max_hp: 75
+    max_hit: 4
+    respawn_delay_ticks: 1500
+    location: "mainland_region"
+    x: 259
+    y: 121
+    loot_table: "goblin"
+    examine: "A squat and aggressive goblin."
+    wander_radius: 3
+    is_aggressive: true
+
+  - id: 9015
+    definition_id: 63
+    name: "Goblin Warchief"
+    combat_level: 15
+    max_hp: 200
+    max_hit: 8
+    respawn_delay_ticks: 3000
+    location: "mainland_region"
+    x: 252
+    y: 130
+    loot_table: "goblin_warchief"
+    examine: "The leader of the goblin warband — meaner and tougher than the rest."
+    wander_radius: 2
+    is_aggressive: true
+
+  # ── Iron Coast Mine (northeast of town) ──────────────────────────────────
+
+  - id: 9020
+    definition_id: 302
+    name: "Iron Rock"
+    combat_level: 0
+    max_hp: 1
+    max_hit: 0
+    location: "mainland_region"
+    x: 283
+    y: 78
+    examine: "A rock containing iron ore."
+    wander_radius: 0
+    is_aggressive: false
+
+  - id: 9021
+    definition_id: 302
+    name: "Iron Rock"
+    combat_level: 0
+    max_hp: 1
+    max_hit: 0
+    location: "mainland_region"
+    x: 286
+    y: 77
+    examine: "A rock containing iron ore."
+    wander_radius: 0
+    is_aggressive: false
+
+  - id: 9022
+    definition_id: 302
+    name: "Iron Rock"
+    combat_level: 0
+    max_hp: 1
+    max_hit: 0
+    location: "mainland_region"
+    x: 289
+    y: 79
+    examine: "A rock containing iron ore."
+    wander_radius: 0
+    is_aggressive: false
+
+  - id: 9023
+    definition_id: 304
+    name: "Coal Rock"
+    combat_level: 0
+    max_hp: 1
+    max_hit: 0
+    location: "mainland_region"
+    x: 292
+    y: 78
+    examine: "A rock containing coal."
+    wander_radius: 0
+    is_aggressive: false
+
+  - id: 9024
+    definition_id: 304
+    name: "Coal Rock"
+    combat_level: 0
+    max_hp: 1
+    max_hit: 0
+    location: "mainland_region"
+    x: 295
+    y: 77
+    examine: "A rock containing coal."
+    wander_radius: 0
+    is_aggressive: false
+
 loot_tables:
   rat:
     always:
@@ -464,6 +676,32 @@ loot_tables:
       - item_id: 2132
         quantity: 1
         chance: 36
+
+  goblin:
+    always:
+      - item_id: 526
+        quantity: 1
+    common:
+      - item_id: 995
+        quantity: 5
+        max_quantity: 25
+        chance: 60
+
+  goblin_warchief:
+    always:
+      - item_id: 526
+        quantity: 1
+    common:
+      - item_id: 995
+        quantity: 30
+        max_quantity: 120
+        chance: 100
+      - item_id: 440
+        quantity: 1
+        chance: 50
+      - item_id: 1203
+        quantity: 1
+        chance: 15
 
 # ── Doors ─────────────────────────────────────────────────────────────────────
 # Each entry defines a door world-object.  The tile x/y matches the ROCK wall

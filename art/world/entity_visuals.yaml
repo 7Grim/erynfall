@@ -41,6 +41,16 @@ entity_visuals:
     shadow_height: 5.0
     shadow_alpha: 0.18
 
+  - definition_id: 63
+    name: Goblin Warchief
+    sprite_key_2d: npc_goblin
+    model_key_3d: npc_goblin
+    animated_3d: true
+    action_animated: true
+    shadow_width: 12.0
+    shadow_height: 6.0
+    shadow_alpha: 0.22
+
   - definition_id: 3
     name: Rat
     sprite_key_2d: npc_rat

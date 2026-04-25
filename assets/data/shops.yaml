@@ -71,3 +71,24 @@ shops:
         quantity: 100
       - item_id: 1446
         quantity: 100
+
+  - id: "mainland_general"
+    name: "Ironhaven General Store"
+    npc_name: "Merchant"
+    stock:
+      - item_id: 1203
+        quantity: 10
+      - item_id: 1323
+        quantity: 5
+      - item_id: 1137
+        quantity: 5
+      - item_id: 1101
+        quantity: 3
+      - item_id: 1069
+        quantity: 3
+      - item_id: 1267
+        quantity: 10
+      - item_id: 1349
+        quantity: 10
+      - item_id: 333
+        quantity: 50
