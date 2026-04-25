@@ -460,6 +460,17 @@ public class NettyClient {
         LOG.debug("Sent UseItemOnItem: src={} tgt={}", sourceSlot, targetSlot);
     }
 
+    public void sendUseItemOnNpc(int inventorySlot, int npcId) {
+        NetworkProto.ClientMessage msg = NetworkProto.ClientMessage.newBuilder()
+            .setUseItemOnNpc(NetworkProto.UseItemOnNpc.newBuilder()
+                .setInventorySlot(inventorySlot)
+                .setNpcId(npcId)
+                .setSequence(System.currentTimeMillis()))
+            .build();
+        channel.writeAndFlush(msg);
+        LOG.debug("Sent UseItemOnNpc: slot={} npcId={}", inventorySlot, npcId);
+    }
+
     public void sendLightGroundItem(int groundItemId) {
         NetworkProto.ClientMessage msg = NetworkProto.ClientMessage.newBuilder()
             .setLightGroundItem(NetworkProto.LightGroundItem.newBuilder()
