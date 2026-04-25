@@ -383,6 +383,11 @@ public class World {
             && y >= mapInfo.minY && y <= mapInfo.maxY;
     }
 
+    public WorldData.MapInfo getMapInfo(String regionId) {
+        if (regionId == null || worldData.maps == null) return null;
+        return worldData.maps.get(regionId);
+    }
+
     public boolean isInMainWorldStarterRegion(int x, int y) {
         if (!"main_world".equals(worldId)) {
             return false;

@@ -772,9 +772,17 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
         if (session.getPlayer() == null) {
             return;
         }
-        
+
         Player player = session.getPlayer();
         int targetId = attack.getTargetId();
+
+        // Check if the target is another player (PvP).
+        Player targetPlayer = server.getWorld().getPlayer(targetId);
+        if (targetPlayer != null) {
+            handleAttackPlayer(ctx, player, targetPlayer);
+            return;
+        }
+
         NPC target = server.getWorld().getNPC(targetId);
         if (target == null || target.isDead()) {
             sendChatMessage(ctx, "They seem to be gone.", 1);
@@ -788,17 +796,60 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
         if (player.isSkilling()) {
             interruptSkilling("interrupted");
         }
-
         if (player.isInDialogue()) {
             closeDialogue(player);
         }
-        
-        // Find target (could be NPC or another player)
-        // For now, assume NPC
-        LOG.info("Player {} initiating attack on entity {}", 
-            session.getSessionId(), targetId);
-        
+
+        LOG.info("Player {} attacking NPC {}", session.getSessionId(), targetId);
+        player.setPvpTarget(-1);
         player.setCombatTarget(targetId);
+    }
+
+    private void handleAttackPlayer(ChannelHandlerContext ctx, Player attacker, Player target) {
+        if (attacker.getId() == target.getId()) {
+            sendChatMessage(ctx, "You can't attack yourself.", 1);
+            return;
+        }
+
+        com.osrs.server.world.World world = server.getWorld();
+
+        // Both players must be in the wilderness.
+        if (!com.osrs.server.world.WildernessZone.isInWilderness(world, attacker.getX(), attacker.getY())) {
+            sendChatMessage(ctx, "You can only attack other players in the Wilderness.", 1);
+            return;
+        }
+        if (!com.osrs.server.world.WildernessZone.isInWilderness(world, target.getX(), target.getY())) {
+            sendChatMessage(ctx, "That player is not in the Wilderness.", 1);
+            return;
+        }
+
+        // Level range check based on wilderness depth.
+        int wildLevel = com.osrs.server.world.WildernessZone.wildernessLevel(world, attacker.getX(), attacker.getY());
+        int attackerCb = attacker.getCombatLevel();
+        int targetCb   = target.getCombatLevel();
+        if (!com.osrs.server.world.WildernessZone.canAttack(attackerCb, targetCb, wildLevel)) {
+            sendChatMessage(ctx, String.format(
+                "You need to be in at least level %d wilderness to attack that player (they are combat %d, you are %d).",
+                Math.abs(attackerCb - targetCb), targetCb, attackerCb), 1);
+            return;
+        }
+
+        if (attacker.isSkilling()) {
+            interruptSkilling("interrupted");
+        }
+        if (attacker.isInDialogue()) {
+            closeDialogue(attacker);
+        }
+
+        LOG.info("Player {} (cb {}) initiating PvP on player {} (cb {}) in wilderness level {}",
+            attacker.getId(), attackerCb, target.getId(), targetCb, wildLevel);
+
+        sendChatMessage(ctx, String.format(
+            "Warning: you are attacking %s in the Wilderness! You will lose your items if you die here.",
+            target.getName()), 1);
+
+        attacker.setCombatTarget(-1);
+        attacker.setPvpTarget(target.getId());
     }
     
     private void handleDialogueResponse(ChannelHandlerContext ctx, NetworkProto.DialogueResponse response) {

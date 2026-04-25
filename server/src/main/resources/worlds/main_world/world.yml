@@ -22,6 +22,13 @@ maps:
     max_x: 308
     max_y: 142
     description: "Early mainland scaffold separated by open ocean"
+  wilderness_region:
+    name: "The Wilderness"
+    min_x: 196
+    min_y: 143
+    max_x: 308
+    max_y: 230
+    description: "Open PvP zone north of the mainland. Enter at your own risk."
 
 npcs:
   - id: 1

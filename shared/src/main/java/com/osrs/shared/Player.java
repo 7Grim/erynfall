@@ -57,6 +57,8 @@ public class Player extends Entity {
     
     // Combat state
     private int combatTarget = -1;
+    /** PvP: runtime player entity ID being attacked; -1 if not in PvP combat. */
+    private int pvpTarget = -1;
     private long lastAttackTick = 0;
     private CombatStyle combatStyle = CombatStyle.AGGRESSIVE;
     private boolean autoRetaliate = true;
@@ -155,13 +157,44 @@ public class Player extends Entity {
     public int getCombatTarget() {
         return combatTarget;
     }
-    
+
     public void setCombatTarget(int entityId) {
         this.combatTarget = entityId;
     }
-    
+
+    public int getPvpTarget() {
+        return pvpTarget;
+    }
+
+    public void setPvpTarget(int playerId) {
+        this.pvpTarget = playerId;
+    }
+
     public boolean isInCombat() {
-        return combatTarget >= 0;
+        return combatTarget >= 0 || pvpTarget >= 0;
+    }
+
+    /**
+     * OSRS combat level formula.
+     * base   = 0.25 × (defence + hitpoints + floor(prayer / 2))
+     * melee  = 0.325 × (attack + strength)
+     * ranged = 0.325 × floor(1.5 × ranged)
+     * magic  = 0.325 × floor(1.3 × magic)
+     * combat = floor(base + max(melee, ranged, magic))
+     */
+    public int getCombatLevel() {
+        int att   = skillLevel[SKILL_ATTACK];
+        int str   = skillLevel[SKILL_STRENGTH];
+        int def   = skillLevel[SKILL_DEFENCE];
+        int hp    = skillLevel[SKILL_HITPOINTS];
+        int rng   = skillLevel[SKILL_RANGED];
+        int mage  = skillLevel[SKILL_MAGIC];
+        int pray  = skillLevel[SKILL_PRAYER];
+        double base   = 0.25 * (def + hp + Math.floor(pray / 2.0));
+        double melee  = 0.325 * (att + str);
+        double ranged = 0.325 * Math.floor(1.5 * rng);
+        double magic  = 0.325 * Math.floor(1.3 * mage);
+        return (int) Math.floor(base + Math.max(melee, Math.max(ranged, magic)));
     }
     
     public long getLastAttackTick() {

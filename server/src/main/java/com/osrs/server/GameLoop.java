@@ -537,6 +537,12 @@ public class GameLoop {
             PlayerSession session = getSessionForPlayer(player.getId());
             closeBankIfOpen(session, "in_combat");
 
+            // PvP combat: player targeting another player.
+            if (player.getPvpTarget() >= 0) {
+                processPvpAttack(player, session);
+                continue;
+            }
+
             NPC target = world.getNPC(player.getCombatTarget());
             if (target == null || target.isDead()) {
                 player.setCombatTarget(-1);
@@ -703,6 +709,95 @@ public class GameLoop {
         }
     }
     
+    /**
+     * One tick of PvP combat for a player who has a pvpTarget set.
+     * Validates both players are still in the wilderness, checks range and attack speed,
+     * rolls the hit, applies damage, and handles kill (wilderness death drops).
+     */
+    private void processPvpAttack(Player attacker, PlayerSession attackerSession) {
+        int targetId = attacker.getPvpTarget();
+        Player target = world.getPlayer(targetId);
+
+        if (target == null || target.getHealth() <= 0) {
+            attacker.setPvpTarget(-1);
+            return;
+        }
+
+        // Both must remain in wilderness — if either leaves, combat breaks.
+        if (!com.osrs.server.world.WildernessZone.isInWilderness(world, attacker.getX(), attacker.getY())
+                || !com.osrs.server.world.WildernessZone.isInWilderness(world, target.getX(), target.getY())) {
+            attacker.setPvpTarget(-1);
+            if (attackerSession != null) {
+                nettyServer.sendToPlayer(attacker.getId(),
+                    NetworkProto.ServerMessage.newBuilder()
+                        .setChatMessage(NetworkProto.ChatMessage.newBuilder()
+                            .setText("PvP combat ended — one of you has left the Wilderness."))
+                        .build());
+            }
+            return;
+        }
+
+        // Attack range
+        int dist = Math.max(
+            Math.abs(attacker.getX() - target.getX()),
+            Math.abs(attacker.getY() - target.getY())
+        );
+        if (dist > attacker.getAttackRange()) {
+            return;
+        }
+
+        // Attack speed
+        int equippedWeaponId = attacker.getEquipment(EquipmentSlot.WEAPON);
+        int attackSpeed = WeaponRegistry.getAttackSpeedServerTicks(equippedWeaponId);
+        if (tickCount - attacker.getLastAttackTick() < attackSpeed) {
+            return;
+        }
+
+        CombatEngine.HitResult result = combatEngine.calculateHit(attacker, target, tickCount);
+        attacker.setLastAttackTick(tickCount);
+
+        int newTargetHealth = target.getHealth();
+        if (result.hit) {
+            newTargetHealth = Math.max(0, target.getHealth() - result.damage);
+            target.setHealth(newTargetHealth);
+        }
+
+        LOG.debug("PvP: player {} {} player {} for {} (HP now {})",
+            attacker.getId(), result.hit ? "hit" : "missed", target.getId(), result.damage, newTargetHealth);
+
+        // Broadcast CombatHit so both clients see the hitsplat.
+        nettyServer.broadcastToAll(NetworkProto.ServerMessage.newBuilder()
+            .setCombatHit(NetworkProto.CombatHit.newBuilder()
+                .setAttackerId(attacker.getId())
+                .setTargetId(target.getId())
+                .setDamage(result.damage)
+                .setHit(result.hit)
+                .setXpAwarded(0)
+                .setAttackerHealth(attacker.getHealth())
+                .setTargetHealth(newTargetHealth)
+                .setTargetX(target.getX())
+                .setTargetY(target.getY())
+                .setAttackerX(attacker.getX())
+                .setAttackerY(attacker.getY()))
+            .build());
+
+        // Broadcast health update for target.
+        nettyServer.broadcastToAll(NetworkProto.ServerMessage.newBuilder()
+            .setHealthUpdate(NetworkProto.HealthUpdate.newBuilder()
+                .setEntityId(target.getId())
+                .setHealth(newTargetHealth)
+                .setMaxHealth(target.getMaxHealth()))
+            .build());
+
+        if (newTargetHealth <= 0) {
+            LOG.info("Player {} killed player {} in the Wilderness", attacker.getId(), target.getId());
+            // Clear the attacker's PvP target so they stop swinging.
+            attacker.setPvpTarget(-1);
+            // Wilderness death: keep 0 items (drop everything).
+            respawnPlayer(target, 0);
+        }
+    }
+
     /**
      * Handles NPC death: marks the NPC as dead, clears all player combat targets
      * pointing at it, spawns loot for the killer, and broadcasts NpcDespawn so
@@ -1004,10 +1099,20 @@ public class GameLoop {
      * (new position) to all clients so they see the player teleport away.
      */
     private void respawnPlayer(Player player) {
+        respawnPlayer(player, 3);
+    }
+
+    /**
+     * Teleport the player to the world spawn point and restore full HP.
+     *
+     * @param keepCount  How many items (by value) the player keeps on death.
+     *                   Normal death = 3. Wilderness PvP death = 0.
+     */
+    private void respawnPlayer(Player player, int keepCount) {
         int spawnX = world.getSpawnX();
         int spawnY = world.getSpawnY();
 
-        // --- OSRS death drop: keep 3 most valuable items, drop the rest ---
+        // Death drop: keep keepCount most valuable items, drop the rest.
         int deathX = player.getX();
         int deathY = player.getY();
 
@@ -1024,9 +1129,9 @@ public class GameLoop {
         // Sort descending by storeValue; tie-break ascending by slot index
         occupied.sort((a, b) -> a[3] != b[3] ? b[3] - a[3] : a[0] - b[0]);
 
-        // Top 3 slots are kept
+        // Top keepCount slots are kept
         Set<Integer> keptSlots = new HashSet<>();
-        for (int i = 0; i < Math.min(3, occupied.size()); i++) {
+        for (int i = 0; i < Math.min(keepCount, occupied.size()); i++) {
             keptSlots.add(occupied.get(i)[0]);
         }
 
@@ -1066,6 +1171,7 @@ public class GameLoop {
         player.setHealth(player.getMaxHealth());
         player.setPosition(spawnX, spawnY);
         player.setCombatTarget(-1);
+        player.setPvpTarget(-1);
 
         // Notify the dying player (death screen + respawn coords)
         nettyServer.sendToPlayer(player.getId(), NetworkProto.ServerMessage.newBuilder()
@@ -1090,7 +1196,8 @@ public class GameLoop {
                 .setY(spawnY))
             .build());
 
-        LOG.info("Player {} died and respawned at ({}, {})", player.getId(), spawnX, spawnY);
+        LOG.info("Player {} died (keepCount={}) and respawned at ({}, {})",
+            player.getId(), keepCount, spawnX, spawnY);
     }
 
     /**

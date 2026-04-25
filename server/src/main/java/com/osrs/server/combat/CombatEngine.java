@@ -93,6 +93,30 @@ public class CombatEngine {
         return resolve(hitChance, maxHit, serverTick, attacker.getId(), target.getId());
     }
 
+    /**
+     * Player vs Player hit. Uses standard player attack/defence rolls on both sides.
+     * Protect prayers reduce incoming PvP damage by 40% (OSRS PvP behaviour).
+     */
+    public HitResult calculateHit(Player attacker, Player target, long serverTick) {
+        BonusSet bonuses = EquipmentBonusCalculator.calculate(attacker, itemDefs);
+        String weaponType = EquipmentBonusCalculator.getWeaponType(attacker, itemDefs);
+
+        int attackRoll  = playerAttackRoll(attacker, bonuses, weaponType);
+        int defenceRoll = playerDefenceRoll(target);
+        double hitChance = hitChance(attackRoll, defenceRoll);
+
+        int maxHit = playerMaxHit(attacker, bonuses);
+        HitResult raw = resolve(hitChance, maxHit, serverTick, attacker.getId(), target.getId());
+
+        // In PvP, protect prayers reduce damage by 40% (OSRS PvP behaviour, not 100%).
+        if (raw.damage > 0
+                && PrayerRegistry.isProtected(target.getActivePrayers(), PrayerRegistry.ProtectionType.MELEE)) {
+            int reduced = (int) Math.floor(raw.damage * 0.6);
+            return new HitResult(raw.hit, reduced);
+        }
+        return raw;
+    }
+
     public HitResult calculateHit(NPC attacker, Player target, long serverTick) {
         int attackRoll  = npcAttackRoll(attacker);
         int defenceRoll = playerDefenceRoll(target);

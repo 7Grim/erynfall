@@ -6273,6 +6273,7 @@ public class GameScreen extends ApplicationAdapter {
             }
             String yellow = "[#ffff00]" + pName + "[]";
             boolean isFriend = friendIds.contains((long) entityId);
+            opts.add(new ContextMenu.MenuItem(ContextMenu.Action.ATTACK, yellow, entityId));
             opts.add(new ContextMenu.MenuItem(ContextMenu.Action.TRADE, yellow, entityId));
             opts.add(new ContextMenu.MenuItem(ContextMenu.Action.FOLLOW, yellow, entityId));
             opts.add(new ContextMenu.MenuItem(ContextMenu.Action.CHALLENGE, yellow, entityId));
