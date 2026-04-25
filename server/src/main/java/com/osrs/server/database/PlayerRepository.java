@@ -248,7 +248,7 @@ public class PlayerRepository {
                         "mining_xp = ?, smithing_xp = ?, firemaking_xp = ?, crafting_xp = ?, " +
                         "runecrafting_xp = ?, fletching_xp = ?, agility_xp = ?, herblore_xp = ?, " +
                         "thieving_xp = ?, slayer_xp = ?, farming_xp = ?, hunter_xp = ?, construction_xp = ?, " +
-                        "prayer_points = ?, selected_spell_id = ? " +
+                        "prayer_points = ?, selected_spell_id = ?, active_prayer_mask = ? " +
                         "WHERE LOWER(username) = LOWER(?)"
                 );
                 ps.setInt(1, player.getX());
@@ -276,9 +276,10 @@ public class PlayerRepository {
                 ps.setLong(23, player.getSkillXp(Player.SKILL_FARMING));
                 ps.setLong(24, player.getSkillXp(Player.SKILL_HUNTER));
                 ps.setLong(25, player.getSkillXp(Player.SKILL_CONSTRUCTION));
-                ps.setInt(26, Math.max(1, player.getSkillLevel(Player.SKILL_PRAYER)));
+                ps.setInt(26, player.getPrayerPoints());
                 ps.setInt(27, player.getSelectedSpellId());
-                ps.setString(28, player.getName());
+                ps.setInt(28, buildActivePrayerMask(player));
+                ps.setString(29, player.getName());
                 updatedRows = ps.executeUpdate();
             } catch (SQLException extendedErr) {
                 PreparedStatement ps = conn.prepareStatement(
@@ -947,10 +948,36 @@ public class PlayerRepository {
         try { adminToolsEnabled = rs.getBoolean("admin_tools_enabled"); } catch (SQLException ignored) {}
         player.setAdminToolsEnabled(adminToolsEnabled);
 
+        // Restore prayer points. Default to max prayer level so existing rows with
+        // prayer_points = prayer_level (the old save behaviour) continue to restore full prayer.
+        int savedPrayerPoints = safeGetInt(rs, "prayer_points", -1);
+        player.setPrayerPoints(savedPrayerPoints >= 0 ? savedPrayerPoints : player.getMaxPrayerPoints());
+
+        // Restore active prayers from bitmask. Bit (id-1) corresponds to prayer id.
+        int mask = safeGetInt(rs, "active_prayer_mask", 0);
+        if (mask != 0) {
+            for (com.osrs.shared.PrayerRegistry.PrayerDef def : com.osrs.shared.PrayerRegistry.f2pPrayers()) {
+                int bit = 1 << (def.id() - 1);
+                if ((mask & bit) != 0 && player.getSkillLevel(Player.SKILL_PRAYER) >= def.levelRequirement()) {
+                    player.activatePrayer(def.id());
+                }
+            }
+        }
+
         int hpLevel = player.getSkillLevel(Player.SKILL_HITPOINTS);
         player.setHealth(hpLevel);
         player.setMaxHealth(hpLevel);
         return player;
+    }
+
+    private static int buildActivePrayerMask(Player player) {
+        int mask = 0;
+        for (int id : player.getActivePrayers()) {
+            if (id >= 1 && id <= 30) {
+                mask |= (1 << (id - 1));
+            }
+        }
+        return mask;
     }
 
     private static long safeGetLong(ResultSet rs, String column, long defaultValue) {

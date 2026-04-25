@@ -29,7 +29,7 @@ quests:
       - id: "collect_logs"
         type: "collect"
         description: "Chop down 5 trees with your bronze axe."
-        item_id: 1521
+        item_id: 1511
         count: 5
         reward_xp: 75
 
