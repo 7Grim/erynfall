@@ -511,6 +511,10 @@ public class GameScreen extends ApplicationAdapter {
     private int bankDragMouseY = 0;
     private boolean bankDragging = false;
     private static final int BANK_DRAG_THRESHOLD = 6;
+    private boolean bankAmountInputMode = false;
+    private boolean bankAmountInputIsWithdraw = false;
+    private int bankAmountInputSlot = -1;
+    private final StringBuilder bankAmountInputBuffer = new StringBuilder();
 
     // -----------------------------------------------------------------------
     // Pickup animation
@@ -1533,6 +1537,9 @@ public class GameScreen extends ApplicationAdapter {
                 bankInventoryDragSlot, bankDragSlot,
                 bankDragging ? bankDragMouseX : bankInventoryDragMouseX,
                 bankDragging ? bankDragMouseY : bankInventoryDragMouseY);
+            if (bankAmountInputMode) {
+                bankUI.renderAmountInput(shapeRenderer, screenBatch, font, w, h, screenProjection, bankAmountInputBuffer.toString());
+            }
         }
         if (contextMenu.isVisible()) renderContextMenu();
         if (!contextMenu.isVisible() && !hoverActionLabel.isEmpty()) renderHoverActionLabel(w, h);
@@ -4281,6 +4288,8 @@ public class GameScreen extends ApplicationAdapter {
         bankMouseDownSlot = -1;
         bankDragSlot = -1;
         bankDragging = false;
+        bankAmountInputMode = false;
+        bankAmountInputBuffer.setLength(0);
         if (bankUI != null) {
             bankUI.resetSelectedTab();
         }
@@ -5100,6 +5109,11 @@ public class GameScreen extends ApplicationAdapter {
         int mx = Gdx.input.getX();
         int screenMy = Gdx.graphics.getHeight() - Gdx.input.getY();
 
+        if (bankAmountInputMode) {
+            handleBankAmountInput();
+            return;
+        }
+
         if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
             if (bankUI.isSearchActive()) {
                 bankUI.clearSearch();
@@ -5162,6 +5176,17 @@ public class GameScreen extends ApplicationAdapter {
             return;
         }
 
+        if (bankUI.isDepositAllButtonHit(mx, screenMy)) {
+            if (nettyClient != null) {
+                for (int i = 0; i < 28; i++) {
+                    if (h.getInventoryItemId(i) > 0) {
+                        nettyClient.sendDepositBankItem(i, Integer.MAX_VALUE);
+                    }
+                }
+            }
+            return;
+        }
+
         if (bankUI != null && bankUI.isCloseButtonHit(mx, screenMy)) {
             if (nettyClient != null) {
                 nettyClient.sendCloseBankRequest();
@@ -5197,6 +5222,43 @@ public class GameScreen extends ApplicationAdapter {
             if (nettyClient != null) {
                 nettyClient.sendCloseBankRequest();
             }
+        }
+    }
+
+    private void handleBankAmountInput() {
+        int[] digits = {
+            Input.Keys.NUM_0, Input.Keys.NUM_1, Input.Keys.NUM_2, Input.Keys.NUM_3, Input.Keys.NUM_4,
+            Input.Keys.NUM_5, Input.Keys.NUM_6, Input.Keys.NUM_7, Input.Keys.NUM_8, Input.Keys.NUM_9
+        };
+        for (int i = 0; i < digits.length; i++) {
+            if (Gdx.input.isKeyJustPressed(digits[i]) && bankAmountInputBuffer.length() < 10) {
+                bankAmountInputBuffer.append((char) ('0' + i));
+            }
+        }
+        if (Gdx.input.isKeyJustPressed(Input.Keys.BACKSPACE) && bankAmountInputBuffer.length() > 0) {
+            bankAmountInputBuffer.deleteCharAt(bankAmountInputBuffer.length() - 1);
+        }
+        if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
+            bankAmountInputMode = false;
+            bankAmountInputBuffer.setLength(0);
+            return;
+        }
+        if (Gdx.input.isKeyJustPressed(Input.Keys.ENTER) || Gdx.input.isKeyJustPressed(Input.Keys.NUMPAD_ENTER)) {
+            if (bankAmountInputBuffer.length() > 0 && nettyClient != null) {
+                try {
+                    int amount = Integer.parseInt(bankAmountInputBuffer.toString());
+                    if (amount > 0) {
+                        if (bankAmountInputIsWithdraw) {
+                            nettyClient.sendWithdrawBankItem(bankAmountInputSlot, amount);
+                        } else {
+                            nettyClient.sendDepositBankItem(bankAmountInputSlot, amount);
+                        }
+                    }
+                } catch (NumberFormatException ignored) {
+                }
+            }
+            bankAmountInputMode = false;
+            bankAmountInputBuffer.setLength(0);
         }
     }
 
@@ -5483,6 +5545,7 @@ public class GameScreen extends ApplicationAdapter {
         opts.add(new ContextMenu.MenuItem("Withdraw-1 " + name, "bank_withdraw_1", bankSlot));
         opts.add(new ContextMenu.MenuItem("Withdraw-5 " + name, "bank_withdraw_5", bankSlot));
         opts.add(new ContextMenu.MenuItem("Withdraw-10 " + name, "bank_withdraw_10", bankSlot));
+        opts.add(new ContextMenu.MenuItem("Withdraw-X " + name, "bank_withdraw_x", bankSlot));
         opts.add(new ContextMenu.MenuItem("Withdraw-All " + name, "bank_withdraw_all", bankSlot));
         contextMenu.open(mx, my, opts, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
     }
@@ -5502,6 +5565,7 @@ public class GameScreen extends ApplicationAdapter {
         opts.add(new ContextMenu.MenuItem("Deposit-1 " + name, "bank_deposit_1", inventorySlot));
         opts.add(new ContextMenu.MenuItem("Deposit-5 " + name, "bank_deposit_5", inventorySlot));
         opts.add(new ContextMenu.MenuItem("Deposit-10 " + name, "bank_deposit_10", inventorySlot));
+        opts.add(new ContextMenu.MenuItem("Deposit-X " + name, "bank_deposit_x", inventorySlot));
         opts.add(new ContextMenu.MenuItem("Deposit-All " + name, "bank_deposit_all", inventorySlot));
         contextMenu.open(mx, my, opts, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
     }
@@ -6432,6 +6496,13 @@ public class GameScreen extends ApplicationAdapter {
             case "bank_withdraw_10" -> {
                 if (nettyClient != null) nettyClient.sendWithdrawBankItem((Integer) item.target, 10);
             }
+            case "bank_withdraw_x" -> {
+                bankAmountInputSlot = (Integer) item.target;
+                bankAmountInputIsWithdraw = true;
+                bankAmountInputBuffer.setLength(0);
+                bankAmountInputMode = true;
+                contextMenu.close();
+            }
             case "bank_withdraw_all" -> {
                 if (nettyClient != null) nettyClient.sendWithdrawBankItem((Integer) item.target, Integer.MAX_VALUE);
             }
@@ -6443,6 +6514,13 @@ public class GameScreen extends ApplicationAdapter {
             }
             case "bank_deposit_10" -> {
                 if (nettyClient != null) nettyClient.sendDepositBankItem((Integer) item.target, 10);
+            }
+            case "bank_deposit_x" -> {
+                bankAmountInputSlot = (Integer) item.target;
+                bankAmountInputIsWithdraw = false;
+                bankAmountInputBuffer.setLength(0);
+                bankAmountInputMode = true;
+                contextMenu.close();
             }
             case "bank_deposit_all" -> {
                 if (nettyClient != null) nettyClient.sendDepositBankItem((Integer) item.target, Integer.MAX_VALUE);

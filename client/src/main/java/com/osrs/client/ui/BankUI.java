@@ -93,6 +93,11 @@ public class BankUI {
     private boolean searchFocused = false;
     private String searchQuery = "";
 
+    private int depositAllButtonX;
+    private int depositAllButtonY;
+    private int depositAllButtonW;
+    private int depositAllButtonH;
+
     public void render(ShapeRenderer shapeRenderer,
                        SpriteBatch batch,
                        BitmapFont font,
@@ -175,6 +180,10 @@ public class BankUI {
         shapeRenderer.setColor(0.10f, 0.09f, 0.07f, 1f);
         shapeRenderer.rect(bankGridX, bankGridY, bankGridW, bankGridH);
         shapeRenderer.rect(invGridX, invGridY, invGridW, invGridH);
+        boolean depositAllHover = mouseX >= depositAllButtonX && mouseX <= depositAllButtonX + depositAllButtonW
+            && mouseY >= depositAllButtonY && mouseY <= depositAllButtonY + depositAllButtonH;
+        shapeRenderer.setColor(depositAllHover ? 0.28f : 0.20f, depositAllHover ? 0.22f : 0.16f, depositAllHover ? 0.12f : 0.10f, 1f);
+        shapeRenderer.rect(depositAllButtonX, depositAllButtonY, depositAllButtonW, depositAllButtonH);
 
         for (int i = 0; i < amountValues.length; i++) {
             boolean selected = selectedAmount == amountValues[i];
@@ -276,6 +285,7 @@ public class BankUI {
         for (int i = 0; i < amountValues.length; i++) {
             shapeRenderer.rect(amountButtonX[i], amountButtonY[i], amountButtonW[i], amountButtonH[i]);
         }
+        shapeRenderer.rect(depositAllButtonX, depositAllButtonY, depositAllButtonW, depositAllButtonH);
         shapeRenderer.end();
 
         batch.setProjectionMatrix(projection);
@@ -316,6 +326,12 @@ public class BankUI {
         font.setColor(0.95f, 0.93f, 0.84f, 1f);
         font.draw(batch, "Bank", bankGridX, bankGridY + bankGridH + 13);
         font.draw(batch, "Inventory", invGridX, invGridY + invGridH + 13);
+        font.getData().setScale(0.60f);
+        font.setColor(0.88f, 0.86f, 0.80f, 1f);
+        glyph.setText(font, "Deposit All");
+        font.draw(batch, "Deposit All",
+            depositAllButtonX + (depositAllButtonW - glyph.width) / 2f,
+            depositAllButtonY + depositAllButtonH - 4f);
 
         for (int i = 0; i < amountValues.length; i++) {
             font.setColor(selectedAmount == amountValues[i]
@@ -861,5 +877,54 @@ public class BankUI {
         bankGridW = Math.max(120, invGridX - bankGridX - gridGap);
         bankGridH = gridsHeight;
         bankVisibleRows = Math.max(1, bankGridH / (CELL + CELL_GAP));
+
+        depositAllButtonW = rightPaneW;
+        depositAllButtonH = 18;
+        depositAllButtonX = invGridX;
+        depositAllButtonY = invGridY + invGridH + 4;
+    }
+
+    public boolean isDepositAllButtonHit(int mouseX, int mouseY) {
+        return mouseX >= depositAllButtonX && mouseX <= depositAllButtonX + depositAllButtonW
+            && mouseY >= depositAllButtonY && mouseY <= depositAllButtonY + depositAllButtonH;
+    }
+
+    public void renderAmountInput(com.badlogic.gdx.graphics.glutils.ShapeRenderer sr,
+                                   SpriteBatch batch, BitmapFont font,
+                                   int screenW, int screenH,
+                                   com.badlogic.gdx.math.Matrix4 projection,
+                                   String currentValue) {
+        int boxW = 260;
+        int boxH = 72;
+        int boxX = (screenW - boxW) / 2;
+        int boxY = (screenH - boxH) / 2;
+
+        com.badlogic.gdx.Gdx.gl.glEnable(com.badlogic.gdx.graphics.GL20.GL_BLEND);
+        com.badlogic.gdx.Gdx.gl.glBlendFunc(com.badlogic.gdx.graphics.GL20.GL_SRC_ALPHA, com.badlogic.gdx.graphics.GL20.GL_ONE_MINUS_SRC_ALPHA);
+        sr.setProjectionMatrix(projection);
+        sr.begin(com.badlogic.gdx.graphics.glutils.ShapeRenderer.ShapeType.Filled);
+        sr.setColor(0.10f, 0.09f, 0.07f, 0.95f);
+        sr.rect(boxX, boxY, boxW, boxH);
+        sr.end();
+        sr.begin(com.badlogic.gdx.graphics.glutils.ShapeRenderer.ShapeType.Line);
+        sr.setColor(0.78f, 0.67f, 0.38f, 1f);
+        sr.rect(boxX, boxY, boxW, boxH);
+        sr.end();
+
+        batch.setProjectionMatrix(projection);
+        batch.begin();
+        font.getData().setScale(0.72f);
+        font.setColor(0.95f, 0.93f, 0.84f, 1f);
+        font.draw(batch, "Enter amount:", boxX + 12, boxY + boxH - 12);
+        font.getData().setScale(0.86f);
+        font.setColor(1f, 1f, 0.72f, 1f);
+        String display = (currentValue.isEmpty() ? "" : currentValue) + "_";
+        font.draw(batch, display, boxX + 12, boxY + boxH - 36);
+        font.getData().setScale(0.60f);
+        font.setColor(0.65f, 0.65f, 0.60f, 1f);
+        font.draw(batch, "Enter to confirm  Esc to cancel", boxX + 12, boxY + 16);
+        font.getData().setScale(1f);
+        font.setColor(com.badlogic.gdx.graphics.Color.WHITE);
+        batch.end();
     }
 }
