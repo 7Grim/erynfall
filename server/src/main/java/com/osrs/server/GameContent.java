@@ -366,4 +366,8 @@ public class GameContent {
         }
         return shopDefinitionsById.get(shopId);
     }
+
+    public java.util.Collection<ShopDefinition> getAllShops() {
+        return java.util.Collections.unmodifiableCollection(shopDefinitionsById.values());
+    }
 }

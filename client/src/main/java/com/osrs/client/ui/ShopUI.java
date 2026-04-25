@@ -18,13 +18,15 @@ public class ShopUI {
         public final String itemName;
         public final int quantity;
         public final int price;
+        public final int sellPrice;
         public final int flags;
 
-        public StockRow(int itemId, String itemName, int quantity, int price, int flags) {
+        public StockRow(int itemId, String itemName, int quantity, int price, int sellPrice, int flags) {
             this.itemId = itemId;
             this.itemName = itemName == null ? "" : itemName;
             this.quantity = quantity;
             this.price = price;
+            this.sellPrice = sellPrice;
             this.flags = flags;
         }
     }
@@ -35,6 +37,18 @@ public class ShopUI {
         public final int quantity;
 
         public PendingPurchase(int npcId, int itemId, int quantity) {
+            this.npcId = npcId;
+            this.itemId = itemId;
+            this.quantity = quantity;
+        }
+    }
+
+    public static class PendingSell {
+        public final int npcId;
+        public final int itemId;
+        public final int quantity;
+
+        public PendingSell(int npcId, int itemId, int quantity) {
             this.npcId = npcId;
             this.itemId = itemId;
             this.quantity = quantity;
@@ -65,6 +79,7 @@ public class ShopUI {
     private int selectedItemId = -1;
     private int selectedQty = 1;
     private PendingPurchase pendingPurchase;
+    private PendingSell pendingSell;
 
     private int panelX;
     private int panelY;
@@ -81,6 +96,7 @@ public class ShopUI {
         this.stock = stock == null ? List.of() : new ArrayList<>(stock);
         this.visible = true;
         this.pendingPurchase = null;
+        this.pendingSell = null;
         this.selectedQty = 1;
         if (this.stock.isEmpty()) {
             this.selectedItemId = -1;
@@ -96,6 +112,7 @@ public class ShopUI {
         stock = List.of();
         selectedItemId = -1;
         pendingPurchase = null;
+        pendingSell = null;
     }
 
     public boolean isVisible() {
@@ -155,12 +172,29 @@ public class ShopUI {
             if (selectedItemId > 0 && selectedQty > 0 && npcId >= 0) {
                 pendingPurchase = new PendingPurchase(npcId, selectedItemId, selectedQty);
             }
+            return;
+        }
+
+        int sellX = buyX - 106;
+        int sellY = buyY;
+        int sellW = buyW;
+        int sellH = buyH;
+        if (screenX >= sellX && screenX <= sellX + sellW && screenY >= sellY && screenY <= sellY + sellH) {
+            if (selectedItemId > 0 && selectedQty > 0 && npcId >= 0) {
+                pendingSell = new PendingSell(npcId, selectedItemId, selectedQty);
+            }
         }
     }
 
     public PendingPurchase consumePendingPurchase() {
         PendingPurchase out = pendingPurchase;
         pendingPurchase = null;
+        return out;
+    }
+
+    public PendingSell consumePendingSell() {
+        PendingSell out = pendingSell;
+        pendingSell = null;
         return out;
     }
 
@@ -216,6 +250,10 @@ public class ShopUI {
         shapeRenderer.setColor(0.22f, 0.42f, 0.22f, 1f);
         shapeRenderer.rect(buyX, buyY, buyW, buyH);
 
+        int sellX = buyX - 106;
+        shapeRenderer.setColor(0.40f, 0.22f, 0.14f, 1f);
+        shapeRenderer.rect(sellX, buyY, buyW, buyH);
+
         for (int i = 0; i < stock.size(); i++) {
             int rowY = listY + (stock.size() - 1 - i) * (ROW_H + ROW_GAP);
             if (rowY + ROW_H > listY + listH) {
@@ -270,17 +308,21 @@ public class ShopUI {
         font.setColor(0.92f, 0.98f, 0.92f, 1f);
         font.draw(batch, "Buy", buyX + 34, buyY + 19);
 
+        int sellXLabel = buyX - 106;
+        font.setColor(0.98f, 0.88f, 0.78f, 1f);
+        font.draw(batch, "Sell", sellXLabel + 34, buyY + 19);
+
         for (int i = 0; i < stock.size(); i++) {
             int rowY = listY + (stock.size() - 1 - i) * (ROW_H + ROW_GAP);
             if (rowY + ROW_H > listY + listH) {
                 continue;
             }
             StockRow row = stock.get(i);
-            String right = "Stock " + row.quantity + "  Price " + row.price;
+            String right = "Stock " + row.quantity + "  Buy " + row.price + "  Sell " + row.sellPrice;
             font.setColor(0.96f, 0.94f, 0.90f, 1f);
             font.draw(batch, row.itemName, listX + 44, rowY + 22);
             font.setColor(0.84f, 0.82f, 0.74f, 1f);
-            font.draw(batch, right, listX + listW - 170, rowY + 22);
+            font.draw(batch, right, listX + listW - 240, rowY + 22);
         }
 
         font.getData().setScale(1f);

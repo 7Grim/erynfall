@@ -9,6 +9,7 @@ import com.osrs.server.database.PlayerRepository;
 import com.osrs.server.quest.DialogueEngine;
 import com.osrs.server.quest.Quest;
 import com.osrs.server.quest.QuestManager;
+import com.osrs.server.shop.ShopStock;
 import com.osrs.server.world.GroundItem;
 import com.osrs.server.world.World;
 import com.osrs.server.world.WorldLoader;
@@ -22,7 +23,6 @@ import com.osrs.shared.NPC;
 import com.osrs.shared.Player;
 import com.osrs.shared.PrayerRegistry;
 import com.osrs.shared.RunecraftRegistry;
-import com.osrs.shared.ShopDefinition;
 import com.osrs.shared.SmithingRegistry;
 import com.osrs.shared.SkillingAction;
 import com.osrs.shared.FishingRegistry;
@@ -172,6 +172,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             case CLOSE_SMITHING_MENU     -> handleCloseSmithingMenu(ctx, packet.getCloseSmithingMenu());
             case OPEN_SHOP               -> handleOpenShop(ctx, packet.getOpenShop());
             case BUY_SHOP_ITEM           -> handleBuyShopItem(ctx, packet.getBuyShopItem());
+            case SELL_SHOP_ITEM          -> handleSellShopItem(ctx, packet.getSellShopItem());
             case CLOSE_SHOP              -> handleCloseShop(ctx, packet.getCloseShop());
             case LIGHT_GROUND_ITEM       -> handleLightGroundItem(ctx, packet.getLightGroundItem());
             case OBJECT_INTERACT         -> handleObjectInteract(ctx, packet.getObjectInteract());
@@ -1370,8 +1371,8 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             return;
         }
 
-        ShopDefinition shop = server.getShopByNpcName(npc.getName());
-        if (shop == null) {
+        ShopStock shopStock = server.getShopStockByNpcName(npc.getName());
+        if (shopStock == null) {
             sendChatMessage(ctx, "They are not trading right now.", 1);
             return;
         }
@@ -1387,7 +1388,7 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             return;
         }
 
-        sendShopOpen(ctx, npc.getId(), shop);
+        sendShopOpen(ctx, npc.getId(), shopStock);
     }
 
     private void handleBuyShopItem(ChannelHandlerContext ctx, NetworkProto.BuyShopItem request) {
@@ -1402,8 +1403,8 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             return;
         }
 
-        ShopDefinition shop = server.getShopByNpcName(npc.getName());
-        if (shop == null) {
+        ShopStock shopStock = server.getShopStockByNpcName(npc.getName());
+        if (shopStock == null) {
             sendChatMessage(ctx, "They are not trading right now.", 1);
             return;
         }
@@ -1425,20 +1426,26 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             return;
         }
 
-        ShopDefinition.StockEntry stockEntry = findStockEntry(shop, request.getItemId());
-        if (stockEntry == null) {
+        int itemId = request.getItemId();
+        if (!shopStock.hasItem(itemId)) {
             sendChatMessage(ctx, "This shop doesn't sell that item.", 1);
             return;
         }
 
-        ItemDefinition itemDef = server.getWorld().getItemDef(stockEntry.itemId);
+        if (shopStock.getCurrentQuantity(itemId) <= 0) {
+            sendChatMessage(ctx, "That item is out of stock.", 1);
+            sendShopOpen(ctx, npc.getId(), shopStock);
+            return;
+        }
+
+        ItemDefinition itemDef = server.getWorld().getItemDef(itemId);
         if (itemDef == null || itemDef.id <= 0) {
             sendChatMessage(ctx, "That item is unavailable.", 1);
             return;
         }
 
-        int quantity = Math.min(requestedQuantity, 10000);
-        int unitPrice = resolveShopPrice(stockEntry, itemDef);
+        int quantity = Math.min(requestedQuantity, Math.min(10000, shopStock.getCurrentQuantity(itemId)));
+        int unitPrice = shopStock.computeBuyPrice(itemId);
         long totalPriceLong = (long) unitPrice * (long) quantity;
         if (totalPriceLong > Integer.MAX_VALUE) {
             sendChatMessage(ctx, "That purchase is too large.", 1);
@@ -1484,13 +1491,102 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             return;
         }
 
+        shopStock.tryDecrement(itemId, quantity);
+
         sendFullInventory(ctx, player);
         if (DatabaseManager.isHealthy()) {
             PlayerRepository.saveInventory(player);
         }
 
         sendChatMessage(ctx, "You buy " + quantity + " x " + itemDef.name + ".", 0);
-        sendShopOpen(ctx, npc.getId(), shop);
+        sendShopOpen(ctx, npc.getId(), shopStock);
+    }
+
+    private void handleSellShopItem(ChannelHandlerContext ctx, NetworkProto.SellShopItem request) {
+        if (session == null || !session.isAuthenticated() || session.getPlayer() == null) {
+            return;
+        }
+
+        Player player = session.getPlayer();
+        NPC npc = server.getWorld().getNPC(request.getNpcId());
+        if (npc == null) {
+            sendChatMessage(ctx, "They are not here.", 1);
+            return;
+        }
+
+        ShopStock shopStock = server.getShopStockByNpcName(npc.getName());
+        if (shopStock == null) {
+            sendChatMessage(ctx, "They are not trading right now.", 1);
+            return;
+        }
+
+        if (player.isInCombat()) {
+            sendChatMessage(ctx, "You are too busy fighting.", 1);
+            return;
+        }
+
+        int chebyshev = Math.max(Math.abs(player.getX() - npc.getX()), Math.abs(player.getY() - npc.getY()));
+        if (chebyshev > 2 || !canReachAnyAdjacentTile(player, npc)) {
+            sendChatMessage(ctx, "I can't reach that!", 1);
+            return;
+        }
+
+        int inventorySlot = request.getInventorySlot();
+        if (inventorySlot < 0 || inventorySlot >= 28) {
+            return;
+        }
+
+        int itemId = player.getInventoryItemId(inventorySlot);
+        if (itemId <= 0) {
+            sendChatMessage(ctx, "You don't have that item.", 1);
+            return;
+        }
+
+        if (!shopStock.hasItem(itemId)) {
+            sendChatMessage(ctx, "This shop doesn't buy that item.", 1);
+            return;
+        }
+
+        int requestedQty = Math.max(1, request.getQuantity());
+        int available    = player.getInventoryQuantity(inventorySlot);
+        int quantity     = Math.min(requestedQty, available);
+        if (quantity <= 0) {
+            sendChatMessage(ctx, "You don't have enough of that item.", 1);
+            return;
+        }
+
+        int unitSellPrice = shopStock.computeSellPrice(itemId);
+        long totalCoinsLong = (long) unitSellPrice * quantity;
+        if (totalCoinsLong > Integer.MAX_VALUE) {
+            totalCoinsLong = Integer.MAX_VALUE;
+        }
+        int totalCoins = (int) totalCoinsLong;
+
+        ItemDefinition itemDef = server.getWorld().getItemDef(itemId);
+        if (itemDef == null) {
+            sendChatMessage(ctx, "That item is not sellable.", 1);
+            return;
+        }
+
+        if (!removeInventoryItem(player, itemId, quantity)) {
+            sendChatMessage(ctx, "You don't have enough of that item.", 1);
+            return;
+        }
+
+        ItemDefinition coinDef = server.getWorld().getItemDef(COINS_ITEM_ID);
+        if (coinDef != null) {
+            giveItemToInventory(player, coinDef, totalCoins);
+        }
+
+        shopStock.increment(itemId, quantity);
+
+        sendFullInventory(ctx, player);
+        if (DatabaseManager.isHealthy()) {
+            PlayerRepository.saveInventory(player);
+        }
+
+        sendChatMessage(ctx, "You sell " + quantity + " x " + itemDef.name + " for " + totalCoins + " coins.", 0);
+        sendShopOpen(ctx, npc.getId(), shopStock);
     }
 
     private void handleCloseShop(ChannelHandlerContext ctx, NetworkProto.CloseShop request) {
@@ -1509,46 +1605,26 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
             || "Anvil".equalsIgnoreCase(npc.getName()));
     }
 
-    private ShopDefinition.StockEntry findStockEntry(ShopDefinition shop, int itemId) {
-        if (shop == null || shop.stock == null) {
-            return null;
-        }
-        for (ShopDefinition.StockEntry entry : shop.stock) {
-            if (entry.itemId == itemId) {
-                return entry;
-            }
-        }
-        return null;
-    }
-
-    private int resolveShopPrice(ShopDefinition.StockEntry entry, ItemDefinition itemDef) {
-        if (entry != null && entry.price != null && entry.price > 0) {
-            return entry.price;
-        }
-        return Math.max(1, itemDef != null ? itemDef.storeValue : 1);
-    }
-
-    private void sendShopOpen(ChannelHandlerContext ctx, int npcId, ShopDefinition shop) {
-        if (shop == null) {
+    private void sendShopOpen(ChannelHandlerContext ctx, int npcId, ShopStock shopStock) {
+        if (shopStock == null) {
             return;
         }
         NetworkProto.ShopOpen.Builder out = NetworkProto.ShopOpen.newBuilder()
             .setNpcId(npcId)
-            .setShopName(shop.name == null ? "Shop" : shop.name);
+            .setShopName(shopStock.getShopName());
 
-        if (shop.stock != null) {
-            for (ShopDefinition.StockEntry entry : shop.stock) {
-                ItemDefinition itemDef = server.getWorld().getItemDef(entry.itemId);
-                if (itemDef == null || itemDef.id <= 0) {
-                    continue;
-                }
-                out.addStock(NetworkProto.ShopStockEntry.newBuilder()
-                    .setItemId(entry.itemId)
-                    .setItemName(itemDef.name)
-                    .setQuantity(Math.max(0, entry.quantity))
-                    .setPrice(resolveShopPrice(entry, itemDef))
-                    .setFlags(itemDef.getFlags()));
+        for (int itemId : shopStock.getOrderedItemIds()) {
+            ItemDefinition itemDef = server.getWorld().getItemDef(itemId);
+            if (itemDef == null || itemDef.id <= 0) {
+                continue;
             }
+            out.addStock(NetworkProto.ShopStockEntry.newBuilder()
+                .setItemId(itemId)
+                .setItemName(itemDef.name)
+                .setQuantity(shopStock.getCurrentQuantity(itemId))
+                .setPrice(shopStock.computeBuyPrice(itemId))
+                .setSellPrice(shopStock.computeSellPrice(itemId))
+                .setFlags(itemDef.getFlags()));
         }
 
         ctx.writeAndFlush(NetworkProto.ServerMessage.newBuilder()

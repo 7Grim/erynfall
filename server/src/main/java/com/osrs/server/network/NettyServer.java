@@ -13,12 +13,18 @@ import com.osrs.protocol.NetworkProto;
 import com.osrs.server.GameContent;
 import com.osrs.server.quest.DialogueEngine;
 import com.osrs.server.quest.Quest;
+import com.osrs.server.shop.ShopStock;
 import com.osrs.server.world.World;
+import com.osrs.shared.ItemDefinition;
 import com.osrs.shared.ShopDefinition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -46,6 +52,8 @@ public class NettyServer {
     /** Shared tick counter — written by GameLoop, read by ServerPacketHandler for pickup scheduling. */
     private volatile long currentTick = 0;
 
+    private final Map<String, ShopStock> shopStocksByNpcName = new LinkedHashMap<>();
+
     public long getCurrentTick()            { return currentTick; }
     public void setCurrentTick(long tick)   { this.currentTick = tick; }
 
@@ -55,6 +63,27 @@ public class NettyServer {
         this.workerThreads = workerThreads;
         this.world = world;
         this.gameContent = gameContent;
+        initShopStocks();
+    }
+
+    private void initShopStocks() {
+        for (ShopDefinition def : gameContent.getAllShops()) {
+            ShopStock stock = new ShopStock(def, itemId -> {
+                ItemDefinition d = world.getItemDef(itemId);
+                return d != null ? d.storeValue : 1;
+            });
+            shopStocksByNpcName.put(def.npcName.toLowerCase(Locale.ROOT), stock);
+        }
+        LOG.info("Initialized {} shop stock instances", shopStocksByNpcName.size());
+    }
+
+    public ShopStock getShopStockByNpcName(String npcName) {
+        if (npcName == null || npcName.isBlank()) return null;
+        return shopStocksByNpcName.get(npcName.toLowerCase(Locale.ROOT));
+    }
+
+    public Collection<ShopStock> getAllShopStocks() {
+        return Collections.unmodifiableCollection(shopStocksByNpcName.values());
     }
 
     public World getWorld() { return world; }

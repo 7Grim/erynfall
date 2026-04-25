@@ -260,6 +260,18 @@ public class NettyClient {
         LOG.debug("Sent BuyShopItem: npcId={} itemId={} qty={}", npcId, itemId, quantity);
     }
 
+    public void sendSellShopItem(int npcId, int inventorySlot, int quantity) {
+        if (channel == null || !channel.isActive()) return;
+        channel.writeAndFlush(NetworkProto.ClientMessage.newBuilder()
+            .setSellShopItem(NetworkProto.SellShopItem.newBuilder()
+                .setNpcId(npcId)
+                .setInventorySlot(inventorySlot)
+                .setQuantity(quantity)
+                .setSequence(System.currentTimeMillis()))
+            .build());
+        LOG.debug("Sent SellShopItem: npcId={} slot={} qty={}", npcId, inventorySlot, quantity);
+    }
+
     public void sendCloseShop() {
         if (channel == null || !channel.isActive()) return;
         channel.writeAndFlush(NetworkProto.ClientMessage.newBuilder()

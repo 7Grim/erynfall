@@ -423,17 +423,20 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
         public final String itemName;
         public final int quantity;
         public final int price;
+        public final int sellPrice;
         public final int flags;
 
         public ShopStockEntrySnapshot(int itemId,
                                       String itemName,
                                       int quantity,
                                       int price,
+                                      int sellPrice,
                                       int flags) {
             this.itemId = itemId;
             this.itemName = itemName == null ? "" : itemName;
             this.quantity = quantity;
             this.price = price;
+            this.sellPrice = sellPrice;
             this.flags = flags;
         }
     }
@@ -1228,6 +1231,7 @@ public class ClientPacketHandler extends SimpleChannelInboundHandler<Object> {
                 stockEntry.getItemName(),
                 stockEntry.getQuantity(),
                 stockEntry.getPrice(),
+                stockEntry.getSellPrice(),
                 stockEntry.getFlags()
             ));
         }

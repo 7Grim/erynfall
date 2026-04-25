@@ -3128,6 +3128,7 @@ public class GameScreen extends ApplicationAdapter {
                     entry.itemName,
                     entry.quantity,
                     entry.price,
+                    entry.sellPrice,
                     entry.flags
                 ));
             }
@@ -5420,6 +5421,13 @@ public class GameScreen extends ApplicationAdapter {
         if (purchase != null && nettyClient != null) {
             nettyClient.sendBuyShopItem(purchase.npcId, purchase.itemId, purchase.quantity);
         }
+        ShopUI.PendingSell pendingSell = shopUI.consumePendingSell();
+        if (pendingSell != null && nettyClient != null) {
+            int slot = findInventorySlotForItem(pendingSell.itemId);
+            if (slot >= 0) {
+                nettyClient.sendSellShopItem(pendingSell.npcId, slot, pendingSell.quantity);
+            }
+        }
         if (!shopUI.isVisible()) {
             if (nettyClient != null) {
                 nettyClient.sendCloseShop();
@@ -5429,6 +5437,15 @@ public class GameScreen extends ApplicationAdapter {
                 h.clearShop();
             }
         }
+    }
+
+    private int findInventorySlotForItem(int itemId) {
+        for (int i = 0; i < 28; i++) {
+            if (sidePanel.getInventoryItemId(i) == itemId) {
+                return i;
+            }
+        }
+        return -1;
     }
 
     private void submitDialogueOptionByIndex(int index) {

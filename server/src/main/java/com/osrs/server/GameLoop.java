@@ -217,6 +217,9 @@ public class GameLoop {
             // Stage 5c: Pending item pickups (3-OSRS-tick animation delay)
             processPendingPickups();
 
+            // Stage 5d: Shop restock — recover 1 unit per item every 50 OSRS ticks
+            processShopRestock();
+
             // Stage 6: Autosave — persist all online players every 60 seconds
             if (tickCount > 0 && tickCount % AUTOSAVE_INTERVAL == 0 && DatabaseManager.isHealthy()) {
                 for (Player p : world.getPlayers().values()) {
@@ -923,6 +926,15 @@ public class GameLoop {
                         .setType(1))
                     .build());
             }
+        }
+    }
+
+    private static final int SHOP_RESTOCK_INTERVAL = 50 * TickConstants.OSRS_TICK;
+
+    private void processShopRestock() {
+        if (tickCount % SHOP_RESTOCK_INTERVAL != 0) return;
+        for (com.osrs.server.shop.ShopStock stock : nettyServer.getAllShopStocks()) {
+            stock.restock();
         }
     }
 
