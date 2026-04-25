@@ -4602,7 +4602,7 @@ public class GameScreen extends ApplicationAdapter {
                         && leftClickH != null
                         && !leftClickH.isPlayer(pickedEntityId)) {
                     if (nettyClient != null) {
-                        nettyClient.sendUseItemOnNpc(selectedInventorySlot, pickedEntityId);
+                        nettyClient.sendUseItemOnNpc(selectedInventorySlot, (int) pickedEntityId);
                     }
                     selectedInventorySlot = -1;
                     sidePanel.setSelectedInventorySlot(-1);

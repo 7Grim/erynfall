@@ -3990,6 +3990,12 @@ public class ServerPacketHandler extends SimpleChannelInboundHandler<Object> {
                 sendPrayerState(ctx, player);
                 return;
             }
+            if (prayer.protectionType() != PrayerRegistry.ProtectionType.NONE) {
+                PrayerRegistry.f2pPrayers().stream()
+                    .filter(p -> p.protectionType() != PrayerRegistry.ProtectionType.NONE && p.id() != prayerId)
+                    .map(PrayerRegistry.PrayerDef::id)
+                    .forEach(player::deactivatePrayer);
+            }
             player.activatePrayer(prayerId);
         }
         sendPrayerState(ctx, player);
