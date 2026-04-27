@@ -55,11 +55,17 @@ def _load_validate_models():
     return mod
 
 _vm = _load_validate_models()
-parse_manifest         = _vm.parse_manifest
-ModelEntry             = _vm.ModelEntry
-CANONICAL_PLAYER_CLIPS = _vm.CANONICAL_PLAYER_CLIPS
-CANONICAL_NPC_CLIPS    = _vm.CANONICAL_NPC_CLIPS
-ALL_CANONICAL_CLIPS    = _vm.ALL_CANONICAL_CLIPS
+parse_manifest           = _vm.parse_manifest
+ModelEntry               = _vm.ModelEntry
+CANONICAL_PLAYER_CLIPS   = _vm.CANONICAL_PLAYER_CLIPS
+CANONICAL_NPC_CLIPS      = _vm.CANONICAL_NPC_CLIPS
+ALL_CANONICAL_CLIPS      = _vm.ALL_CANONICAL_CLIPS
+CANONICAL_CLIP_DURATIONS = _vm.CANONICAL_CLIP_DURATIONS
+REQUIRED_PLAYER_CLIPS    = _vm.REQUIRED_PLAYER_CLIPS
+REQUIRED_NPC_CLIPS       = _vm.REQUIRED_NPC_CLIPS
+
+# Clips that only player actors carry (not shared with NPCs).
+_PLAYER_ONLY_CLIPS: frozenset[str] = CANONICAL_PLAYER_CLIPS - CANONICAL_NPC_CLIPS
 
 
 # ── Finding ───────────────────────────────────────────────────────────────────
@@ -97,11 +103,17 @@ class GlbInfo:
     has_pbr_metallic:  bool         = False
     has_normal_map:    bool         = False
     has_occlusion_map: bool         = False
+    has_emissive:      bool         = False   # emissiveFactor non-zero → glowing material
+    has_alpha_blend:   bool         = False   # any material alphaMode == BLEND
+    alpha_blend_count: int          = 0
+    has_alpha_mask:    bool         = False   # any material alphaMode == MASK
+    low_roughness_count: int        = 0       # materials with roughnessFactor < 0.4
     triangle_count:    int          = 0
     y_min:             float        = 0.0
     y_max:             float        = 0.0
     clip_names:        list[str]    = field(default_factory=list)
     clip_durations:    list[float]  = field(default_factory=list)   # seconds
+    clips_with_easing: list[str]    = field(default_factory=list)   # CUBICSPLINE interpolation
     parse_error:       Optional[str] = None
 
     @property
@@ -153,15 +165,27 @@ def inspect_glb(path: Path) -> GlbInfo:
         if "mesh" in node:
             info.mesh_node_count += 1
 
-    # Materials: PBR, normal map, occlusion
+    # Materials: PBR, normal map, occlusion, emissive, alpha, roughness
     for mat in materials:
         pbr = mat.get("pbrMetallicRoughness", {})
         if pbr.get("metallicFactor", 0.0) > 0.01:
             info.has_pbr_metallic = True
+        roughness = pbr.get("roughnessFactor", 1.0)
+        if roughness < 0.4:
+            info.low_roughness_count += 1
         if "normalTexture" in mat:
             info.has_normal_map = True
         if "occlusionTexture" in mat:
             info.has_occlusion_map = True
+        emissive = mat.get("emissiveFactor", [0.0, 0.0, 0.0])
+        if any(v > 0.01 for v in emissive):
+            info.has_emissive = True
+        alpha_mode = mat.get("alphaMode", "OPAQUE")
+        if alpha_mode == "BLEND":
+            info.has_alpha_blend = True
+            info.alpha_blend_count += 1
+        elif alpha_mode == "MASK":
+            info.has_alpha_mask = True
 
     # Meshes: vertex colors, triangle count, bounding box
     total_tris = 0
@@ -202,18 +226,24 @@ def inspect_glb(path: Path) -> GlbInfo:
     if y_maxs:
         info.y_max = max(y_maxs)
 
-    # Animations: names and durations (max input-accessor value = clip length)
+    # Animations: names, durations (max input-accessor value), and interpolation mode
     for anim in g.get("animations", []):
         name = (anim.get("name") or "").strip()
         info.clip_names.append(name)
         duration = 0.0
+        has_easing = False
         for sampler in anim.get("samplers", []):
             inp = sampler.get("input")
             if inp is not None and inp < len(accessors):
                 mx = accessors[inp].get("max")
                 if mx and len(mx) >= 1:
                     duration = max(duration, float(mx[0]))
+            # CUBICSPLINE = Bézier/easing curves — breaks OSRS snappy feel
+            if sampler.get("interpolation") == "CUBICSPLINE":
+                has_easing = True
         info.clip_durations.append(duration)
+        if has_easing:
+            info.clips_with_easing.append(name)
 
     return info
 
@@ -227,6 +257,15 @@ POLY_BUDGET: dict[str, tuple[int, int]] = {
     "prop":      (800,  1300),
     "shell":     (2000, 3200),
     "resource":  (600,  950),
+}
+
+# Max material count per category (docs/MATERIAL_SPEC.md)
+MATERIAL_COUNT_MAX: dict[str, int] = {
+    "actor":     4,
+    "equipment": 3,
+    "prop":      2,
+    "shell":     4,
+    "resource":  2,
 }
 
 ACTOR_HEIGHT_TARGET  = 1.80   # WU (WorldScale.PLAYER_HEIGHT)
@@ -264,6 +303,24 @@ FRAGMENTED_SUFFIXES = (
     "_smith", "_cook", "_sword", "_spear",
     "_death", "_block",
 )
+
+
+# ── Actor type inference ─────────────────────────────────────────────────────
+
+def _infer_actor_type(entry: ModelEntry, glb_clip_names: list[str]) -> str | None:
+    """
+    Return 'player', 'npc', or None (ambiguous/unknown).
+
+    Player signals: key == 'player_base', or any player-only clip present.
+    NPC signals: key starts with 'npc_', or 'action' clip present.
+    Ambiguous: only idle/walk present (shared by both types).
+    """
+    all_clips = set(entry.animation_clips) | set(glb_clip_names)
+    if entry.key == "player_base" or any(c in _PLAYER_ONLY_CLIPS for c in all_clips):
+        return "player"
+    if entry.key.startswith("npc_") or "action" in all_clips:
+        return "npc"
+    return None
 
 
 # ── Per-entry audit ──────────────────────────────────────────────────────────
@@ -444,6 +501,41 @@ def audit_entry(
             "Material uses an occlusionTexture. "
             "Not supported — flat/matte shading only. Remove occlusionTexture.")
 
+    # Material count high ─────────────────────────────────────────────────────
+    if entry.category in MATERIAL_COUNT_MAX:
+        limit = MATERIAL_COUNT_MAX[entry.category]
+        if info.material_count > limit:
+            add("WARNING", "MATERIAL_COUNT_HIGH",
+                f"Material count = {info.material_count} — exceeds limit "
+                f"({limit}) for category '{entry.category}'. "
+                "OSRS-style assets use one material per colour zone. "
+                "Merge materials in Blender using vertex colors instead of "
+                "separate material slots. See docs/MATERIAL_SPEC.md.")
+
+    # Emissive materials ───────────────────────────────────────────────────────
+    if info.has_emissive:
+        add("CRITICAL", "MATERIAL_EMISSIVE",
+            "One or more materials have a non-zero emissiveFactor. "
+            "Emissive/glow materials break the OSRS flat-lit aesthetic. "
+            "LibGDX renders emissive as additive brightness — causes glowing. "
+            "Set emissiveFactor to [0, 0, 0] on all materials.")
+
+    # Alpha blend (transparent) materials ─────────────────────────────────────
+    if info.has_alpha_blend and entry.category not in {"equipment"}:
+        add("WARNING", "MATERIAL_TRANSPARENT",
+            f"{info.alpha_blend_count} material(s) use alphaMode BLEND "
+            "(transparent). World objects and props should use OPAQUE materials. "
+            "Transparency causes draw-order artifacts and is not needed for "
+            "the OSRS style. Change alphaMode to OPAQUE in the glTF export.")
+
+    # Low roughness (shiny/specular) materials ─────────────────────────────────
+    if info.low_roughness_count > 0:
+        add("WARNING", "MATERIAL_LOW_ROUGHNESS",
+            f"{info.low_roughness_count} material(s) have roughnessFactor < 0.4 "
+            "(shiny/specular surface). OSRS materials are flat/matte — no "
+            "specular highlights. Set Roughness ≥ 0.7 in Blender's Principled BSDF. "
+            "See docs/MATERIAL_SPEC.md.")
+
     # Textures present (prefer vertex colors) ─────────────────────────────────
     if info.texture_count > 0 or info.image_count > 0:
         add("WARNING", "TEXTURE_PRESENT",
@@ -516,13 +608,14 @@ def audit_entry(
                     "Rename NLA tracks in Blender to match canonical names exactly "
                     f"(case-sensitive). Valid: {', '.join(sorted(ALL_CANONICAL_CLIPS))}.")
 
-        # Clip duration not a tick multiple
+        # Clip timing checks — tick alignment and expected duration per spec
         for clip_name, dur in zip(info.clip_names, info.clip_durations):
             if dur <= 0 or clip_name not in ALL_CANONICAL_CLIPS:
                 continue
             remainder = dur % TICK_DURATION
             off_by = min(remainder, TICK_DURATION - remainder)
             if off_by > TICK_TOLERANCE:
+                # Not a tick multiple at all — fix alignment first
                 nearest = round(dur / TICK_DURATION) * TICK_DURATION
                 add("WARNING", "CLIP_NON_TICK_DURATION",
                     f"Clip '{clip_name}': duration {dur:.4f}s is not a multiple "
@@ -530,6 +623,51 @@ def audit_entry(
                     f"off by {off_by:.4f}s). "
                     "Adjust the NLA track length in Blender so it snaps to a "
                     "whole tick boundary.")
+            elif clip_name in CANONICAL_CLIP_DURATIONS:
+                expected = CANONICAL_CLIP_DURATIONS[clip_name]
+                if abs(dur - expected) > TICK_TOLERANCE:
+                    actual_ticks = round(dur / TICK_DURATION)
+                    expected_ticks = round(expected / TICK_DURATION)
+                    add("WARNING", "CLIP_WRONG_DURATION",
+                        f"Clip '{clip_name}': duration {dur:.3f}s ({actual_ticks} tick(s)), "
+                        f"expected {expected:.1f}s ({expected_ticks} tick(s)) per "
+                        "docs/GRAPHICS_STYLE.md. "
+                        "Wrong tick count changes animation rhythm relative to gameplay. "
+                        "Resize the NLA strip in Blender to match the spec duration.")
+
+        # Easing interpolation (CUBICSPLINE → smooth modern curves, breaks OSRS feel)
+        if info.clips_with_easing:
+            add("CRITICAL", "CLIP_EASING_INTERPOLATION",
+                f"Clip(s) use CUBICSPLINE interpolation (easing/Bézier curves): "
+                f"{', '.join(repr(c) for c in info.clips_with_easing)}. "
+                "OSRS animation requires LINEAR or STEP interpolation — no ease-in/out. "
+                "In Blender Graph Editor: select all keyframes → Key → Interpolation Mode "
+                "→ Linear (or Constant for rigid stepping). "
+                "Re-export; glTF will then write LINEAR or STEP samplers.")
+
+        # Required clips present in GLB
+        # Skip fragmented pose files (e.g. npc_goblin_idle) — missing clips there are
+        # intentional; the FRAGMENTED_ACTOR finding already flags the correct fix.
+        _is_fragmented = any(entry.key.endswith(s) for s in FRAGMENTED_SUFFIXES)
+        if info.clip_names and not _is_fragmented:
+            actor_type = _infer_actor_type(entry, info.clip_names)
+            if actor_type == "player":
+                missing = sorted(REQUIRED_PLAYER_CLIPS - set(info.clip_names))
+                if missing:
+                    add("WARNING", "ACTOR_MISSING_REQUIRED_CLIPS",
+                        f"Player actor is missing required clips in GLB: "
+                        f"{', '.join(missing)}. "
+                        "The runtime will fall back to idle (or play nothing) for "
+                        "these actions. Author NLA tracks with these exact names in "
+                        "Blender and re-export.")
+            elif actor_type == "npc":
+                missing = sorted(REQUIRED_NPC_CLIPS - set(info.clip_names))
+                if missing:
+                    add("WARNING", "ACTOR_MISSING_REQUIRED_CLIPS",
+                        f"NPC actor is missing required clips in GLB: "
+                        f"{', '.join(missing)}. "
+                        "Required NPC clips: idle, walk, action. "
+                        "Author NLA tracks with these exact names and re-export.")
 
     # ── Prop / Resource / Shell file checks ───────────────────────────────────
     if entry.category in {"prop", "resource", "shell"} and info.mesh_count > 0:

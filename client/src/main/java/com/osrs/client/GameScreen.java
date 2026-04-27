@@ -8,11 +8,14 @@ import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.PerspectiveCamera;
+import com.badlogic.gdx.graphics.Pixmap;
+import com.badlogic.gdx.graphics.PixmapIO;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.GlyphLayout;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
+import com.badlogic.gdx.utils.ScreenUtils;
 import com.badlogic.gdx.math.MathUtils;
 import com.badlogic.gdx.math.Matrix4;
 import com.badlogic.gdx.math.Vector3;
@@ -257,7 +260,22 @@ public class GameScreen extends ApplicationAdapter {
     private boolean debug3DArtistBoundsAxes = false;
     private boolean debug3DArtistAnchors = false;
     private boolean debugBuildingReference = false;
+    private boolean debugCharacterProportion = false;
     private boolean debugDensityZones = false;
+
+    // --- Screenshot batch capture ---
+    private record ScreenshotView(String name, float yawDeg, float pitchDeg) {}
+    private static final List<ScreenshotView> SCREENSHOT_VIEWS = List.of(
+        new ScreenshotView("front", 0f, 20f),
+        new ScreenshotView("right", 90f, 20f),
+        new ScreenshotView("rear", 180f, 20f),
+        new ScreenshotView("iso", 225f, 30f)
+    );
+    private enum ScreenshotState { IDLE, CAPTURING }
+    private ScreenshotState screenshotState = ScreenshotState.IDLE;
+    private int screenshotViewIndex = 0;
+    private String screenshotModelKey = "";
+    private String screenshotCategory = "";
     private boolean debugReadability = false;
     private List<PropDensityZoneLoader.PropDensityZone> densityZones = List.of();
     private float debug3DRenderBudgetTimer = 0f;
@@ -1314,6 +1332,27 @@ public class GameScreen extends ApplicationAdapter {
             debug3DRenderBudgetTimer = 0f;
             LOG.info("3D render budget debug: {}", debug3DRenderBudget ? "enabled" : "disabled");
         }
+        if (artistMode && Gdx.input.isKeyJustPressed(Input.Keys.F3)
+                && artWorkbenchPopup != null && artWorkbenchPopup.isVisible()
+                && artWorkbenchPopup.mode() == ArtWorkbenchPopup.Mode.MODEL_PREVIEW) {
+            String key = artWorkbenchPopup.selectedModelKey();
+            if (key != null && !key.isBlank()) {
+                ModelLibrary.ModelMeta meta = modelLibrary != null ? modelLibrary.getMeta(key) : null;
+                screenshotModelKey = key;
+                screenshotCategory = (meta != null && meta.category() != null && !meta.category().isBlank())
+                    ? meta.category() : "misc";
+                screenshotViewIndex = 0;
+                screenshotState = ScreenshotState.CAPTURING;
+                LOG.info("Screenshot batch started: {} ({} views)", key, SCREENSHOT_VIEWS.size());
+            }
+        }
+        if (artistMode && Gdx.input.isKeyJustPressed(Input.Keys.F4)) {
+            debugCharacterProportion = !debugCharacterProportion;
+            if (renderer3d != null) {
+                renderer3d.setCharacterProportionGizmoEnabled(debugCharacterProportion);
+            }
+            LOG.info("Character proportion gizmo: {}", debugCharacterProportion ? "enabled" : "disabled");
+        }
         if (artistMode && Gdx.input.isKeyJustPressed(Input.Keys.F12)) {
             debugBuildingReference = !debugBuildingReference;
             if (renderer3d != null) {
@@ -1417,12 +1456,30 @@ public class GameScreen extends ApplicationAdapter {
                         artWorkbenchPopup.equipmentTransformOverrides(),
                         delta
                     );
+                    artWorkbenchPopup.setEquipFitWarnings(renderer3d.computeEquipFitWarnings(
+                        artWorkbenchPopup.selectedEquipmentItemIds(),
+                        artWorkbenchPopup.equipmentTransformOverrides()
+                    ));
                 } else {
+                    if (screenshotState == ScreenshotState.CAPTURING && screenshotViewIndex < SCREENSHOT_VIEWS.size()) {
+                        ScreenshotView sv = SCREENSHOT_VIEWS.get(screenshotViewIndex);
+                        renderer3d.setPreviewCameraExact(sv.yawDeg(), sv.pitchDeg());
+                    }
                     renderer3d.renderWorkbenchModelPreview(
                         artWorkbenchPopup.selectedModelKey(),
                         artWorkbenchPopup.selectedClipName(),
-                        delta
+                        screenshotState == ScreenshotState.CAPTURING ? 0f : delta
                     );
+                    if (screenshotState == ScreenshotState.CAPTURING && screenshotViewIndex < SCREENSHOT_VIEWS.size()) {
+                        captureAndSaveScreenshot(SCREENSHOT_VIEWS.get(screenshotViewIndex));
+                        screenshotViewIndex++;
+                        if (screenshotViewIndex >= SCREENSHOT_VIEWS.size()) {
+                            screenshotState = ScreenshotState.IDLE;
+                            writeScreenshotSidecarJson();
+                            renderer3d.resetWorkbenchPreviewCamera();
+                            LOG.info("Screenshots done: review/screenshots/{}/{}", screenshotCategory, screenshotModelKey);
+                        }
+                    }
                 }
             } else {
                 float terrainFocusX = shouldUseInWorldFreeCamera() ? camera3d.position.x : visualX;
@@ -3578,6 +3635,57 @@ public class GameScreen extends ApplicationAdapter {
             || "Runite Rock".equalsIgnoreCase(npcName);
     }
 
+    private void captureAndSaveScreenshot(ScreenshotView view) {
+        try {
+            int w = Gdx.graphics.getWidth();
+            int h = Gdx.graphics.getHeight();
+            Pixmap raw = ScreenUtils.getFrameBufferPixmap(0, 0, w, h);
+            Pixmap flipped = new Pixmap(w, h, raw.getFormat());
+            for (int row = 0; row < h; row++) {
+                for (int col = 0; col < w; col++) {
+                    flipped.drawPixel(col, row, raw.getPixel(col, h - 1 - row));
+                }
+            }
+            raw.dispose();
+            String dir = "review/screenshots/" + screenshotCategory;
+            new java.io.File(dir).mkdirs();
+            String path = dir + "/" + screenshotModelKey + "_" + view.name() + ".png";
+            PixmapIO.writePNG(Gdx.files.absolute(new java.io.File(path).getAbsolutePath()), flipped);
+            flipped.dispose();
+            LOG.debug("Screenshot saved: {}", path);
+        } catch (Exception e) {
+            LOG.error("Screenshot capture failed ({}): {}", view.name(), e.getMessage());
+        }
+    }
+
+    private void writeScreenshotSidecarJson() {
+        try {
+            String dir = "review/screenshots/" + screenshotCategory;
+            new java.io.File(dir).mkdirs();
+            String path = dir + "/" + screenshotModelKey + ".json";
+            StringBuilder sb = new StringBuilder();
+            sb.append("{\n");
+            sb.append("  \"key\": \"").append(screenshotModelKey).append("\",\n");
+            sb.append("  \"category\": \"").append(screenshotCategory).append("\",\n");
+            sb.append("  \"captured_at\": \"").append(java.time.Instant.now()).append("\",\n");
+            sb.append("  \"views\": [");
+            List<ScreenshotView> views = SCREENSHOT_VIEWS;
+            for (int i = 0; i < views.size(); i++) {
+                ScreenshotView v = views.get(i);
+                sb.append("\n    {\"name\": \"").append(v.name())
+                  .append("\", \"yaw\": ").append(v.yawDeg())
+                  .append(", \"pitch\": ").append(v.pitchDeg())
+                  .append(", \"file\": \"").append(screenshotModelKey).append("_").append(v.name()).append(".png\"}");
+                if (i < views.size() - 1) sb.append(",");
+            }
+            sb.append("\n  ]\n}\n");
+            Gdx.files.absolute(new java.io.File(path).getAbsolutePath()).writeString(sb.toString(), false);
+            LOG.debug("Sidecar JSON saved: {}", path);
+        } catch (Exception e) {
+            LOG.error("Sidecar JSON write failed: {}", e.getMessage());
+        }
+    }
+
     private void renderPickVolumeDebug3D() {
         if (!debugPickVolumes3D) {
             return;
@@ -4975,6 +5083,7 @@ public class GameScreen extends ApplicationAdapter {
         renderer3d.setModelLibrary(modelLibrary);
         renderer3d.setArtistDebugVisualization(debug3DArtistBoundsAxes, debug3DArtistAnchors);
         renderer3d.setBuildingReferenceGizmoEnabled(debugBuildingReference);
+        renderer3d.setCharacterProportionGizmoEnabled(debugCharacterProportion);
         renderer3d.setTerrainHeightData(terrainHeightLevels, terrainHeightStep);
         renderer3d.rebuildTerrain(activeTerrainRenderMap());
         if (artWorkbenchPopup != null) {

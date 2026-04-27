@@ -25,6 +25,21 @@ public final class PropPlacementValidator {
     private static final float PROP_SCALE_MAX      = 3.0f;   // props larger than this need review
     private static final float SHELL_SCALE_MAX     = 4.5f;   // building shells may go up to ~2.5×
 
+    // Building class scale bands (docs/BUILDING_CLASS_SPEC.md).
+    // Each entry: {min_scale, max_scale}.  A shell must fall in at least one band.
+    private static final float[][] SHELL_CLASS_BANDS = {
+        { 1.40f, 1.65f },  // tiny_hut
+        { 1.65f, 1.95f },  // small_service
+        { 1.80f, 2.25f },  // forge_workshop
+        { 2.00f, 2.55f },  // medium_hub
+    };
+    private static final String[] SHELL_CLASS_NAMES = {
+        "tiny_hut", "small_service", "forge_workshop", "medium_hub",
+    };
+    // Hard limits for scale warnings specific to shells (separate from SHELL_SCALE_MAX).
+    private static final float SHELL_OSRS_SCALE_MIN = 1.40f;
+    private static final float SHELL_OSRS_SCALE_MAX = 2.50f;
+
     // Rotation tolerance: flag anything that isn't a multiple of 90° within this margin
     private static final float ROTATION_TOLERANCE_DEG = 1.0f;
 
@@ -67,6 +82,42 @@ public final class PropPlacementValidator {
                 LOG.warn("PropValidator: '{}' at ({},{}) scale={} — exceeds {} limit {} for category '{}'",
                         p.key, p.x, p.y, p.scale, "shell".equals(category) ? "shell" : "prop", scaleMax, category);
                 warnings++;
+            }
+
+            // 3b — building shell class-band check (docs/BUILDING_CLASS_SPEC.md)
+            if ("shell".equals(category)) {
+                if (p.scale < SHELL_OSRS_SCALE_MIN) {
+                    LOG.warn("PropValidator: shell '{}' at ({},{}) scale={} — below OSRS minimum {}"
+                            + " (walls may not clear the 1.80 WU player). See docs/BUILDING_CLASS_SPEC.md",
+                            p.key, p.x, p.y, p.scale, SHELL_OSRS_SCALE_MIN);
+                    warnings++;
+                } else if (p.scale > SHELL_OSRS_SCALE_MAX) {
+                    LOG.warn("PropValidator: shell '{}' at ({},{}) scale={} — above recommended OSRS max {}"
+                            + ". Building will dominate the zone. See docs/BUILDING_CLASS_SPEC.md",
+                            p.key, p.x, p.y, p.scale, SHELL_OSRS_SCALE_MAX);
+                    warnings++;
+                } else {
+                    boolean inAnyBand = false;
+                    for (float[] band : SHELL_CLASS_BANDS) {
+                        if (p.scale >= band[0] && p.scale <= band[1]) {
+                            inAnyBand = true;
+                            break;
+                        }
+                    }
+                    if (!inAnyBand) {
+                        StringBuilder bands = new StringBuilder();
+                        for (int b = 0; b < SHELL_CLASS_BANDS.length; b++) {
+                            if (b > 0) bands.append(", ");
+                            bands.append(SHELL_CLASS_NAMES[b])
+                                 .append(" (").append(SHELL_CLASS_BANDS[b][0])
+                                 .append("–").append(SHELL_CLASS_BANDS[b][1]).append(")");
+                        }
+                        LOG.warn("PropValidator: shell '{}' at ({},{}) scale={} not in any class band: {}."
+                                + " See docs/BUILDING_CLASS_SPEC.md",
+                                p.key, p.x, p.y, p.scale, bands);
+                        warnings++;
+                    }
+                }
             }
 
             // 4 — non-cardinal rotation

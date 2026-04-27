@@ -60,6 +60,9 @@ import java.util.Set;
 public class Renderer3DExperimental {
     public record PickHit(int entityId, float distance) {}
 
+    /** Equipment fit warning emitted by {@link #computeEquipFitWarnings}. */
+    public record EquipFitWarning(String code, String message, boolean critical) {}
+
     private static final int CHUNK_SIZE = 16;
     private static final float GROUND_Y   = WorldScale.GROUND_Y;
     private static final float WALL_TOP_Y = WorldScale.TERRAIN_WALL_HEIGHT;
@@ -127,6 +130,17 @@ public class Renderer3DExperimental {
     private static final float BREF_PLAYER_H = WorldScale.PLAYER_HEIGHT;   // 1.80 WU
     private static final float BREF_DOOR_HW  = 0.225f;  // door half-width
     private static final float BREF_DOOR_H   = 0.90f;   // door height
+
+    // Character proportion reference gizmo — see docs/CHARACTER_PROPORTION_SPEC.md
+    private static final float CREF_TOTAL_H      = WorldScale.PLAYER_HEIGHT; // 1.80 WU
+    private static final float CREF_Y_SHOULDER   = 1.44f;  // shoulder/neck boundary
+    private static final float CREF_Y_HIP        = 0.90f;  // hip boundary
+    private static final float CREF_Y_KNEE       = 0.45f;  // knee boundary
+    private static final float CREF_SHOULDER_HW  = 0.27f;  // shoulder half-width (full width 0.54)
+    private static final float CREF_HIP_HW       = 0.22f;  // hip half-width (full width 0.44)
+    private static final float CREF_HEAD_HW      = 0.13f;  // head half-width (full width 0.26)
+    private static final float CREF_TORSO_HD     = 0.14f;  // torso half-depth (full depth 0.28)
+    private static final float CREF_HEAD_HD      = 0.11f;  // head half-depth (full depth 0.22)
     private static final String[] DEBUG_PLAYER_ANCHOR_NAMES = {
         "weapon_anchor",
         "shield_anchor",
@@ -193,8 +207,10 @@ public class Renderer3DExperimental {
     private boolean debugModelAxesAndBoundsEnabled = false;
     private boolean debugAnchorMarkersEnabled = false;
     private boolean debugBuildingReferenceEnabled = false;
+    private boolean debugCharacterProportionEnabled = false;
     private boolean staticPropPassActive = false;
     private boolean actorModelPassActive = false;
+    private boolean playerZoneWarnLogged = false;
 
     private ModelLibrary modelLibrary;
     private final Map<Integer, ModelInstance> animatedPlayerInstances = new HashMap<>();
@@ -331,6 +347,88 @@ public class Renderer3DExperimental {
 
     public void setBuildingReferenceGizmoEnabled(boolean enabled) {
         this.debugBuildingReferenceEnabled = enabled;
+    }
+
+    public void setCharacterProportionGizmoEnabled(boolean enabled) {
+        this.debugCharacterProportionEnabled = enabled;
+    }
+
+    private static String slotLabel(int slot) {
+        return switch (slot) {
+            case EquipmentSlot.HEAD   -> "HEAD";
+            case EquipmentSlot.CAPE   -> "CAPE";
+            case EquipmentSlot.AMMO   -> "AMMO";
+            case EquipmentSlot.WEAPON -> "WEAPON";
+            case EquipmentSlot.SHIELD -> "SHIELD";
+            case EquipmentSlot.BODY   -> "BODY";
+            case EquipmentSlot.LEGS   -> "LEGS";
+            case EquipmentSlot.HANDS  -> "HANDS";
+            case EquipmentSlot.FEET   -> "FEET";
+            default -> "SLOT" + slot;
+        };
+    }
+
+    public List<EquipFitWarning> computeEquipFitWarnings(int[] equippedItemIds,
+                                                          Map<Integer, float[]> overrides) {
+        List<EquipFitWarning> warnings = new ArrayList<>();
+        if (equippedItemIds == null || modelLibrary == null) {
+            return warnings;
+        }
+        for (int slot : PLAYER_EQUIPMENT_VISIBLE_SLOTS) {
+            if (slot < 0 || slot >= equippedItemIds.length) {
+                continue;
+            }
+            int itemId = equippedItemIds[slot];
+            if (itemId <= 0) {
+                continue;
+            }
+            ModelLibrary.ModelMeta meta = modelLibrary.getEquipmentMeta(slot, itemId);
+            if (meta == null) {
+                warnings.add(new EquipFitWarning("MISSING_META",
+                    slotLabel(slot) + " item " + itemId + ": no model meta", true));
+                continue;
+            }
+            if (meta.anchorName() == null || meta.anchorName().isBlank()) {
+                warnings.add(new EquipFitWarning("MISSING_ANCHOR",
+                    meta.key() + ": anchor_name blank", true));
+            } else if (previewEquipmentFitPlayerInstance != null) {
+                Matrix4 anchor = findActorAnchorTransform(previewEquipmentFitPlayerInstance, meta.anchorName());
+                if (anchor == null) {
+                    warnings.add(new EquipFitWarning("ANCHOR_NOT_FOUND",
+                        meta.key() + ": anchor '" + meta.anchorName() + "' not in player_base", true));
+                }
+            }
+            if (meta.scale() > 0f && Math.abs(meta.scale() - 1f) > 0.05f) {
+                warnings.add(new EquipFitWarning("SUSPICIOUS_SCALE",
+                    meta.key() + String.format(": scale=%.2f", meta.scale()), false));
+            }
+            float[] ovr = overrides != null ? overrides.get(slot) : null;
+            float rotX = meta.rotX() + (ovr != null && ovr.length >= 6 ? ovr[3] : 0f);
+            float rotY = meta.rotY() + (ovr != null && ovr.length >= 6 ? ovr[4] : 0f);
+            float rotZ = meta.rotZ() + (ovr != null && ovr.length >= 6 ? ovr[5] : 0f);
+            if (Math.abs(rotX) > 360f || Math.abs(rotY) > 360f || Math.abs(rotZ) > 360f) {
+                warnings.add(new EquipFitWarning("EXTREME_ROTATION",
+                    meta.key() + String.format(": rot %.1f/%.1f/%.1f", rotX, rotY, rotZ), false));
+            }
+            float ox = meta.offsetX() + (ovr != null && ovr.length >= 3 ? ovr[0] : 0f);
+            float oy = meta.offsetY() + (ovr != null && ovr.length >= 3 ? ovr[1] : 0f);
+            float oz = meta.offsetZ() + (ovr != null && ovr.length >= 3 ? ovr[2] : 0f);
+            float dx = ox - defaultAnchorOffsetXForSlot(slot);
+            float dy = oy - defaultAnchorOffsetYForSlot(slot);
+            float dz = oz - defaultAnchorOffsetZForSlot(slot);
+            float mag = (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
+            if (mag > 0.3f) {
+                warnings.add(new EquipFitWarning("LARGE_OFFSET",
+                    meta.key() + String.format(": net offset %.2f WU", mag), false));
+            }
+        }
+        return warnings;
+    }
+
+    public void setPreviewCameraExact(float yawDegrees, float pitchDegrees) {
+        previewCameraYawDegrees = yawDegrees % 360f;
+        if (previewCameraYawDegrees < 0f) previewCameraYawDegrees += 360f;
+        previewCameraPitchDegrees = Math.max(PREVIEW_MIN_PITCH, Math.min(PREVIEW_MAX_PITCH, pitchDegrees));
     }
 
     public void orbitWorkbenchPreviewCamera(float yawDeltaDegrees, float pitchDeltaDegrees) {
@@ -711,7 +809,8 @@ public class Renderer3DExperimental {
     }
 
     public void renderArtistDebugOverlays() {
-        if (!debugModelAxesAndBoundsEnabled && !debugAnchorMarkersEnabled && !debugBuildingReferenceEnabled) {
+        if (!debugModelAxesAndBoundsEnabled && !debugAnchorMarkersEnabled
+                && !debugBuildingReferenceEnabled && !debugCharacterProportionEnabled) {
             return;
         }
 
@@ -736,6 +835,10 @@ public class Renderer3DExperimental {
 
         if (debugBuildingReferenceEnabled) {
             drawBuildingReferenceGizmo();
+        }
+
+        if (debugCharacterProportionEnabled) {
+            drawCharacterProportionGizmo();
         }
 
         debugShapeRenderer.end();
@@ -1450,24 +1553,7 @@ public class Renderer3DExperimental {
         }
         try {
             ModelInstance instance = new ModelInstance(model);
-            // player_base.glb exports with no materials JSON array — GltfLoader creates no
-            // Material objects, so instance.materials is empty and a normal loop does nothing.
-            // Create and assign a default skin-tone material to all node parts directly.
-            if (instance.materials.isEmpty()) {
-                Material defaultMat = new Material(
-                    ColorAttribute.createDiffuse(WorldPalette.PLAYER_SKIN_R, WorldPalette.PLAYER_SKIN_G, WorldPalette.PLAYER_SKIN_B, 1f),
-                    IntAttribute.createCullFace(GL20.GL_BACK)
-                );
-                instance.materials.add(defaultMat);
-                assignMaterialToNodePartsRecursive(instance.nodes, defaultMat);
-            } else {
-                for (Material m : instance.materials) {
-                    m.set(IntAttribute.createCullFace(GL20.GL_BACK));
-                    if (m.get(ColorAttribute.Diffuse) == null) {
-                        m.set(ColorAttribute.createDiffuse(WorldPalette.PLAYER_SKIN_R, WorldPalette.PLAYER_SKIN_G, WorldPalette.PLAYER_SKIN_B, 1f));
-                    }
-                }
-            }
+            applyPlayerMaterialZones(instance);
             AnimationController controller = new AnimationController(instance);
             animatedPlayerInstances.put(entityId, instance);
             playerAnimationControllers.put(entityId, controller);
@@ -1492,6 +1578,66 @@ public class Renderer3DExperimental {
                 assignMaterialToNodePartsRecursive(node.getChildren(), mat);
             }
         }
+    }
+
+    private static final List<String> PLAYER_ZONE_NAMES = List.of("skin", "hair", "shirt", "pants", "boots", "gloves");
+
+    private static final Map<String, float[]> PLAYER_ZONE_FALLBACK_COLORS = Map.of(
+        "skin",   new float[]{WorldPalette.PLAYER_SKIN_R,   WorldPalette.PLAYER_SKIN_G,   WorldPalette.PLAYER_SKIN_B},
+        "hair",   new float[]{WorldPalette.PLAYER_HAIR_R,   WorldPalette.PLAYER_HAIR_G,   WorldPalette.PLAYER_HAIR_B},
+        "shirt",  new float[]{WorldPalette.PLAYER_SHIRT_R,  WorldPalette.PLAYER_SHIRT_G,  WorldPalette.PLAYER_SHIRT_B},
+        "pants",  new float[]{WorldPalette.PLAYER_PANTS_R,  WorldPalette.PLAYER_PANTS_G,  WorldPalette.PLAYER_PANTS_B},
+        "boots",  new float[]{WorldPalette.PLAYER_BOOTS_R,  WorldPalette.PLAYER_BOOTS_G,  WorldPalette.PLAYER_BOOTS_B},
+        "gloves", new float[]{WorldPalette.PLAYER_GLOVES_R, WorldPalette.PLAYER_GLOVES_G, WorldPalette.PLAYER_GLOVES_B}
+    );
+
+    /**
+     * Assigns materials to the player ModelInstance.
+     *
+     * When player_base.glb exports named materials matching PLAYER_ZONE_NAMES,
+     * each material is resolved by name and cull-face is applied; the GLB loader
+     * already bound each NodePart to its named material, so no reassignment is
+     * needed.
+     *
+     * When any zone material is absent the instance falls back to a single flat
+     * skin-tone material covering all node parts. This is a DEV FALLBACK only —
+     * it must not ship. Update player_base.blend to add named materials per zone.
+     */
+    private void applyPlayerMaterialZones(ModelInstance instance) {
+        List<String> missingZones = new ArrayList<>();
+        for (String zone : PLAYER_ZONE_NAMES) {
+            if (instance.getMaterial(zone) == null) {
+                missingZones.add(zone);
+            }
+        }
+
+        if (missingZones.isEmpty()) {
+            // All zones present — just ensure back-face culling on each.
+            for (Material m : instance.materials) {
+                m.set(IntAttribute.createCullFace(GL20.GL_BACK));
+            }
+            return;
+        }
+
+        // ── DEV FALLBACK ─────────────────────────────────────────────────────────
+        // player_base.glb is missing named zone materials. Rendering as flat skin
+        // tone until the Blender source is updated. Do NOT ship this path.
+        if (!playerZoneWarnLogged) {
+            Gdx.app.error("Renderer3D",
+                "[DEV FALLBACK] player_base missing material zones: " + missingZones
+                + " — rendering as flat skin tone. "
+                + "Add named materials (" + PLAYER_ZONE_NAMES + ") to player_base.blend and re-export.");
+            playerZoneWarnLogged = true;
+        }
+
+        Material devFallbackMat = new Material(
+            ColorAttribute.createDiffuse(WorldPalette.PLAYER_SKIN_R, WorldPalette.PLAYER_SKIN_G, WorldPalette.PLAYER_SKIN_B, 1f),
+            IntAttribute.createCullFace(GL20.GL_BACK)
+        );
+        devFallbackMat.id = "dev_fallback_skin";
+        instance.materials.clear();
+        instance.materials.add(devFallbackMat);
+        assignMaterialToNodePartsRecursive(instance.nodes, devFallbackMat);
     }
 
     private boolean ensureAnimatedNpcModelLoaded(int entityId, String baseKey) {
@@ -1890,6 +2036,73 @@ public class Renderer3DExperimental {
         debugShapeRenderer.line(-dw, 0, dz, -dw, dh, dz);  // left jamb
         debugShapeRenderer.line( dw, 0, dz,  dw, dh, dz);  // right jamb
         debugShapeRenderer.line(-dw, dh, dz,  dw, dh, dz); // lintel
+    }
+
+    /**
+     * Draws the canonical character proportion reference gizmo at world origin.
+     * Use in MODEL_PREVIEW workbench mode (F4) to evaluate a character model
+     * against the OSRS-style proportion standard.
+     *
+     * White  = outer silhouette box (shoulder width × 1.80 WU × torso depth)
+     * Magenta = zone boundary dividers at shoulder (1.44), hip (0.90), knee (0.45)
+     * Cyan   = head zone sub-box
+     *
+     * See docs/CHARACTER_PROPORTION_SPEC.md for full proportions table.
+     */
+    private void drawCharacterProportionGizmo() {
+        float sh = CREF_SHOULDER_HW;
+        float td = CREF_TORSO_HD;
+        float th = CREF_TOTAL_H;
+
+        // ── White: outer silhouette bounding box ─────────────────────────────
+        debugShapeRenderer.setColor(1f, 1f, 1f, 1f);
+        // bottom face
+        debugShapeRenderer.line(-sh, 0,  -td,  sh, 0,  -td);
+        debugShapeRenderer.line( sh, 0,  -td,  sh, 0,   td);
+        debugShapeRenderer.line( sh, 0,   td, -sh, 0,   td);
+        debugShapeRenderer.line(-sh, 0,   td, -sh, 0,  -td);
+        // top face
+        debugShapeRenderer.line(-sh, th, -td,  sh, th, -td);
+        debugShapeRenderer.line( sh, th, -td,  sh, th,  td);
+        debugShapeRenderer.line( sh, th,  td, -sh, th,  td);
+        debugShapeRenderer.line(-sh, th,  td, -sh, th, -td);
+        // vertical edges
+        debugShapeRenderer.line(-sh, 0, -td, -sh, th, -td);
+        debugShapeRenderer.line( sh, 0, -td,  sh, th, -td);
+        debugShapeRenderer.line( sh, 0,  td,  sh, th,  td);
+        debugShapeRenderer.line(-sh, 0,  td, -sh, th,  td);
+
+        // ── Magenta: zone boundary dividers (full width, front face only) ────
+        debugShapeRenderer.setColor(1f, 0.2f, 0.8f, 1f);
+        float[] zoneY = { CREF_Y_KNEE, CREF_Y_HIP, CREF_Y_SHOULDER };
+        for (float y : zoneY) {
+            debugShapeRenderer.line(-sh, y, -td,  sh, y, -td);  // front
+            debugShapeRenderer.line(-sh, y,  td,  sh, y,  td);  // back
+            debugShapeRenderer.line(-sh, y, -td, -sh, y,  td);  // left side
+            debugShapeRenderer.line( sh, y, -td,  sh, y,  td);  // right side
+        }
+
+        // ── Cyan: head zone sub-box ───────────────────────────────────────────
+        float hh = CREF_HEAD_HW;
+        float hd = CREF_HEAD_HD;
+        float hy0 = CREF_Y_SHOULDER;
+        float hy1 = CREF_TOTAL_H;
+        debugShapeRenderer.setColor(0f, 0.85f, 0.95f, 1f);
+        // bottom face of head box
+        debugShapeRenderer.line(-hh, hy0, -hd,  hh, hy0, -hd);
+        debugShapeRenderer.line( hh, hy0, -hd,  hh, hy0,  hd);
+        debugShapeRenderer.line( hh, hy0,  hd, -hh, hy0,  hd);
+        debugShapeRenderer.line(-hh, hy0,  hd, -hh, hy0, -hd);
+        // top face of head box
+        debugShapeRenderer.line(-hh, hy1, -hd,  hh, hy1, -hd);
+        debugShapeRenderer.line( hh, hy1, -hd,  hh, hy1,  hd);
+        debugShapeRenderer.line( hh, hy1,  hd, -hh, hy1,  hd);
+        debugShapeRenderer.line(-hh, hy1,  hd, -hh, hy1, -hd);
+        // vertical edges of head box
+        debugShapeRenderer.line(-hh, hy0, -hd, -hh, hy1, -hd);
+        debugShapeRenderer.line( hh, hy0, -hd,  hh, hy1, -hd);
+        debugShapeRenderer.line( hh, hy0,  hd,  hh, hy1,  hd);
+        debugShapeRenderer.line(-hh, hy0,  hd, -hh, hy1,  hd);
     }
 
     private void applyPreviewCamera() {

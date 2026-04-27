@@ -323,8 +323,21 @@ These are the currently implemented global F-key bindings in the client.
 ### F11
 - toggle 3D render-budget debug
 
-### F1-F4, F12+
-- no dedicated global artist F-key actions are currently implemented in code
+### F4
+- toggle character proportion reference gizmo
+- artist mode only
+- draws the canonical player/NPC silhouette wireframe in MODEL_PREVIEW
+- white = outer bounding box, magenta = zone dividers, cyan = head sub-box
+- see docs/CHARACTER_PROPORTION_SPEC.md
+
+### F3 — Batch screenshot capture (MODEL_PREVIEW only)
+Captures front/right/rear/iso views of the selected model and saves them to `review/screenshots/{category}/{key}_{view}.png` plus a `{key}.json` sidecar. Camera is held still (delta=0) for each view to produce a clean frozen frame. The `review/` directory is git-ignored.
+
+### F4 — Character proportion gizmo (artist mode)
+Toggles a wireframe overlay of the canonical player proportion box (white outer silhouette, magenta zone dividers at shoulder/hip/knee, cyan head sub-box). Use to verify models fit within spec. See `docs/CHARACTER_PROPORTION_SPEC.md`.
+
+### F12 — Building reference gizmo (artist mode)
+Toggles a wireframe overlay of the canonical small-building footprint (grey walls, yellow door opening, cyan player-height reference line).
 
 Important note:
 - the side panel/tab system uses OSRS-style tab ordering in UI design
@@ -391,6 +404,7 @@ Purpose:
   - `IDLE`
   - `WALK`
 - `/` search model keys
+- `F3` batch screenshot (front/right/rear/iso) → `review/screenshots/`
 
 ### Best Use
 
@@ -399,6 +413,7 @@ Use this mode when:
 - checking base silhouette
 - checking animation existence at a high level
 - checking bounds/orientation with `F7`
+- capturing objective review screenshots for async feedback (`F3`)
 
 ## Mode: EQUIPMENT_FIT
 
@@ -409,6 +424,8 @@ Purpose:
 - inspect anchor behavior on the real mannequin composition path
 
 This uses the real attachment path, not fake preview transforms.
+
+Fit warnings are computed each frame and shown at the bottom of the left panel. Red = critical (missing anchor, no meta), yellow = advisory (suspicious scale, large offset, extreme rotation). These are display-only and have no gameplay effect.
 
 ### Selection Controls
 
@@ -809,6 +826,7 @@ Use:
 - cycle clip with `;`
 - orbit with mouse
 - inspect bounds with `F7`
+- toggle character proportion reference with `F4` (player/NPC models)
 
 ## Practical Safety Rules
 

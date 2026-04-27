@@ -9,6 +9,7 @@ import com.badlogic.gdx.Input;
 import com.badlogic.gdx.math.Matrix4;
 import com.osrs.client.art.SceneEditState;
 import com.osrs.client.renderer.ModelLibrary;
+import com.osrs.client.renderer.Renderer3DExperimental;
 import com.osrs.shared.EquipmentSlot;
 
 import java.util.ArrayList;
@@ -96,6 +97,7 @@ public class ArtWorkbenchPopup {
     private Mode mode = Mode.MODEL_PREVIEW;
     private String exportStatus = "";
     private String exportSnippet = "";
+    private List<Renderer3DExperimental.EquipFitWarning> equipFitWarnings = List.of();
     private String worldPlacementStatus = "";
     private String entityBindingStatus = "";
     private String terrainPaintStatus = "";
@@ -365,6 +367,10 @@ public class ArtWorkbenchPopup {
     public void setExportResult(String status, String snippet) {
         exportStatus = status == null ? "" : status;
         exportSnippet = snippet == null ? "" : snippet;
+    }
+
+    public void setEquipFitWarnings(List<Renderer3DExperimental.EquipFitWarning> warnings) {
+        this.equipFitWarnings = warnings != null ? warnings : List.of();
     }
 
     public void setSceneEditState(SceneEditState sceneEditState) {
@@ -1038,6 +1044,21 @@ public class ArtWorkbenchPopup {
         font.draw(batch, String.format("Rotate: %.2f, %.2f, %.2f", override[3], override[4], override[5]), leftX, y);
         y -= 20;
         font.draw(batch, "Slot options: " + optionCount + "  current: " + progress, leftX, y);
+
+        if (!equipFitWarnings.isEmpty()) {
+            y -= 24;
+            font.setColor(0.82f, 0.88f, 0.98f, 1f);
+            font.draw(batch, "Fit Warnings", leftX, y);
+            for (Renderer3DExperimental.EquipFitWarning w : equipFitWarnings) {
+                y -= 18;
+                if (w.critical()) {
+                    font.setColor(1.0f, 0.35f, 0.35f, 1f);
+                } else {
+                    font.setColor(1.0f, 0.82f, 0.20f, 1f);
+                }
+                font.draw(batch, truncateToWidth(font, "[" + w.code() + "] " + w.message(), leftWidth), leftX, y);
+            }
+        }
 
         y = rightTopY;
         font.setColor(0.82f, 0.88f, 0.98f, 1f);

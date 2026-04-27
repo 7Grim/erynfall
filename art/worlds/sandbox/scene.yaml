@@ -219,7 +219,20 @@ terrain_height:
     "y": 36
     level: 1
 terrain_visual:
+  default_type: "grass"
   regions:
+  - name: "town_plateau_grass"
+    min_x: 8
+    min_y: 40
+    max_x: 96
+    max_y: 60
+    type: "grass"
+  - name: "mining_rock_face"
+    min_x: 8
+    min_y: 32
+    max_x: 96
+    max_y: 35
+    type: "wall"
   - name: "starter_paths"
     min_x: 42
     min_y: 42
@@ -285,147 +298,222 @@ terrain_visual:
     "y": 37
     type: "path"
 static_props:
-- key: "building_shell_small_base"
-  x: 46
-  "y": 46
-  rotation_y_degrees: 0.0
-  scale: 1.0
-  visibility_group: "base"
-- key: "building_shell_small_roof"
-  x: 46
-  "y": 46
-  rotation_y_degrees: 0.0
-  scale: 1.0
-  visibility_group: "roof"
-- key: "dock_platform"
-  x: 48
-  "y": 42
-  rotation_y_degrees: 0.0
-  scale: 1.0
-  visibility_group: "base"
-- key: "dock_stairs"
-  x: 48
-  "y": 44
-  rotation_y_degrees: 0.0
-  scale: 1.0
-  visibility_group: "base"
-- key: "table_small"
-  x: 43
-  "y": 45
-  rotation_y_degrees: 0.0
-  scale: 1.0
-  visibility_group: "base"
-- key: "crate_small"
-  x: 44
-  "y": 48
-  rotation_y_degrees: 0.0
-  scale: 1.0
-  visibility_group: "base"
-- key: "barrel_small"
-  x: 48
-  "y": 48
-  rotation_y_degrees: 0.0
-  scale: 1.0
-  visibility_group: "base"
-- key: "building_shell_service_base"
-  x: 58
-  "y": 50
-  rotation_y_degrees: 0.0
-  scale: 1.0
-  visibility_group: "base"
-- key: "building_shell_service_roof"
-  x: 58
-  "y": 50
-  rotation_y_degrees: 0.0
-  scale: 1.0
-  visibility_group: "roof"
-- key: "bench_small"
-  x: 54
-  "y": 53
-  rotation_y_degrees: 90.0
-  scale: 1.0
-  visibility_group: "base"
-- key: "signpost_small"
-  x: 61
-  "y": 53
-  rotation_y_degrees: 0.0
-  scale: 1.0
-  visibility_group: "base"
-- key: "sack_stack_small"
-  x: 62
-  "y": 51
-  rotation_y_degrees: 0.0
-  scale: 1.0
-  visibility_group: "base"
-- key: "cart_small"
-  x: 55
-  "y": 51
-  rotation_y_degrees: 180.0
-  scale: 1.0
-  visibility_group: "base"
-- key: "fence_post_small"
-  x: 53
-  "y": 50
-  rotation_y_degrees: 0.0
-  scale: 1.0
-  visibility_group: "base"
-- key: "building_shell_coastal_base"
-  x: 52
-  "y": 37
-  rotation_y_degrees: 0.0
-  scale: 1.0
-  visibility_group: "base"
-- key: "building_shell_coastal_roof"
-  x: 52
-  "y": 37
-  rotation_y_degrees: 0.0
-  scale: 1.0
-  visibility_group: "roof"
-- key: "dock_pier_small"
-  x: 49
-  "y": 34
-  rotation_y_degrees: 0.0
-  scale: 1.0
-  visibility_group: "base"
-- key: "dock_pier_small"
-  x: 50
-  "y": 33
-  rotation_y_degrees: 0.0
-  scale: 1.0
-  visibility_group: "base"
-- key: "signpost_small"
-  x: 55
-  "y": 36
-  rotation_y_degrees: 180.0
-  scale: 1.0
-  visibility_group: "base"
-- key: "fence_post_small"
-  x: 48
-  "y": 36
-  rotation_y_degrees: 0.0
-  scale: 1.0
-  visibility_group: "base"
-- key: "barrel_small"
-  x: 53
-  "y": 34
-  rotation_y_degrees: 0.0
-  scale: 1.0
-  visibility_group: "base"
-- key: "anvil"
-  x: 56
-  "y": 47
-  rotation_y_degrees: 0.0
-  scale: 1.0
-  visibility_group: "base"
-- key: "anvil"
-  x: 56
-  "y": 45
-  rotation_y_degrees: 0.0
-  scale: 1.0
-  visibility_group: "roof"
-- key: "anvil"
-  x: 49
-  "y": 53
-  rotation_y_degrees: 0.0
-  scale: 1.0
-  visibility_group: "base"
+  - key: "building_shell_small_base"
+    x: 46
+    "y": 46
+    rotation_y_degrees: 0.0
+    scale: 1.65
+    visibility_group: "base"
+  - key: "building_shell_small_roof"
+    x: 46
+    "y": 46
+    rotation_y_degrees: 0.0
+    scale: 1.65
+    visibility_group: "roof"
+  - key: "dock_platform"
+    x: 48
+    "y": 42
+    rotation_y_degrees: 0.0
+    scale: 1.0
+    visibility_group: "base"
+  - key: "dock_stairs"
+    x: 48
+    "y": 44
+    rotation_y_degrees: 0.0
+    scale: 1.0
+    visibility_group: "base"
+  - key: "table_small"
+    x: 43
+    "y": 45
+    rotation_y_degrees: 0.0
+    scale: 1.0
+    visibility_group: "base"
+  - key: "crate_small"
+    x: 44
+    "y": 48
+    rotation_y_degrees: 0.0
+    scale: 1.0
+    visibility_group: "base"
+  - key: "barrel_small"
+    x: 48
+    "y": 48
+    rotation_y_degrees: 0.0
+    scale: 1.0
+    visibility_group: "base"
+  - key: "building_shell_service_base"
+    x: 58
+    "y": 50
+    rotation_y_degrees: 0.0
+    scale: 1.65
+    visibility_group: "base"
+  - key: "building_shell_service_roof"
+    x: 58
+    "y": 50
+    rotation_y_degrees: 0.0
+    scale: 1.65
+    visibility_group: "roof"
+  - key: "bench_small"
+    x: 54
+    "y": 53
+    rotation_y_degrees: 90.0
+    scale: 1.0
+    visibility_group: "base"
+  - key: "signpost_small"
+    x: 61
+    "y": 53
+    rotation_y_degrees: 0.0
+    scale: 1.0
+    visibility_group: "base"
+  - key: "sack_stack_small"
+    x: 62
+    "y": 51
+    rotation_y_degrees: 0.0
+    scale: 1.0
+    visibility_group: "base"
+  - key: "cart_small"
+    x: 55
+    "y": 51
+    rotation_y_degrees: 180.0
+    scale: 1.0
+    visibility_group: "base"
+  - key: "fence_post_small"
+    x: 53
+    "y": 50
+    rotation_y_degrees: 0.0
+    scale: 1.0
+    visibility_group: "base"
+  - key: "building_shell_coastal_base"
+    x: 52
+    "y": 37
+    rotation_y_degrees: 0.0
+    scale: 1.50
+    visibility_group: "base"
+  - key: "building_shell_coastal_roof"
+    x: 52
+    "y": 37
+    rotation_y_degrees: 0.0
+    scale: 1.50
+    visibility_group: "roof"
+  - key: "dock_pier_small"
+    x: 49
+    "y": 34
+    rotation_y_degrees: 0.0
+    scale: 1.0
+    visibility_group: "base"
+  - key: "dock_pier_small"
+    x: 50
+    "y": 33
+    rotation_y_degrees: 0.0
+    scale: 1.0
+    visibility_group: "base"
+  - key: "signpost_small"
+    x: 55
+    "y": 36
+    rotation_y_degrees: 180.0
+    scale: 1.0
+    visibility_group: "base"
+  - key: "fence_post_small"
+    x: 48
+    "y": 36
+    rotation_y_degrees: 0.0
+    scale: 1.0
+    visibility_group: "base"
+  - key: "barrel_small"
+    x: 53
+    "y": 34
+    rotation_y_degrees: 0.0
+    scale: 1.0
+    visibility_group: "base"
+  - key: "anvil"
+    x: 56
+    "y": 47
+    rotation_y_degrees: 0.0
+    scale: 1.0
+    visibility_group: "base"
+  - key: "anvil"
+    x: 56
+    "y": 45
+    rotation_y_degrees: 0.0
+    scale: 1.0
+    visibility_group: "roof"
+  - key: "anvil"
+    x: 49
+    "y": 53
+    rotation_y_degrees: 0.0
+    scale: 1.0
+    visibility_group: "base"
+# Woodcutting strip (y=36-39) — all tree types for visual regression coverage
+  - key: "tree"
+    x: 14
+    "y": 38
+    rotation_y_degrees: 0.0
+    scale: 1.0
+    visibility_group: "base"
+  - key: "tree_oak"
+    x: 22
+    "y": 38
+    rotation_y_degrees: 0.0
+    scale: 1.0
+    visibility_group: "base"
+  - key: "tree_willow"
+    x: 30
+    "y": 37
+    rotation_y_degrees: 0.0
+    scale: 1.0
+    visibility_group: "base"
+  - key: "tree_maple"
+    x: 38
+    "y": 38
+    rotation_y_degrees: 0.0
+    scale: 1.0
+    visibility_group: "base"
+  - key: "tree_yew"
+    x: 62
+    "y": 38
+    rotation_y_degrees: 0.0
+    scale: 1.0
+    visibility_group: "base"
+  - key: "tree_magic"
+    x: 70
+    "y": 38
+    rotation_y_degrees: 0.0
+    scale: 1.0
+    visibility_group: "base"
+  - key: "tree_mahogany"
+    x: 78
+    "y": 38
+    rotation_y_degrees: 0.0
+    scale: 1.0
+    visibility_group: "base"
+# Mining strip (y=32-35) — ore rock types for visual regression coverage
+  - key: "rock_copper"
+    x: 14
+    "y": 33
+    rotation_y_degrees: 0.0
+    scale: 1.0
+    visibility_group: "base"
+  - key: "rock_tin"
+    x: 20
+    "y": 33
+    rotation_y_degrees: 0.0
+    scale: 1.0
+    visibility_group: "base"
+  - key: "rock_iron"
+    x: 26
+    "y": 33
+    rotation_y_degrees: 0.0
+    scale: 1.0
+    visibility_group: "base"
+# Services strip (y=24-27) — crafting station props
+  - key: "furnace"
+    x: 18
+    "y": 25
+    rotation_y_degrees: 0.0
+    scale: 1.0
+    visibility_group: "base"
+  - key: "cooking_range"
+    x: 24
+    "y": 25
+    rotation_y_degrees: 0.0
+    scale: 1.0
+    visibility_group: "base"

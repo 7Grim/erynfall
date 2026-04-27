@@ -72,8 +72,68 @@ public final class WorldPalette {
     public static final float METAL_G = 0.36f;
     public static final float METAL_B = 0.34f;
 
-    /** Default player skin tone — used as the player_base fallback diffuse. */
+    /** Default player skin tone — skin zone fallback and DEV_FALLBACK diffuse. */
     public static final float PLAYER_SKIN_R = 0.76f;
     public static final float PLAYER_SKIN_G = 0.52f;
     public static final float PLAYER_SKIN_B = 0.33f;
+
+    /** Default player hair — dark brown. */
+    public static final float PLAYER_HAIR_R = 0.28f;
+    public static final float PLAYER_HAIR_G = 0.18f;
+    public static final float PLAYER_HAIR_B = 0.10f;
+
+    /** Default player shirt — muted green tunic. */
+    public static final float PLAYER_SHIRT_R = 0.28f;
+    public static final float PLAYER_SHIRT_G = 0.42f;
+    public static final float PLAYER_SHIRT_B = 0.22f;
+
+    /** Default player pants — dark grey. */
+    public static final float PLAYER_PANTS_R = 0.25f;
+    public static final float PLAYER_PANTS_G = 0.24f;
+    public static final float PLAYER_PANTS_B = 0.22f;
+
+    /** Default player boots — worn leather brown. */
+    public static final float PLAYER_BOOTS_R = 0.38f;
+    public static final float PLAYER_BOOTS_G = 0.26f;
+    public static final float PLAYER_BOOTS_B = 0.14f;
+
+    /** Default player gloves — same leather as boots. */
+    public static final float PLAYER_GLOVES_R = 0.40f;
+    public static final float PLAYER_GLOVES_G = 0.28f;
+    public static final float PLAYER_GLOVES_B = 0.16f;
+
+    // ── Terrain base colours ──────────────────────────────────────────────────
+    //
+    // Canonical RGB for each of the five terrain tile types (tile types 0–4).
+    // These are the BASE colours before any WorldTheme terrain_tint multiplier
+    // is applied.  All values sit within the WorldPalette constraint envelope
+    // (saturation ≤ 0.72, value 0.18–0.88).
+    //
+    // See docs/TERRAIN_PALETTE_SPEC.md for the full spec and OSRS rationale.
+    // Validation of scene.yaml terrain types: scripts/validate-scene.py
+
+    /** Tile type 0 — grass. Muted lowland green, slight yellow-warm bias. */
+    public static final float TERRAIN_GRASS_R = 0.42f;
+    public static final float TERRAIN_GRASS_G = 0.52f;
+    public static final float TERRAIN_GRASS_B = 0.24f;
+
+    /** Tile type 1 — water. Cold coastal blue, shallow-inlet tone. */
+    public static final float TERRAIN_WATER_R = 0.22f;
+    public static final float TERRAIN_WATER_G = 0.44f;
+    public static final float TERRAIN_WATER_B = 0.62f;
+
+    /** Tile type 2 — path / dirt. Worn dusty brown, well-trodden earth. */
+    public static final float TERRAIN_PATH_R  = 0.58f;
+    public static final float TERRAIN_PATH_G  = 0.48f;
+    public static final float TERRAIN_PATH_B  = 0.28f;
+
+    /** Tile type 3 — wall / rock. Cool grey stone, cliff or rubble face. */
+    public static final float TERRAIN_WALL_R  = 0.46f;
+    public static final float TERRAIN_WALL_G  = 0.44f;
+    public static final float TERRAIN_WALL_B  = 0.38f;
+
+    /** Tile type 4 — sand. Warm pale beige, beach and desert ground. */
+    public static final float TERRAIN_SAND_R  = 0.76f;
+    public static final float TERRAIN_SAND_G  = 0.66f;
+    public static final float TERRAIN_SAND_B  = 0.38f;
 }

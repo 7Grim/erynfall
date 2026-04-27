@@ -10,13 +10,16 @@ When building or reviewing changes, prefer this context set:
 2. `ARTIST_GUIDE.md`
 3. `docs/GRAPHICS_STYLE.md` — authoritative visual/animation style guide (read before any art or rendering work)
 4. `docs/SCALE_SPEC.md` — canonical world scale (1 tile = 1 WU, player height, terrain, buildings); read before any geometry or placement work
-5. `docs/README.md`
-6. `docs/ARCHITECTURE.md`
-7. `docs/PROGRESS.md`
-8. `docs/ART_PIPELINE_IMPLEMENTATION_CHECKLIST.md`
-9. `docs/ART_PIPELINE_IMPLEMENTATION_ORDER.md`
-10. `docs/SKILL_IMPLEMENTATION_BASELINE.md`
-11. `docs/CONTRIBUTING.md`
+5. `docs/TERRAIN_PALETTE_SPEC.md` — terrain tile type vocabulary and canonical RGB; read before any terrain region authoring
+6. `docs/BUILDING_CLASS_SPEC.md` — 4 canonical building classes with footprint/wall/scale bands; read before placing building shells
+7. `docs/MATERIAL_SPEC.md` — approved material approach (flat/matte, no PBR, no emissive); read before authoring or reviewing any GLB material
+8. `docs/README.md`
+8. `docs/ARCHITECTURE.md`
+9. `docs/PROGRESS.md`
+10. `docs/ART_PIPELINE_IMPLEMENTATION_CHECKLIST.md`
+11. `docs/ART_PIPELINE_IMPLEMENTATION_ORDER.md`
+12. `docs/SKILL_IMPLEMENTATION_BASELINE.md`
+13. `docs/CONTRIBUTING.md`
 
 Important:
 - many older docs remain useful as historical design reference
@@ -66,6 +69,22 @@ mvn -pl client -am -DskipTests package
 
 # Validate models against manifest
 python3 scripts/validate-models.py
+
+# Validate scene.yaml terrain types and building placements
+python3 scripts/validate-scene.py
+python3 scripts/validate-scene.py --world-id sandbox
+
+# Audit GLB material complexity (emissive, transparency, roughness, material count)
+python3 scripts/audit-assets.py
+
+# Report entities relying on billboard or missing 3D model
+python3 scripts/report-entity-visuals.py
+
+# Generate art debt board (docs/ART_DEBT_BOARD.md) from all validators
+python3 scripts/gen-art-debt.py
+
+# Check starter area visual lock (docs/STARTER_VISUAL_LOCK.md)
+python3 scripts/check-starter-lock.py
 
 # Preview what GLB exports would run (dry-run)
 python3 scripts/export-blender-models.py --dry-run

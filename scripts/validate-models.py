@@ -7,6 +7,7 @@ import argparse
 from collections.abc import Iterable
 import json
 import re
+import struct
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -42,6 +43,7 @@ class ModelEntry:
     hide_nodes: tuple[str, ...]
     source_blend: str | None
     animation_clips: tuple[str, ...]   # optional declared clip names; validated against canonical set
+    material_zones: tuple[str, ...]    # optional declared zone names; validated against GLB materials
 
 
 # Canonical clip names from docs/GRAPHICS_STYLE.md — Animation Clip Standard.
@@ -59,6 +61,33 @@ CANONICAL_NPC_CLIPS: frozenset[str] = frozenset({
 
 # All known canonical names across all actor types (used for open-ended warning).
 ALL_CANONICAL_CLIPS: frozenset[str] = CANONICAL_PLAYER_CLIPS | CANONICAL_NPC_CLIPS
+
+# Expected durations in seconds from docs/GRAPHICS_STYLE.md — Animation Clip Standard.
+# Every value is an exact OSRS tick multiple (1 tick = 0.600 s).
+# These constants are the machine-readable authority; the GRAPHICS_STYLE table is the narrative.
+CANONICAL_CLIP_DURATIONS: dict[str, float] = {
+    "idle":         2.4,   # 4 ticks — player and NPC
+    "walk":         1.2,   # 2 ticks — player and NPC
+    "run":          0.6,   # 1 tick
+    "pickup":       0.6,   # 1 tick
+    "chop":         1.2,   # 2 ticks
+    "mine":         2.4,   # 4 ticks
+    "fish":         2.4,   # 4 ticks
+    "smith":        1.8,   # 3 ticks
+    "cook":         1.8,   # 3 ticks
+    "attack_slash": 1.8,   # 3 ticks
+    "attack_stab":  1.8,   # 3 ticks
+    "attack_shoot": 1.8,   # 3 ticks
+    "attack_throw": 1.8,   # 3 ticks
+    "block":        0.6,   # 1 tick
+    "death":        1.8,   # 3 ticks
+    "action":       1.8,   # 3 ticks — NPC generic action
+}
+
+# Required clip sets: ALL entries must be present for the respective actor type.
+# Absence of a required clip causes silent runtime fallback to idle or no animation.
+REQUIRED_PLAYER_CLIPS: frozenset[str] = CANONICAL_PLAYER_CLIPS   # all 15
+REQUIRED_NPC_CLIPS:    frozenset[str] = CANONICAL_NPC_CLIPS       # idle, walk, action
 
 
 SLOT_NAME_TO_ID = {
@@ -160,6 +189,36 @@ def parse_equip_slot(value: object, key: str) -> int | None:
     if 0 <= slot <= 10:
         return slot
     raise ValueError(f"Field 'equip_slot' for key '{key}' must be in range 0..10")
+
+
+def _glb_material_names(path: Path) -> list[str] | None:
+    """Return list of material names from a GLB file, or None if unreadable/not GLB."""
+    try:
+        data = path.read_bytes()
+        if len(data) < 12:
+            return None
+        magic, _version, _total = struct.unpack_from("<III", data, 0)
+        if magic != 0x46546C67:
+            return None
+        offset = 12
+        while offset + 8 <= len(data):
+            chunk_len, chunk_type = struct.unpack_from("<II", data, offset)
+            offset += 8
+            chunk_data = data[offset : offset + chunk_len]
+            offset += chunk_len
+            if chunk_type == 0x4E4F534A:  # JSON chunk
+                doc = json.loads(chunk_data.decode("utf-8"))
+                materials = doc.get("materials")
+                if not isinstance(materials, list):
+                    return []
+                return [
+                    m.get("name", "")
+                    for m in materials
+                    if isinstance(m, dict)
+                ]
+        return []
+    except Exception:
+        return None
 
 
 def parse_manifest(manifest_path: Path) -> list[ModelEntry]:
@@ -271,6 +330,13 @@ def parse_manifest(manifest_path: Path) -> list[ModelEntry]:
             str(c).strip() for c in (animation_clips_raw or []) if str(c).strip()
         ]
 
+        material_zones_raw = item.get("material_zones")
+        if material_zones_raw is not None and not isinstance(material_zones_raw, list):
+            raise ValueError(f"Field 'material_zones' for key '{key}' must be a list of strings")
+        material_zones_list: list[str] = [
+            str(z).strip() for z in (material_zones_raw or []) if str(z).strip()
+        ]
+
         entry = ModelEntry(
             key=key,
             file=file_name,
@@ -298,6 +364,7 @@ def parse_manifest(manifest_path: Path) -> list[ModelEntry]:
             ),
             source_blend=str(item["source_blend"]).strip() if item.get("source_blend") not in (None, "") else None,
             animation_clips=tuple(animation_clips_list),
+            material_zones=tuple(material_zones_list),
         )
         if entry.scale <= 0:
             raise ValueError(f"Scale must be > 0 for key '{key}'")
@@ -508,6 +575,34 @@ def validate(entries: list[ModelEntry], models_dir: Path, blender_dir: Path) -> 
                 except Exception as exc:
                     warnings.append(f"could not inspect player_base anchors: {exc}")
 
+    # ── Material zone validation ──────────────────────────────────────────────
+    for entry in entries:
+        if not entry.material_zones:
+            continue
+        model_path = models_dir / entry.file
+        if not model_path.exists():
+            continue  # missing-file error already emitted above
+        if entry.format not in {"glb", "gltf"}:
+            warnings.append(
+                f"material_zones declared for '{entry.key}' but format is '{entry.format}' — "
+                "zone validation only supported for GLB/GLTF"
+            )
+            continue
+        glb_materials = _glb_material_names(model_path)
+        if glb_materials is None:
+            warnings.append(
+                f"could not read GLB material names for '{entry.key}': {entry.file}"
+            )
+            continue
+        glb_mat_set = set(glb_materials)
+        missing_zones = [z for z in entry.material_zones if z not in glb_mat_set]
+        if missing_zones:
+            errors.append(
+                f"actor '{entry.key}' declares material_zones {list(entry.material_zones)} "
+                f"but GLB is missing materials: {missing_zones} — "
+                "add named materials per zone to the Blender source and re-export"
+            )
+
     # ── Orphaned files not declared in manifest ───────────────────────────────
     known_extensions = {".g3dj", ".g3db", ".glb", ".gltf"}
     for model_path in sorted(models_dir.iterdir()):
@@ -570,6 +665,8 @@ def write_runtime_metadata(entries: Iterable[ModelEntry], output_path: Path) -> 
             asset["hide_nodes"] = list(entry.hide_nodes)
         if entry.animation_clips:
             asset["animation_clips"] = list(entry.animation_clips)
+        if entry.material_zones:
+            asset["material_zones"] = list(entry.material_zones)
         assets.append(asset)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(json.dumps({"assets": assets}, sort_keys=True, separators=(",", ":")), encoding="utf-8")
