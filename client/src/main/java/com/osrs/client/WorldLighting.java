@@ -90,20 +90,20 @@ public final class WorldLighting {
     // With the new lower ambient the slightly richer values below compensate:
     // tiles stay vivid at the new lighting level.
 
-    /** Grass tile — medium OSRS green. */
-    public static final float TILE_GRASS_R = 0.32f;  // was 0.30
-    public static final float TILE_GRASS_G = 0.56f;  // was 0.54
-    public static final float TILE_GRASS_B = 0.18f;  // was 0.17
+    /** Grass tile — rich deeper OSRS green (was 0.32/0.56/0.18 — too washed). */
+    public static final float TILE_GRASS_R = 0.24f;
+    public static final float TILE_GRASS_G = 0.50f;
+    public static final float TILE_GRASS_B = 0.14f;
 
     /** Water tile — deep ocean blue. */
     public static final float TILE_WATER_R = 0.10f;  // unchanged
     public static final float TILE_WATER_G = 0.27f;  // was 0.26
     public static final float TILE_WATER_B = 0.46f;  // was 0.44
 
-    /** Path tile — warm packed dirt. */
-    public static final float TILE_PATH_R = 0.48f;  // was 0.46
-    public static final float TILE_PATH_G = 0.40f;  // was 0.38
-    public static final float TILE_PATH_B = 0.24f;  // was 0.22
+    /** Path tile — warm packed earth (darker, more OSRS-earthy; was 0.48/0.40/0.24). */
+    public static final float TILE_PATH_R = 0.44f;
+    public static final float TILE_PATH_G = 0.36f;
+    public static final float TILE_PATH_B = 0.20f;
 
     /** Wall/rock tile — stone grey. */
     public static final float TILE_WALL_R = 0.36f;  // was 0.34

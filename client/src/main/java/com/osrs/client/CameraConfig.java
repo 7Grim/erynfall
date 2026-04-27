@@ -24,19 +24,18 @@ public final class CameraConfig {
     // This removes the "buildings looming overhead" distortion.
     public static final float FOV_INITIAL              = 30f;
 
-    // 0.9 rad (~52°) was too cinematic. 1.05 rad (~60°) reads closer to OSRS
-    // and keeps the ground plane dominant in the viewport.
-    public static final float PITCH_DEFAULT_INITIAL    = 1.05f;
+    // 1.05 rad (~60°) was too low vs real OSRS which sits ~65-68°.
+    // 1.15 rad (~66°) keeps the ground dominant and reduces building loom.
+    public static final float PITCH_DEFAULT_INITIAL    = 1.15f;
 
-    // Raised floor from 0.3 (17°) to 0.55 (31°) — prevents the camera from
-    // dropping so low that buildings block the view and perspective distortion
-    // dominates.
-    public static final float PITCH_MIN_INITIAL        = 0.55f;
+    // Raised floor to 0.70 (40°) — prevents the camera from dropping so low
+    // that buildings block the view and perspective distortion dominates.
+    public static final float PITCH_MIN_INITIAL        = 0.70f;
     public static final float PITCH_MAX_INITIAL        = 1.40f;   // near-vertical; unchanged
 
-    // 14 tiles (was 12) compensates for the narrower FOV so the player still
-    // fills a comfortable portion of the screen.
-    public static final float DISTANCE_DEFAULT_INITIAL = 14f;
+    // 16 tiles: slightly pulled back from 14 to compensate for the steeper pitch
+    // and keep world context visible (OSRS shows roughly a 13x13 tile window).
+    public static final float DISTANCE_DEFAULT_INITIAL = 16f;
     public static final float DISTANCE_MIN_INITIAL     = 6f;
     public static final float DISTANCE_MAX_INITIAL     = 33f;    // 1.5× prior max (22) for wider view
 

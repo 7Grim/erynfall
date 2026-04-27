@@ -292,9 +292,15 @@ public class Renderer3DExperimental {
             WorldLighting.SUN_R, WorldLighting.SUN_G, WorldLighting.SUN_B,
             WorldLighting.SUN_DIR_X, WorldLighting.SUN_DIR_Y, WorldLighting.SUN_DIR_Z));
 
-        // Character models use pre-baked vertex colors — full ambient, no directional light.
+        // Character models share the world directional sun so player/NPC geometry reads
+        // form and depth.  Ambient is raised slightly above world level so shadow faces
+        // don't go black on low-polygon models.
         characterEnvironment = new Environment();
-        characterEnvironment.set(new ColorAttribute(ColorAttribute.AmbientLight, 1f, 1f, 1f, 1f));
+        characterEnvironment.set(new ColorAttribute(ColorAttribute.AmbientLight,
+            WorldLighting.AMB_R + 0.22f, WorldLighting.AMB_G + 0.22f, WorldLighting.AMB_B + 0.17f, 1f));
+        characterEnvironment.add(new DirectionalLight().set(
+            WorldLighting.SUN_R * 0.82f, WorldLighting.SUN_G * 0.82f, WorldLighting.SUN_B * 0.82f,
+            WorldLighting.SUN_DIR_X, WorldLighting.SUN_DIR_Y, WorldLighting.SUN_DIR_Z));
 
         Pixmap pixmap = new Pixmap(1, 1, Pixmap.Format.RGBA8888);
         pixmap.setColor(Color.WHITE);
