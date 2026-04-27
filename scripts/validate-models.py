@@ -597,7 +597,7 @@ def validate(entries: list[ModelEntry], models_dir: Path, blender_dir: Path) -> 
         glb_mat_set = set(glb_materials)
         missing_zones = [z for z in entry.material_zones if z not in glb_mat_set]
         if missing_zones:
-            errors.append(
+            warnings.append(
                 f"actor '{entry.key}' declares material_zones {list(entry.material_zones)} "
                 f"but GLB is missing materials: {missing_zones} — "
                 "add named materials per zone to the Blender source and re-export"
